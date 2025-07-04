@@ -3,23 +3,11 @@
  * @fileOverview A Genkit flow for generating movie posters.
  *
  * - generateMoviePoster - A function that takes a movie title and synopsis and returns an image data URI.
- * - GenerateMoviePosterInput - The input type for the generateMoviePoster function.
- * - GenerateMoviePosterOutput - The return type for the generateMoviePoster function.
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { GenerateMoviePosterInputSchema, GenerateMoviePosterOutputSchema, type GenerateMoviePosterInput, type GenerateMoviePosterOutput } from './generate-movie-poster.types';
 
-const GenerateMoviePosterInputSchema = z.object({
-  title: z.string().describe('The title of the movie.'),
-  synopsis: z.string().describe('The synopsis of the movie.'),
-});
-export type GenerateMoviePosterInput = z.infer<typeof GenerateMoviePosterInputSchema>;
-
-const GenerateMoviePosterOutputSchema = z.object({
-  posterDataUri: z.string().describe("A movie poster image as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
-});
-export type GenerateMoviePosterOutput = z.infer<typeof GenerateMoviePosterOutputSchema>;
 
 export async function generateMoviePoster(input: GenerateMoviePosterInput): Promise<GenerateMoviePosterOutput> {
   return generateMoviePosterFlow(input);

@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Shirt, Film, BrainCircuit, Coffee } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useEffect } from 'react';
 
 const navItems = [
   { href: '/stylek', label: 'Style', icon: Shirt },
@@ -14,6 +15,25 @@ const navItems = [
 
 export default function BottomNav() {
   const pathname = usePathname();
+
+  useEffect(() => {
+    // List of all possible theme classes
+    const themeClasses = navItems.map(item => `theme-${item.href.slice(1)}`);
+    
+    // Remove any existing theme classes from the body
+    document.body.classList.remove(...themeClasses);
+
+    // Find the current section and add its theme class
+    const section = navItems.find(item => pathname.startsWith(item.href));
+    if (section) {
+        const themeClass = `theme-${section.href.slice(1)}`; 
+        document.body.classList.add(themeClass);
+    } else {
+        // Apply a default theme if no section matches (e.g., on the root page)
+        document.body.classList.add('theme-stylek');
+    }
+  }, [pathname]);
+
 
   return (
     <nav className="sticky bottom-0 z-10 bg-background/80 backdrop-blur-sm border-t md:hidden">

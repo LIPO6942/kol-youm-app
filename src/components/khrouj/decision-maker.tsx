@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { makeDecision, type MakeDecisionOutput } from '@/ai/flows/decision-maker-flow';
+import { makeDecision } from '@/ai/flows/decision-maker-flow';
+import type { MakeDecisionOutput } from '@/ai/flows/decision-maker-flow.types';
 import { Sparkles, Loader2, MapPin, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 

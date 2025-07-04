@@ -3,22 +3,10 @@
  * @fileOverview A Genkit flow for generating outfit item images.
  *
  * - generateOutfitImage - A function that takes an item description and returns an image data URI.
- * - GenerateOutfitImageInput - The input type for the generateOutfitImage function.
- * - GenerateOutfitImageOutput - The return type for the generateOutfitImage function.
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-
-const GenerateOutfitImageInputSchema = z.object({
-  itemDescription: z.string().describe('A description of a single clothing item or accessory, e.g., "blue jeans", "white t-shirt", "leather watch".'),
-});
-export type GenerateOutfitImageInput = z.infer<typeof GenerateOutfitImageInputSchema>;
-
-const GenerateOutfitImageOutputSchema = z.object({
-  imageDataUri: z.string().describe("An image of the clothing item as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
-});
-export type GenerateOutfitImageOutput = z.infer<typeof GenerateOutfitImageOutputSchema>;
+import { GenerateOutfitImageInputSchema, GenerateOutfitImageOutputSchema, type GenerateOutfitImageInput, type GenerateOutfitImageOutput } from './generate-outfit-image.types';
 
 export async function generateOutfitImage(input: GenerateOutfitImageInput): Promise<GenerateOutfitImageOutput> {
   return generateOutfitImageFlow(input);

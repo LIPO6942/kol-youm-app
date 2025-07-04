@@ -5,7 +5,8 @@ import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { X, Heart, Loader2, Film } from 'lucide-react';
 
-import { recordMovieSwipe, type MovieSwipeInput } from '@/ai/flows/movie-preference-learning';
+import { recordMovieSwipe } from '@/ai/flows/movie-preference-learning';
+import type { MovieSwipeInput } from '@/ai/flows/movie-preference-learning.types';
 import { generateMoviePoster } from '@/ai/flows/generate-movie-poster';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

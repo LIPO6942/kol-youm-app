@@ -8,7 +8,8 @@ import { Wand2, Loader2, PlusCircle, Check, Sun, Cloudy, CloudRain, Snowflake, B
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 
-import { suggestOutfit, type SuggestOutfitInput, type SuggestOutfitOutput } from '@/ai/flows/intelligent-outfit-suggestion';
+import { suggestOutfit } from '@/ai/flows/intelligent-outfit-suggestion';
+import type { SuggestOutfitInput, SuggestOutfitOutput } from '@/ai/flows/intelligent-outfit-suggestion.types';
 import { generateOutfitImage } from '@/ai/flows/generate-outfit-image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
