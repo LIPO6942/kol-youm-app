@@ -38,12 +38,34 @@ export default function SignupPage() {
       await createUserProfile(userCredential.user.uid, { email: userCredential.user.email });
       router.push('/personalize');
     } catch (error: any) {
+      let description = "Une erreur inattendue s'est produite.";
+      
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/email-already-in-use':
+            description = "Cette adresse e-mail est déjà utilisée par un autre compte.";
+            break;
+          case 'auth/invalid-email':
+            description = "L'adresse e-mail n'est pas valide.";
+            break;
+          case 'auth/weak-password':
+            description = "Le mot de passe est trop faible. Il doit contenir au moins 6 caractères.";
+            break;
+          case 'permission-denied':
+             description = "La création du profil a été refusée. Veuillez vérifier les règles de sécurité de Firestore dans votre console Firebase.";
+             break;
+          default:
+            description = `Une erreur est survenue (${error.code}). Le problème peut venir de la configuration de votre projet Firebase (Firestore activé, règles de sécurité).`;
+            break;
+        }
+      }
+
       toast({
         variant: 'destructive',
         title: "Erreur d'inscription",
-        description: "Cette adresse e-mail est peut-être déjà utilisée.",
+        description: description,
       });
-      console.error(error);
+      console.error("Signup Error:", error);
     } finally {
       setIsLoading(false);
     }
