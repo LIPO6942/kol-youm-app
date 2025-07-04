@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { X, Heart, Loader2, Film, RotateCcw, Star, Link as LinkIcon, Users, Calendar, Globe } from 'lucide-react';
 
 import { recordMovieSwipe } from '@/ai/flows/movie-preference-learning';
@@ -15,10 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 
-export default function MovieSwiper() {
-  const searchParams = useSearchParams();
-  const genreFilter = searchParams.get('genre');
-
+export default function MovieSwiper({ genre }: { genre: string }) {
   const [movies, setMovies] = useState<MovieSuggestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSwipeLoading, setIsSwipeLoading] = useState(false);
@@ -29,7 +24,7 @@ export default function MovieSwiper() {
     setIsSuggestionsLoading(true);
     setCurrentIndex(0);
     setMovies([]);
-    generateMovieSuggestions({ genre: genreFilter || undefined, count: 5 })
+    generateMovieSuggestions({ genre: genre, count: 7 })
       .then((result) => {
         setMovies(result.movies);
       })
@@ -44,7 +39,7 @@ export default function MovieSwiper() {
       .finally(() => {
         setIsSuggestionsLoading(false);
       });
-  }, [genreFilter, toast]);
+  }, [genre, toast]);
 
   useEffect(() => {
     fetchMovies();
@@ -91,7 +86,7 @@ export default function MovieSwiper() {
        <div className="flex justify-center">
             <Card className="relative w-full max-w-sm h-[550px] flex flex-col items-center justify-center text-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="text-muted-foreground mt-4">Recherche de nouveaux films...</p>
+                <p className="text-muted-foreground mt-4">Recherche de films pour vous...</p>
             </Card>
        </div>
     )
@@ -99,14 +94,14 @@ export default function MovieSwiper() {
 
   return (
     <div className="flex justify-center">
-      <div className="relative w-full max-w-sm h-[550px]">
+      <div className="relative w-full max-w-sm h-[600px]">
         {movies.length === 0 && !isSuggestionsLoading ? (
           <Card className="absolute inset-0 flex flex-col items-center justify-center text-center">
             <CardContent className="p-6">
               <Film className="h-12 w-12 mx-auto text-muted-foreground" />
               <h3 className="text-xl font-bold font-headline mt-4">Aucun film trouvé</h3>
               <p className="text-muted-foreground mt-2">
-                {genreFilter ? `Aucun film pour le genre "${genreFilter}".` : "La liste de films est vide."}
+                Aucun film trouvé pour le genre "{genre}".
               </p>
               <Button className="mt-4" variant="outline" onClick={fetchMovies}>
                 <RotateCcw className="mr-2 h-4 w-4" /> Réessayer
@@ -149,12 +144,12 @@ export default function MovieSwiper() {
                         <span>{currentMovie.actors.join(', ')}</span>
                     </div>
                  </div>
-                <Link href={currentMovie.wikipediaUrl} target="_blank" rel="noopener noreferrer" passHref>
+                <a href={currentMovie.wikipediaUrl} target="_blank" rel="noopener noreferrer">
                     <Button variant="link" className="p-0 h-auto text-sm">
                         <LinkIcon className="mr-2 h-4 w-4" />
                         En savoir plus sur Wikipédia
                     </Button>
-                </Link>
+                </a>
               </div>
             </CardContent>
              <CardFooter className="p-4 pt-0 grid grid-cols-2 gap-4">
@@ -169,10 +164,10 @@ export default function MovieSwiper() {
         ) : (
           <Card className="absolute inset-0 flex flex-col items-center justify-center text-center">
             <CardContent className="p-6">
-              <h3 className="text-xl font-bold font-headline">C'est tout pour aujourd'hui !</h3>
-              <p className="text-muted-foreground mt-2">Revenez demain ou réessayez pour de nouvelles suggestions.</p>
+              <h3 className="text-xl font-bold font-headline">C'est tout pour le moment !</h3>
+              <p className="text-muted-foreground mt-2">Vous avez vu toutes les suggestions pour ce genre.</p>
               <Button className="mt-4" onClick={fetchMovies}>
-                <RotateCcw className="mr-2 h-4 w-4" /> Voir d'autres films
+                <RotateCcw className="mr-2 h-4 w-4" /> M'en proposer d'autres
               </Button>
             </CardContent>
           </Card>
