@@ -8,29 +8,28 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ArrowLeft, Laugh, Masks, Search, Lightbulb, Rocket, Sparkles } from 'lucide-react';
 
-const iconMap = {
-  Laugh,
-  Masks,
-  Search,
-  Lightbulb,
-  Rocket,
-  Sparkles,
-};
-
-const genres = [
-    { name: 'Comédie', iconName: 'Laugh' as keyof typeof iconMap, description: 'Pour rire aux éclats.' },
-    { name: 'Drame', iconName: 'Masks' as keyof typeof iconMap, description: 'Pour les grandes émotions.' },
-    { name: 'Suspense & Thriller', iconName: 'Search' as keyof typeof iconMap, description: 'Pour se ronger les ongles.' },
-    { name: 'Mind-Blow', iconName: 'Lightbulb' as keyof typeof iconMap, description: 'Pour retourner le cerveau.' },
-    { name: 'Science-Fiction', iconName: 'Rocket' as keyof typeof iconMap, description: 'Pour voyager dans le futur.' },
-    { name: 'Découverte', iconName: 'Sparkles' as keyof typeof iconMap, description: 'Pour une surprise totale.' },
-];
-
-
 function TfarrejContent() {
   const searchParams = useSearchParams();
   const genreFromUrl = searchParams.get('genre');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+
+  const iconMap = {
+    Laugh,
+    Masks,
+    Search,
+    Lightbulb,
+    Rocket,
+    Sparkles,
+  };
+
+  const genres = [
+      { name: 'Comédie', iconName: 'Laugh' as keyof typeof iconMap, description: 'Pour rire aux éclats.' },
+      { name: 'Drame', iconName: 'Masks' as keyof typeof iconMap, description: 'Pour les grandes émotions.' },
+      { name: 'Suspense & Thriller', iconName: 'Search' as keyof typeof iconMap, description: 'Pour se ronger les ongles.' },
+      { name: 'Mind-Blow', iconName: 'Lightbulb' as keyof typeof iconMap, description: 'Pour retourner le cerveau.' },
+      { name: 'Science-Fiction', iconName: 'Rocket' as keyof typeof iconMap, description: 'Pour voyager dans le futur.' },
+      { name: 'Découverte', iconName: 'Sparkles' as keyof typeof iconMap, description: 'Pour une surprise totale.' },
+  ];
 
   useEffect(() => {
     if (genreFromUrl) {
@@ -39,7 +38,7 @@ function TfarrejContent() {
          setSelectedGenre(genreFromUrl);
       }
     }
-  }, [genreFromUrl]);
+  }, [genreFromUrl, genres]);
 
   if (selectedGenre) {
     return (
