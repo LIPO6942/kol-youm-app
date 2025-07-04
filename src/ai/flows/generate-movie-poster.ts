@@ -18,9 +18,7 @@ const generateMoviePosterFlow = ai.defineFlow(
   async (input) => {
     const { media } = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
-      prompt: `Generate a movie poster for a film titled "${input.title}". 
-The story is about: ${input.synopsis}. 
-The poster should be in a vertical orientation (portrait), cinematic, visually appealing, and include the movie title prominently. Do not include any other text like actor names or taglines.`,
+      prompt: `Generate a movie poster for a film titled "${input.title}". The story is about: ${input.synopsis}. The poster should be in a vertical orientation (portrait), cinematic, visually appealing, and include the movie title prominently. Do not include any other text like actor names or taglines.`,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
