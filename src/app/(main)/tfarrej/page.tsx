@@ -8,28 +8,33 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ArrowLeft, Laugh, Masks, Search, Lightbulb, Rocket, Sparkles } from 'lucide-react';
 
+const genres = [
+    { name: 'Comédie', iconName: 'Laugh', description: 'Pour rire aux éclats.' },
+    { name: 'Drame', iconName: 'Masks', description: 'Pour les grandes émotions.' },
+    { name: 'Suspense & Thriller', iconName: 'Search', description: 'Pour se ronger les ongles.' },
+    { name: 'Mind-Blow', iconName: 'Lightbulb', description: 'Pour retourner le cerveau.' },
+    { name: 'Science-Fiction', iconName: 'Rocket', description: 'Pour voyager dans le futur.' },
+    { name: 'Découverte', iconName: 'Sparkles', description: 'Pour une surprise totale.' },
+];
+
+// This helper component renders the icon statically, which is more reliable for the Next.js bundler.
+const GenreIcon = ({ iconName, className }: { iconName: string, className?: string }) => {
+    switch (iconName) {
+        case 'Laugh': return <Laugh className={className} />;
+        case 'Masks': return <Masks className={className} />;
+        case 'Search': return <Search className={className} />;
+        case 'Lightbulb': return <Lightbulb className={className} />;
+        case 'Rocket': return <Rocket className={className} />;
+        case 'Sparkles': return <Sparkles className={className} />;
+        default: return null;
+    }
+};
+
+
 function TfarrejContent() {
   const searchParams = useSearchParams();
   const genreFromUrl = searchParams.get('genre');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
-
-  const iconMap = {
-    Laugh,
-    Masks,
-    Search,
-    Lightbulb,
-    Rocket,
-    Sparkles,
-  };
-
-  const genres = [
-      { name: 'Comédie', iconName: 'Laugh' as keyof typeof iconMap, description: 'Pour rire aux éclats.' },
-      { name: 'Drame', iconName: 'Masks' as keyof typeof iconMap, description: 'Pour les grandes émotions.' },
-      { name: 'Suspense & Thriller', iconName: 'Search' as keyof typeof iconMap, description: 'Pour se ronger les ongles.' },
-      { name: 'Mind-Blow', iconName: 'Lightbulb' as keyof typeof iconMap, description: 'Pour retourner le cerveau.' },
-      { name: 'Science-Fiction', iconName: 'Rocket' as keyof typeof iconMap, description: 'Pour voyager dans le futur.' },
-      { name: 'Découverte', iconName: 'Sparkles' as keyof typeof iconMap, description: 'Pour une surprise totale.' },
-  ];
 
   useEffect(() => {
     if (genreFromUrl) {
@@ -38,7 +43,7 @@ function TfarrejContent() {
          setSelectedGenre(genreFromUrl);
       }
     }
-  }, [genreFromUrl, genres]);
+  }, [genreFromUrl]);
 
   if (selectedGenre) {
     return (
@@ -74,9 +79,7 @@ function TfarrejContent() {
           <CardDescription>Sélectionnez une catégorie pour obtenir des suggestions sur mesure.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 grid-cols-2 md:grid-cols-3">
-          {genres.map((genre) => {
-            const Icon = iconMap[genre.iconName];
-            return (
+          {genres.map((genre) => (
               <div 
                 key={genre.name} 
                 onClick={() => setSelectedGenre(genre.name)}
@@ -84,7 +87,7 @@ function TfarrejContent() {
               >
                 <CardHeader className="items-center text-center p-4">
                   <div className="p-3 bg-primary/10 rounded-full mb-2">
-                    <Icon className="h-8 w-8 text-primary" />
+                    <GenreIcon iconName={genre.iconName} className="h-8 w-8 text-primary" />
                   </div>
                   <CardTitle className="text-md font-semibold">{genre.name}</CardTitle>
                 </CardHeader>
@@ -92,8 +95,8 @@ function TfarrejContent() {
                   <p className="text-xs text-muted-foreground">{genre.description}</p>
                 </CardContent>
               </div>
-            );
-          })}
+            )
+          )}
         </CardContent>
       </Card>
     </div>
