@@ -12,27 +12,27 @@ const prompt = ai.definePrompt({
   name: 'generateMovieSuggestionsPrompt',
   input: {schema: GenerateMovieSuggestionsInputSchema},
   output: {schema: GenerateMovieSuggestionsOutputSchema},
-  prompt: `Tu es un expert en cinéma et un conteur créatif. Ton rôle est de générer une liste de suggestions de films pour un utilisateur. Les films peuvent être réels ou fictifs, mais doivent être crédibles et intéressants.
+  prompt: `Tu es un expert en cinéma. Ton rôle est de générer une liste de suggestions de films **réels** et **existants** pour un utilisateur.
 
 Génère une liste de {{count}} films.
 {{#if genre}}
-Le genre principal des films doit être : "{{genre}}". Tu peux inclure des sous-genres, mais le genre principal doit être respecté.
+Le genre principal des films doit être : "{{genre}}".
 {{else}}
 Les films doivent appartenir à des genres variés (Drame, Comédie, Sci-Fi, Thriller, Historique, Fantastique, etc.).
 {{/if}}
 
-Pour chaque film, fournis :
+Pour chaque film, fournis des informations **exactes et cohérentes** :
 1.  Un 'id' unique (une courte chaîne de caractères aléatoires).
-2.  Un 'title' (titre) original et accrocheur.
+2.  Le 'title' (titre) exact du film.
 3.  Une 'synopsis' (synopsis) courte et intrigante (une ou deux phrases).
-4.  Une liste 'actors' de 2 ou 3 acteurs principaux (réels ou fictifs crédibles).
-5.  Un 'rating' (note) estimé sur 10 (par exemple, 8.2).
-6.  Une 'year' (année) de sortie crédible.
-7.  Une 'wikipediaUrl' : une URL **valide et fonctionnelle** vers la page Wikipédia d'un film **réel** qui correspond au titre et au genre. Si le film que tu inventes est fictif, trouve un film réel similaire et utilise son URL Wikipédia. Privilégie la page Wikipédia en français si elle existe, sinon en anglais. L'URL doit commencer par "https://fr.wikipedia.org" ou "https://en.wikipedia.org".
-8.  Un 'genre' principal.
-9.  Un 'country' (pays) d'origine du film.
+4.  Une liste 'actors' des 2 ou 3 acteurs principaux **réels** du film.
+5.  Un 'rating' (note) estimé sur 10 (par exemple, 8.2), basé sur sa popularité et sa critique.
+6.  L' 'year' (année) de sortie exacte du film.
+7.  Une 'wikipediaUrl' : l'URL **valide et fonctionnelle** vers la page Wikipédia du film. Privilégie la page Wikipédia en français si elle existe, sinon en anglais. L'URL doit commencer par "https://fr.wikipedia.org" ou "https://en.wikipedia.org".
+8.  Le 'genre' principal du film.
+9.  Le 'country' (pays) d'origine du film.
 
-Toutes les réponses doivent être en français. Réponds uniquement en respectant le format de sortie JSON demandé.`,
+Toutes les réponses doivent être en français. Réponds uniquement en respectant le format de sortie JSON demandé et assure-toi que toutes les informations pour un film donné (titre, acteurs, année, url) sont correctes et se rapportent bien au même film.`,
 });
 
 const generateMovieSuggestionsFlow = ai.defineFlow(
