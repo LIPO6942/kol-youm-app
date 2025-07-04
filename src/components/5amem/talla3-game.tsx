@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Check, X, ChevronsUpDown, Trophy, RotateCcw } from 'lucide-react';
+import { Check, ChevronsUpDown, Trophy, RotateCcw } from 'lucide-react';
 
 const challenges = [
   {
@@ -63,16 +63,13 @@ export default function Talla3Game() {
   };
 
   const handleNextChallenge = () => {
-    if (currentChallengeIndex < challenges.length - 1) {
-      setCurrentChallengeIndex(prev => prev + 1);
-    } else {
-      setCurrentChallengeIndex(0); // Loop back to the start
-    }
+    const nextIndex = currentChallengeIndex + 1;
+    setCurrentChallengeIndex(nextIndex >= challenges.length ? 0 : nextIndex); // Loop back to start
   };
 
-  const isFinished = currentChallengeIndex >= challenges.length;
+  const isGameFinished = currentChallengeIndex >= challenges.length;
 
-  if (isFinished) {
+   if (isGameFinished) {
     return (
         <Card className="w-full max-w-2xl mx-auto text-center">
             <CardHeader>
@@ -84,7 +81,7 @@ export default function Talla3Game() {
                 <p>Vous avez un excellent sens de l'ordre !</p>
             </CardContent>
             <CardFooter className="justify-center">
-                <Button onClick={() => startChallenge(0)}>Recommencer</Button>
+                <Button onClick={() => setCurrentChallengeIndex(0)}>Recommencer</Button>
             </CardFooter>
         </Card>
     );
@@ -110,6 +107,7 @@ export default function Talla3Game() {
                 {item}
               </Button>
             ))}
+             {remainingItems.length === 0 && gameState === 'playing' && <p className="text-sm text-muted-foreground text-center pt-10">Tous les éléments sont placés !</p>}
           </div>
         </div>
         <div className="space-y-3">
@@ -133,17 +131,29 @@ export default function Talla3Game() {
             <Check className="mr-2" /> Vérifier ma réponse
           </Button>
         )}
-        {gameState !== 'playing' && (
-            <div className={cn("w-full text-center p-3 rounded-md", gameState === 'correct' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')}>
-                <p className="font-bold">{gameState === 'correct' ? 'Excellent ! C\'est le bon ordre.' : 'Oups ! Ce n\'est pas tout à fait ça.'}</p>
-            </div>
+        {gameState === 'correct' && (
+          <div className="w-full text-center p-3 rounded-md bg-green-100 text-green-800">
+            <p className="font-bold">Excellent ! C'est le bon ordre.</p>
+          </div>
         )}
+        {gameState === 'incorrect' && (
+          <div className="w-full text-left p-4 rounded-lg bg-red-100 text-red-900 border border-red-200 space-y-2">
+              <p className="font-bold text-lg text-center">Oups ! Ce n'est pas tout à fait ça.</p>
+              <div className="text-sm bg-background/50 p-3 rounded-md">
+                  <p className="font-semibold mb-1">Le bon ordre était :</p>
+                  <ol className="list-decimal list-inside font-medium space-y-1">
+                      {currentChallenge.items.map((item) => <li key={item}>{item}</li>)}
+                  </ol>
+              </div>
+          </div>
+        )}
+        
         <div className="grid grid-cols-2 gap-4 w-full">
             <Button variant="outline" onClick={() => startChallenge(currentChallengeIndex)}>
-                <RotateCcw className="mr-2" /> Recommencer ce défi
+                <RotateCcw className="mr-2 h-4 w-4" /> Recommencer ce défi
             </Button>
             <Button onClick={handleNextChallenge}>
-                Prochain défi <ChevronsUpDown className="ml-2" />
+                Prochain défi <ChevronsUpDown className="ml-2 h-4 w-4" />
             </Button>
         </div>
       </CardFooter>

@@ -132,5 +132,6 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
   }
 }

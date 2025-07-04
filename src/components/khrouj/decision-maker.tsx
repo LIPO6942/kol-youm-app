@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { MakeDecisionOutput } from '@/ai/flows/decision-maker-flow.types';
-import { Sparkles, Loader2, MapPin, Phone } from 'lucide-react';
+import { Wand2, Loader2, MapPin, RotateCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const outingOptions = [
@@ -22,8 +22,8 @@ const outingOptions = [
 const LoadingAnimation = () => (
     <div className="flex flex-col items-center justify-center text-center p-8 space-y-4">
         <div className="relative h-24 w-24">
-             <Sparkles className="absolute h-16 w-16 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-primary animate-ping" />
-             <Sparkles className="relative h-24 w-24 text-primary" />
+             <Wand2 className="absolute h-16 w-16 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-primary animate-ping" />
+             <Wand2 className="relative h-24 w-24 text-primary" />
         </div>
         <p className="text-lg font-semibold text-muted-foreground">Un instant, l'inspiration arrive...</p>
     </div>
@@ -104,7 +104,7 @@ export default function DecisionMaker() {
                     <MapPin className="mr-2 h-4 w-4" /> Voir sur la carte
                 </Button>
                 <Button className="w-full sm:w-auto" onClick={handleReset}>
-                    <Sparkles className="mr-2 h-4 w-4" /> Autre idée
+                    <RotateCw className="mr-2 h-4 w-4" /> Autre idée
                 </Button>
             </CardFooter>
         </Card>
@@ -139,7 +139,7 @@ export default function DecisionMaker() {
                 onClick={handleDecideClick}
                 disabled={selectedOptions.length === 0}
             >
-                <Sparkles className="mr-2 h-5 w-5" />
+                <Wand2 className="mr-2 h-5 w-5" />
                 Décide pour moi !
             </Button>
         </CardFooter>

@@ -2,15 +2,15 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Shirt, Film, BrainCircuit, Coffee } from 'lucide-react';
+import { Palette, Film, BrainCircuit, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect } from 'react';
 
 const navItems = [
-  { href: '/stylek', label: 'Stylek', icon: Shirt },
+  { href: '/stylek', label: 'Stylek', icon: Palette },
   { href: '/tfarrej', label: 'Tfarrej', icon: Film },
   { href: '/5amem', label: '5amem', icon: BrainCircuit },
-  { href: '/khrouj', label: 'Khrouj', icon: Coffee },
+  { href: '/khrouj', label: 'Khrouj', icon: MapPin },
 ];
 
 export default function BottomNav() {

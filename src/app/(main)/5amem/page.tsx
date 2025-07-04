@@ -14,7 +14,7 @@ export default function AmemPage() {
       <Tabs defaultValue="quiz" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="quiz">Quiz Quotidien</TabsTrigger>
-          <TabsTrigger value="talla3">Jeu de Classement "Talla3"</TabsTrigger>
+          <TabsTrigger value="talla3">Talla3</TabsTrigger>
         </TabsList>
         <TabsContent value="quiz">
             <DailyQuiz />
