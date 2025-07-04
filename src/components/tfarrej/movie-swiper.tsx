@@ -25,23 +25,25 @@ export default function MovieSwiper() {
   const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchMovies = useCallback(async () => {
+  const fetchMovies = useCallback(() => {
     setIsSuggestionsLoading(true);
     setCurrentIndex(0);
     setMovies([]);
-    try {
-      const result = await generateMovieSuggestions({ genre: genreFilter || undefined });
-      setMovies(result.movies);
-    } catch (error) {
-      console.error('Failed to fetch movie suggestions', error);
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: "Impossible de charger les suggestions de films.",
+    generateMovieSuggestions({ genre: genreFilter || undefined })
+      .then((result) => {
+        setMovies(result.movies);
+      })
+      .catch((error) => {
+        console.error('Failed to fetch movie suggestions', error);
+        toast({
+          variant: 'destructive',
+          title: 'Erreur',
+          description: "Impossible de charger les suggestions de films.",
+        });
+      })
+      .finally(() => {
+        setIsSuggestionsLoading(false);
       });
-    } finally {
-      setIsSuggestionsLoading(false);
-    }
   }, [genreFilter, toast]);
 
   useEffect(() => {
