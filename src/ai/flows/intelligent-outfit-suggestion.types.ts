@@ -18,7 +18,8 @@ export const SuggestOutfitInputSchema = z.object({
       'A comma separated list of preferred colors. If the user has no preferred colors, pass the string "".'
     )
     .optional(),
-    baseItem: z.string().describe('A specific clothing item the user wants to build an outfit around.').optional(),
+  baseItem: z.string().describe('A specific clothing item the user wants to build an outfit around.').optional(),
+  gender: z.enum(['Homme', 'Femme']).describe("The user's gender, to tailor the outfit suggestion.").optional(),
 });
 export type SuggestOutfitInput = z.infer<typeof SuggestOutfitInputSchema>;
 

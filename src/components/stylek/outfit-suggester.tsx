@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/use-auth';
 
 const colors = [
     { name: 'Noir', value: '#1a1a1a' },
@@ -180,6 +181,7 @@ const OutfitImage = ({ itemKey, description }: { itemKey: string; description: s
 
 
 export default function OutfitSuggester() {
+  const { userProfile } = useAuth();
   const [suggestion, setSuggestion] = useState<SuggestOutfitOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -221,8 +223,13 @@ export default function OutfitSuggester() {
     setIsLoading(true);
     setSuggestion(null);
 
+    const fullInput: SuggestOutfitInput = { 
+      ...input, 
+      gender: userProfile?.gender 
+    };
+
     try {
-      const result = await suggestOutfit(input);
+      const result = await suggestOutfit(fullInput);
       setSuggestion(result);
     } catch (error) {
       console.error(error);
