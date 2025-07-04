@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Wand2, Loader2, PlusCircle, Check, Sun, Cloudy, CloudRain, Snowflake, Briefcase, Users, Dumbbell, Coffee } from 'lucide-react';
+import { Wand2, Loader2, PlusCircle, Check, Sun, Cloudy, CloudRain, Snowflake, Briefcase, Users, Dumbbell, Coffee, XCircle } from 'lucide-react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 
-import { suggestOutfit, type SuggestOutfitInput } from '@/ai/flows/intelligent-outfit-suggestion';
+import { suggestOutfit, type SuggestOutfitInput, type SuggestOutfitOutput } from '@/ai/flows/intelligent-outfit-suggestion';
+import { generateOutfitImage } from '@/ai/flows/generate-outfit-image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -136,8 +137,49 @@ const weatherOptions = [
   { value: 'Froid', label: 'Froid', icon: Snowflake },
 ];
 
+
+const OutfitImage = ({ itemKey, description }: { itemKey: string; description: string }) => {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const generate = async () => {
+      if (!description || description.toLowerCase() === 'n/a' || description.toLowerCase() === 'néant') {
+        return;
+      }
+      setIsLoading(true);
+      setError(false);
+      setImageUrl(null);
+      try {
+        const result = await generateOutfitImage({ itemDescription: description });
+        setImageUrl(result.imageDataUri);
+      } catch (e) {
+        console.error(`Failed to generate image for ${itemKey}`, e);
+        setError(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    generate();
+  }, [description, itemKey]);
+
+  return (
+    <div className="relative aspect-square bg-secondary rounded-lg overflow-hidden flex items-center justify-center">
+      {isLoading && <Loader2 className="h-8 w-8 animate-spin text-primary" />}
+      {error && <XCircle className="h-8 w-8 text-destructive" />}
+      {imageUrl && <Image src={imageUrl} alt={itemKey} fill className="object-cover" />}
+       {(!description || description.toLowerCase() === 'n/a' || description.toLowerCase() === 'néant') && 
+        <span className="text-sm text-muted-foreground">N/A</span>
+      }
+      <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-center py-1 text-sm capitalize">{itemKey}</div>
+    </div>
+  );
+};
+
+
 export default function OutfitSuggester() {
-  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [suggestion, setSuggestion] = useState<SuggestOutfitOutput | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
@@ -174,13 +216,13 @@ export default function OutfitSuggester() {
   const categoryValue = completeOutfitForm.watch('category');
 
 
-  async function handleSuggestOutfit(values: FormValues) {
+  const getSuggestion = async (input: SuggestOutfitInput) => {
     setIsLoading(true);
     setSuggestion(null);
+
     try {
-      const input: SuggestOutfitInput = values;
       const result = await suggestOutfit(input);
-      setSuggestion(result.outfitSuggestion);
+      setSuggestion(result);
     } catch (error) {
       console.error(error);
       toast({
@@ -191,6 +233,10 @@ export default function OutfitSuggester() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function handleSuggestOutfit(values: FormValues) {
+    await getSuggestion(values);
   }
 
   async function handleCompleteOutfit(values: CompleteOutfitFormValues) {
@@ -206,30 +252,17 @@ export default function OutfitSuggester() {
         setIsDialogOpen(false);
         return;
     }
-
-    setIsLoading(true);
-    setSuggestion(null);
+    
     setIsDialogOpen(false);
 
-    try {
-      const baseItemDescription = [values.category, values.style, values.color].filter(Boolean).join(' ');
-      const input: SuggestOutfitInput = {
-        ...mainFormValues,
-        baseItem: `${values.type}: ${baseItemDescription}`
-      };
-      const result = await suggestOutfit(input);
-      setSuggestion(result.outfitSuggestion);
-    } catch (error) {
-      console.error(error);
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: "Une erreur s'est produite lors de la génération de la suggestion.",
-      });
-    } finally {
-      setIsLoading(false);
-      completeOutfitForm.reset();
-    }
+    const baseItemDescription = [values.category, values.style, values.color].filter(Boolean).join(' ');
+    const input: SuggestOutfitInput = {
+      ...mainFormValues,
+      baseItem: `${values.type}: ${baseItemDescription}`
+    };
+    
+    await getSuggestion(input);
+    completeOutfitForm.reset();
   }
 
   return (
@@ -471,24 +504,12 @@ export default function OutfitSuggester() {
           <CardContent className="p-6 w-full">
             <h3 className="text-xl font-bold font-headline text-center mb-4">Votre Tenue du Jour</h3>
             <div className="grid grid-cols-2 grid-rows-2 gap-4 mb-4">
-                <div className="relative aspect-square bg-secondary rounded-lg overflow-hidden">
-                    <Image src="https://placehold.co/300x300.png" alt="Haut" fill className="object-cover" data-ai-hint="shirt" />
-                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-center py-1 text-sm">Haut</div>
-                </div>
-                <div className="relative aspect-square bg-secondary rounded-lg overflow-hidden">
-                    <Image src="https://placehold.co/300x300.png" alt="Bas" fill className="object-cover" data-ai-hint="pants" />
-                     <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-center py-1 text-sm">Bas</div>
-                </div>
-                <div className="relative aspect-square bg-secondary rounded-lg overflow-hidden">
-                    <Image src="https://placehold.co/300x300.png" alt="Chaussures" fill className="object-cover" data-ai-hint="shoes" />
-                     <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-center py-1 text-sm">Chaussures</div>
-                </div>
-                <div className="relative aspect-square bg-secondary rounded-lg overflow-hidden">
-                    <Image src="https://placehold.co/300x300.png" alt="Accessoires" fill className="object-cover" data-ai-hint="watch" />
-                     <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-center py-1 text-sm">Accessoires</div>
-                </div>
+                <OutfitImage itemKey="haut" description={suggestion.haut} />
+                <OutfitImage itemKey="bas" description={suggestion.bas} />
+                <OutfitImage itemKey="chaussures" description={suggestion.chaussures} />
+                <OutfitImage itemKey="accessoires" description={suggestion.accessoires} />
             </div>
-            <p className="text-sm text-center whitespace-pre-line">{suggestion}</p>
+            <p className="text-sm text-center whitespace-pre-line">{suggestion.suggestionText}</p>
           </CardContent>
         )}
       </Card>
