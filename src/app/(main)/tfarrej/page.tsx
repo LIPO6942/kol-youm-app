@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
@@ -5,15 +6,15 @@ import { useSearchParams } from 'next/navigation';
 import MovieSwiper from '@/components/tfarrej/movie-swiper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Laugh, Masks, Search, BrainCircuit, Rocket, Wand2 } from 'lucide-react';
+import { ArrowLeft, Laugh, Masks, Search, Lightbulb, Rocket, Sparkles } from 'lucide-react';
 
 const genres = [
   { name: 'Comédie', icon: Laugh, description: 'Pour rire aux éclats.' },
   { name: 'Drame', icon: Masks, description: 'Pour les grandes émotions.' },
   { name: 'Suspense & Thriller', icon: Search, description: 'Pour se ronger les ongles.' },
-  { name: 'Mind-Blow', icon: BrainCircuit, description: 'Pour retourner le cerveau.' },
+  { name: 'Mind-Blow', icon: Lightbulb, description: 'Pour retourner le cerveau.' },
   { name: 'Science-Fiction', icon: Rocket, description: 'Pour voyager dans le futur.' },
-  { name: 'Découverte', icon: Wand2, description: 'Pour une surprise totale.' },
+  { name: 'Découverte', icon: Sparkles, description: 'Pour une surprise totale.' },
 ];
 
 function TfarrejContent() {
