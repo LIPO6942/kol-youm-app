@@ -28,6 +28,7 @@ const SuggestOutfitInputSchema = z.object({
       'A comma separated list of preferred colors. If the user has no preferred colors, pass the string "".'
     )
     .optional(),
+    baseItem: z.string().describe('A specific clothing item the user wants to build an outfit around.').optional(),
 });
 export type SuggestOutfitInput = z.infer<typeof SuggestOutfitInputSchema>;
 
@@ -44,7 +45,14 @@ const prompt = ai.definePrompt({
   name: 'suggestOutfitPrompt',
   input: {schema: SuggestOutfitInputSchema},
   output: {schema: SuggestOutfitOutputSchema},
-  prompt: `You are a personal stylist AI assistant. Based on the user's schedule keywords, the weather, and the occasion, suggest an appropriate outfit.
+  prompt: `You are a personal stylist AI assistant.
+
+{{#if baseItem}}
+Based on the user's base item, their schedule keywords, the weather, and the occasion, suggest a complete outfit that complements the base item.
+Base Item: {{{baseItem}}}
+{{else}}
+Based on the user's schedule keywords, the weather, and the occasion, suggest an appropriate outfit.
+{{/if}}
 
 Schedule Keywords: {{{scheduleKeywords}}}
 Weather: {{{weather}}}
@@ -53,6 +61,9 @@ Preferred Colors: {{#if preferredColors}}{{{preferredColors}}}{{else}}No preferr
 
 Suggest a complete outfit, including top, bottom, shoes, and accessories. Provide details, such as color, material, and style.
 If the user has specified preferred colors, then follow their instructions closely. If they have not specified preferred colors, then suggest outfits with colors that are generally appropriate and fashionable.
+{{#if baseItem}}
+The suggested outfit must incorporate and match the base item provided. For example if the base item is a top, suggest a bottom, shoes and accessories. If the base item is a unique piece like a dress, suggest shoes and accessories.
+{{/if}}
 
 Output:
 `,

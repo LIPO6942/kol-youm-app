@@ -8,32 +8,32 @@ import { cn } from '@/lib/utils';
 import { CheckCircle2, XCircle, Trophy } from 'lucide-react';
 
 const quizData = {
-  title: 'Le Quiz Quotidien',
+  title: 'Le Quiz Quotidien (Difficile)',
   questions: [
     {
-      question: 'Quelle est la capitale de la Tunisie ?',
-      options: ['Sfax', 'Tunis', 'Sousse', 'Tozeur'],
-      answer: 'Tunis',
+      question: 'Quel empereur romain aurait nommé son cheval, Incitatus, consul ?',
+      options: ['Jules César', 'Néron', 'Auguste', 'Caligula'],
+      answer: 'Caligula',
     },
     {
-      question: 'Qui a peint la Joconde ?',
-      options: ['Vincent van Gogh', 'Pablo Picasso', 'Léonard de Vinci', 'Claude Monet'],
-      answer: 'Léonard de Vinci',
+      question: 'Quelle est la vitesse approximative de la lumière dans le vide ?',
+      options: ['150 000 km/s', '300 000 km/s', '450 000 km/s', 'La vitesse est infinie'],
+      answer: '300 000 km/s',
     },
     {
-      question: 'En quelle année a eu lieu la révolution tunisienne ?',
-      options: ['2009', '2010', '2011', '2012'],
-      answer: '2011',
+      question: 'Qui est l\'auteur du monumental cycle romanesque "À la recherche du temps perdu" ?',
+      options: ['Albert Camus', 'Victor Hugo', 'Marcel Proust', 'Émile Zola'],
+      answer: 'Marcel Proust',
     },
     {
-        question: 'Quel est le plus grand désert du monde ?',
-        options: ['Le Sahara', 'Le désert d\'Arabie', 'Le désert de Gobi', 'L\'Antarctique'],
-        answer: 'L\'Antarctique',
+      question: 'Quel est le plus long fleuve du monde, une découverte réévaluée au 21e siècle ?',
+      options: ['Le Nil', 'Le Yangtsé', 'Le Mississippi', 'L\'Amazone'],
+      answer: 'L\'Amazone',
     },
     {
-        question: 'De quel film provient la phrase "Je suis ton père" ?',
-        options: ['Star Wars: Un nouvel espoir', 'Star Wars: L\'Empire contre-attaque', 'Star Wars: Le Retour du Jedi', 'La Menace fantôme'],
-        answer: 'Star Wars: L\'Empire contre-attaque',
+      question: 'Dans la mythologie grecque, qui a réussi à vaincre le Minotaure dans le labyrinthe ?',
+      options: ['Héraclès', 'Persée', 'Thésée', 'Achille'],
+      answer: 'Thésée',
     }
   ],
 };
