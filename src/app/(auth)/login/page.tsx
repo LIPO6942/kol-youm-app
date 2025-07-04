@@ -36,6 +36,7 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, values.email, values.password);
       router.push('/stylek'); // Will be redirected by main layout if personalization needed
     } catch (error: any) {
+      console.error("Login Error Full Details:", error);
       let description = "Une erreur inattendue est survenue.";
       if (error.code) {
           switch (error.code) {
@@ -49,16 +50,17 @@ export default function LoginPage() {
                 description = "La clé d'API Firebase n'est pas valide. Vérifiez vos variables d'environnement sur Vercel.";
                 break;
               default:
-                  description = `Une erreur est survenue (${error.code}). Vérifiez la console pour plus de détails.`;
+                  description = `Erreur technique: ${error.code}. Veuillez réessayer.`;
                   break;
           }
+      } else {
+        description = `Une erreur inattendue est survenue: ${error.message || 'Veuillez vérifier la console.'}`;
       }
       toast({
         variant: 'destructive',
         title: 'Erreur de connexion',
         description: description,
       });
-      console.error("Login Error:", error);
     } finally {
       setIsLoading(false);
     }

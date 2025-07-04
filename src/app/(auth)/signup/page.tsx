@@ -38,7 +38,8 @@ export default function SignupPage() {
       await createUserProfile(userCredential.user.uid, { email: userCredential.user.email });
       router.push('/personalize');
     } catch (error: any) {
-      let description = "Une erreur inattendue s'est produite.";
+      console.error("Signup Error Full Details:", error);
+      let description = "Une erreur inattendue s'est produite. Veuillez réessayer.";
       
       if (error.code) {
         switch (error.code) {
@@ -55,15 +56,18 @@ export default function SignupPage() {
              description = "Permission refusée. Vos règles de sécurité Firestore n'autorisent probablement pas un nouvel utilisateur à créer son propre profil. Veuillez les vérifier.";
              break;
           case 'auth/network-request-failed':
-             description = "Erreur de réseau. Il est probable que votre domaine Vercel ne soit pas autorisé. Veuillez vérifier vos paramètres Firebase.";
+             description = "Erreur de réseau. Votre domaine Vercel est-il bien autorisé dans les paramètres d'authentification Firebase ?";
              break;
           case 'auth/api-key-not-valid':
              description = "La clé d'API Firebase n'est pas valide. Vérifiez vos variables d'environnement sur Vercel.";
              break;
           default:
-            description = `Une erreur est survenue (${error.code}). Cela indique souvent que la base de données Firestore n'a pas été activée dans votre projet Firebase. Veuillez vérifier sa configuration.`;
+            // For any other error, show the technical details to help debug
+            description = `Erreur technique: ${error.code}. Veuillez vérifier la configuration de votre projet Firebase.`;
             break;
         }
+      } else {
+         description = `Une erreur inattendue est survenue: ${error.message || 'Veuillez vérifier la console.'}`;
       }
 
       toast({
@@ -71,7 +75,6 @@ export default function SignupPage() {
         title: "Erreur d'inscription",
         description: description,
       });
-      console.error("Signup Error:", error);
     } finally {
       setIsLoading(false);
     }
