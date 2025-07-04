@@ -1,11 +1,12 @@
 {
-  "name": "Le Déclic Quotidien",
+  "theme_color": "#A98DDE",
+  "background_color": "#f0f0f0",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/",
+  "name": "kol youm",
   "short_name": "kol youm",
   "description": "Un assistant personnel intelligent qui transforme la routine en opportunité de découverte.",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#F5F5F5",
-  "theme_color": "#A98DDE",
   "icons": [
     {
       "src": "/icons/icon-192x192.png",
