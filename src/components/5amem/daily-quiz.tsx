@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, XCircle, Trophy, Loader2, Film, Shirt } from 'lucide-react';
+import { CheckCircle2, XCircle, Trophy, Film, Shirt, Book, FlaskConical, Palette } from 'lucide-react';
 
 const quizzes = {
   'Histoire': {
@@ -113,6 +113,12 @@ const quizzes = {
   }
 };
 
+const quizCategories = [
+    { id: 'Histoire', label: 'Histoire', icon: Book, description: 'Testez vos connaissances sur les événements qui ont façonné le monde.' },
+    { id: 'Science & Technologie', label: 'Science & Tech', icon: FlaskConical, description: 'Défiez votre esprit logique face aux mystères de l\'univers.' },
+    { id: 'Art & Littérature', label: 'Art & Littérature', icon: Palette, description: 'Explorez le monde fascinant de la créativité humaine.' },
+];
+
 export default function DailyQuiz() {
   const [quizCategory, setQuizCategory] = useState<string | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -120,27 +126,17 @@ export default function DailyQuiz() {
   const [score, setScore] = useState(0);
   const [isAnswered, setIsAnswered] = useState(false);
 
-  useEffect(() => {
-    const categories = Object.keys(quizzes);
-    const randomCategory = categories[Math.floor(Math.random() * categories.length)];
-    setQuizCategory(randomCategory);
-  }, []);
-
-  if (!quizCategory) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
+  const handleCategorySelect = (category: string) => {
+    setQuizCategory(category);
+    setCurrentQuestionIndex(0);
+    setSelectedAnswer(null);
+    setScore(0);
+    setIsAnswered(false);
   }
-
-  const quizData = quizzes[quizCategory as keyof typeof quizzes];
-  const isQuizFinished = currentQuestionIndex >= quizData.questions.length;
-  const currentQuestion = !isQuizFinished ? quizData.questions[currentQuestionIndex] : null;
 
   const handleAnswer = (answer: string) => {
     if (isAnswered) return;
-
+    const currentQuestion = quizzes[quizCategory as keyof typeof quizzes].questions[currentQuestionIndex];
     setSelectedAnswer(answer);
     setIsAnswered(true);
     if (answer === currentQuestion?.answer) {
@@ -155,14 +151,47 @@ export default function DailyQuiz() {
   };
   
   const handleReset = () => {
-    const categories = Object.keys(quizzes);
-    const randomCategory = categories[Math.floor(Math.random() * categories.length)];
-    setQuizCategory(randomCategory);
+    setQuizCategory(null);
     setCurrentQuestionIndex(0);
     setSelectedAnswer(null);
     setIsAnswered(false);
     setScore(0);
   }
+
+  if (!quizCategory) {
+    return (
+      <Card className="max-w-4xl mx-auto">
+        <CardHeader className="text-center">
+          <CardTitle className="font-headline text-3xl">Choisissez une Catégorie</CardTitle>
+          <CardDescription>Prêt(e) à mettre vos connaissances à l'épreuve ?</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-6 md:grid-cols-3">
+          {quizCategories.map((cat) => (
+            <Card key={cat.id} className="flex flex-col hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+              <CardHeader className="items-center text-center">
+                <div className="p-4 bg-primary/10 rounded-full mb-4">
+                  <cat.icon className="h-10 w-10 text-primary" />
+                </div>
+                <CardTitle className="text-xl font-semibold">{cat.label}</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-grow text-center">
+                <p className="text-sm text-muted-foreground">{cat.description}</p>
+              </CardContent>
+              <CardFooter>
+                <Button className="w-full" onClick={() => handleCategorySelect(cat.id)}>
+                  Commencer
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const quizData = quizzes[quizCategory as keyof typeof quizzes];
+  const isQuizFinished = currentQuestionIndex >= quizData.questions.length;
+  const currentQuestion = !isQuizFinished ? quizData.questions[currentQuestionIndex] : null;
 
   const progressValue = (currentQuestionIndex / quizData.questions.length) * 100;
 
@@ -193,8 +222,8 @@ export default function DailyQuiz() {
                     </div>
                 </div>
             </CardContent>
-            <CardFooter>
-                 <Button onClick={handleReset}>Jouer un autre quiz</Button>
+            <CardFooter className="justify-center">
+                 <Button onClick={handleReset}>Changer de catégorie</Button>
             </CardFooter>
         </Card>
     )

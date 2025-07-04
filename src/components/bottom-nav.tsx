@@ -7,10 +7,10 @@ import { cn } from '@/lib/utils';
 import { useEffect } from 'react';
 
 const navItems = [
-  { href: '/stylek', label: 'Style', icon: Shirt },
-  { href: '/tfarrej', label: 'Ciné', icon: Film },
-  { href: '/5amem', label: 'Esprit', icon: BrainCircuit },
-  { href: '/khrouj', label: 'Sortir', icon: Coffee },
+  { href: '/stylek', label: 'Stylek', icon: Shirt },
+  { href: '/tfarrej', label: 'Tfarrej', icon: Film },
+  { href: '/5amem', label: '5amem', icon: BrainCircuit },
+  { href: '/khrouj', label: 'Khrouj', icon: Coffee },
 ];
 
 export default function BottomNav() {
