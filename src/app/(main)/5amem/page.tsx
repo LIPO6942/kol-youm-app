@@ -1,4 +1,6 @@
 import DailyQuiz from "@/components/5amem/daily-quiz";
+import Talla3Game from "@/components/5amem/talla3-game";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function AmemPage() {
   return (
@@ -9,7 +11,18 @@ export default function AmemPage() {
           Stimulez votre esprit avec nos quiz et jeux quotidiens.
         </p>
       </div>
-      <DailyQuiz />
+      <Tabs defaultValue="quiz" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="quiz">Quiz Quotidien</TabsTrigger>
+          <TabsTrigger value="talla3">Jeu de Classement "Talla3"</TabsTrigger>
+        </TabsList>
+        <TabsContent value="quiz">
+            <DailyQuiz />
+        </TabsContent>
+        <TabsContent value="talla3">
+            <Talla3Game />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
