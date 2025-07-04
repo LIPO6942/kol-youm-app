@@ -8,16 +8,26 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ArrowLeft, Laugh, Masks, Search, Lightbulb, Rocket, Sparkles } from 'lucide-react';
 
-function TfarrejContent() {
-  const genres = [
-    { name: 'Comédie', icon: Laugh, description: 'Pour rire aux éclats.' },
-    { name: 'Drame', icon: Masks, description: 'Pour les grandes émotions.' },
-    { name: 'Suspense & Thriller', icon: Search, description: 'Pour se ronger les ongles.' },
-    { name: 'Mind-Blow', icon: Lightbulb, description: 'Pour retourner le cerveau.' },
-    { name: 'Science-Fiction', icon: Rocket, description: 'Pour voyager dans le futur.' },
-    { name: 'Découverte', icon: Sparkles, description: 'Pour une surprise totale.' },
-  ];
+const iconMap = {
+  Laugh,
+  Masks,
+  Search,
+  Lightbulb,
+  Rocket,
+  Sparkles,
+};
 
+const genres = [
+    { name: 'Comédie', iconName: 'Laugh' as keyof typeof iconMap, description: 'Pour rire aux éclats.' },
+    { name: 'Drame', iconName: 'Masks' as keyof typeof iconMap, description: 'Pour les grandes émotions.' },
+    { name: 'Suspense & Thriller', iconName: 'Search' as keyof typeof iconMap, description: 'Pour se ronger les ongles.' },
+    { name: 'Mind-Blow', iconName: 'Lightbulb' as keyof typeof iconMap, description: 'Pour retourner le cerveau.' },
+    { name: 'Science-Fiction', iconName: 'Rocket' as keyof typeof iconMap, description: 'Pour voyager dans le futur.' },
+    { name: 'Découverte', iconName: 'Sparkles' as keyof typeof iconMap, description: 'Pour une surprise totale.' },
+];
+
+
+function TfarrejContent() {
   const searchParams = useSearchParams();
   const genreFromUrl = searchParams.get('genre');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
@@ -29,7 +39,7 @@ function TfarrejContent() {
          setSelectedGenre(genreFromUrl);
       }
     }
-  }, [genreFromUrl, genres]);
+  }, [genreFromUrl]);
 
   if (selectedGenre) {
     return (
@@ -66,7 +76,7 @@ function TfarrejContent() {
         </CardHeader>
         <CardContent className="grid gap-4 grid-cols-2 md:grid-cols-3">
           {genres.map((genre) => {
-            const Icon = genre.icon;
+            const Icon = iconMap[genre.iconName];
             return (
               <div 
                 key={genre.name} 
