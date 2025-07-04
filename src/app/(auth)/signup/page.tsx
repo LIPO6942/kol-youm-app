@@ -52,7 +52,7 @@ export default function SignupPage() {
             description = "Le mot de passe est trop faible. Il doit contenir au moins 6 caractères.";
             break;
           case 'permission-denied':
-             description = "La création du profil a été refusée. Veuillez vérifier les règles de sécurité de Firestore dans votre console Firebase.";
+             description = "Permission refusée. Vos règles de sécurité Firestore n'autorisent probablement pas un nouvel utilisateur à créer son propre profil. Veuillez les vérifier dans votre console Firebase.";
              break;
           case 'auth/network-request-failed':
              description = "Erreur de réseau. Il est probable que votre domaine Vercel ne soit pas autorisé. Veuillez vérifier vos paramètres Firebase.";
