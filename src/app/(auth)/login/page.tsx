@@ -36,12 +36,26 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, values.email, values.password);
       router.push('/stylek'); // Will be redirected by main layout if personalization needed
     } catch (error: any) {
+      let description = "Une erreur inattendue est survenue.";
+      if (error.code) {
+          switch (error.code) {
+              case 'auth/invalid-credential':
+                  description = "L'e-mail ou le mot de passe est incorrect. Veuillez vérifier vos informations.";
+                  break;
+              case 'auth/network-request-failed':
+                  description = "Erreur de réseau. Il est probable que votre domaine Vercel ne soit pas autorisé. Veuillez vérifier vos paramètres Firebase.";
+                  break;
+              default:
+                  description = `Une erreur est survenue (${error.code}). Vérifiez la console pour plus de détails.`;
+                  break;
+          }
+      }
       toast({
         variant: 'destructive',
         title: 'Erreur de connexion',
-        description: "L'e-mail ou le mot de passe est incorrect.",
+        description: description,
       });
-      console.error(error);
+      console.error("Login Error:", error);
     } finally {
       setIsLoading(false);
     }

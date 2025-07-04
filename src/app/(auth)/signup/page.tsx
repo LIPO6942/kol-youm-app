@@ -54,6 +54,9 @@ export default function SignupPage() {
           case 'permission-denied':
              description = "La création du profil a été refusée. Veuillez vérifier les règles de sécurité de Firestore dans votre console Firebase.";
              break;
+          case 'auth/network-request-failed':
+             description = "Erreur de réseau. Il est probable que votre domaine Vercel ne soit pas autorisé. Veuillez vérifier vos paramètres Firebase.";
+             break;
           default:
             description = `Une erreur est survenue (${error.code}). Le problème peut venir de la configuration de votre projet Firebase (Firestore activé, règles de sécurité).`;
             break;
