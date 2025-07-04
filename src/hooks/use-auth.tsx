@@ -2,8 +2,9 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '@/lib/firebase/client';
-import { getUserProfile, UserProfile } from '@/lib/firebase/firestore';
+import { doc, onSnapshot } from "firebase/firestore";
+import { auth, db } from '@/lib/firebase/client';
+import type { UserProfile } from '@/lib/firebase/firestore';
 import { Loader2 } from 'lucide-react';
 
 interface AuthContextType {
@@ -24,21 +25,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setLoading(true);
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUser(user);
-        const profile = await getUserProfile(user.uid);
-        setUserProfile(profile);
       } else {
         setUser(null);
         setUserProfile(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => unsubscribeAuth();
   }, []);
+  
+  useEffect(() => {
+    if (user) {
+      const unsub = onSnapshot(doc(db, "users", user.uid), (doc) => {
+        if (doc.exists()) {
+          setUserProfile(doc.data() as UserProfile);
+        } else {
+          setUserProfile(null);
+        }
+        setLoading(false);
+      });
+      return () => unsub();
+    }
+  }, [user]);
+
 
   return (
     <AuthContext.Provider value={{ user, userProfile, loading }}>
