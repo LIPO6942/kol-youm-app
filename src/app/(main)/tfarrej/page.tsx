@@ -6,11 +6,11 @@ import { useSearchParams } from 'next/navigation';
 import MovieSwiper from '@/components/tfarrej/movie-swiper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Laugh, Masks, Search, Lightbulb, Rocket, Sparkles } from 'lucide-react';
+import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles } from 'lucide-react';
 
 const genres = [
     { name: 'Comédie', iconName: 'Laugh', description: 'Pour rire aux éclats.' },
-    { name: 'Drame', iconName: 'Masks', description: 'Pour les grandes émotions.' },
+    { name: 'Drame', iconName: 'Theater', description: 'Pour les grandes émotions.' },
     { name: 'Suspense & Thriller', iconName: 'Search', description: 'Pour se ronger les ongles.' },
     { name: 'Mind-Blow', iconName: 'Lightbulb', description: 'Pour retourner le cerveau.' },
     { name: 'Science-Fiction', iconName: 'Rocket', description: 'Pour voyager dans le futur.' },
@@ -21,7 +21,7 @@ const genres = [
 const GenreIcon = ({ iconName, className }: { iconName: string, className?: string }) => {
     switch (iconName) {
         case 'Laugh': return <Laugh className={className} />;
-        case 'Masks': return <Masks className={className} />;
+        case 'Theater': return <Theater className={className} />;
         case 'Search': return <Search className={className} />;
         case 'Lightbulb': return <Lightbulb className={className} />;
         case 'Rocket': return <Rocket className={className} />;
