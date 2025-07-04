@@ -29,7 +29,7 @@ export default function MovieSwiper() {
     setIsSuggestionsLoading(true);
     setCurrentIndex(0);
     setMovies([]);
-    generateMovieSuggestions({ genre: genreFilter || undefined })
+    generateMovieSuggestions({ genre: genreFilter || undefined, count: 5 })
       .then((result) => {
         setMovies(result.movies);
       })
@@ -118,7 +118,7 @@ export default function MovieSwiper() {
             <CardHeader className="p-6">
                 <Badge variant="secondary" className="mb-2 self-start">{currentMovie.genre}</Badge>
                 <CardTitle className="font-headline text-3xl leading-tight">{currentMovie.title}</CardTitle>
-                <CardDescription className="flex items-center flex-wrap gap-x-4 gap-y-1 pt-2">
+                <div className="flex items-center flex-wrap gap-x-4 gap-y-1 pt-2 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1.5">
                         <Star className="h-4 w-4 text-amber-400" /> 
                         <span className="font-bold">{currentMovie.rating.toFixed(1)}</span>/10
@@ -131,7 +131,7 @@ export default function MovieSwiper() {
                         <Globe className="h-4 w-4" /> 
                         <span className="font-bold">{currentMovie.country}</span>
                     </div>
-                </CardDescription>
+                </div>
             </CardHeader>
             <CardContent className="flex-grow flex flex-col justify-between p-6 pt-0">
                 <div>
