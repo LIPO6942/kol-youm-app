@@ -8,19 +8,19 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 96%; /* #F5F5F5 */
+    --background: 0 0% 96%;
     --foreground: 224 71% 4%;
     --card: 0 0% 100%;
     --card-foreground: 224 71% 4%;
     --popover: 0 0% 100%;
     --popover-foreground: 224 71% 4%;
-    --primary: 263 58% 71%; /* #A98DDE */
+    --primary: 263 58% 71%;
     --primary-foreground: 0 0% 100%;
     --secondary: 210 20% 94%;
     --secondary-foreground: 224 71% 4%;
     --muted: 210 20% 94%;
     --muted-foreground: 215 10% 45%;
-    --accent: 33 100% 64%; /* #FFB347 */
+    --accent: 33 100% 64%;
     --accent-foreground: 24 9.8% 10%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 20% 98%;
@@ -51,55 +51,125 @@ body {
     --ring: 263 58% 71%;
   }
 
+  /* == Themes Start == */
+  /* Stylek Theme (Default-like) */
   .theme-stylek {
+    --background: 0 0% 96%; /* Light Gray */
+    --foreground: 224 71% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
     --primary: 263 58% 71%; /* Desaturated Purple */
     --primary-foreground: 0 0% 100%;
+    --secondary: 210 20% 94%;
+    --muted: 210 20% 94%;
     --accent: 33 100% 64%; /* Orange */
     --accent-foreground: 24 9.8% 10%;
+    --border: 210 20% 90%;
+    --input: 210 20% 90%;
+    --ring: 263 58% 71%;
+  }
+  .dark .theme-stylek {
+    --background: 224 71% 4%; /* Dark Blue-Gray */
+    --foreground: 210 20% 98%;
+    --card: 224 71% 6%;
+    --card-foreground: 210 20% 98%;
+    --primary: 263 58% 71%;
+    --secondary: 224 71% 10%;
+    --muted: 224 71% 10%;
+    --accent: 33 100% 64%;
+    --border: 224 71% 10%;
+    --input: 224 71% 10%;
     --ring: 263 58% 71%;
   }
 
+  /* Tfarrej Theme */
   .theme-tfarrej {
+    --background: 220 13% 18%; /* Dark Slate Gray */
+    --foreground: 210 20% 95%; /* Light Gray */
+    --card: 220 13% 22%;
+    --card-foreground: 210 20% 95%;
     --primary: 198 93% 45%; /* Cinematic Blue */
     --primary-foreground: 0 0% 100%;
+    --secondary: 220 13% 28%;
+    --muted: 220 13% 28%;
+    --muted-foreground: 220 13% 70%;
     --accent: 45 93% 57%; /* Golden Yellow */
-    --accent-foreground: 25 95% 25%;
+    --accent-foreground: 25 95% 15%;
+    --border: 220 13% 30%;
+    --input: 220 13% 30%;
     --ring: 198 93% 45%;
   }
+  .dark .theme-tfarrej {
+    --background: 220 13% 10%; /* Even Darker Slate Gray */
+    --foreground: 210 20% 98%;
+    --card: 220 13% 14%;
+    --card-foreground: 210 20% 98%;
+    --primary: 198 93% 55%;
+    --secondary: 220 13% 18%;
+    --muted: 220 13% 18%;
+    --accent: 45 93% 62%;
+    --border: 220 13% 22%;
+    --input: 220 13% 22%;
+  }
   
+  /* 5amem Theme */
   .theme-5amem {
+    --background: 210 40% 98%; /* Very Light Blue */
+    --foreground: 217 31% 21%;
+    --card: 0 0% 100%;
+    --card-foreground: 217 31% 21%;
     --primary: 217 91% 60%; /* Brainy Blue */
     --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 94%;
+    --muted: 210 40% 94%;
     --accent: 280 80% 65%; /* Vibrant Violet */
     --accent-foreground: 0 0% 100%;
+    --border: 210 40% 90%;
+    --input: 210 40% 90%;
     --ring: 217 91% 60%;
   }
+  .dark .theme-5amem {
+    --background: 217 31% 12%; /* Dark Blue */
+    --foreground: 210 40% 98%;
+    --card: 217 31% 16%;
+    --card-foreground: 210 40% 98%;
+    --primary: 217 91% 65%;
+    --secondary: 217 31% 20%;
+    --muted: 217 31% 20%;
+    --accent: 280 80% 70%;
+    --border: 217 31% 24%;
+    --input: 217 31% 24%;
+  }
 
+  /* Khrouj Theme */
   .theme-khrouj {
+    --background: 140 70% 97%; /* Mint Green */
+    --foreground: 142 76% 20%;
+    --card: 0 0% 100%;
+    --card-foreground: 142 76% 20%;
     --primary: 340 82% 60%; /* Lively Pink */
     --primary-foreground: 0 0% 100%;
+    --secondary: 140 70% 92%;
+    --muted: 140 70% 92%;
     --accent: 142 76% 36%; /* Fresh Green */
     --accent-foreground: 0 0% 100%;
+    --border: 140 70% 88%;
+    --input: 140 70% 88%;
     --ring: 340 82% 60%;
   }
-
-  /* Dark themes */
-  .dark .theme-stylek {
-    --primary: 263 58% 71%;
-    --accent: 33 100% 64%;
-  }
-  .dark .theme-tfarrej {
-    --primary: 198 93% 55%;
-    --accent: 45 93% 62%;
-  }
-  .dark .theme-5amem {
-    --primary: 217 91% 65%;
-    --accent: 280 80% 70%;
-  }
   .dark .theme-khrouj {
+    --background: 142 76% 10%; /* Dark Green */
+    --foreground: 140 70% 98%;
+    --card: 142 76% 14%;
+    --card-foreground: 140 70% 98%;
     --primary: 340 82% 65%;
+    --secondary: 142 76% 18%;
+    --muted: 142 76% 18%;
     --accent: 142 76% 46%;
+    --border: 142 76% 22%;
+    --input: 142 76% 22%;
   }
+  /* == Themes End == */
 }
 
 @layer base {
