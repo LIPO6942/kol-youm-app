@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { X, Heart, Loader2, Film, RotateCcw, Star, Link as LinkIcon, Users, Calendar } from 'lucide-react';
@@ -88,7 +87,7 @@ export default function MovieSwiper() {
   if (isSuggestionsLoading) {
     return (
        <div className="flex justify-center">
-            <Card className="relative w-full max-w-sm h-[600px] flex flex-col items-center justify-center text-center">
+            <Card className="relative w-full max-w-sm h-[550px] flex flex-col items-center justify-center text-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 <p className="text-muted-foreground mt-4">Recherche de nouveaux films...</p>
             </Card>
@@ -98,7 +97,7 @@ export default function MovieSwiper() {
 
   return (
     <div className="flex justify-center">
-      <div className="relative w-full max-w-sm h-[600px]">
+      <div className="relative w-full max-w-sm h-[550px]">
         {movies.length === 0 && !isSuggestionsLoading ? (
           <Card className="absolute inset-0 flex flex-col items-center justify-center text-center">
             <CardContent className="p-6">
@@ -114,46 +113,40 @@ export default function MovieSwiper() {
           </Card>
         ) : currentMovie ? (
           <Card className="absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out shadow-2xl">
-            <CardHeader className="p-0 relative h-[250px] overflow-hidden">
-                <Image
-                    src={`https://placehold.co/400x250.png`}
-                    data-ai-hint={`${currentMovie.genre} movie`}
-                    alt={`Image d'ambiance pour ${currentMovie.title}`}
-                    layout="fill"
-                    objectFit="cover"
-                    className="rounded-t-lg"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                     <Badge variant="secondary" className="mb-2">{currentMovie.genre}</Badge>
-                     <CardTitle className="font-headline text-3xl">{currentMovie.title}</CardTitle>
-                </div>
-            </CardHeader>
-            <CardContent className="flex-grow flex flex-col p-4 pt-2">
-                <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-                    <div className="flex items-center gap-1">
+            <CardHeader className="p-6">
+                <Badge variant="secondary" className="mb-2 self-start">{currentMovie.genre}</Badge>
+                <CardTitle className="font-headline text-3xl leading-tight">{currentMovie.title}</CardTitle>
+                <CardDescription className="flex items-center gap-4 pt-2">
+                    <div className="flex items-center gap-1.5">
                         <Star className="h-4 w-4 text-amber-400" /> 
                         <span className="font-bold">{currentMovie.rating.toFixed(1)}</span>/10
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                         <Calendar className="h-4 w-4" /> 
                         <span className="font-bold">{currentMovie.year}</span>
                     </div>
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="flex-grow flex flex-col justify-between p-6 pt-0">
+                <div>
+                    <h4 className="font-semibold text-sm mb-1">Synopsis</h4>
+                    <p className="text-sm text-muted-foreground max-h-24 overflow-y-auto">{currentMovie.synopsis}</p>
                 </div>
               
-              <p className="text-sm flex-grow overflow-y-auto mb-4">{currentMovie.synopsis}</p>
+              <Separator className="my-4"/>
               
-              <Separator className="my-2"/>
-              
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-semibold">{currentMovie.actors.join(', ')}</span>
-                </div>
+              <div className="space-y-3">
+                 <div>
+                    <h4 className="font-semibold text-sm mb-1">Acteurs principaux</h4>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Users className="h-4 w-4 flex-shrink-0" />
+                        <span>{currentMovie.actors.join(', ')}</span>
+                    </div>
+                 </div>
                 <Link href={currentMovie.wikipediaUrl} target="_blank" rel="noopener noreferrer" passHref>
                     <Button variant="link" className="p-0 h-auto text-sm">
                         <LinkIcon className="mr-2 h-4 w-4" />
-                        Voir sur Wikipédia
+                        En savoir plus sur Wikipédia
                     </Button>
                 </Link>
               </div>
