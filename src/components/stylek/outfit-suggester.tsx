@@ -472,19 +472,19 @@ export default function OutfitSuggester() {
             <h3 className="text-xl font-bold font-headline text-center mb-4">Votre Tenue du Jour</h3>
             <div className="grid grid-cols-2 grid-rows-2 gap-4 mb-4">
                 <div className="relative aspect-square bg-secondary rounded-lg overflow-hidden">
-                    <Image src="https://placehold.co/300x300.png" alt="Haut" layout="fill" objectFit="cover" data-ai-hint="shirt" />
+                    <Image src="https://placehold.co/300x300.png" alt="Haut" fill className="object-cover" data-ai-hint="shirt" />
                     <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-center py-1 text-sm">Haut</div>
                 </div>
                 <div className="relative aspect-square bg-secondary rounded-lg overflow-hidden">
-                    <Image src="https://placehold.co/300x300.png" alt="Bas" layout="fill" objectFit="cover" data-ai-hint="pants" />
+                    <Image src="https://placehold.co/300x300.png" alt="Bas" fill className="object-cover" data-ai-hint="pants" />
                      <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-center py-1 text-sm">Bas</div>
                 </div>
                 <div className="relative aspect-square bg-secondary rounded-lg overflow-hidden">
-                    <Image src="https://placehold.co/300x300.png" alt="Chaussures" layout="fill" objectFit="cover" data-ai-hint="shoes" />
+                    <Image src="https://placehold.co/300x300.png" alt="Chaussures" fill className="object-cover" data-ai-hint="shoes" />
                      <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-center py-1 text-sm">Chaussures</div>
                 </div>
                 <div className="relative aspect-square bg-secondary rounded-lg overflow-hidden">
-                    <Image src="https://placehold.co/300x300.png" alt="Accessoires" layout="fill" objectFit="cover" data-ai-hint="watch" />
+                    <Image src="https://placehold.co/300x300.png" alt="Accessoires" fill className="object-cover" data-ai-hint="watch" />
                      <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-center py-1 text-sm">Accessoires</div>
                 </div>
             </div>

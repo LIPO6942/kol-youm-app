@@ -33,7 +33,7 @@ const SuggestOutfitInputSchema = z.object({
 export type SuggestOutfitInput = z.infer<typeof SuggestOutfitInputSchema>;
 
 const SuggestOutfitOutputSchema = z.object({
-  outfitSuggestion: z.string().describe('An outfit suggestion based on the inputs.'),
+  outfitSuggestion: z.string().describe('Une suggestion de tenue en français basée sur les entrées.'),
 });
 export type SuggestOutfitOutput = z.infer<typeof SuggestOutfitOutputSchema>;
 
@@ -45,27 +45,29 @@ const prompt = ai.definePrompt({
   name: 'suggestOutfitPrompt',
   input: {schema: SuggestOutfitInputSchema},
   output: {schema: SuggestOutfitOutputSchema},
-  prompt: `You are a personal stylist AI assistant.
+  prompt: `Vous êtes un assistant styliste personnel IA. Votre réponse doit être exclusivement en français.
 
 {{#if baseItem}}
-Based on the user's base item, their schedule keywords, the weather, and the occasion, suggest a complete outfit that complements the base item.
-Base Item: {{{baseItem}}}
+En vous basant sur la pièce de base de l'utilisateur, ses mots-clés d'agenda, la météo et l'occasion, suggérez une tenue complète qui complète la pièce de base.
+Pièce de base : {{{baseItem}}}
 {{else}}
-Based on the user's schedule keywords, the weather, and the occasion, suggest an appropriate outfit.
+En vous basant sur les mots-clés de l'agenda de l'utilisateur, la météo et l'occasion, suggérez une tenue appropriée.
 {{/if}}
 
-Schedule Keywords: {{{scheduleKeywords}}}
-Weather: {{{weather}}}
-Occasion: {{{occasion}}}
-Preferred Colors: {{#if preferredColors}}{{{preferredColors}}}{{else}}No preferred colors{{/if}}
+Mots-clés de l'agenda : {{{scheduleKeywords}}}
+Météo : {{{weather}}}
+Occasion : {{{occasion}}}
+Couleurs préférées : {{#if preferredColors}}{{{preferredColors}}}{{else}}Pas de couleurs préférées{{/if}}
 
-Suggest a complete outfit, including top, bottom, shoes, and accessories. Provide details, such as color, material, and style.
-If the user has specified preferred colors, then follow their instructions closely. If they have not specified preferred colors, then suggest outfits with colors that are generally appropriate and fashionable.
+Suggérez une tenue complète, incluant le haut, le bas, les chaussures et les accessoires. Fournissez des détails tels que la couleur, la matière et le style.
+Si l'utilisateur a spécifié des couleurs préférées, suivez ses instructions de près. S'il n'a pas spécifié de couleurs préférées, suggérez des tenues avec des couleurs généralement appropriées et à la mode.
 {{#if baseItem}}
-The suggested outfit must incorporate and match the base item provided. For example if the base item is a top, suggest a bottom, shoes and accessories. If the base item is a unique piece like a dress, suggest shoes and accessories.
+La tenue suggérée doit incorporer et correspondre à la pièce de base fournie. Par exemple, si la pièce de base est un haut, suggérez un bas, des chaussures et des accessoires. Si la pièce de base est une pièce unique comme une robe, suggérez des chaussures et des accessoires.
 {{/if}}
 
-Output:
+La description de la tenue doit être concise et facile à lire.
+
+Suggestion de tenue :
 `,
 });
 
