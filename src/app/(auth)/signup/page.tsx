@@ -52,13 +52,16 @@ export default function SignupPage() {
             description = "Le mot de passe est trop faible. Il doit contenir au moins 6 caractères.";
             break;
           case 'permission-denied':
-             description = "Permission refusée. Vos règles de sécurité Firestore n'autorisent probablement pas un nouvel utilisateur à créer son propre profil. Veuillez les vérifier dans votre console Firebase.";
+             description = "Permission refusée. Vos règles de sécurité Firestore n'autorisent probablement pas un nouvel utilisateur à créer son propre profil. Veuillez les vérifier.";
              break;
           case 'auth/network-request-failed':
              description = "Erreur de réseau. Il est probable que votre domaine Vercel ne soit pas autorisé. Veuillez vérifier vos paramètres Firebase.";
              break;
+          case 'auth/api-key-not-valid':
+             description = "La clé d'API Firebase n'est pas valide. Vérifiez vos variables d'environnement sur Vercel.";
+             break;
           default:
-            description = `Une erreur est survenue (${error.code}). Le problème peut venir de la configuration de votre projet Firebase (Firestore activé, règles de sécurité).`;
+            description = `Une erreur est survenue (${error.code}). Cela indique souvent que la base de données Firestore n'a pas été activée dans votre projet Firebase. Veuillez vérifier sa configuration.`;
             break;
         }
       }

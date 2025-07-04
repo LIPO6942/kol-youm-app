@@ -45,6 +45,9 @@ export default function LoginPage() {
               case 'auth/network-request-failed':
                   description = "Erreur de réseau. Il est probable que votre domaine Vercel ne soit pas autorisé. Veuillez vérifier vos paramètres Firebase.";
                   break;
+              case 'auth/api-key-not-valid':
+                description = "La clé d'API Firebase n'est pas valide. Vérifiez vos variables d'environnement sur Vercel.";
+                break;
               default:
                   description = `Une erreur est survenue (${error.code}). Vérifiez la console pour plus de détails.`;
                   break;
