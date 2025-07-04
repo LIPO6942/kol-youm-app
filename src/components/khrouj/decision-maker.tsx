@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -93,9 +94,11 @@ export default function DecisionMaker() {
                 <Button className="w-full" onClick={handleReset}>
                     <RotateCw className="mr-2 h-4 w-4" /> Une autre idée
                 </Button>
-                <Button variant="outline" className="w-full">
-                    <MapPin className="mr-2 h-4 w-4" /> M'y emmener
-                </Button>
+                <Link href={result.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="w-full">
+                    <Button variant="outline" className="w-full">
+                        <MapPin className="mr-2 h-4 w-4" /> M'y emmener sur Maps
+                    </Button>
+                </Link>
             </CardFooter>
         </Card>
     );

@@ -19,17 +19,21 @@ export const MakeDecisionOutputSchema = z.object({
   placeName: z
     .string()
     .describe(
-      'A specific, creative, and appealing name for a fictional place that fits the chosen option.'
+      'The name of a real, existing, and well-regarded place that fits the chosen option.'
     ),
   description: z
     .string()
     .describe(
-      'A short, enticing description of the suggested place, highlighting one or two key features. The tone should be friendly and inspiring.'
+      'A short, enticing description of the suggested place, highlighting its specialty or ambiance. The tone should be friendly and inspiring.'
     ),
   location: z
     .string()
     .describe(
-      'A plausible neighborhood or area within the specified city. e.g., "La Marsa", "Les Berges du Lac 2".'
+      'The specific neighborhood or area of the suggested place. e.g., "La Marsa", "Les Berges du Lac 2".'
     ),
+  googleMapsUrl: z
+    .string()
+    .url()
+    .describe('A valid Google Maps URL to the suggested place.'),
 });
 export type MakeDecisionOutput = z.infer<typeof MakeDecisionOutputSchema>;
