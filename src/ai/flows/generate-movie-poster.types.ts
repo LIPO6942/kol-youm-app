@@ -1,12 +1,16 @@
 import {z} from 'genkit';
 
+/**
+ * @fileOverview This file is deprecated and no longer used.
+ */
+
 export const GenerateMoviePosterInputSchema = z.object({
-  title: z.string().describe('The title of the movie.'),
-  synopsis: z.string().describe('The synopsis of the movie.'),
+  title: z.string().optional(),
+  synopsis: z.string().optional(),
 });
 export type GenerateMoviePosterInput = z.infer<typeof GenerateMoviePosterInputSchema>;
 
 export const GenerateMoviePosterOutputSchema = z.object({
-  posterDataUri: z.string().describe("A movie poster image as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
+  posterDataUri: z.string().optional(),
 });
 export type GenerateMoviePosterOutput = z.infer<typeof GenerateMoviePosterOutputSchema>;

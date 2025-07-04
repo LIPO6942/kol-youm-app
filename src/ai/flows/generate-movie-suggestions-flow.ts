@@ -22,10 +22,14 @@ Les films doivent appartenir à des genres variés (Drame, Comédie, Sci-Fi, Thr
 {{/if}}
 
 Pour chaque film, fournis :
-1.  Un 'id' unique (une courte chaîne de caractères aléatoires suffit).
+1.  Un 'id' unique (une courte chaîne de caractères aléatoires).
 2.  Un 'title' (titre) original et accrocheur.
 3.  Une 'synopsis' (synopsis) courte et intrigante (une ou deux phrases).
-4.  Un 'genre' principal.
+4.  Une liste 'actors' de 2 ou 3 acteurs principaux (réels ou fictifs crédibles).
+5.  Un 'rating' (note) estimé sur 10 (par exemple, 8.2).
+6.  Une 'year' (année) de sortie crédible.
+7.  Une 'wikipediaUrl' : une URL **valide et fonctionnelle** vers la page Wikipédia d'un film **réel** qui correspond au titre et au genre. Si le film que tu inventes est fictif, trouve un film réel similaire et utilise son URL Wikipédia. Privilégie la page Wikipédia en français si elle existe, sinon en anglais. L'URL doit commencer par "https://fr.wikipedia.org" ou "https://en.wikipedia.org".
+8.  Un 'genre' principal.
 
 Toutes les réponses doivent être en français. Réponds uniquement en respectant le format de sortie JSON demandé.`,
 });

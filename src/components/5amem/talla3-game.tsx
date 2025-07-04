@@ -1,74 +1,123 @@
-
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { Check, ChevronsUpDown, Trophy, RotateCcw } from 'lucide-react';
+import { Check, ChevronsUpDown, Trophy, RotateCcw, Loader2, ServerCrash } from 'lucide-react';
+import { generateTalla3Challenges } from '@/ai/flows/generate-talla3-challenge-flow';
+import type { Talla3Challenge } from '@/ai/flows/generate-talla3-challenge-flow.types';
 
-const challenges = [
-  {
-    title: "Classez ces inventions de la plus ancienne à la plus récente :",
-    items: ['La roue', 'L\'imprimerie', 'Le téléphone', 'Internet'],
-  },
-  {
-    title: "Organisez ces films de Quentin Tarantino par ordre de sortie :",
-    items: ['Reservoir Dogs', 'Pulp Fiction', 'Kill Bill: Volume 1', 'Inglourious Basterds', 'Once Upon a Time in Hollywood'],
-  },
-  {
-    title: "Classez les planètes du système solaire par ordre de distance au Soleil :",
-    items: ['Mercure', 'Vénus', 'Terre', 'Mars', 'Jupiter', 'Saturne', 'Uranus', 'Neptune'],
-  },
-  {
-    title: "Remettez dans l'ordre les étapes de la vie d'un papillon :",
-    items: ['Œuf', 'Larve (chenille)', 'Nymphe (chrysalide)', 'Imago (papillon)'],
-  }
-];
 
 export default function Talla3Game() {
+  const [challenges, setChallenges] = useState<Talla3Challenge[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [currentChallengeIndex, setCurrentChallengeIndex] = useState(0);
   const [userOrder, setUserOrder] = useState<string[]>([]);
   const [remainingItems, setRemainingItems] = useState<string[]>([]);
   const [gameState, setGameState] = useState<'playing' | 'correct' | 'incorrect'>('playing');
-  
-  const currentChallenge = useMemo(() => challenges[currentChallengeIndex], [currentChallengeIndex]);
+  const { toast } = useToast();
 
-  const startChallenge = (challengeIndex: number) => {
-    const challenge = challenges[challengeIndex];
+  const fetchChallenges = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await generateTalla3Challenges({ count: 5 });
+      setChallenges(data.challenges);
+      setCurrentChallengeIndex(0);
+    } catch (e) {
+      console.error(e);
+      setError("Impossible de charger de nouveaux défis. Veuillez réessayer.");
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: "Impossible de charger les défis Talla3.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+  
+  useEffect(() => {
+    fetchChallenges();
+  }, [fetchChallenges]);
+  
+  const currentChallenge = useMemo(() => {
+    if (challenges.length > 0 && currentChallengeIndex < challenges.length) {
+      return challenges[currentChallengeIndex];
+    }
+    return null;
+  }, [challenges, currentChallengeIndex]);
+
+  const startChallenge = useCallback((challenge: Talla3Challenge | null) => {
+    if (!challenge) return;
     setUserOrder([]);
     setRemainingItems([...challenge.items].sort(() => Math.random() - 0.5));
     setGameState('playing');
-  };
+  }, []);
 
   useEffect(() => {
-    startChallenge(currentChallengeIndex);
-  }, [currentChallengeIndex]);
+    startChallenge(currentChallenge);
+  }, [currentChallenge, startChallenge]);
+
 
   const handleItemClick = (item: string) => {
+    if (gameState !== 'playing') return;
     setUserOrder(prev => [...prev, item]);
     setRemainingItems(prev => prev.filter(i => i !== item));
   };
 
   const handleUndo = () => {
-    if (userOrder.length === 0) return;
+    if (userOrder.length === 0 || gameState !== 'playing') return;
     const lastItem = userOrder[userOrder.length - 1];
     setUserOrder(prev => prev.slice(0, -1));
     setRemainingItems(prev => [...prev, lastItem]);
   };
 
   const handleCheckAnswer = () => {
+    if (!currentChallenge) return;
     const isCorrect = userOrder.length === currentChallenge.items.length && userOrder.every((item, index) => item === currentChallenge.items[index]);
     setGameState(isCorrect ? 'correct' : 'incorrect');
   };
 
   const handleNextChallenge = () => {
     const nextIndex = currentChallengeIndex + 1;
-    setCurrentChallengeIndex(nextIndex >= challenges.length ? 0 : nextIndex); // Loop back to start
+    if (nextIndex >= challenges.length) {
+        // fetch new challenges when list is exhausted
+        fetchChallenges();
+    } else {
+        setCurrentChallengeIndex(nextIndex);
+    }
   };
+  
+  const handleRestartThisChallenge = () => {
+    startChallenge(currentChallenge);
+  }
+
+  if (isLoading) {
+    return (
+        <Card className="w-full max-w-2xl mx-auto min-h-[400px] flex flex-col justify-center items-center">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <p className="mt-4 text-lg text-muted-foreground">Préparation de nouveaux défis...</p>
+        </Card>
+    );
+  }
+
+  if (error || !currentChallenge) {
+    return (
+        <Card className="w-full max-w-2xl mx-auto min-h-[400px] flex flex-col justify-center items-center text-center p-4">
+            <ServerCrash className="h-10 w-10 text-destructive mb-4" />
+            <CardTitle className="font-headline text-2xl">Oups, une erreur !</CardTitle>
+            <CardDescription className="mb-4">{error || "Impossible de charger le défi."}</CardDescription>
+            <Button onClick={fetchChallenges}><RotateCcw className="mr-2 h-4 w-4" /> Réessayer</Button>
+        </Card>
+    );
+  }
 
   const isGameFinished = currentChallengeIndex >= challenges.length;
-
    if (isGameFinished) {
     return (
         <Card className="w-full max-w-2xl mx-auto text-center">
@@ -81,7 +130,7 @@ export default function Talla3Game() {
                 <p>Vous avez un excellent sens de l'ordre !</p>
             </CardContent>
             <CardFooter className="justify-center">
-                <Button onClick={() => setCurrentChallengeIndex(0)}>Recommencer</Button>
+                <Button onClick={fetchChallenges}>Jouer à nouveau</Button>
             </CardFooter>
         </Card>
     );
@@ -90,7 +139,7 @@ export default function Talla3Game() {
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle className="font-headline text-center">Défi de Classement</CardTitle>
+        <CardTitle className="font-headline text-center">Talla3</CardTitle>
         <CardDescription className="text-center">{currentChallenge.title}</CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
@@ -149,7 +198,7 @@ export default function Talla3Game() {
         )}
         
         <div className="grid grid-cols-2 gap-4 w-full">
-            <Button variant="outline" onClick={() => startChallenge(currentChallengeIndex)}>
+            <Button variant="outline" onClick={handleRestartThisChallenge}>
                 <RotateCcw className="mr-2 h-4 w-4" /> Recommencer ce défi
             </Button>
             <Button onClick={handleNextChallenge}>

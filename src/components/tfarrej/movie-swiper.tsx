@@ -2,17 +2,19 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { X, Heart, Loader2, Film, RotateCcw } from 'lucide-react';
+import { X, Heart, Loader2, Film, RotateCcw, Star, Link as LinkIcon, Users, Calendar } from 'lucide-react';
 
 import { recordMovieSwipe } from '@/ai/flows/movie-preference-learning';
 import type { MovieSwipeInput } from '@/ai/flows/movie-preference-learning.types';
-import { generateMoviePoster } from '@/ai/flows/generate-movie-poster';
 import { generateMovieSuggestions } from '@/ai/flows/generate-movie-suggestions-flow';
 import type { MovieSuggestion } from '@/ai/flows/generate-movie-suggestions-flow.types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { Separator } from '@/components/ui/separator';
 
 export default function MovieSwiper() {
   const searchParams = useSearchParams();
@@ -22,8 +24,6 @@ export default function MovieSwiper() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSwipeLoading, setIsSwipeLoading] = useState(false);
   const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(true);
-  const [currentPosterUrl, setCurrentPosterUrl] = useState<string | null>(null);
-  const [isPosterLoading, setIsPosterLoading] = useState(true);
   const { toast } = useToast();
 
   const fetchMovies = useCallback(async () => {
@@ -49,41 +49,8 @@ export default function MovieSwiper() {
     fetchMovies();
   }, [fetchMovies]);
 
-  useEffect(() => {
-    const fetchPoster = async () => {
-      if (currentIndex >= movies.length) {
-        setIsPosterLoading(false);
-        return;
-      }
-
-      setIsPosterLoading(true);
-      setCurrentPosterUrl(null);
-      const movie = movies[currentIndex];
-      try {
-        const result = await generateMoviePoster({ title: movie.title, synopsis: movie.synopsis });
-        setCurrentPosterUrl(result.posterDataUri);
-      } catch (error) {
-        console.error('Failed to generate poster', error);
-        setCurrentPosterUrl('https://placehold.co/400x600.png');
-        toast({
-          variant: 'destructive',
-          title: 'Erreur de génération d\'image',
-          description: "Impossible de créer l'affiche du film.",
-        });
-      } finally {
-        setIsPosterLoading(false);
-      }
-    };
-
-    if (movies.length > 0) {
-      fetchPoster();
-    } else {
-        setIsPosterLoading(false);
-    }
-  }, [currentIndex, movies, toast]);
-
   const handleSwipe = async (swipeDirection: 'left' | 'right') => {
-    if (isSwipeLoading || isPosterLoading || currentIndex >= movies.length) return;
+    if (isSwipeLoading || currentIndex >= movies.length) return;
 
     setIsSwipeLoading(true);
     const movie = movies[currentIndex];
@@ -146,39 +113,59 @@ export default function MovieSwiper() {
             </CardContent>
           </Card>
         ) : currentMovie ? (
-          <Card className="absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out">
-            <CardHeader className="p-0 border-b relative h-3/5">
-              {isPosterLoading ? (
-                 <div className="w-full h-full flex items-center justify-center bg-secondary rounded-t-lg">
-                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                 </div>
-              ) : currentPosterUrl && (
-                <>
-                  <Image
-                    src={currentPosterUrl}
-                    alt={`Affiche du film ${currentMovie.title}`}
+          <Card className="absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out shadow-2xl">
+            <CardHeader className="p-0 relative h-[250px] overflow-hidden">
+                <Image
+                    src={`https://placehold.co/400x250.png`}
+                    data-ai-hint={`${currentMovie.genre} movie`}
+                    alt={`Image d'ambiance pour ${currentMovie.title}`}
                     layout="fill"
                     objectFit="cover"
                     className="rounded-t-lg"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                </>
-              )}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                     <Badge variant="secondary" className="mb-2">{currentMovie.genre}</Badge>
+                     <CardTitle className="font-headline text-3xl">{currentMovie.title}</CardTitle>
+                </div>
             </CardHeader>
-            <div className="flex-grow flex flex-col p-4">
-              <CardTitle className="font-headline text-2xl">{currentMovie.title}</CardTitle>
-              <CardDescription className="mt-2 text-sm flex-grow overflow-y-auto">
-                {currentMovie.synopsis}
-              </CardDescription>
-              <CardFooter className="p-0 pt-4 grid grid-cols-2 gap-4">
-                <Button variant="outline" size="lg" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleSwipe('left')} disabled={isSwipeLoading || isPosterLoading}>
-                  {(isSwipeLoading || isPosterLoading) ? <Loader2 className="animate-spin" /> : <X className="h-8 w-8" />}
+            <CardContent className="flex-grow flex flex-col p-4 pt-2">
+                <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+                    <div className="flex items-center gap-1">
+                        <Star className="h-4 w-4 text-amber-400" /> 
+                        <span className="font-bold">{currentMovie.rating.toFixed(1)}</span>/10
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" /> 
+                        <span className="font-bold">{currentMovie.year}</span>
+                    </div>
+                </div>
+              
+              <p className="text-sm flex-grow overflow-y-auto mb-4">{currentMovie.synopsis}</p>
+              
+              <Separator className="my-2"/>
+              
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-semibold">{currentMovie.actors.join(', ')}</span>
+                </div>
+                <Link href={currentMovie.wikipediaUrl} target="_blank" rel="noopener noreferrer" passHref>
+                    <Button variant="link" className="p-0 h-auto text-sm">
+                        <LinkIcon className="mr-2 h-4 w-4" />
+                        Voir sur Wikipédia
+                    </Button>
+                </Link>
+              </div>
+            </CardContent>
+             <CardFooter className="p-4 pt-0 grid grid-cols-2 gap-4">
+                <Button variant="outline" size="lg" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive h-14" onClick={() => handleSwipe('left')} disabled={isSwipeLoading}>
+                  {isSwipeLoading ? <Loader2 className="animate-spin" /> : <X className="h-8 w-8" />}
                 </Button>
-                <Button variant="outline" size="lg" className="border-green-500 text-green-500 hover:bg-green-500/10 hover:text-green-500" onClick={() => handleSwipe('right')} disabled={isSwipeLoading || isPosterLoading}>
-                  {(isSwipeLoading || isPosterLoading) ? <Loader2 className="animate-spin" /> : <Heart className="h-8 w-8" />}
+                <Button variant="outline" size="lg" className="border-green-500 text-green-500 hover:bg-green-500/10 hover:text-green-500 h-14" onClick={() => handleSwipe('right')} disabled={isSwipeLoading}>
+                  {isSwipeLoading ? <Loader2 className="animate-spin" /> : <Heart className="h-8 w-8" />}
                 </Button>
-              </CardFooter>
-            </div>
+            </CardFooter>
           </Card>
         ) : (
           <Card className="absolute inset-0 flex flex-col items-center justify-center text-center">
