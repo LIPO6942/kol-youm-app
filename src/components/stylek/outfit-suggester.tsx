@@ -140,41 +140,38 @@ const weatherOptions = [
 ];
 
 
-const OutfitImage = ({ itemKey, description }: { itemKey: string; description: string }) => {
+const GeneratedOutfitImage = ({ description, gender }: { description: string; gender?: 'Homme' | 'Femme' }) => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     const generate = async () => {
-      if (!description || description.toLowerCase() === 'n/a' || description.toLowerCase() === 'néant') {
-        return;
-      }
+      if (!description) return;
       setIsLoading(true);
       setError(false);
       setImageUrl(null);
       try {
-        const result = await generateOutfitImage({ itemDescription: description });
+        const result = await generateOutfitImage({ itemDescription: description, gender });
         setImageUrl(result.imageDataUri);
       } catch (e) {
-        console.error(`Failed to generate image for ${itemKey}`, e);
+        console.error(`Failed to generate outfit image`, e);
         setError(true);
       } finally {
         setIsLoading(false);
       }
     };
     generate();
-  }, [description, itemKey]);
+  }, [description, gender]);
 
   return (
-    <div className="relative aspect-square bg-secondary rounded-lg overflow-hidden flex items-center justify-center">
+    <div className="relative aspect-[3/4] w-full max-w-sm mx-auto bg-secondary rounded-lg overflow-hidden flex items-center justify-center">
       {isLoading && <Loader2 className="h-8 w-8 animate-spin text-primary" />}
-      {error && <XCircle className="h-8 w-8 text-destructive" />}
-      {imageUrl && <Image src={imageUrl} alt={itemKey} fill className="object-cover" />}
-       {(!description || description.toLowerCase() === 'n/a' || description.toLowerCase() === 'néant') && 
-        <span className="text-sm text-muted-foreground">N/A</span>
-      }
-      <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-center py-1 text-sm capitalize">{itemKey}</div>
+      {error && <div className="text-center p-4">
+          <XCircle className="h-8 w-8 text-destructive mx-auto" />
+          <p className="text-xs text-destructive-foreground mt-2">Erreur Image</p>
+      </div>}
+      {imageUrl && <Image src={imageUrl} alt="Tenue suggérée" fill className="object-cover" />}
     </div>
   );
 };
@@ -495,7 +492,7 @@ export default function OutfitSuggester() {
         </Form>
       </Card>
 
-      <Card className="min-h-[400px] flex flex-col justify-center items-center sticky top-24">
+      <Card className="min-h-[600px] flex flex-col justify-center items-center sticky top-24">
         {isLoading && (
           <div className="flex flex-col items-center text-muted-foreground">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -509,15 +506,29 @@ export default function OutfitSuggester() {
           </div>
         )}
         {suggestion && (
-          <CardContent className="p-6 w-full">
+          <CardContent className="p-4 sm:p-6 w-full">
             <h3 className="text-xl font-bold font-headline text-center mb-4">Votre Tenue du Jour</h3>
-            <div className="grid grid-cols-2 grid-rows-2 gap-4 mb-4">
-                <OutfitImage itemKey="haut" description={suggestion.haut} />
-                <OutfitImage itemKey="bas" description={suggestion.bas} />
-                <OutfitImage itemKey="chaussures" description={suggestion.chaussures} />
-                <OutfitImage itemKey="accessoires" description={suggestion.accessoires} />
+            <GeneratedOutfitImage description={suggestion.suggestionText} gender={userProfile?.gender} />
+
+            <div className="mt-6 space-y-3">
+                <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                    <p className="font-semibold text-muted-foreground">Haut</p>
+                    <p className="font-medium">{suggestion.haut}</p>
+                </div>
+                <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                    <p className="font-semibold text-muted-foreground">Bas</p>
+                    <p className="font-medium">{suggestion.bas}</p>
+                </div>
+                 <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                    <p className="font-semibold text-muted-foreground">Chaussures</p>
+                    <p className="font-medium">{suggestion.chaussures}</p>
+                </div>
+                 <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                    <p className="font-semibold text-muted-foreground">Accessoires</p>
+                    <p className="font-medium">{suggestion.accessoires}</p>
+                </div>
             </div>
-            <p className="text-sm text-center whitespace-pre-line">{suggestion.suggestionText}</p>
+            
           </CardContent>
         )}
       </Card>

@@ -1,8 +1,8 @@
 'use server';
 /**
- * @fileOverview A Genkit flow for generating outfit item images.
+ * @fileOverview A Genkit flow for generating a single image of a complete outfit.
  *
- * - generateOutfitImage - A function that takes an item description and returns an image data URI.
+ * - generateOutfitImage - A function that takes a full outfit description and returns an image data URI.
  */
 
 import {ai} from '@/ai/genkit';
@@ -17,7 +17,8 @@ const generateOutfitImageFlow = ai.defineFlow(
   async (input) => {
     const { media } = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
-      prompt: `Generate a photorealistic image of a single clothing item: ${input.itemDescription}. The item should be presented on a clean, plain, neutral light gray background, as if for a fashion retail website. Do not include any models, mannequins, or other items. Focus only on the described piece of clothing.`,
+      prompt: `Generate a single, photorealistic, full-body image of a complete fashion outfit for a {{gender}}. The outfit is described as: "${input.itemDescription}".
+The image should be styled like a high-end fashion editorial. The person wearing the outfit should be on a clean, plain, neutral light gray background. Do not show the person's face. The focus is entirely on the clothing.`,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
