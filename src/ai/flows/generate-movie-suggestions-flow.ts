@@ -30,6 +30,7 @@ Pour chaque film, fournis :
 6.  Une 'year' (année) de sortie crédible.
 7.  Une 'wikipediaUrl' : une URL **valide et fonctionnelle** vers la page Wikipédia d'un film **réel** qui correspond au titre et au genre. Si le film que tu inventes est fictif, trouve un film réel similaire et utilise son URL Wikipédia. Privilégie la page Wikipédia en français si elle existe, sinon en anglais. L'URL doit commencer par "https://fr.wikipedia.org" ou "https://en.wikipedia.org".
 8.  Un 'genre' principal.
+9.  Un 'country' (pays) d'origine du film.
 
 Toutes les réponses doivent être en français. Réponds uniquement en respectant le format de sortie JSON demandé.`,
 });

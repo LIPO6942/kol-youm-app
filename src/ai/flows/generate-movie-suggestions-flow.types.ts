@@ -15,6 +15,7 @@ export const MovieSuggestionSchema = z.object({
     year: z.number().describe('The release year of the movie.'),
     wikipediaUrl: z.string().describe("A valid URL to the movie's Wikipedia page (French if available, otherwise English)."),
     genre: z.string().describe('The main genre of the movie.'),
+    country: z.string().describe('The country of origin of the movie.'),
 });
 export type MovieSuggestion = z.infer<typeof MovieSuggestionSchema>;
 
