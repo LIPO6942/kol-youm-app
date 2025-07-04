@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'Le Déclic Quotidien',
+  title: 'kol youm',
   description: 'Un assistant personnel intelligent qui transforme la routine en opportunité de découverte.',
 };
 
