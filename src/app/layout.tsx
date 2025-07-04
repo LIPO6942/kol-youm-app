@@ -6,6 +6,8 @@ import { AuthProvider } from '@/hooks/use-auth';
 export const metadata: Metadata = {
   title: 'kol youm',
   description: 'Un assistant personnel intelligent qui transforme la routine en opportunité de découverte.',
+  manifest: '/manifest.json',
+  themeColor: '#A98DDE',
 };
 
 export default function RootLayout({
