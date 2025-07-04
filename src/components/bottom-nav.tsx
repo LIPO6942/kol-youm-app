@@ -2,13 +2,14 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Shirt, Film, BrainCircuit } from 'lucide-react';
+import { Shirt, Film, BrainCircuit, Coffee } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/stylek', label: 'Style', icon: Shirt },
   { href: '/tfarrej', label: 'Ciné', icon: Film },
   { href: '/5amem', label: 'Esprit', icon: BrainCircuit },
+  { href: '/khrouj', label: 'Sortir', icon: Coffee },
 ];
 
 export default function BottomNav() {
@@ -17,7 +18,7 @@ export default function BottomNav() {
   return (
     <nav className="sticky bottom-0 z-10 bg-background/80 backdrop-blur-sm border-t md:hidden">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-3 h-16">
+        <div className="grid grid-cols-4 h-16">
           {navItems.map(({ href, label, icon: Icon }) => {
             const isActive = pathname.startsWith(href);
             return (
