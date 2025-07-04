@@ -36,7 +36,7 @@ export default function BottomNav() {
 
 
   return (
-    <nav className="sticky bottom-0 z-10 bg-background/80 backdrop-blur-sm border-t md:hidden">
+    <nav className="sticky bottom-0 z-10 bg-background/80 backdrop-blur-sm border-t">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-4 h-16">
           {navItems.map(({ href, label, icon: Icon }) => {
