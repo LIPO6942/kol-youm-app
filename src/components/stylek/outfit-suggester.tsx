@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Wand2, Loader2, PlusCircle, Check, Sun, Cloudy, CloudRain, Snowflake, Briefcase, Users, Dumbbell, Coffee } from 'lucide-react';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 
 import { suggestOutfit, type SuggestOutfitInput } from '@/ai/flows/intelligent-outfit-suggestion';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,6 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { Textarea } from '@/components/ui/textarea';
 
 const colors = [
     { name: 'Noir', value: '#1a1a1a' },
@@ -32,6 +32,35 @@ const colors = [
     { name: 'Marron', value: '#a16207' },
     { name: 'Orange', value: '#f97316' },
 ];
+
+const clothingData = {
+  'Un Haut': {
+    'Chemise': ['en lin', 'en coton', 'en soie', 'à carreaux'],
+    'T-shirt': ['à col V', 'à col rond', 'imprimé', 'uni'],
+    'Pull': ['en laine', 'en cachemire', 'à col roulé', 'à capuche'],
+  },
+  'Un Bas': {
+    'Pantalon': ['chino', 'en jean', 'cargo', 'de costume'],
+    'Jupe': ['en jean', 'plissée', 'crayon', 'longue'],
+    'Short': ['en jean', 'bermuda', 'de sport', 'en lin'],
+  },
+  'Des Chaussures': {
+    'Baskets': ['basses', 'montantes', 'de course', 'en toile'],
+    'Talons': ['aiguilles', 'compensés', 'carrés', 'sandales à'],
+    'Bottes': ['en cuir', 'de pluie', 'chelsea', 'cuissardes'],
+  },
+  'Une Pièce Unique': {
+    'Robe': ['d\'été', 'de soirée', 'pull', 'chemise'],
+    'Combinaison': ['pantalon', 'short', 'élégante'],
+  },
+  'Un Accessoire': {
+    'Sac': ['à main', 'à dos', 'bandoulière', 'pochette'],
+    'Chapeau': ['casquette', 'bob', 'fedora', 'béret'],
+    'Bijou': ['collier', 'bracelet', 'boucles d\'oreilles', 'montre'],
+  }
+};
+const colorOptions = ['Noir', 'Blanc', 'Gris', 'Beige', 'Bleu', 'Rouge', 'Vert', 'Jaune', 'Rose', 'Violet', 'Marron', 'Orange', 'Argenté', 'Doré', 'Clair', 'Foncé'];
+
 
 const ColorPicker = ({ value, onChange }: { value: string, onChange: (value: string) => void }) => {
   const selectedColors = value ? value.split(',') : [];
@@ -77,30 +106,33 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 const completeOutfitFormSchema = z.object({
-  itemType: z.string().min(1, 'Veuillez choisir un type de pièce.'),
-  itemDescription: z.string().min(3, 'Veuillez décrire votre pièce.').max(100, 'La description est trop longue.'),
+  type: z.string().min(1, 'Veuillez choisir un type.'),
+  category: z.string().min(1, 'Veuillez choisir une catégorie.'),
+  style: z.string().optional(),
+  color: z.string().optional(),
 });
 
 type CompleteOutfitFormValues = z.infer<typeof completeOutfitFormSchema>;
 
+
 const occasionOptions = [
-  { value: 'Professionnel', label: 'Professionnel' },
-  { value: 'Décontracté', label: 'Décontracté' },
+  { value: 'Professionnel', label: 'Pro' },
+  { value: 'Décontracté', label: 'Casual' },
   { value: 'Chic', label: 'Chic' },
-  { value: 'Sportif', label: 'Sportif' },
+  { value: 'Sportif', label: 'Sport' },
 ];
 
 const scheduleOptions = [
-  { value: 'Réunion Pro', label: 'Réunion Pro', icon: Briefcase },
-  { value: 'Sortie entre amis', label: 'Sortie Amis', icon: Users },
+  { value: 'Réunion Pro', label: 'Réunion', icon: Briefcase },
+  { value: 'Sortie entre amis', label: 'Amis', icon: Users },
   { value: 'Session de Sport', label: 'Sport', icon: Dumbbell },
   { value: 'Journée détente', label: 'Détente', icon: Coffee },
 ];
 
 const weatherOptions = [
-  { value: 'Ensoleillé', label: 'Ensoleillé', icon: Sun },
-  { value: 'Nuageux', label: 'Nuageux', icon: Cloudy },
-  { value: 'Pluvieux', label: 'Pluvieux', icon: CloudRain },
+  { value: 'Ensoleillé', label: 'Soleil', icon: Sun },
+  { value: 'Nuageux', label: 'Nuages', icon: Cloudy },
+  { value: 'Pluvieux', label: 'Pluie', icon: CloudRain },
   { value: 'Froid', label: 'Froid', icon: Snowflake },
 ];
 
@@ -109,6 +141,7 @@ export default function OutfitSuggester() {
   const [isLoading, setIsLoading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
+  const searchParams = useSearchParams();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -120,13 +153,26 @@ export default function OutfitSuggester() {
     },
   });
 
+  useEffect(() => {
+    const occasion = searchParams.get('occasion');
+    if (occasion && occasionOptions.some(o => o.value === occasion)) {
+        form.setValue('occasion', occasion);
+    }
+  }, [searchParams, form]);
+
+
   const completeOutfitForm = useForm<CompleteOutfitFormValues>({
     resolver: zodResolver(completeOutfitFormSchema),
     defaultValues: {
-      itemType: '',
-      itemDescription: '',
+      type: '',
+      category: '',
+      style: '',
+      color: '',
     }
   });
+  const typeValue = completeOutfitForm.watch('type');
+  const categoryValue = completeOutfitForm.watch('category');
+
 
   async function handleSuggestOutfit(values: FormValues) {
     setIsLoading(true);
@@ -155,7 +201,7 @@ export default function OutfitSuggester() {
         toast({
             variant: 'destructive',
             title: 'Champs manquants',
-            description: "Veuillez remplir les mots-clés de l'agenda, la météo et l'occasion avant de compléter une tenue.",
+            description: "Veuillez remplir les informations de base (activité, météo, occasion) avant de compléter une tenue.",
         });
         setIsDialogOpen(false);
         return;
@@ -166,9 +212,10 @@ export default function OutfitSuggester() {
     setIsDialogOpen(false);
 
     try {
+      const baseItemDescription = [values.category, values.style, values.color].filter(Boolean).join(' ');
       const input: SuggestOutfitInput = {
         ...mainFormValues,
-        baseItem: `${values.itemType}: ${values.itemDescription}`
+        baseItem: `${values.type}: ${baseItemDescription}`
       };
       const result = await suggestOutfit(input);
       setSuggestion(result.outfitSuggestion);
@@ -189,8 +236,8 @@ export default function OutfitSuggester() {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline">Créateur de Tenue</CardTitle>
-          <CardDescription>Remplissez les champs pour une suggestion sur-mesure ou complétez une tenue existante.</CardDescription>
+          <CardTitle className="font-headline">Votre Styliste Personnel</CardTitle>
+          <CardDescription>Obtenez une tenue sur-mesure en quelques clics.</CardDescription>
         </CardHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSuggestOutfit)}>
@@ -202,17 +249,17 @@ export default function OutfitSuggester() {
                   <FormItem className="space-y-3">
                     <FormLabel>Activité du jour</FormLabel>
                     <FormControl>
-                      <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
                         {scheduleOptions.map(opt => (
                            <FormItem key={opt.value} className="relative">
                             <FormControl>
                                 <RadioGroupItem value={opt.value} className="sr-only" />
                             </FormControl>
                             <FormLabel className={cn(
-                                "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer",
+                                "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer h-20",
                                 field.value === opt.value && "border-primary"
                             )}>
-                                <opt.icon className="h-6 w-6 mb-2" />
+                                <opt.icon className="h-5 w-5 mb-1" />
                                 {opt.label}
                            </FormLabel>
                           </FormItem>
@@ -231,17 +278,17 @@ export default function OutfitSuggester() {
                   <FormItem className="space-y-3">
                     <FormLabel>Météo locale</FormLabel>
                      <FormControl>
-                      <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
                         {weatherOptions.map(opt => (
                           <FormItem key={opt.value} className="relative">
                             <FormControl>
                                 <RadioGroupItem value={opt.value} className="sr-only" />
                             </FormControl>
                             <FormLabel className={cn(
-                                "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer",
+                                "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer h-20",
                                 field.value === opt.value && "border-primary"
                             )}>
-                                <opt.icon className="h-6 w-6 mb-2" />
+                                <opt.icon className="h-5 w-5 mb-1" />
                                 {opt.label}
                            </FormLabel>
                           </FormItem>
@@ -258,15 +305,15 @@ export default function OutfitSuggester() {
                 name="occasion"
                 render={({ field }) => (
                   <FormItem className="space-y-3">
-                    <FormLabel>Occasion</FormLabel>
+                    <FormLabel>Style de l'occasion</FormLabel>
                     <FormControl>
-                      <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
                         {occasionOptions.map(opt => (
                           <FormItem key={opt.value}>
                             <FormControl>
                                 <RadioGroupItem value={opt.value} id={opt.value} className="peer sr-only" />
                             </FormControl>
-                             <FormLabel htmlFor={opt.value} className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-4 font-normal hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
+                             <FormLabel htmlFor={opt.value} className="flex h-12 items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
                                 {opt.label}
                             </FormLabel>
                           </FormItem>
@@ -278,67 +325,6 @@ export default function OutfitSuggester() {
                 )}
               />
               
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button type="button" variant="outline" className="w-full">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Compléter ma tenue
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Quelle pièce mettez-vous en vedette ?</DialogTitle>
-                  <DialogDescription>
-                    Décrivez une pièce de votre garde-robe et nous créerons une tenue autour.
-                  </DialogDescription>
-                </DialogHeader>
-                <Form {...completeOutfitForm}>
-                    <form onSubmit={completeOutfitForm.handleSubmit(handleCompleteOutfit)} className="space-y-4 pt-4">
-                        <FormField
-                            control={completeOutfitForm.control}
-                            name="itemType"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Type de pièce</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                    <SelectTrigger>
-                                    <SelectValue placeholder="Choisissez un type" />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    <SelectItem value="Un Haut">Un Haut (T-shirt, chemise, pull...)</SelectItem>
-                                    <SelectItem value="Un Bas">Un Bas (Pantalon, jupe, short...)</SelectItem>
-                                    <SelectItem value="Des Chaussures">Des Chaussures (Baskets, talons...)</SelectItem>
-                                    <SelectItem value="Une Pièce Unique">Une Pièce Unique (Robe, combinaison...)</SelectItem>
-                                    <SelectItem value="Un Accessoire">Un Accessoire (Sac, chapeau...)</SelectItem>
-                                </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={completeOutfitForm.control}
-                            name="itemDescription"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Description de la pièce</FormLabel>
-                                    <FormControl>
-                                        <Textarea placeholder="Ex: Jupe en jean bleu clair, Baskets blanches en cuir..." {...field}/>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <Button type="submit" disabled={isLoading} className="w-full">
-                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Générer la tenue'}
-                        </Button>
-                    </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
-
             <FormField
                 control={form.control}
                 name="preferredColors"
@@ -354,15 +340,115 @@ export default function OutfitSuggester() {
               />
 
             </CardContent>
-            <CardFooter>
-              <Button type="submit" disabled={isLoading} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-                {isLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Wand2 className="mr-2 h-4 w-4" />
-                )}
-                Suggérer une tenue complète
-              </Button>
+            <CardFooter className="flex-col sm:flex-row gap-2 pt-6">
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button type="button" className="w-full">
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Compléter ma tenue
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Quelle pièce mettez-vous en vedette ?</DialogTitle>
+                      <DialogDescription>
+                        Décrivez une pièce de votre garde-robe et nous créerons une tenue autour.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <Form {...completeOutfitForm}>
+                        <form onSubmit={completeOutfitForm.handleSubmit(handleCompleteOutfit)} className="space-y-4 pt-4">
+                            <FormField
+                                control={completeOutfitForm.control}
+                                name="type"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Type de pièce</FormLabel>
+                                    <Select onValueChange={(value) => {
+                                        field.onChange(value);
+                                        completeOutfitForm.resetField('category');
+                                        completeOutfitForm.resetField('style');
+                                        completeOutfitForm.resetField('color');
+                                    }} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Choisissez un type" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        {Object.keys(clothingData).map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                                    </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            {typeValue && (
+                                <FormField
+                                    control={completeOutfitForm.control}
+                                    name="category"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Catégorie</FormLabel>
+                                        <Select onValueChange={(value) => {
+                                            field.onChange(value);
+                                            completeOutfitForm.resetField('style');
+                                            completeOutfitForm.resetField('color');
+                                        }} value={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Choisissez une catégorie" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                           {Object.keys(clothingData[typeValue as keyof typeof clothingData]).map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                                        </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                            )}
+                            {categoryValue && (
+                                <FormField
+                                    control={completeOutfitForm.control}
+                                    name="style"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Style/Matière (optionnel)</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Précisez le style" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                           {(clothingData[typeValue as keyof typeof clothingData][categoryValue as keyof typeof clothingData[keyof typeof clothingData]] as string[]).map(style => <SelectItem key={style} value={style}>{style}</SelectItem>)}
+                                        </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                            )}
+                             {categoryValue && (
+                                <FormField
+                                    control={completeOutfitForm.control}
+                                    name="color"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Couleur (optionnel)</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Précisez la couleur" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                           {colorOptions.map(color => <SelectItem key={color} value={color}>{color}</SelectItem>)}
+                                        </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                            )}
+
+                            <Button type="submit" disabled={isLoading} className="w-full">
+                                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Générer la tenue'}
+                            </Button>
+                        </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+                
+                <Button type="submit" variant="outline" disabled={isLoading} className="w-full">
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    Idée de tenue complète
+                </Button>
             </CardFooter>
           </form>
         </Form>

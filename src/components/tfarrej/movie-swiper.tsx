@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { X, Heart, Loader2 } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { X, Heart, Loader2, Film } from 'lucide-react';
 
 import { recordMovieSwipe, type MovieSwipeInput } from '@/ai/flows/movie-preference-learning';
 import { generateMoviePoster } from '@/ai/flows/generate-movie-poster';
@@ -11,13 +12,20 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
 const mockMovies = [
-  { id: '1', title: 'Inception', synopsis: 'Un voleur qui s\'approprie des secrets d\'entreprise via une technologie de partage de rêves se voit confier la tâche inverse : implanter une idée dans l\'esprit d\'un PDG.' },
-  { id: '2', title: 'Parasite', synopsis: 'Toute la famille de Ki-taek est au chômage, et s’intéresse particulièrement au train de vie de la richissime famille Park. Un jour, leur fils réussit à se faire recommander pour donner des cours particuliers d’anglais chez les Park. C’est le début d’un engrenage incontrôlable, dont personne ne sortira véritablement indemne...' },
-  { id: '3', title: 'Le Fabuleux Destin d\'Amélie Poulain', synopsis: 'Amélie, une jeune serveuse dans un bar de Montmartre, passe son temps à observer les gens et à laisser son imagination divaguer. Elle s\'est fixé un but : faire le bien de ceux qui l\'entourent. Elle invente alors des stratagèmes pour intervenir incognito dans leur existence.' },
-  { id: '4', title: 'La Cité de la peur', synopsis: 'Odile Deray, attachée de presse, vient au Festival de Cannes pour présenter le film "Red is Dead". Les projectionnistes du film sont assassinés les uns après les autres. L\'enquête est menée par le commissaire Bialès.' },
+  { id: '1', title: 'Inception', synopsis: 'Un voleur qui s\'approprie des secrets d\'entreprise via une technologie de partage de rêves se voit confier la tâche inverse : implanter une idée dans l\'esprit d\'un PDG.', genre: 'Sci-Fi' },
+  { id: '2', title: 'Parasite', synopsis: 'Toute la famille de Ki-taek est au chômage, et s’intéresse particulièrement au train de vie de la richissime famille Park. C’est le début d’un engrenage incontrôlable.', genre: 'Thriller' },
+  { id: '3', title: 'Amélie Poulain', synopsis: 'Amélie, une jeune serveuse à Montmartre, s\'invente des stratagèmes pour intervenir incognito dans l\'existence des autres.', genre: 'Comédie' },
+  { id: '4', title: 'La Cité de la peur', synopsis: 'Odile Deray, attachée de presse, vient au Festival de Cannes pour présenter le film "Red is Dead". Les projectionnistes sont assassinés les uns après les autres.', genre: 'Comédie' },
+  { id: '5', title: 'Gladiator', synopsis: 'Un général romain trahi devient gladiateur pour venger sa famille.', genre: 'Historique' },
+  { id: '6', title: 'Le Seigneur des Anneaux', synopsis: 'Un jeune hobbit hérite d\'un anneau puissant qui doit être détruit avant que le seigneur des ténèbres ne s\'en empare.', genre: 'Fantasy' },
+  { id: '7', title: 'Forrest Gump', synopsis: 'Les pérégrinations d\'un homme simple d\'esprit à travers plusieurs décennies de l\'histoire américaine.', genre: 'Drame' },
 ];
 
 export default function MovieSwiper() {
+  const searchParams = useSearchParams();
+  const genreFilter = searchParams.get('genre');
+
+  const [movies, setMovies] = useState(mockMovies);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [currentPosterUrl, setCurrentPosterUrl] = useState<string | null>(null);
@@ -25,14 +33,23 @@ export default function MovieSwiper() {
   const { toast } = useToast();
 
   useEffect(() => {
+    const filtered = genreFilter 
+      ? mockMovies.filter(m => m.genre === genreFilter)
+      : mockMovies;
+    
+    setMovies(filtered);
+    setCurrentIndex(0);
+  }, [genreFilter]);
+
+  useEffect(() => {
     const fetchPoster = async () => {
-      if (currentIndex >= mockMovies.length) {
+      if (currentIndex >= movies.length) {
         setIsPosterLoading(false);
         return;
       }
 
       setIsPosterLoading(true);
-      const movie = mockMovies[currentIndex];
+      const movie = movies[currentIndex];
       try {
         const result = await generateMoviePoster({ title: movie.title, synopsis: movie.synopsis });
         setCurrentPosterUrl(result.posterDataUri);
@@ -49,14 +66,18 @@ export default function MovieSwiper() {
       }
     };
 
-    fetchPoster();
-  }, [currentIndex, toast]);
+    if (movies.length > 0) {
+      fetchPoster();
+    } else {
+        setIsPosterLoading(false);
+    }
+  }, [currentIndex, movies, toast]);
 
   const handleSwipe = async (swipeDirection: 'left' | 'right') => {
-    if (isLoading || isPosterLoading || currentIndex >= mockMovies.length) return;
+    if (isLoading || isPosterLoading || currentIndex >= movies.length) return;
 
     setIsLoading(true);
-    const movie = mockMovies[currentIndex];
+    const movie = movies[currentIndex];
     
     try {
       const input: MovieSwipeInput = {
@@ -86,17 +107,31 @@ export default function MovieSwiper() {
     }
   };
   
-  const currentMovie = currentIndex < mockMovies.length ? mockMovies[currentIndex] : null;
+  const currentMovie = currentIndex < movies.length ? movies[currentIndex] : null;
 
   const resetSwiper = () => {
+    const filtered = genreFilter 
+      ? mockMovies.filter(m => m.genre === genreFilter)
+      : mockMovies;
+    setMovies(filtered);
     setCurrentIndex(0);
-    setCurrentPosterUrl(null);
   };
 
   return (
     <div className="flex justify-center">
       <div className="relative w-full max-w-sm h-[600px]">
-        {currentMovie ? (
+        {movies.length === 0 ? (
+          <Card className="absolute inset-0 flex flex-col items-center justify-center text-center">
+            <CardContent className="p-6">
+              <Film className="h-12 w-12 mx-auto text-muted-foreground" />
+              <h3 className="text-xl font-bold font-headline mt-4">Aucun film trouvé</h3>
+              <p className="text-muted-foreground mt-2">
+                {genreFilter ? `Aucun film pour le genre "${genreFilter}".` : "La liste de films est vide."}
+              </p>
+              <Button className="mt-4" variant="outline" onClick={() => window.location.href = '/tfarrej'}>Voir tous les films</Button>
+            </CardContent>
+          </Card>
+        ) : currentMovie ? (
           <Card className="absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out">
             <CardHeader className="p-0 border-b relative h-3/5">
               {isPosterLoading ? (
@@ -135,7 +170,7 @@ export default function MovieSwiper() {
           <Card className="absolute inset-0 flex flex-col items-center justify-center text-center">
             <CardContent className="p-6">
               <h3 className="text-xl font-bold font-headline">C'est tout pour aujourd'hui !</h3>
-              <p className="text-muted-foreground mt-2">Revenez demain pour de nouvelles suggestions.</p>
+              <p className="text-muted-foreground mt-2">Revenez demain ou explorez d'autres genres.</p>
               <Button className="mt-4" onClick={resetSwiper}>Recommencer</Button>
             </CardContent>
           </Card>
