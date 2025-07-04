@@ -9,10 +9,6 @@ import {ai} from '@/ai/genkit';
 import { GenerateMoviePosterInputSchema, GenerateMoviePosterOutputSchema, type GenerateMoviePosterInput, type GenerateMoviePosterOutput } from './generate-movie-poster.types';
 
 
-export async function generateMoviePoster(input: GenerateMoviePosterInput): Promise<GenerateMoviePosterOutput> {
-  return generateMoviePosterFlow(input);
-}
-
 const generateMoviePosterFlow = ai.defineFlow(
   {
     name: 'generateMoviePosterFlow',
@@ -37,3 +33,7 @@ The poster should be in a vertical orientation (portrait), cinematic, visually a
     return { posterDataUri: media.url };
   }
 );
+
+export async function generateMoviePoster(input: GenerateMoviePosterInput): Promise<GenerateMoviePosterOutput> {
+  return generateMoviePosterFlow(input);
+}

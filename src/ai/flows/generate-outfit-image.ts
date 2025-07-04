@@ -8,10 +8,6 @@
 import {ai} from '@/ai/genkit';
 import { GenerateOutfitImageInputSchema, GenerateOutfitImageOutputSchema, type GenerateOutfitImageInput, type GenerateOutfitImageOutput } from './generate-outfit-image.types';
 
-export async function generateOutfitImage(input: GenerateOutfitImageInput): Promise<GenerateOutfitImageOutput> {
-  return generateOutfitImageFlow(input);
-}
-
 const generateOutfitImageFlow = ai.defineFlow(
   {
     name: 'generateOutfitImageFlow',
@@ -34,3 +30,8 @@ const generateOutfitImageFlow = ai.defineFlow(
     return { imageDataUri: media.url };
   }
 );
+
+
+export async function generateOutfitImage(input: GenerateOutfitImageInput): Promise<GenerateOutfitImageOutput> {
+  return generateOutfitImageFlow(input);
+}

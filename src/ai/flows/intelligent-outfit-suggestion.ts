@@ -8,10 +8,6 @@
 import {ai} from '@/ai/genkit';
 import { SuggestOutfitInputSchema, SuggestOutfitOutputSchema, type SuggestOutfitInput, type SuggestOutfitOutput } from './intelligent-outfit-suggestion.types';
 
-export async function suggestOutfit(input: SuggestOutfitInput): Promise<SuggestOutfitOutput> {
-  return suggestOutfitFlow(input);
-}
-
 const prompt = ai.definePrompt({
   name: 'suggestOutfitPrompt',
   input: {schema: SuggestOutfitInputSchema},
@@ -52,3 +48,8 @@ const suggestOutfitFlow = ai.defineFlow(
     return output!;
   }
 );
+
+
+export async function suggestOutfit(input: SuggestOutfitInput): Promise<SuggestOutfitOutput> {
+  return suggestOutfitFlow(input);
+}

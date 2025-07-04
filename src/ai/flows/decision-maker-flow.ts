@@ -8,9 +8,6 @@
 import {ai} from '@/ai/genkit';
 import { MakeDecisionInputSchema, MakeDecisionOutputSchema, type MakeDecisionInput, type MakeDecisionOutput } from './decision-maker-flow.types';
 
-export async function makeDecision(input: MakeDecisionInput): Promise<MakeDecisionOutput> {
-  return makeDecisionFlow(input);
-}
 
 const prompt = ai.definePrompt({
   name: 'makeDecisionPrompt',
@@ -43,3 +40,8 @@ const makeDecisionFlow = ai.defineFlow(
     return output!;
   }
 );
+
+
+export async function makeDecision(input: MakeDecisionInput): Promise<MakeDecisionOutput> {
+  return makeDecisionFlow(input);
+}

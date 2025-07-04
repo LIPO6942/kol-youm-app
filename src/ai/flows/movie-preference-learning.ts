@@ -10,14 +10,6 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { MovieSwipeInputSchema, type MovieSwipeInput } from './movie-preference-learning.types';
 
-/**
- * Records a user's swipe on a movie suggestion to learn their preferences.
- * @param input - The input containing user ID, movie ID, and swipe direction.
- */
-export async function recordMovieSwipe(input: MovieSwipeInput): Promise<void> {
-  return moviePreferenceLearningFlow(input);
-}
-
 const moviePreferenceLearningFlow = ai.defineFlow(
   {
     name: 'moviePreferenceLearningFlow',
@@ -35,3 +27,11 @@ const moviePreferenceLearningFlow = ai.defineFlow(
     );
   }
 );
+
+/**
+ * Records a user's swipe on a movie suggestion to learn their preferences.
+ * @param input - The input containing user ID, movie ID, and swipe direction.
+ */
+export async function recordMovieSwipe(input: MovieSwipeInput): Promise<void> {
+  return moviePreferenceLearningFlow(input);
+}
