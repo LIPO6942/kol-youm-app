@@ -1,46 +1,53 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
-import { X, Heart, Loader2, Film } from 'lucide-react';
+import { X, Heart, Loader2, Film, RotateCcw } from 'lucide-react';
 
 import { recordMovieSwipe } from '@/ai/flows/movie-preference-learning';
 import type { MovieSwipeInput } from '@/ai/flows/movie-preference-learning.types';
 import { generateMoviePoster } from '@/ai/flows/generate-movie-poster';
+import { generateMovieSuggestions } from '@/ai/flows/generate-movie-suggestions-flow';
+import type { MovieSuggestion } from '@/ai/flows/generate-movie-suggestions-flow.types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-
-const mockMovies = [
-  { id: '1', title: 'Inception', synopsis: 'Un voleur qui s\'approprie des secrets d\'entreprise via une technologie de partage de rêves se voit confier la tâche inverse : implanter une idée dans l\'esprit d\'un PDG.', genre: 'Sci-Fi' },
-  { id: '2', title: 'Parasite', synopsis: 'Toute la famille de Ki-taek est au chômage, et s’intéresse particulièrement au train de vie de la richissime famille Park. C’est le début d’un engrenage incontrôlable.', genre: 'Thriller' },
-  { id: '3', title: 'Amélie Poulain', synopsis: 'Amélie, une jeune serveuse à Montmartre, s\'invente des stratagèmes pour intervenir incognito dans l\'existence des autres.', genre: 'Comédie' },
-  { id: '4', title: 'La Cité de la peur', synopsis: 'Odile Deray, attachée de presse, vient au Festival de Cannes pour présenter le film "Red is Dead". Les projectionnistes sont assassinés les uns après les autres.', genre: 'Comédie' },
-  { id: '5', title: 'Gladiator', synopsis: 'Un général romain trahi devient gladiateur pour venger sa famille.', genre: 'Historique' },
-  { id: '6', title: 'Le Seigneur des Anneaux', synopsis: 'Un jeune hobbit hérite d\'un anneau puissant qui doit être détruit avant que le seigneur des ténèbres ne s\'en empare.', genre: 'Fantasy' },
-  { id: '7', title: 'Forrest Gump', synopsis: 'Les pérégrinations d\'un homme simple d\'esprit à travers plusieurs décennies de l\'histoire américaine.', genre: 'Drame' },
-];
 
 export default function MovieSwiper() {
   const searchParams = useSearchParams();
   const genreFilter = searchParams.get('genre');
 
-  const [movies, setMovies] = useState(mockMovies);
+  const [movies, setMovies] = useState<MovieSuggestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSwipeLoading, setIsSwipeLoading] = useState(false);
+  const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(true);
   const [currentPosterUrl, setCurrentPosterUrl] = useState<string | null>(null);
   const [isPosterLoading, setIsPosterLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const filtered = genreFilter 
-      ? mockMovies.filter(m => m.genre === genreFilter)
-      : mockMovies;
-    
-    setMovies(filtered);
+  const fetchMovies = useCallback(async () => {
+    setIsSuggestionsLoading(true);
     setCurrentIndex(0);
-  }, [genreFilter]);
+    setMovies([]);
+    try {
+      const result = await generateMovieSuggestions({ genre: genreFilter || undefined });
+      setMovies(result.movies);
+    } catch (error) {
+      console.error('Failed to fetch movie suggestions', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: "Impossible de charger les suggestions de films.",
+      });
+    } finally {
+      setIsSuggestionsLoading(false);
+    }
+  }, [genreFilter, toast]);
+
+  useEffect(() => {
+    fetchMovies();
+  }, [fetchMovies]);
 
   useEffect(() => {
     const fetchPoster = async () => {
@@ -50,6 +57,7 @@ export default function MovieSwiper() {
       }
 
       setIsPosterLoading(true);
+      setCurrentPosterUrl(null);
       const movie = movies[currentIndex];
       try {
         const result = await generateMoviePoster({ title: movie.title, synopsis: movie.synopsis });
@@ -75,14 +83,14 @@ export default function MovieSwiper() {
   }, [currentIndex, movies, toast]);
 
   const handleSwipe = async (swipeDirection: 'left' | 'right') => {
-    if (isLoading || isPosterLoading || currentIndex >= movies.length) return;
+    if (isSwipeLoading || isPosterLoading || currentIndex >= movies.length) return;
 
-    setIsLoading(true);
+    setIsSwipeLoading(true);
     const movie = movies[currentIndex];
     
     try {
       const input: MovieSwipeInput = {
-        userId: 'anonymous-user', // In a real app, this would be the logged-in user's ID
+        userId: 'anonymous-user',
         movieId: movie.id,
         swipeDirection,
       };
@@ -104,24 +112,27 @@ export default function MovieSwiper() {
       });
     } finally {
       setCurrentIndex(prevIndex => prevIndex + 1);
-      setIsLoading(false);
+      setIsSwipeLoading(false);
     }
   };
   
   const currentMovie = currentIndex < movies.length ? movies[currentIndex] : null;
 
-  const resetSwiper = () => {
-    const filtered = genreFilter 
-      ? mockMovies.filter(m => m.genre === genreFilter)
-      : mockMovies;
-    setMovies(filtered);
-    setCurrentIndex(0);
-  };
+  if (isSuggestionsLoading) {
+    return (
+       <div className="flex justify-center">
+            <Card className="relative w-full max-w-sm h-[600px] flex flex-col items-center justify-center text-center">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <p className="text-muted-foreground mt-4">Recherche de nouveaux films...</p>
+            </Card>
+       </div>
+    )
+  }
 
   return (
     <div className="flex justify-center">
       <div className="relative w-full max-w-sm h-[600px]">
-        {movies.length === 0 ? (
+        {movies.length === 0 && !isSuggestionsLoading ? (
           <Card className="absolute inset-0 flex flex-col items-center justify-center text-center">
             <CardContent className="p-6">
               <Film className="h-12 w-12 mx-auto text-muted-foreground" />
@@ -129,7 +140,9 @@ export default function MovieSwiper() {
               <p className="text-muted-foreground mt-2">
                 {genreFilter ? `Aucun film pour le genre "${genreFilter}".` : "La liste de films est vide."}
               </p>
-              <Button className="mt-4" variant="outline" onClick={() => window.location.href = '/tfarrej'}>Voir tous les films</Button>
+              <Button className="mt-4" variant="outline" onClick={fetchMovies}>
+                <RotateCcw className="mr-2 h-4 w-4" /> Réessayer
+              </Button>
             </CardContent>
           </Card>
         ) : currentMovie ? (
@@ -158,11 +171,11 @@ export default function MovieSwiper() {
                 {currentMovie.synopsis}
               </CardDescription>
               <CardFooter className="p-0 pt-4 grid grid-cols-2 gap-4">
-                <Button variant="outline" size="lg" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleSwipe('left')} disabled={isLoading || isPosterLoading}>
-                  {(isLoading || isPosterLoading) ? <Loader2 className="animate-spin" /> : <X className="h-8 w-8" />}
+                <Button variant="outline" size="lg" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleSwipe('left')} disabled={isSwipeLoading || isPosterLoading}>
+                  {(isSwipeLoading || isPosterLoading) ? <Loader2 className="animate-spin" /> : <X className="h-8 w-8" />}
                 </Button>
-                <Button variant="outline" size="lg" className="border-green-500 text-green-500 hover:bg-green-500/10 hover:text-green-500" onClick={() => handleSwipe('right')} disabled={isLoading || isPosterLoading}>
-                  {(isLoading || isPosterLoading) ? <Loader2 className="animate-spin" /> : <Heart className="h-8 w-8" />}
+                <Button variant="outline" size="lg" className="border-green-500 text-green-500 hover:bg-green-500/10 hover:text-green-500" onClick={() => handleSwipe('right')} disabled={isSwipeLoading || isPosterLoading}>
+                  {(isSwipeLoading || isPosterLoading) ? <Loader2 className="animate-spin" /> : <Heart className="h-8 w-8" />}
                 </Button>
               </CardFooter>
             </div>
@@ -171,8 +184,10 @@ export default function MovieSwiper() {
           <Card className="absolute inset-0 flex flex-col items-center justify-center text-center">
             <CardContent className="p-6">
               <h3 className="text-xl font-bold font-headline">C'est tout pour aujourd'hui !</h3>
-              <p className="text-muted-foreground mt-2">Revenez demain ou explorez d'autres genres.</p>
-              <Button className="mt-4" onClick={resetSwiper}>Recommencer</Button>
+              <p className="text-muted-foreground mt-2">Revenez demain ou réessayez pour de nouvelles suggestions.</p>
+              <Button className="mt-4" onClick={fetchMovies}>
+                <RotateCcw className="mr-2 h-4 w-4" /> Voir d'autres films
+              </Button>
             </CardContent>
           </Card>
         )}
