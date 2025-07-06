@@ -4,13 +4,14 @@ import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Wand2, Loader2, PlusCircle, Check, Sun, Cloudy, CloudRain, Snowflake, Briefcase, Users, Dumbbell, Coffee, XCircle } from 'lucide-react';
+import { Wand2, Loader2, PlusCircle, Check, Sun, Cloudy, CloudRain, Snowflake, Briefcase, Users, Dumbbell, Coffee, XCircle, RotateCw } from 'lucide-react';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 
 import { suggestOutfit } from '@/ai/flows/intelligent-outfit-suggestion';
 import type { SuggestOutfitInput, SuggestOutfitOutput } from '@/ai/flows/intelligent-outfit-suggestion.types';
 import { generateOutfitImage } from '@/ai/flows/generate-outfit-image';
+import { regenerateOutfitPart } from '@/ai/flows/regenerate-outfit-part-flow';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -213,6 +214,9 @@ export default function OutfitSuggester() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
 
+  const [currentConstraints, setCurrentConstraints] = useState<SuggestOutfitInput | null>(null);
+  const [regeneratingPart, setRegeneratingPart] = useState<'haut' | 'bas' | 'chaussures' | 'accessoires' | null>(null);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -267,6 +271,7 @@ export default function OutfitSuggester() {
   const getSuggestion = async (input: SuggestOutfitInput) => {
     setIsLoading(true);
     setSuggestion(null);
+    setCurrentConstraints(null);
 
     const fullInput: SuggestOutfitInput = { 
       ...input, 
@@ -276,6 +281,7 @@ export default function OutfitSuggester() {
     try {
       const result = await suggestOutfit(fullInput);
       setSuggestion(result);
+      setCurrentConstraints(fullInput);
     } catch (error) {
       console.error(error);
       toast({
@@ -287,6 +293,29 @@ export default function OutfitSuggester() {
       setIsLoading(false);
     }
   }
+
+  const handleRegeneratePart = async (part: 'haut' | 'bas' | 'chaussures' | 'accessoires') => {
+    if (!currentConstraints || !suggestion || regeneratingPart) return;
+
+    setRegeneratingPart(part);
+    try {
+      const newSuggestion = await regenerateOutfitPart({
+        originalConstraints: currentConstraints,
+        currentOutfit: suggestion,
+        partToChange: part,
+      });
+      setSuggestion(newSuggestion);
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: "Impossible de regénérer cette partie. Veuillez réessayer.",
+      });
+    } finally {
+      setRegeneratingPart(null);
+    }
+  };
 
   async function handleSuggestOutfit(values: FormValues) {
     await getSuggestion(values);
@@ -559,22 +588,29 @@ export default function OutfitSuggester() {
             <GeneratedOutfitImage description={suggestion.suggestionText} gender={userProfile?.gender} />
 
             <div className="mt-6 space-y-3">
-                <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                    <p className="font-semibold text-muted-foreground">Haut</p>
-                    <p className="font-medium">{suggestion.haut}</p>
-                </div>
-                <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                    <p className="font-semibold text-muted-foreground">Bas</p>
-                    <p className="font-medium">{suggestion.bas}</p>
-                </div>
-                 <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                    <p className="font-semibold text-muted-foreground">Chaussures</p>
-                    <p className="font-medium">{suggestion.chaussures}</p>
-                </div>
-                 <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                    <p className="font-semibold text-muted-foreground">Accessoires</p>
-                    <p className="font-medium">{suggestion.accessoires}</p>
-                </div>
+               {([
+                  { key: 'haut', label: 'Haut' },
+                  { key: 'bas', label: 'Bas' },
+                  { key: 'chaussures', label: 'Chaussures' },
+                  { key: 'accessoires', label: 'Accessoires' },
+              ] as const).map(({ key, label }) => (
+                  <div key={key} className="p-3 bg-muted/50 rounded-lg text-sm">
+                      <div className="flex justify-between items-center mb-1">
+                          <p className="font-semibold text-muted-foreground">{label}</p>
+                          <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-7 w-7" 
+                              onClick={() => handleRegeneratePart(key)} 
+                              disabled={!!regeneratingPart}
+                              aria-label={`Regénérer ${label}`}
+                          >
+                              {regeneratingPart === key ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
+                          </Button>
+                      </div>
+                      <p className="font-medium">{suggestion[key]}</p>
+                  </div>
+              ))}
             </div>
             
           </CardContent>
