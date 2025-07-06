@@ -9,6 +9,8 @@ import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { MakeDecisionOutput } from '@/ai/flows/decision-maker-flow.types';
 import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/use-auth';
+import { updateUserProfile } from '@/lib/firebase/firestore';
 
 const outingOptions: { id: string; label: string; icon: LucideIcon; description: string }[] = [
     { id: 'cafe', label: 'Café', icon: Coffee, description: "Pour un moment de détente" },
@@ -37,15 +39,33 @@ export default function DecisionMaker() {
   const [result, setResult] = useState<MakeDecisionOutput | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<(typeof outingOptions)[0] | undefined>(undefined);
   const { toast } = useToast();
+  const { user, userProfile } = useAuth();
 
   const handleDecideClick = async (category: typeof outingOptions[0]) => {
     setIsLoading(true);
     setResult(null);
     setSelectedCategory(category);
+    
+    if (!user) {
+        toast({
+            variant: "destructive",
+            title: "Erreur",
+            description: "Veuillez vous connecter pour obtenir des suggestions.",
+        });
+        setIsLoading(false);
+        return;
+    }
 
     try {
-      const response = await makeDecision({ category: category.label, city: 'Tunis' });
+      const seenPlaces = userProfile?.seenKhroujSuggestions || [];
+      const response = await makeDecision({ 
+          category: category.label, 
+          city: 'Tunis',
+          seenPlaceNames: seenPlaces,
+      });
       setResult(response);
+      await updateUserProfile(user.uid, { seenKhroujSuggestions: [response.placeName] });
+
     } catch (error) {
       console.error(error);
       toast({
@@ -91,7 +111,7 @@ export default function DecisionMaker() {
                 </div>
             </CardContent>
             <CardFooter className="flex-col gap-4 justify-center pt-6">
-                <Button className="w-full" onClick={handleReset}>
+                <Button className="w-full" onClick={() => handleDecideClick(selectedCategory!)}>
                     <RotateCw className="mr-2 h-4 w-4" /> Une autre idée
                 </Button>
                 <Link href={result.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="w-full">
@@ -99,6 +119,7 @@ export default function DecisionMaker() {
                         <MapPin className="mr-2 h-4 w-4" /> M'y emmener sur Maps
                     </Button>
                 </Link>
+                 <Button variant="ghost" size="sm" onClick={handleReset}>Changer de catégorie</Button>
             </CardFooter>
         </Card>
     );

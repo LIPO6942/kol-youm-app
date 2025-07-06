@@ -9,6 +9,7 @@ export const MakeDecisionInputSchema = z.object({
   city: z
     .string()
     .describe('The city where the user is, for context. e.g. "Tunis"'),
+  seenPlaceNames: z.array(z.string()).optional().describe('A list of place names the user has already seen, to avoid duplicates.'),
 });
 export type MakeDecisionInput = z.infer<typeof MakeDecisionInputSchema>;
 

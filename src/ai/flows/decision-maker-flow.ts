@@ -13,7 +13,7 @@ const prompt = ai.definePrompt({
   name: 'makeDecisionPrompt',
   input: {schema: MakeDecisionInputSchema},
   output: {schema: MakeDecisionOutputSchema},
-  prompt: `Tu es un expert connaisseur de la vie locale à {{city}} et ses environs (La Marsa, Sidi Bou Saïd, Gammarth, Les Berges du Lac, etc.). Ton but est de donner aux utilisateurs une suggestion de sortie unique et pertinente parmi les meilleurs endroits **réels et existants**.
+  prompt: `Tu es un expert connaisseur de la vie locale à {{city}} et ses environs (La Marsa, Sidi Bou Saïd, Gammarth, Les Berges du Lac, etc.). Ton but est de donner aux utilisateurs une suggestion de sortie **nouvelle**, unique et pertinente parmi les meilleurs endroits **réels et existants**.
 
 L'utilisateur a choisi la catégorie de sortie suivante : "{{category}}".
 
@@ -25,7 +25,16 @@ Ta tâche est de :
 5.  Générer une **URL Google Maps valide et fonctionnelle** qui pointe vers ce lieu. L'URL doit être correctement formée, par exemple : "https://www.google.com/maps/search/?api=1&query=Nom+Du+Lieu,Ville".
 6.  Remplir le champ 'chosenOption' du JSON avec la valeur de la catégorie d'entrée ("{{category}}").
 
-Assure-toi que toutes les informations sont exactes, vérifiables et que le lieu a bien une note de 4 étoiles ou plus. La suggestion doit être de haute qualité. Réponds uniquement en respectant le format de sortie JSON demandé.`,
+**Instructions importantes :**
+- **Variété des lieux :** Varie les quartiers dans tes suggestions. Ne propose pas toujours des lieux à La Marsa. Explore aussi Sidi Bou Saïd, Gammarth, Les Berges du Lac, Tunis Centre, etc. pour surprendre l'utilisateur.
+{{#if seenPlaceNames}}
+- **Éviter les répétitions :** Exclus impérativement les lieux suivants de tes suggestions, car l'utilisateur les a déjà vus :
+{{#each seenPlaceNames}}
+  - {{this}}
+{{/each}}
+{{/if}}
+
+Assure-toi que toutes les informations sont exactes, vérifiables et que le lieu a bien une note de 4 étoiles ou plus. La suggestion doit être de haute qualité et **différente des précédentes**. Réponds uniquement en respectant le format de sortie JSON demandé.`,
 });
 
 const makeDecisionFlow = ai.defineFlow(
