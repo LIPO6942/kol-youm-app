@@ -3,6 +3,7 @@ import {z} from 'genkit';
 export const GenerateMovieSuggestionsInputSchema = z.object({
   genre: z.string().optional().describe('The genre of movies to suggest, e.g., "Sci-Fi", "Thriller".'),
   count: z.number().optional().default(7).describe('The number of movie suggestions to generate.'),
+  seenMovieTitles: z.array(z.string()).optional().describe('A list of movie titles the user has already seen, to avoid duplicates.'),
 });
 export type GenerateMovieSuggestionsInput = z.infer<typeof GenerateMovieSuggestionsInputSchema>;
 

@@ -25,6 +25,13 @@ Le genre principal des films doit être : "{{genre}}".
 Les films doivent appartenir à des genres variés et intéressants (Drame, Comédie, Sci-Fi, Thriller, Mind-Blow, Fantastique, etc.).
 {{/if}}
 
+{{#if seenMovieTitles}}
+**Important :** Il est impératif d'exclure les films suivants de tes suggestions, car l'utilisateur les a déjà vus :
+{{#each seenMovieTitles}}
+- {{this}}
+{{/each}}
+{{/if}}
+
 Pour chaque film, fournis des informations **exactes et cohérentes** :
 1.  Un 'id' unique (une courte chaîne de caractères aléatoires).
 2.  Le 'title' (titre) exact du film.

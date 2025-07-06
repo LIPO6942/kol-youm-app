@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore"; 
+import { doc, setDoc, getDoc, serverTimestamp, arrayUnion } from "firebase/firestore"; 
 import { db } from "./client";
 
 export type UserProfile = {
@@ -7,6 +7,7 @@ export type UserProfile = {
     gender?: 'Homme' | 'Femme';
     personalizationComplete: boolean;
     createdAt: any;
+    seenMovieTitles?: string[];
 };
 
 export async function createUserProfile(uid: string, data: { email: string | null }) {
@@ -15,15 +16,30 @@ export async function createUserProfile(uid: string, data: { email: string | nul
     email: data.email,
     personalizationComplete: false,
     createdAt: serverTimestamp(),
+    seenMovieTitles: [],
   };
   await setDoc(doc(db, "users", uid), userProfile);
   return userProfile;
 }
 
-export async function updateUserProfile(uid: string, data: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>>) {
-  const userRef = doc(db, "users", uid);
-  await setDoc(userRef, data, { merge: true });
+export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>>) {
+    const userRef = doc(db, 'users', uid);
+
+    // Special handling for seenMovieTitles to use arrayUnion
+    if (data.seenMovieTitles) {
+        const titlesToAdd = data.seenMovieTitles;
+        delete data.seenMovieTitles; // remove from main data object
+        await setDoc(userRef, {
+            seenMovieTitles: arrayUnion(...titlesToAdd)
+        }, { merge: true });
+    }
+
+    // Update the rest of the fields if any
+    if (Object.keys(data).length > 0) {
+        await setDoc(userRef, data, { merge: true });
+    }
 }
+
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     const userRef = doc(db, "users", uid);

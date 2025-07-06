@@ -12,19 +12,31 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/hooks/use-auth';
+import { updateUserProfile } from '@/lib/firebase/firestore';
+
 
 export default function MovieSwiper({ genre }: { genre: string }) {
+  const { user, userProfile } = useAuth();
   const [movies, setMovies] = useState<MovieSuggestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSwipeLoading, setIsSwipeLoading] = useState(false);
   const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(true);
+  const [seenTitles, setSeenTitles] = useState<string[]>([]);
   const { toast } = useToast();
+  
+  useEffect(() => {
+    if (userProfile?.seenMovieTitles) {
+      setSeenTitles(userProfile.seenMovieTitles);
+    }
+  }, [userProfile]);
 
   const fetchMovies = useCallback(() => {
     setIsSuggestionsLoading(true);
     setCurrentIndex(0);
     setMovies([]);
-    generateMovieSuggestions({ genre: genre, count: 7 })
+    
+    generateMovieSuggestions({ genre: genre, count: 7, seenMovieTitles: seenTitles })
       .then((result) => {
         setMovies(result.movies);
       })
@@ -39,21 +51,29 @@ export default function MovieSwiper({ genre }: { genre: string }) {
       .finally(() => {
         setIsSuggestionsLoading(false);
       });
-  }, [genre, toast]);
+  }, [genre, toast, seenTitles]);
 
   useEffect(() => {
-    fetchMovies();
-  }, [fetchMovies]);
+    // We wait until we have the user profile's seen titles before fetching
+    if(userProfile) {
+      fetchMovies();
+    }
+  }, [fetchMovies, userProfile]);
 
   const handleSwipe = async (swipeDirection: 'left' | 'right') => {
-    if (isSwipeLoading || currentIndex >= movies.length) return;
+    if (isSwipeLoading || currentIndex >= movies.length || !user) return;
 
     setIsSwipeLoading(true);
     const movie = movies[currentIndex];
     
+    // Add to seen titles locally and update Firestore
+    const newSeenTitles = [...seenTitles, movie.title];
+    setSeenTitles(newSeenTitles);
+    await updateUserProfile(user.uid, { seenMovieTitles: [movie.title] });
+
     try {
       const input: MovieSwipeInput = {
-        userId: 'anonymous-user',
+        userId: user.uid,
         movieId: movie.id,
         swipeDirection,
       };
@@ -101,7 +121,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
               <Film className="h-12 w-12 mx-auto text-muted-foreground" />
               <h3 className="text-xl font-bold font-headline mt-4">Aucun film trouvé</h3>
               <p className="text-muted-foreground mt-2">
-                Aucun film trouvé pour le genre "{genre}".
+                Vous avez vu tous les films pour le genre "{genre}" ou il n'y a pas de nouvelles suggestions.
               </p>
               <Button className="mt-4" variant="outline" onClick={fetchMovies}>
                 <RotateCcw className="mr-2 h-4 w-4" /> Réessayer
