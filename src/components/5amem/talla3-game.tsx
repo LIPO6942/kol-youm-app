@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -5,10 +6,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { Check, ChevronsUpDown, Trophy, RotateCcw, Loader2, ServerCrash } from 'lucide-react';
+import { Check, ChevronsUpDown, Trophy, RotateCcw, Loader2, ServerCrash, Timer } from 'lucide-react';
 import { generateTalla3Challenges } from '@/ai/flows/generate-talla3-challenge-flow';
 import type { Talla3Challenge } from '@/ai/flows/generate-talla3-challenge-flow.types';
 
+const TIMER_DURATION = 15;
 
 export default function Talla3Game() {
   const [challenges, setChallenges] = useState<Talla3Challenge[]>([]);
@@ -19,6 +21,7 @@ export default function Talla3Game() {
   const [userOrder, setUserOrder] = useState<string[]>([]);
   const [remainingItems, setRemainingItems] = useState<string[]>([]);
   const [gameState, setGameState] = useState<'playing' | 'correct' | 'incorrect'>('playing');
+  const [timeLeft, setTimeLeft] = useState(TIMER_DURATION);
   const { toast } = useToast();
 
   const fetchChallenges = useCallback(async () => {
@@ -57,6 +60,7 @@ export default function Talla3Game() {
     setUserOrder([]);
     setRemainingItems([...challenge.items.map(i => i.item)].sort(() => Math.random() - 0.5));
     setGameState('playing');
+    setTimeLeft(TIMER_DURATION);
   }, []);
 
   useEffect(() => {
@@ -77,11 +81,29 @@ export default function Talla3Game() {
     setRemainingItems(prev => [...prev, lastItem]);
   };
 
-  const handleCheckAnswer = () => {
+  const handleCheckAnswer = useCallback(() => {
     if (!currentChallenge) return;
     const isCorrect = userOrder.length === currentChallenge.items.length && userOrder.every((item, index) => item === currentChallenge.items[index].item);
     setGameState(isCorrect ? 'correct' : 'incorrect');
-  };
+  }, [currentChallenge, userOrder]);
+
+  useEffect(() => {
+    if (gameState !== 'playing' || isLoading || !currentChallenge) {
+        return;
+    }
+
+    if (timeLeft <= 0) {
+        handleCheckAnswer();
+        return;
+    }
+
+    const timerId = setInterval(() => {
+        setTimeLeft(t => t - 1);
+    }, 1000);
+
+    return () => clearInterval(timerId);
+  }, [timeLeft, gameState, isLoading, currentChallenge, handleCheckAnswer]);
+
 
   const handleNextChallenge = () => {
     const nextIndex = currentChallengeIndex + 1;
@@ -140,7 +162,16 @@ export default function Talla3Game() {
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
         <CardTitle className="font-headline text-center">Talla3</CardTitle>
-        <CardDescription className="text-center">{currentChallenge.title}</CardDescription>
+        <div className="flex justify-between items-center px-1">
+            <CardDescription className="text-center flex-grow">{currentChallenge.title}</CardDescription>
+            <div className={cn(
+                "flex items-center gap-2 font-mono font-semibold text-lg ml-4 px-2 py-1 rounded-md transition-colors",
+                timeLeft <= 5 ? "text-destructive animate-pulse" : "text-muted-foreground"
+            )}>
+                <Timer className="h-5 w-5" />
+                <span>00:{timeLeft.toString().padStart(2, '0')}</span>
+            </div>
+        </div>
       </CardHeader>
       <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <div className="space-y-3">

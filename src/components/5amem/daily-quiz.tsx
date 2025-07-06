@@ -1,11 +1,12 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, XCircle, Trophy, Globe, Clapperboard, Music, BookOpen, FlaskConical, Palette, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Trophy, Globe, Clapperboard, Music, BookOpen, FlaskConical, Palette, Loader2, Timer } from 'lucide-react';
 import { generateQuiz } from '@/ai/flows/generate-quiz-flow';
 import type { GenerateQuizOutput } from '@/ai/flows/generate-quiz-flow.types';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +22,8 @@ const quizCategories = [
     { id: 'Art & Littérature', label: 'Art/Litté', icon: Palette, description: 'Explorez la créativité humaine.' },
 ];
 
+const TIMER_DURATION = 10;
+
 export default function DailyQuiz() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [quizData, setQuizData] = useState<QuizData | null>(null);
@@ -29,7 +32,28 @@ export default function DailyQuiz() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [isAnswered, setIsAnswered] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(TIMER_DURATION);
   const { toast } = useToast();
+
+  const isQuizFinished = quizData ? currentQuestionIndex >= quizData.questions.length : false;
+
+  useEffect(() => {
+    if (isAnswered || isQuizFinished || isLoading || !quizData) {
+        return;
+    }
+
+    if (timeLeft <= 0) {
+        setIsAnswered(true); // Times up, show the answer
+        return;
+    }
+
+    const timerId = setInterval(() => {
+        setTimeLeft(t => t - 1);
+    }, 1000);
+
+    return () => clearInterval(timerId);
+  }, [timeLeft, isAnswered, isQuizFinished, isLoading, quizData]);
+
 
   const handleCategorySelect = async (category: string) => {
     setSelectedCategory(category);
@@ -39,6 +63,7 @@ export default function DailyQuiz() {
     setSelectedAnswer(null);
     setScore(0);
     setIsAnswered(false);
+    setTimeLeft(TIMER_DURATION);
     
     try {
       const data = await generateQuiz({ category });
@@ -70,6 +95,7 @@ export default function DailyQuiz() {
     setCurrentQuestionIndex(i => i + 1);
     setSelectedAnswer(null);
     setIsAnswered(false);
+    setTimeLeft(TIMER_DURATION);
   };
   
   const handleReset = () => {
@@ -79,6 +105,7 @@ export default function DailyQuiz() {
     setSelectedAnswer(null);
     setIsAnswered(false);
     setScore(0);
+    setTimeLeft(TIMER_DURATION);
   }
 
   if (!selectedCategory) {
@@ -130,7 +157,6 @@ export default function DailyQuiz() {
      )
   }
 
-  const isQuizFinished = currentQuestionIndex >= quizData.questions.length;
   const currentQuestion = !isQuizFinished ? quizData.questions[currentQuestionIndex] : null;
   const progressValue = (currentQuestionIndex / quizData.questions.length) * 100;
 
@@ -159,7 +185,13 @@ export default function DailyQuiz() {
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
         <CardTitle className="font-headline text-center">{quizData.title}</CardTitle>
-        <CardDescription className="text-center">Question {currentQuestionIndex + 1} sur {quizData.questions.length}</CardDescription>
+        <div className="flex justify-between items-center text-sm text-muted-foreground px-1 py-2">
+            <span>Question {currentQuestionIndex + 1} sur {quizData.questions.length}</span>
+            <div className="flex items-center gap-2 font-mono font-semibold">
+                <Timer className="h-4 w-4" />
+                <span>00:{timeLeft.toString().padStart(2, '0')}</span>
+            </div>
+        </div>
         <Progress value={progressValue} className="mt-2" />
       </CardHeader>
       <CardContent>
