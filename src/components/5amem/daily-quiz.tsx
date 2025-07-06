@@ -5,8 +5,9 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, XCircle, Trophy, Globe, Clapperboard, Music, BookOpen, FlaskConical, Palette, Loader2, Timer } from 'lucide-react';
+import { CheckCircle2, XCircle, Trophy, Globe, Clapperboard, Music, BookOpen, FlaskConical, Palette, Loader2, Timer, Lightbulb } from 'lucide-react';
 import { generateQuiz } from '@/ai/flows/generate-quiz-flow';
 import type { GenerateQuizOutput } from '@/ai/flows/generate-quiz-flow.types';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +33,7 @@ export default function DailyQuiz() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [isAnswered, setIsAnswered] = useState(false);
+  const [isTimeUp, setIsTimeUp] = useState(false);
   const [timeLeft, setTimeLeft] = useState(TIMER_DURATION);
   const { toast } = useToast();
 
@@ -44,6 +46,7 @@ export default function DailyQuiz() {
 
     if (timeLeft <= 0) {
         setIsAnswered(true); // Times up, show the answer
+        setIsTimeUp(true);
         return;
     }
 
@@ -63,6 +66,7 @@ export default function DailyQuiz() {
     setSelectedAnswer(null);
     setScore(0);
     setIsAnswered(false);
+    setIsTimeUp(false);
     setTimeLeft(TIMER_DURATION);
     
     try {
@@ -83,6 +87,7 @@ export default function DailyQuiz() {
 
   const handleAnswer = (answer: string) => {
     if (isAnswered || !quizData) return;
+    setIsTimeUp(false);
     const currentQuestion = quizData.questions[currentQuestionIndex];
     setSelectedAnswer(answer);
     setIsAnswered(true);
@@ -95,6 +100,7 @@ export default function DailyQuiz() {
     setCurrentQuestionIndex(i => i + 1);
     setSelectedAnswer(null);
     setIsAnswered(false);
+    setIsTimeUp(false);
     setTimeLeft(TIMER_DURATION);
   };
   
@@ -104,6 +110,7 @@ export default function DailyQuiz() {
     setCurrentQuestionIndex(0);
     setSelectedAnswer(null);
     setIsAnswered(false);
+    setIsTimeUp(false);
     setScore(0);
     setTimeLeft(TIMER_DURATION);
   }
@@ -173,6 +180,18 @@ export default function DailyQuiz() {
                     <p className="text-lg">Votre score final est de :</p>
                     <p className="text-5xl font-bold text-primary my-4">{score} / {quizData.questions.length}</p>
                 </div>
+                {quizData.funFact && (
+                    <>
+                        <Separator />
+                        <div className="text-left space-y-2 p-4 bg-accent/10 rounded-lg border border-accent/20">
+                            <h4 className="flex items-center font-headline text-lg text-accent-foreground">
+                                <Lightbulb className="mr-2 h-5 w-5 text-accent" />
+                                Le saviez-vous ?
+                            </h4>
+                            <p className="text-sm text-muted-foreground">{quizData.funFact.replace("Le saviez-vous ? ", "")}</p>
+                        </div>
+                    </>
+                )}
             </CardContent>
             <CardFooter className="justify-center">
                  <Button onClick={handleReset}>Changer de catégorie</Button>
@@ -221,7 +240,12 @@ export default function DailyQuiz() {
           })}
         </div>
         {isAnswered && (
-            <div className="mt-6 text-center">
+            <div className="mt-6 text-center space-y-4">
+                {isTimeUp && (
+                    <div className="p-3 rounded-md bg-amber-100 text-amber-900 border border-amber-200 font-semibold text-sm">
+                        Temps écoulé ! Voici la bonne réponse.
+                    </div>
+                )}
                 <Button onClick={handleNext}>
                     {currentQuestionIndex === quizData.questions.length - 1 ? "Voir les résultats" : "Question suivante"}
                 </Button>

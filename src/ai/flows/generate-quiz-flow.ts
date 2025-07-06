@@ -20,6 +20,8 @@ Les questions doivent être variées en difficulté (facile, moyenne, difficile)
 
 En plus du quiz, génère un titre approprié pour le quiz.
 
+**Très important :** À la fin, tu dois ajouter une anecdote amusante, surprenante et utile dans le champ 'funFact'. Elle doit être en lien avec la catégorie "{{category}}" et commencer par "Le saviez-vous ?". Cette information doit être intéressante pour que l'utilisateur apprenne quelque chose de nouveau.
+
 Réponds uniquement en respectant le format de sortie JSON demandé.`,
 });
 

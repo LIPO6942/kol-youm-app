@@ -14,5 +14,6 @@ const QuizQuestionSchema = z.object({
 export const GenerateQuizOutputSchema = z.object({
     title: z.string().describe("The title of the quiz, e.g., \"Quiz d'Histoire & Mythologies\"."),
     questions: z.array(QuizQuestionSchema).length(5).describe('A list of 5 quiz questions.'),
+    funFact: z.string().optional().describe("Une anecdote amusante, surprenante et utile liée à la catégorie du quiz. Commence par 'Le saviez-vous ?'.")
 });
 export type GenerateQuizOutput = z.infer<typeof GenerateQuizOutputSchema>;
