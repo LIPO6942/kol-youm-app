@@ -2,12 +2,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, XCircle, Trophy, Globe, Clapperboard, Music, BookOpen, FlaskConical, Palette, Loader2, Timer, Lightbulb } from 'lucide-react';
+import { CheckCircle2, XCircle, Trophy, Globe, Clapperboard, Music, BookOpen, FlaskConical, Palette, Loader2, Timer, Lightbulb, Link as LinkIcon } from 'lucide-react';
 import { generateQuiz } from '@/ai/flows/generate-quiz-flow';
 import type { GenerateQuizOutput } from '@/ai/flows/generate-quiz-flow.types';
 import { useToast } from '@/hooks/use-toast';
@@ -183,12 +184,20 @@ export default function DailyQuiz() {
                 {quizData.funFact && (
                     <>
                         <Separator />
-                        <div className="text-left space-y-2 p-4 bg-accent/10 rounded-lg border border-accent/20">
+                        <div className="text-left space-y-3 p-4 bg-accent/10 rounded-lg border border-accent/20">
                             <h4 className="flex items-center font-headline text-lg text-accent-foreground">
                                 <Lightbulb className="mr-2 h-5 w-5 text-accent" />
                                 Le saviez-vous ?
                             </h4>
                             <p className="text-sm text-muted-foreground">{quizData.funFact.replace("Le saviez-vous ? ", "")}</p>
+                            {quizData.funFactUrl && (
+                                <Link href={quizData.funFactUrl} target="_blank" rel="noopener noreferrer">
+                                    <Button variant="link" className="p-0 h-auto text-xs text-accent-foreground/80">
+                                        <LinkIcon className="mr-1.5 h-3 w-3" />
+                                        En savoir plus
+                                    </Button>
+                                </Link>
+                            )}
                         </div>
                     </>
                 )}
