@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { X, Heart, Loader2, Film, RotateCcw, Star, Link as LinkIcon, Users, Calendar, Globe } from 'lucide-react';
+import { X, Heart, Loader2, Film, RotateCcw, Star, Link as LinkIcon, Users, Calendar, Globe, SkipForward } from 'lucide-react';
 
 import { recordMovieSwipe } from '@/ai/flows/movie-preference-learning';
 import type { MovieSwipeInput } from '@/ai/flows/movie-preference-learning.types';
@@ -107,6 +107,11 @@ export default function MovieSwiper({ genre }: { genre: string }) {
       setIsSwipeLoading(false);
     }
   };
+
+  const handleSkip = () => {
+    if (isSwipeLoading || currentIndex >= movies.length) return;
+    setCurrentIndex(prevIndex => prevIndex + 1);
+  };
   
   const currentMovie = currentIndex < movies.length ? movies[currentIndex] : null;
 
@@ -181,9 +186,12 @@ export default function MovieSwiper({ genre }: { genre: string }) {
                 </a>
               </div>
             </CardContent>
-             <CardFooter className="p-4 pt-0 grid grid-cols-2 gap-4">
+             <CardFooter className="p-4 pt-0 grid grid-cols-3 gap-4">
                 <Button variant="outline" size="lg" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive h-14" onClick={() => handleSwipe('left')} disabled={isSwipeLoading}>
                   {isSwipeLoading ? <Loader2 className="animate-spin" /> : <X className="h-8 w-8" />}
+                </Button>
+                <Button variant="outline" size="lg" className="h-14" onClick={handleSkip} disabled={isSwipeLoading}>
+                  {isSwipeLoading ? <Loader2 className="animate-spin" /> : <SkipForward className="h-8 w-8" />}
                 </Button>
                 <Button variant="outline" size="lg" className="border-green-500 text-green-500 hover:bg-green-500/10 hover:text-green-500 h-14" onClick={() => handleSwipe('right')} disabled={isSwipeLoading}>
                   {isSwipeLoading ? <Loader2 className="animate-spin" /> : <Heart className="h-8 w-8" />}
