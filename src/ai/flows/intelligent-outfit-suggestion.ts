@@ -29,9 +29,12 @@ Genre : {{{gender}}}
 {{/if}}
 Couleurs préférées : {{#if preferredColors}}{{{preferredColors}}}{{else}}Pas de couleurs préférées{{/if}}
 
-Générez une description détaillée pour chaque catégorie : haut, bas, chaussures, et accessoires. La tenue doit être appropriée pour le genre spécifié.
+**Instructions impératives :**
+1.  **Respect strict du genre :** La tenue doit être **exclusivement** appropriée pour le genre spécifié. Ne suggérez **jamais** de talons ou de jupes pour un homme. Adaptez tous les articles (pantalons, chemises, etc.) au genre.
+2.  **Respect des couleurs :** Si des couleurs préférées sont indiquées, la tenue **doit** contenir au moins une de ces couleurs.
+
+Générez une description détaillée pour chaque catégorie : haut, bas, chaussures, et accessoires.
 Si une pièce unique (robe, combinaison) est suggérée, indiquez-le dans les champs appropriés. Par exemple, si vous suggérez une robe, le champ 'haut' décrira la robe, et le champ 'bas' devra être 'N/A'.
-Si l'utilisateur a spécifié des couleurs préférées, intégrez-les.
 {{#if baseItem}}
 La tenue suggérée doit incorporer et correspondre à la pièce de base fournie.
 {{/if}}

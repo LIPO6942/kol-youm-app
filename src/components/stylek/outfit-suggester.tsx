@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -36,21 +36,23 @@ const colors = [
     { name: 'Orange', value: '#f97316' },
 ];
 
-const clothingData = {
+const clothingDataFemme = {
   'Un Haut': {
-    'Chemise': ['en lin', 'en coton', 'en soie', 'à carreaux'],
+    'Chemisier': ['en soie', 'en coton', 'à motifs', 'sans manches'],
     'T-shirt': ['à col V', 'à col rond', 'imprimé', 'uni'],
-    'Pull': ['en laine', 'en cachemire', 'à col roulé', 'à capuche'],
+    'Pull': ['en laine', 'en cachemire', 'à col roulé', 'crop top'],
+    'Top': ['débardeur', 'à bretelles', 'bustier', 'en dentelle']
   },
   'Un Bas': {
-    'Pantalon': ['chino', 'en jean', 'cargo', 'de costume'],
+    'Pantalon': ['tailleur', 'en jean', 'cargo', 'large (palazzo)'],
     'Jupe': ['en jean', 'plissée', 'crayon', 'longue'],
-    'Short': ['en jean', 'bermuda', 'de sport', 'en lin'],
+    'Short': ['en jean', 'tailleur', 'de sport', 'en lin'],
   },
   'Des Chaussures': {
-    'Baskets': ['basses', 'montantes', 'de course', 'en toile'],
+    'Baskets': ['basses', 'montantes', 'plateformes', 'en toile'],
     'Talons': ['aiguilles', 'compensés', 'carrés', 'sandales à'],
     'Bottes': ['en cuir', 'de pluie', 'chelsea', 'cuissardes'],
+    'Chaussures plates': ['ballerines', 'mocassins', 'mules']
   },
   'Une Pièce Unique': {
     'Robe': ['d\'été', 'de soirée', 'pull', 'chemise'],
@@ -58,8 +60,34 @@ const clothingData = {
   },
   'Un Accessoire': {
     'Sac': ['à main', 'à dos', 'bandoulière', 'pochette'],
-    'Chapeau': ['casquette', 'bob', 'fedora', 'béret'],
+    'Chapeau': ['capeline', 'bob', 'fedora', 'béret'],
     'Bijou': ['collier', 'bracelet', 'boucles d\'oreilles', 'montre'],
+  }
+};
+
+const clothingDataHomme = {
+  'Un Haut': {
+    'Chemise': ['en lin', 'en coton', 'formelle', 'à carreaux'],
+    'T-shirt': ['à col V', 'à col rond', 'imprimé', 'uni'],
+    'Pull': ['en laine', 'en cachemire', 'à col roulé', 'à capuche'],
+    'Polo': ['à manches courtes', 'à manches longues', 'en coton piqué']
+  },
+  'Un Bas': {
+    'Pantalon': ['chino', 'en jean', 'cargo', 'de costume'],
+    'Short': ['en jean', 'bermuda', 'de sport', 'en lin'],
+  },
+  'Des Chaussures': {
+    'Baskets': ['basses', 'montantes', 'de course', 'en toile'],
+    'Chaussures de ville': ['richelieu', 'derby', 'mocassins', 'en cuir'],
+    'Bottes': ['en cuir', 'chelsea', 'desert boots'],
+  },
+  'Une Pièce Unique': {
+    'Costume': ['deux pièces', 'trois pièces', 'décontracté'],
+  },
+  'Un Accessoire': {
+    'Sac': ['à dos', 'bandoulière', 'sacoche'],
+    'Chapeau': ['casquette', 'bob', 'fedora', 'béret'],
+    'Accessoire': ['montre', 'ceinture', 'cravate', 'lunettes de soleil'],
   }
 };
 const colorOptions = ['Noir', 'Blanc', 'Gris', 'Beige', 'Bleu', 'Rouge', 'Vert', 'Jaune', 'Rose', 'Violet', 'Marron', 'Orange', 'Argenté', 'Doré', 'Clair', 'Foncé'];
@@ -212,6 +240,26 @@ export default function OutfitSuggester() {
       color: '',
     }
   });
+
+  const clothingData = useMemo(() => {
+    if (userProfile?.gender === 'Homme') {
+        return clothingDataHomme;
+    }
+    // Default to Femme if gender is not set or is Femme
+    return clothingDataFemme;
+  }, [userProfile?.gender]);
+  
+  useEffect(() => {
+    // Reset form when clothing data changes (i.e., when gender context changes)
+    // to prevent invalid selections from being carried over.
+    completeOutfitForm.reset({
+      type: '',
+      category: '',
+      style: '',
+      color: '',
+    });
+  }, [clothingData, completeOutfitForm]);
+
   const typeValue = completeOutfitForm.watch('type');
   const categoryValue = completeOutfitForm.watch('category');
 
