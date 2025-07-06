@@ -8,6 +8,7 @@ export type UserProfile = {
     personalizationComplete: boolean;
     createdAt: any;
     seenMovieTitles?: string[];
+    moviesToWatch?: string[];
     seenKhroujSuggestions?: string[];
 };
 
@@ -18,6 +19,7 @@ export async function createUserProfile(uid: string, data: { email: string | nul
     personalizationComplete: false,
     createdAt: serverTimestamp(),
     seenMovieTitles: [],
+    moviesToWatch: [],
     seenKhroujSuggestions: [],
   };
   await setDoc(doc(db, "users", uid), userProfile);
@@ -33,6 +35,15 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
         delete data.seenMovieTitles; // remove from main data object
         await setDoc(userRef, {
             seenMovieTitles: arrayUnion(...titlesToAdd)
+        }, { merge: true });
+    }
+
+    // Special handling for moviesToWatch to use arrayUnion
+    if (data.moviesToWatch) {
+        const titlesToAdd = data.moviesToWatch;
+        delete data.moviesToWatch;
+        await setDoc(userRef, {
+            moviesToWatch: arrayUnion(...titlesToAdd)
         }, { merge: true });
     }
 

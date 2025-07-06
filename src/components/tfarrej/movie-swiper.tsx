@@ -7,6 +7,7 @@ import { recordMovieSwipe } from '@/ai/flows/movie-preference-learning';
 import type { MovieSwipeInput } from '@/ai/flows/movie-preference-learning.types';
 import { generateMovieSuggestions } from '@/ai/flows/generate-movie-suggestions-flow';
 import type { MovieSuggestion } from '@/ai/flows/generate-movie-suggestions-flow.types';
+import type { UserProfile } from '@/lib/firebase/firestore';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -66,26 +67,34 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     setIsSwipeLoading(true);
     const movie = movies[currentIndex];
     
-    // Add to seen titles locally and update Firestore
-    const newSeenTitles = [...seenTitles, movie.title];
-    setSeenTitles(newSeenTitles);
-    await updateUserProfile(user.uid, { seenMovieTitles: [movie.title] });
-
     try {
-      const input: MovieSwipeInput = {
-        userId: user.uid,
-        movieId: movie.id,
-        swipeDirection,
+      // Optimistically update local state for seen titles
+      setSeenTitles(prev => [...prev, movie.title]);
+
+      // Prepare data for Firestore update
+      const updatePayload: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>> = {
+        seenMovieTitles: [movie.title],
       };
-      await recordMovieSwipe(input);
+      if (swipeDirection === 'right') {
+        updatePayload.moviesToWatch = [movie.title];
+      }
+
+      // Record swipe for learning and update user profile in parallel
+      await Promise.all([
+        recordMovieSwipe({
+          userId: user.uid,
+          movieId: movie.id,
+          swipeDirection,
+        }),
+        updateUserProfile(user.uid, updatePayload)
+      ]);
       
       if (swipeDirection === 'right') {
         toast({
             title: `"${movie.title}" ajouté à votre liste !`,
-            description: "Continuez à swiper pour plus de découvertes."
+            description: "Consultez la liste 'À Voir' pour le retrouver."
         });
       }
-
     } catch (error) {
       console.error(error);
       toast({
@@ -93,6 +102,8 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         title: 'Erreur',
         description: "Impossible d'enregistrer votre choix. Veuillez réessayer.",
       });
+      // Optional: Revert optimistic update on error
+      setSeenTitles(prev => prev.filter(t => t !== movie.title));
     } finally {
       setCurrentIndex(prevIndex => prevIndex + 1);
       setIsSwipeLoading(false);

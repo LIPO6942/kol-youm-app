@@ -25,6 +25,10 @@ Le genre principal des films doit être : "{{genre}}".
 Les films doivent appartenir à des genres variés et intéressants (Drame, Comédie, Sci-Fi, Thriller, Mind-Blow, Fantastique, etc.).
 {{/if}}
 
+**Instructions cruciales pour la diversité :**
+- **Sois créatif et surprenant !** Ne te contente pas des blockbusters les plus évidents. Propose des films de différentes époques et nationalités.
+- **La fraîcheur est la clé.** À chaque nouvelle demande, même pour le même genre, essaie de proposer une liste **complètement différente** de la précédente. Imagine que tu parles à la même personne et que tu ne veux pas la lasser.
+
 {{#if seenMovieTitles}}
 **Important :** Il est impératif d'exclure les films suivants de tes suggestions, car l'utilisateur les a déjà vus :
 {{#each seenMovieTitles}}

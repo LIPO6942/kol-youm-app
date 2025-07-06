@@ -6,7 +6,9 @@ import { useSearchParams } from 'next/navigation';
 import MovieSwiper from '@/components/tfarrej/movie-swiper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles } from 'lucide-react';
+import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { MovieListSheet } from '@/components/tfarrej/movie-list-sheet';
 
 const genres = [
     { name: 'Comédie', iconName: 'Laugh', description: 'Pour rire aux éclats.' },
@@ -35,6 +37,7 @@ function TfarrejContent() {
   const searchParams = useSearchParams();
   const genreFromUrl = searchParams.get('genre');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+  const { userProfile } = useAuth();
 
   useEffect(() => {
     if (genreFromUrl) {
@@ -67,12 +70,28 @@ function TfarrejContent() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-bold font-headline tracking-tight">Le Tinder du Cinéma</h2>
-        <p className="text-muted-foreground">
-          "Swipez" pour découvrir votre prochain film ou série coup de cœur.
-        </p>
-      </div>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+                <h2 className="text-2xl font-bold font-headline tracking-tight">Le Tinder du Cinéma</h2>
+                <p className="text-muted-foreground">
+                "Swipez" pour découvrir votre prochain film ou série coup de cœur.
+                </p>
+            </div>
+            <div className="flex gap-2 self-end sm:self-center">
+                <MovieListSheet
+                    trigger={<Button variant="outline"><ListVideo className="mr-2 h-4 w-4" /> À Voir</Button>}
+                    title="Ma Liste 'À Voir'"
+                    description="Les films que vous avez aimés et mis de côté pour plus tard."
+                    movieTitles={userProfile?.moviesToWatch}
+                />
+                <MovieListSheet
+                    trigger={<Button variant="outline"><Eye className="mr-2 h-4 w-4" /> Vus</Button>}
+                    title="Mes Films 'Vus'"
+                    description="L'historique de tous les films que vous avez notés."
+                    movieTitles={userProfile?.seenMovieTitles}
+                />
+            </div>
+        </div>
       <Card className="animate-in fade-in-50">
         <CardHeader className="text-center">
           <CardTitle>Quelle est votre humeur cinématographique ?</CardTitle>
