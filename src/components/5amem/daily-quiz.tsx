@@ -1,27 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, XCircle, Trophy, Film, Shirt, BookOpen, FlaskConical, Palette, Globe, Clapperboard, Music, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Trophy, Globe, Clapperboard, Music, BookOpen, FlaskConical, Palette, Loader2 } from 'lucide-react';
 import { generateQuiz } from '@/ai/flows/generate-quiz-flow';
 import type { GenerateQuizOutput } from '@/ai/flows/generate-quiz-flow.types';
 import { useToast } from '@/hooks/use-toast';
-
-// Icon mapping
-const iconComponents = {
-  Film,
-  Shirt,
-  BookOpen,
-  FlaskConical,
-  Palette,
-  Globe,
-  Clapperboard,
-  Music,
-};
 
 type QuizData = GenerateQuizOutput;
 
@@ -159,22 +146,6 @@ export default function DailyQuiz() {
                 <div>
                     <p className="text-lg">Votre score final est de :</p>
                     <p className="text-5xl font-bold text-primary my-4">{score} / {quizData.questions.length}</p>
-                </div>
-                <div className='space-y-4'>
-                    <p className="text-md font-semibold text-muted-foreground">Et maintenant ?</p>
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        {quizData.suggestionLinks.map(link => {
-                           const Icon = iconComponents[link.iconName as keyof typeof iconComponents] || Film;
-                           return (
-                            <Link href={link.href} key={link.href} passHref>
-                                <Button variant="outline">
-                                    <Icon className="mr-2 h-4 w-4" />
-                                    {link.text}
-                                </Button>
-                            </Link>
-                           )
-                        })}
-                    </div>
                 </div>
             </CardContent>
             <CardFooter className="justify-center">

@@ -21,7 +21,10 @@ Pour chaque défi :
 1.  Crée un 'id' unique (une courte chaîne de caractères aléatoires).
 2.  Formule une 'title' (question) claire qui indique ce qui doit être classé (par exemple : "Classez ces inventions par ordre chronologique", "Rangez ces planètes par distance au soleil").
 3.  Fournis une liste 'items' des éléments à classer. **Cette liste doit déjà être dans le bon ordre.** L'application se chargera de la mélanger pour l'utilisateur. La liste doit contenir entre 4 et 6 éléments.
-4.  Assigne une 'category' pertinente au défi.
+4.  Pour chaque élément de la liste 'items', tu dois fournir un objet avec deux champs :
+    - 'item': Le texte de l'élément à classer (ex: "Invention de l'imprimerie").
+    - 'detail': Un court détail contextuel. **Pour les événements historiques ou les inventions, ce doit être l'année (ex: "1454").** Pour d'autres types de classement (taille, distance), ce peut être la valeur numérique.
+5.  Assigne une 'category' pertinente au défi.
 
 Assure-toi que les faits sont exacts et que les ordres de classement sont corrects. Sois créatif pour proposer des défis originaux.
 Toutes les réponses doivent être en français. Réponds uniquement en respectant le format de sortie JSON demandé.`,

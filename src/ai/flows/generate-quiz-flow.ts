@@ -2,7 +2,7 @@
 /**
  * @fileOverview A Genkit flow for generating daily quizzes.
  *
- * - generateQuiz - A function that takes a category and returns a set of questions and related links.
+ * - generateQuiz - A function that takes a category and returns a set of questions.
  */
 
 import {ai} from '@/ai/genkit';
@@ -19,12 +19,6 @@ Pour chaque question, fournis 4 options de réponse et assure-toi que la bonne r
 Les questions doivent être variées en difficulté (facile, moyenne, difficile).
 
 En plus du quiz, génère un titre approprié pour le quiz.
-
-Enfin, génère exactement 2 liens de suggestion pertinents. Ces liens doivent connecter le thème du quiz à d'autres sections de l'application :
-- '/stylek' pour les suggestions de style (avec une occasion pertinente, par ex. ?occasion=Chic).
-- '/tfarrej' pour les suggestions de films (avec un genre pertinent, par ex. ?genre=Historique).
-
-Pour chaque lien, fournis le texte, l'URL (href) et le nom d'une icône de 'lucide-react' valide (par exemple : 'Film', 'Shirt', 'BookOpen').
 
 Réponds uniquement en respectant le format de sortie JSON demandé.`,
 });

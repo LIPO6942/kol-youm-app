@@ -55,7 +55,7 @@ export default function Talla3Game() {
   const startChallenge = useCallback((challenge: Talla3Challenge | null) => {
     if (!challenge) return;
     setUserOrder([]);
-    setRemainingItems([...challenge.items].sort(() => Math.random() - 0.5));
+    setRemainingItems([...challenge.items.map(i => i.item)].sort(() => Math.random() - 0.5));
     setGameState('playing');
   }, []);
 
@@ -79,7 +79,7 @@ export default function Talla3Game() {
 
   const handleCheckAnswer = () => {
     if (!currentChallenge) return;
-    const isCorrect = userOrder.length === currentChallenge.items.length && userOrder.every((item, index) => item === currentChallenge.items[index]);
+    const isCorrect = userOrder.length === currentChallenge.items.length && userOrder.every((item, index) => item === currentChallenge.items[index].item);
     setGameState(isCorrect ? 'correct' : 'incorrect');
   };
 
@@ -191,7 +191,12 @@ export default function Talla3Game() {
               <div className="text-sm bg-background/50 p-3 rounded-md">
                   <p className="font-semibold mb-1">Le bon ordre était :</p>
                   <ol className="list-decimal list-inside font-medium space-y-1">
-                      {currentChallenge.items.map((item) => <li key={item}>{item}</li>)}
+                      {currentChallenge.items.map((item) => (
+                        <li key={item.item}>
+                            {item.item}
+                            {item.detail && <span className="ml-2 font-normal text-muted-foreground">({item.detail})</span>}
+                        </li>
+                      ))}
                   </ol>
               </div>
           </div>
