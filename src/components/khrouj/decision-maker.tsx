@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { MakeDecisionOutput } from '@/ai/flows/decision-maker-flow.types';
-import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, type LucideIcon } from 'lucide-react';
+import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ThumbsDown, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile } from '@/lib/firebase/firestore';
@@ -41,50 +41,56 @@ export default function DecisionMaker() {
   const { toast } = useToast();
   const { user, userProfile } = useAuth();
 
-  const handleDecideClick = async (category: typeof outingOptions[0]) => {
+  const fetchSuggestion = async (categoryLabel: string) => {
     setIsLoading(true);
-    setResult(null);
-    setSelectedCategory(category);
-    
+    // Setting result to null so the loading animation can show
+    setResult(null); 
     if (!user) {
-        toast({
-            variant: "destructive",
-            title: "Erreur",
-            description: "Veuillez vous connecter pour obtenir des suggestions.",
-        });
+        toast({ variant: "destructive", title: "Erreur", description: "Veuillez vous connecter." });
         setIsLoading(false);
         return;
     }
 
     try {
+      // Use the most up-to-date list of seen places from the user's profile
       const seenPlaces = userProfile?.seenKhroujSuggestions || [];
       const response = await makeDecision({ 
-          category: category.label, 
+          category: categoryLabel, 
           city: 'Tunis',
           seenPlaceNames: seenPlaces,
       });
       setResult(response);
-      await updateUserProfile(user.uid, { seenKhroujSuggestions: [response.placeName] });
-
     } catch (error) {
       console.error(error);
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: "Une erreur s'est produite. Veuillez réessayer.",
-      });
+      toast({ variant: 'destructive', title: 'Erreur', description: "Une erreur s'est produite. Veuillez réessayer." });
       handleReset();
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleCategorySelect = (category: typeof outingOptions[0]) => {
+    setSelectedCategory(category);
+    fetchSuggestion(category.label);
+  };
+  
+  const handleNextSuggestion = async () => {
+    if (!user || !result || !selectedCategory) return;
+    
+    // First, add the current (now rejected) suggestion to the "seen" list
+    await updateUserProfile(user.uid, { seenKhroujSuggestions: [result.placeName] });
+    
+    // Then, fetch a new one. The `useAuth` hook will update `userProfile` with the latest data
+    // ensuring the next call to `fetchSuggestion` has the updated "seen" list.
+    fetchSuggestion(selectedCategory.label);
+  };
+
   const handleReset = () => {
     setResult(null);
     setSelectedCategory(undefined);
-  }
+  };
 
-  if (isLoading) {
+  if (isLoading || (selectedCategory && !result)) {
     return (
         <Card className="max-w-md mx-auto min-h-[400px] flex items-center justify-center">
             <LoadingAnimation category={selectedCategory} />
@@ -111,9 +117,14 @@ export default function DecisionMaker() {
                 </div>
             </CardContent>
             <CardFooter className="flex-col gap-4 justify-center pt-6">
-                <Button className="w-full" onClick={() => handleDecideClick(selectedCategory!)}>
-                    <RotateCw className="mr-2 h-4 w-4" /> Une autre idée
-                </Button>
+                <div className="grid grid-cols-2 gap-4 w-full">
+                    <Button variant="outline" className="h-12 border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={handleNextSuggestion}>
+                        <ThumbsDown className="mr-2 h-5 w-5" /> Pas pour moi
+                    </Button>
+                    <Button className="h-12" onClick={handleNextSuggestion}>
+                        <RotateCw className="mr-2 h-5 w-5" /> Autre idée
+                    </Button>
+                </div>
                 <Link href={result.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="w-full">
                     <Button variant="outline" className="w-full">
                         <MapPin className="mr-2 h-4 w-4" /> M'y emmener sur Maps
@@ -137,7 +148,7 @@ export default function DecisionMaker() {
             return (
               <div 
                 key={option.id}
-                onClick={() => handleDecideClick(option)}
+                onClick={() => handleCategorySelect(option)}
                 className="group flex flex-col items-center justify-center rounded-lg border-2 border-dashed bg-card p-6 text-card-foreground shadow-sm hover:shadow-xl hover:border-primary hover:-translate-y-1 transition-all duration-300 cursor-pointer space-y-3"
               >
                   <div className="p-4 bg-muted group-hover:bg-primary/10 rounded-full transition-colors duration-300">
