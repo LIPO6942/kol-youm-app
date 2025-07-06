@@ -23,21 +23,21 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSwipeLoading, setIsSwipeLoading] = useState(false);
   const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(true);
-  const [seenTitles, setSeenTitles] = useState<string[]>([]);
   const { toast } = useToast();
   
-  useEffect(() => {
-    if (userProfile?.seenMovieTitles) {
-      setSeenTitles(userProfile.seenMovieTitles);
-    }
-  }, [userProfile]);
-
   const fetchMovies = useCallback(() => {
+    // We need userProfile to get the list of seen movies.
+    if (!userProfile) {
+      return;
+    }
     setIsSuggestionsLoading(true);
     setCurrentIndex(0);
     setMovies([]);
     
-    generateMovieSuggestions({ genre: genre, count: 7, seenMovieTitles: seenTitles })
+    // Always use the up-to-date list of seen movies from the user's profile.
+    const seenMovieTitles = userProfile.seenMovieTitles || [];
+    
+    generateMovieSuggestions({ genre: genre, count: 7, seenMovieTitles })
       .then((result) => {
         setMovies(result.movies);
       })
@@ -52,14 +52,17 @@ export default function MovieSwiper({ genre }: { genre: string }) {
       .finally(() => {
         setIsSuggestionsLoading(false);
       });
-  }, [genre, toast, seenTitles]);
+  }, [genre, toast, userProfile]);
 
   useEffect(() => {
-    // We wait until we have the user profile's seen titles before fetching
+    // Fetch movies only when the user profile is first loaded, or the genre changes.
+    // This prevents re-fetching during a swipe session. The button will handle subsequent fetches.
     if(userProfile) {
       fetchMovies();
     }
-  }, [fetchMovies, userProfile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userProfile?.uid, genre]);
+
 
   const handleSwipe = async (swipeDirection: 'left' | 'right') => {
     if (isSwipeLoading || currentIndex >= movies.length || !user) return;
@@ -68,10 +71,8 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     const movie = movies[currentIndex];
     
     try {
-      // Optimistically update local state for seen titles
-      setSeenTitles(prev => [...prev, movie.title]);
-
-      // Prepare data for Firestore update
+      // The user profile is the single source of truth.
+      // We update Firestore, and the onSnapshot listener in useAuth will update the userProfile object.
       const updatePayload: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>> = {
         seenMovieTitles: [movie.title],
       };
@@ -79,7 +80,6 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         updatePayload.moviesToWatch = [movie.title];
       }
 
-      // Record swipe for learning and update user profile in parallel
       await Promise.all([
         recordMovieSwipe({
           userId: user.uid,
@@ -102,8 +102,6 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         title: 'Erreur',
         description: "Impossible d'enregistrer votre choix. Veuillez réessayer.",
       });
-      // Optional: Revert optimistic update on error
-      setSeenTitles(prev => prev.filter(t => t !== movie.title));
     } finally {
       setCurrentIndex(prevIndex => prevIndex + 1);
       setIsSwipeLoading(false);
