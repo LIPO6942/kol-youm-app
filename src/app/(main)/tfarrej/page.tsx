@@ -7,7 +7,6 @@ import MovieSwiper from '@/components/tfarrej/movie-swiper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo } from 'lucide-react';
-import { useAuth } from '@/hooks/use-auth';
 import { MovieListSheet } from '@/components/tfarrej/movie-list-sheet';
 
 const genres = [
@@ -37,7 +36,6 @@ function TfarrejContent() {
   const searchParams = useSearchParams();
   const genreFromUrl = searchParams.get('genre');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
-  const { userProfile } = useAuth();
 
   useEffect(() => {
     if (genreFromUrl) {
@@ -82,13 +80,13 @@ function TfarrejContent() {
                     trigger={<Button variant="outline"><ListVideo className="mr-2 h-4 w-4" /> À Voir</Button>}
                     title="Ma Liste 'À Voir'"
                     description="Les films que vous avez aimés et mis de côté pour plus tard."
-                    movieTitles={userProfile?.moviesToWatch}
+                    listType="moviesToWatch"
                 />
                 <MovieListSheet
                     trigger={<Button variant="outline"><Eye className="mr-2 h-4 w-4" /> Vus</Button>}
                     title="Mes Films 'Vus'"
                     description="L'historique de tous les films que vous avez notés."
-                    movieTitles={userProfile?.seenMovieTitles}
+                    listType="seenMovieTitles"
                 />
             </div>
         </div>

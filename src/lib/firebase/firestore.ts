@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, serverTimestamp, arrayUnion } from "firebase/firestore"; 
+import { doc, setDoc, getDoc, serverTimestamp, arrayUnion, arrayRemove } from "firebase/firestore"; 
 import { db } from "./client";
 
 export type UserProfile = {
@@ -60,6 +60,30 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
     // Update the rest of the fields if any
     if (Object.keys(data).length > 0) {
         await setDoc(userRef, data, { merge: true });
+    }
+}
+
+export async function moveMovieFromWatchlistToSeen(uid: string, movieTitle: string) {
+    const userRef = doc(db, "users", uid);
+    // This action simply removes the movie from the "to watch" list.
+    // It is assumed to already be in the "seen" list.
+    await setDoc(userRef, {
+        moviesToWatch: arrayRemove(movieTitle)
+    }, { merge: true });
+}
+
+export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' | 'seenMovieTitles') {
+    const userRef = doc(db, 'users', uid);
+    if (listName === 'seenMovieTitles') {
+        // Clearing "seen" should also clear the "to watch" list for consistency.
+        await setDoc(userRef, {
+            seenMovieTitles: [],
+            moviesToWatch: []
+        }, { merge: true });
+    } else { // moviesToWatch
+        await setDoc(userRef, {
+            moviesToWatch: []
+        }, { merge: true });
     }
 }
 
