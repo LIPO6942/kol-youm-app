@@ -310,30 +310,12 @@ export default function OutfitSuggester() {
       setIsLoading(false);
     }
   };
-
-  const handleRegeneratePart = async (part: 'haut' | 'bas' | 'chaussures' | 'accessoires') => {
-    if (!currentConstraints || !suggestion || regeneratingPart) return;
-
-    setRegeneratingPart(part);
-    try {
-      const newSuggestion = await regenerateOutfitPart({
-        originalConstraints: currentConstraints,
-        currentOutfit: suggestion,
-        partToChange: part,
-      });
-      setSuggestion(newSuggestion);
-    } catch (error) {
-      handleAiError(error, toast);
-    } finally {
-      setRegeneratingPart(null);
-    }
+  
+  const handleSuggestOutfit = (values: FormValues) => {
+    getSuggestion(values);
   };
-
-  async function handleSuggestOutfit(values: FormValues) {
-    await getSuggestion(values);
-  }
-
-  async function handleCompleteOutfit(values: CompleteOutfitFormValues) {
+  
+  const handleCompleteOutfit = async (values: CompleteOutfitFormValues) => {
     const mainFormValues = form.getValues();
     const isMainFormValid = await form.trigger();
 
@@ -357,7 +339,25 @@ export default function OutfitSuggester() {
     
     await getSuggestion(input);
     completeOutfitForm.reset();
-  }
+  };
+
+  const handleRegeneratePart = async (part: 'haut' | 'bas' | 'chaussures' | 'accessoires') => {
+    if (!currentConstraints || !suggestion || regeneratingPart) return;
+
+    setRegeneratingPart(part);
+    try {
+      const newSuggestion = await regenerateOutfitPart({
+        originalConstraints: currentConstraints,
+        currentOutfit: suggestion,
+        partToChange: part,
+      });
+      setSuggestion(newSuggestion);
+    } catch (error) {
+      handleAiError(error, toast);
+    } finally {
+      setRegeneratingPart(null);
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
