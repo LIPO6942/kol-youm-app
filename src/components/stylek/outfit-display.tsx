@@ -11,7 +11,13 @@ import { CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
-const handleAiError = (error: any, toast: ReturnType<typeof useToast>['toast']) => {
+const GeneratedOutfitImage = ({ description, gender }: { description: string; gender?: 'Homme' | 'Femme' }) => {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const { toast } = useToast();
+
+  const handleAiError = useCallback((error: any) => {
     const errorMessage = error.message || '';
     if (errorMessage.includes('429') || errorMessage.includes('quota')) {
         toast({
@@ -33,13 +39,7 @@ const handleAiError = (error: any, toast: ReturnType<typeof useToast>['toast']) 
         });
     }
     console.error(`Failed to generate outfit image`, error);
-};
-
-const GeneratedOutfitImage = ({ description, gender }: { description: string; gender?: 'Homme' | 'Femme' }) => {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const { toast } = useToast();
+  }, [toast]);
 
   const generate = useCallback(async () => {
     if (!description) return;
@@ -51,11 +51,11 @@ const GeneratedOutfitImage = ({ description, gender }: { description: string; ge
       setImageUrl(result.imageDataUri);
     } catch (e: any) {
       setError(true);
-      handleAiError(e, toast);
+      handleAiError(e);
     } finally {
       setIsLoading(false);
     }
-  }, [description, gender, toast]);
+  }, [description, gender, handleAiError]);
 
   useEffect(() => {
     generate();
