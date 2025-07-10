@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { Loader2, Wand2, XCircle, RotateCw } from 'lucide-react';
 import type { SuggestOutfitOutput } from '@/ai/flows/intelligent-outfit-suggestion.types';
@@ -10,7 +11,7 @@ import { CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
-const handleAiError = (error: any, toast: any) => {
+const handleAiError = (error: any, toast: ReturnType<typeof useToast>['toast']) => {
     const errorMessage = error.message || '';
     if (errorMessage.includes('429') || errorMessage.includes('quota')) {
         toast({
@@ -36,7 +37,7 @@ const handleAiError = (error: any, toast: any) => {
 
 const GeneratedOutfitImage = ({ description, gender }: { description: string; gender?: 'Homme' | 'Femme' }) => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   const { toast } = useToast();
 
@@ -97,7 +98,7 @@ interface OutfitDisplayProps {
 
 export function OutfitDisplay({ isLoading, suggestion, gender, regeneratingPart, onRegeneratePart }: OutfitDisplayProps) {
 
-  if (isLoading) {
+  if (isLoading && !suggestion) {
     return (
       <CardContent className="flex flex-col items-center text-muted-foreground p-8 text-center h-full justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
