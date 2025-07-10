@@ -37,6 +37,13 @@ export function OutfitDisplay({ isLoading, suggestion, gender, regeneratingPart,
     );
   }
 
+  const outfitParts: { key: keyof SuggestOutfitOutput; label: string }[] = [
+    { key: 'haut', label: 'Haut' },
+    { key: 'bas', label: 'Bas' },
+    { key: 'chaussures', label: 'Chaussures' },
+    { key: 'accessoires', label: 'Accessoires' },
+  ];
+
   return (
     <CardContent className="p-4 sm:p-6 w-full">
       <h3 className="text-xl font-bold font-headline text-center mb-4">Votre Tenue du Jour</h3>
@@ -45,31 +52,30 @@ export function OutfitDisplay({ isLoading, suggestion, gender, regeneratingPart,
       </div>
 
       <div className="mt-6 space-y-3">
-         {[
-            { key: 'haut', label: 'Haut' },
-            { key: 'bas', label: 'Bas' },
-            { key: 'chaussures', label: 'Chaussures' },
-            { key: 'accessoires', label: 'Accessoires' },
-        ] as const
-        .filter(item => suggestion[item.key] && suggestion[item.key] !== 'N/A')
-        .map(({ key, label }) => (
+        {outfitParts.map(({ key, label }) => {
+          const value = suggestion[key];
+          if (!value || value === 'N/A') {
+            return null;
+          }
+          return (
             <div key={key} className="p-3 bg-muted/50 rounded-lg text-sm">
-                <div className="flex justify-between items-center mb-1">
-                    <p className="font-semibold text-muted-foreground">{label}</p>
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-7 w-7" 
-                        onClick={() => onRegeneratePart(key)} 
-                        disabled={!!regeneratingPart}
-                        aria-label={`Regénérer ${label}`}
-                    >
-                        {regeneratingPart === key ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
-                    </Button>
-                </div>
-                <p className="font-medium">{suggestion[key]}</p>
+              <div className="flex justify-between items-center mb-1">
+                <p className="font-semibold text-muted-foreground">{label}</p>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => onRegeneratePart(key as 'haut' | 'bas' | 'chaussures' | 'accessoires')}
+                  disabled={!!regeneratingPart}
+                  aria-label={`Regénérer ${label}`}
+                >
+                  {regeneratingPart === key ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="font-medium">{value}</p>
             </div>
-        ))}
+          );
+        })}
       </div>
     </CardContent>
   );
