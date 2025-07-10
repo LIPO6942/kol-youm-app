@@ -31,7 +31,6 @@ export const SuggestionSchema = z.object({
     ),
   googleMapsUrl: z
     .string()
-    .url()
     .describe('A valid Google Maps URL to the suggested place.'),
 });
 export type Suggestion = z.infer<typeof SuggestionSchema>;
