@@ -1,92 +1,11 @@
-
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
-import { Loader2, Wand2, XCircle, RotateCw } from 'lucide-react';
+import { Loader2, Wand2, RotateCw } from 'lucide-react';
 import type { SuggestOutfitOutput } from '@/ai/flows/intelligent-outfit-suggestion.types';
-import { generateOutfitImage } from '@/ai/flows/generate-outfit-image';
 
 import { CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-
-const GeneratedOutfitImage = ({ description, gender }: { description: string; gender?: 'Homme' | 'Femme' }) => {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const { toast } = useToast();
-
-  const handleAiError = useCallback((error: any) => {
-    const errorMessage = error.message || '';
-    if (errorMessage.includes('429') || errorMessage.includes('quota')) {
-        toast({
-            variant: 'destructive',
-            title: 'L\'IA est très demandée !',
-            description: "Le générateur d'images se repose, réessayez dans un instant.",
-        });
-    } else if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
-         toast({
-            variant: 'destructive',
-            title: 'L\'IA est en surchauffe !',
-            description: "Nos serveurs sont un peu surchargés pour l'imagerie. Réessayez dans un instant.",
-        });
-    } else {
-        toast({
-            variant: 'destructive',
-            title: 'Erreur d\'image',
-            description: "Impossible de générer l'image. Veuillez réessayer.",
-        });
-    }
-    console.error(`Failed to generate outfit image`, error);
-  }, [toast]);
-
-  const generate = useCallback(async () => {
-    if (!description) return;
-    setIsLoading(true);
-    setError(false);
-    setImageUrl(null);
-    try {
-      const result = await generateOutfitImage({ itemDescription: description, gender });
-      setImageUrl(result.imageDataUri);
-    } catch (e: any) {
-      setError(true);
-      handleAiError(e);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [description, gender, handleAiError]);
-
-  useEffect(() => {
-    generate();
-  }, [generate]);
-
-  if (isLoading) {
-    return (
-        <div className="absolute inset-0 bg-secondary/50 flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-    );
-  }
-  
-  if (error) {
-    return (
-        <div className="absolute inset-0 bg-secondary/50 flex flex-col items-center justify-center text-center p-4">
-          <XCircle className="h-8 w-8 text-destructive mx-auto" />
-          <p className="text-xs text-muted-foreground mt-2">Erreur Image</p>
-           <Button variant="ghost" size="sm" className="mt-2 text-xs h-auto" onClick={generate}>
-             Réessayer
-           </Button>
-        </div>
-    );
-  }
-  
-  if (imageUrl) {
-    return <Image src={imageUrl} alt="Tenue suggérée" fill className="object-cover" />;
-  }
-
-  return null;
-};
+import { GeneratedOutfitImage } from './generated-outfit-image';
 
 interface OutfitDisplayProps {
   isLoading: boolean;
@@ -131,8 +50,9 @@ export function OutfitDisplay({ isLoading, suggestion, gender, regeneratingPart,
             { key: 'bas', label: 'Bas' },
             { key: 'chaussures', label: 'Chaussures' },
             { key: 'accessoires', label: 'Accessoires' },
-        ] as const).map(({ key, label }) => (
-            suggestion[key] !== 'N/A' && (
+        ] as const
+        .filter(item => suggestion[item.key] && suggestion[item.key] !== 'N/A')
+        .map(({ key, label }) => (
             <div key={key} className="p-3 bg-muted/50 rounded-lg text-sm">
                 <div className="flex justify-between items-center mb-1">
                     <p className="font-semibold text-muted-foreground">{label}</p>
@@ -149,7 +69,6 @@ export function OutfitDisplay({ isLoading, suggestion, gender, regeneratingPart,
                 </div>
                 <p className="font-medium">{suggestion[key]}</p>
             </div>
-            )
         ))}
       </div>
     </CardContent>
