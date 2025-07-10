@@ -5,7 +5,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { Eye, ListVideo, Loader2, Film, RotateCcw, Star, Link as LinkIcon, Users, Calendar, Globe, SkipForward } from 'lucide-react';
 
 import { recordMovieSwipe } from '@/ai/flows/movie-preference-learning';
-import type { MovieSwipeInput } from '@/ai/flows/movie-preference-learning.types';
 import { generateMovieSuggestions } from '@/ai/flows/generate-movie-suggestions-flow';
 import type { MovieSuggestion } from '@/ai/flows/generate-movie-suggestions-flow.types';
 import type { UserProfile } from '@/lib/firebase/firestore';
