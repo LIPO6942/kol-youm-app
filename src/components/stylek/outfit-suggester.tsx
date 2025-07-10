@@ -277,8 +277,6 @@ export default function OutfitSuggester() {
   }, [userProfile?.gender]);
   
   useEffect(() => {
-    // Reset form when clothing data changes (i.e., when gender context changes)
-    // to prevent invalid selections from being carried over.
     completeOutfitForm.reset({
       type: '',
       category: '',
@@ -574,7 +572,7 @@ export default function OutfitSuggester() {
                 </Dialog>
                 
                 <Button type="submit" variant="outline" disabled={isLoading} className="w-full">
-                    <Wand2 className="mr-2 h-4 w-4" />
+                    {isLoading && !suggestion ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                     Idée de tenue complète
                 </Button>
             </CardFooter>
@@ -583,7 +581,7 @@ export default function OutfitSuggester() {
       </Card>
 
       <Card className="min-h-[600px] flex flex-col justify-center items-center sticky top-24">
-        {isLoading && (
+        {(isLoading && !suggestion) && (
           <div className="flex flex-col items-center text-muted-foreground">
             <Loader2 className="h-10 w-10 animate-spin text-primary" />
             <p className="mt-4 text-lg">Votre styliste IA réfléchit...</p>
@@ -607,6 +605,7 @@ export default function OutfitSuggester() {
                   { key: 'chaussures', label: 'Chaussures' },
                   { key: 'accessoires', label: 'Accessoires' },
               ] as const).map(({ key, label }) => (
+                  suggestion[key] !== 'N/A' && (
                   <div key={key} className="p-3 bg-muted/50 rounded-lg text-sm">
                       <div className="flex justify-between items-center mb-1">
                           <p className="font-semibold text-muted-foreground">{label}</p>
@@ -623,6 +622,7 @@ export default function OutfitSuggester() {
                       </div>
                       <p className="font-medium">{suggestion[key]}</p>
                   </div>
+                  )
               ))}
             </div>
             
