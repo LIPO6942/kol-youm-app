@@ -42,12 +42,27 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         setMovies(result.movies);
       })
       .catch((error) => {
+        const errorMessage = error.message || '';
+        if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+            toast({
+                variant: 'destructive',
+                title: 'L\'IA est très demandée !',
+                description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez dans quelques minutes.",
+            });
+        } else if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
+             toast({
+                variant: 'destructive',
+                title: 'L\'IA est en surchauffe !',
+                description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant pour reprendre son souffle et réessayez.",
+            });
+        } else {
+             toast({
+              variant: 'destructive',
+              title: 'Erreur',
+              description: "Impossible de charger les suggestions de films.",
+            });
+        }
         console.error('Failed to fetch movie suggestions', error);
-        toast({
-          variant: 'destructive',
-          title: 'Erreur',
-          description: "Impossible de charger les suggestions de films.",
-        });
       })
       .finally(() => {
         setIsSuggestionsLoading(false);

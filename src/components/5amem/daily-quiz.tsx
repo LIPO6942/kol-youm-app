@@ -73,13 +73,28 @@ export default function DailyQuiz() {
     try {
       const data = await generateQuiz({ category });
       setQuizData(data);
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error.message || '';
+      if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+          toast({
+              variant: 'destructive',
+              title: 'L\'IA est très demandée !',
+              description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez dans quelques minutes.",
+          });
+      } else if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
+           toast({
+              variant: 'destructive',
+              title: 'L\'IA est en surchauffe !',
+              description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant pour reprendre son souffle et réessayez.",
+          });
+      } else {
+          toast({
+              variant: 'destructive',
+              title: 'Erreur',
+              description: "Impossible de générer le quiz. Veuillez réessayer.",
+          });
+      }
       console.error(error);
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: "Impossible de générer le quiz. Veuillez réessayer.",
-      });
       setSelectedCategory(null); // Go back to category selection
     } finally {
       setIsLoading(false);

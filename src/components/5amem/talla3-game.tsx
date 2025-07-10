@@ -31,14 +31,29 @@ export default function Talla3Game() {
       const data = await generateTalla3Challenges({ count: 5 });
       setChallenges(data.challenges);
       setCurrentChallengeIndex(0);
-    } catch (e) {
+    } catch (e: any) {
+      const errorMessage = e.message || '';
+      if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+          toast({
+              variant: 'destructive',
+              title: 'L\'IA est très demandée !',
+              description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez.",
+          });
+      } else if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
+           toast({
+              variant: 'destructive',
+              title: 'L\'IA est en surchauffe !',
+              description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant et réessayez.",
+          });
+      } else {
+        setError("Impossible de charger de nouveaux défis. Veuillez réessayer.");
+        toast({
+          variant: 'destructive',
+          title: 'Erreur',
+          description: "Impossible de charger les défis Talla3.",
+        });
+      }
       console.error(e);
-      setError("Impossible de charger de nouveaux défis. Veuillez réessayer.");
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: "Impossible de charger les défis Talla3.",
-      });
     } finally {
       setIsLoading(false);
     }

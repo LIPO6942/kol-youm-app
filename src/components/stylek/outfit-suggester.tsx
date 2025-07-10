@@ -168,6 +168,29 @@ const weatherOptions = [
   { value: 'Froid', label: 'Froid', icon: Snowflake },
 ];
 
+const handleAiError = (error: any, toast: any) => {
+    const errorMessage = error.message || '';
+    if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+        toast({
+            variant: 'destructive',
+            title: 'L\'IA est très demandée !',
+            description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez dans quelques minutes.",
+        });
+    } else if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
+         toast({
+            variant: 'destructive',
+            title: 'L\'IA est en surchauffe !',
+            description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant pour reprendre son souffle et réessayez.",
+        });
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Erreur',
+            description: "Une erreur inattendue s'est produite. Veuillez réessayer.",
+        });
+    }
+    console.error(error);
+};
 
 const GeneratedOutfitImage = ({ description, gender }: { description: string; gender?: 'Homme' | 'Femme' }) => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -283,16 +306,11 @@ export default function OutfitSuggester() {
       setSuggestion(result);
       setCurrentConstraints(fullInput);
     } catch (error) {
-      console.error(error);
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: "Une erreur s'est produite lors de la génération de la suggestion.",
-      });
+      handleAiError(error, toast);
     } finally {
       setIsLoading(false);
     }
-  }
+  };
 
   const handleRegeneratePart = async (part: 'haut' | 'bas' | 'chaussures' | 'accessoires') => {
     if (!currentConstraints || !suggestion || regeneratingPart) return;
@@ -306,12 +324,7 @@ export default function OutfitSuggester() {
       });
       setSuggestion(newSuggestion);
     } catch (error) {
-      console.error(error);
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: "Impossible de regénérer cette partie. Veuillez réessayer.",
-      });
+      handleAiError(error, toast);
     } finally {
       setRegeneratingPart(null);
     }
@@ -588,7 +601,7 @@ export default function OutfitSuggester() {
             <GeneratedOutfitImage description={suggestion.suggestionText} gender={userProfile?.gender} />
 
             <div className="mt-6 space-y-3">
-               {([
+               {[
                   { key: 'haut', label: 'Haut' },
                   { key: 'bas', label: 'Bas' },
                   { key: 'chaussures', label: 'Chaussures' },

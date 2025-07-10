@@ -66,10 +66,29 @@ export default function DecisionMaker() {
         await updateUserProfile(user.uid, { seenKhroujSuggestions: suggestedPlaceNames });
       }
 
-    } catch (error) {
-      console.error(error);
-      toast({ variant: 'destructive', title: 'Erreur', description: "Une erreur s'est produite. Veuillez réessayer." });
-      handleReset();
+    } catch (error: any) {
+        const errorMessage = error.message || '';
+        if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+            toast({
+                variant: 'destructive',
+                title: 'L\'IA est très demandée !',
+                description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez dans quelques minutes.",
+            });
+        } else if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
+             toast({
+                variant: 'destructive',
+                title: 'L\'IA est en surchauffe !',
+                description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant pour reprendre son souffle et réessayez.",
+            });
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Erreur',
+                description: "Une erreur inattendue s'est produite. Veuillez réessayer.",
+            });
+        }
+        console.error(error);
+        handleReset();
     } finally {
       setIsLoading(false);
     }
