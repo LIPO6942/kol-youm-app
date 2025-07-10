@@ -6,8 +6,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { makeDecision } from '@/ai/flows/decision-maker-flow';
-import type { MakeDecisionOutput } from '@/ai/flows/decision-maker-flow.types';
-import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ThumbsDown, type LucideIcon } from 'lucide-react';
+import type { Suggestion } from '@/ai/flows/decision-maker-flow.types';
+import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile } from '@/lib/firebase/firestore';
@@ -29,22 +29,21 @@ const LoadingAnimation = ({ category }: { category: {label: string, icon: Lucide
                 <div className="absolute h-full w-full bg-primary/10 rounded-full animate-ping"></div>
                 <Icon className="relative h-16 w-16 text-primary" />
             </div>
-            <p className="text-lg font-semibold text-muted-foreground animate-pulse">Recherche du meilleur spot "{category.label}" pour vous...</p>
+            <p className="text-lg font-semibold text-muted-foreground animate-pulse">Recherche des meilleurs spots "{category.label}" pour vous...</p>
         </div>
     );
 };
 
 export default function DecisionMaker() {
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<MakeDecisionOutput | null>(null);
+  const [results, setResults] = useState<Suggestion[] | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<(typeof outingOptions)[0] | undefined>(undefined);
   const { toast } = useToast();
   const { user, userProfile } = useAuth();
 
-  const fetchSuggestion = async (categoryLabel: string) => {
+  const fetchSuggestions = async (categoryLabel: string) => {
     setIsLoading(true);
-    // Setting result to null so the loading animation can show
-    setResult(null); 
+    setResults(null); 
     if (!user) {
         toast({ variant: "destructive", title: "Erreur", description: "Veuillez vous connecter." });
         setIsLoading(false);
@@ -52,14 +51,21 @@ export default function DecisionMaker() {
     }
 
     try {
-      // Use the most up-to-date list of seen places from the user's profile
       const seenPlaces = userProfile?.seenKhroujSuggestions || [];
       const response = await makeDecision({ 
           category: categoryLabel, 
           city: 'Tunis',
           seenPlaceNames: seenPlaces,
       });
-      setResult(response);
+      
+      setResults(response.suggestions);
+      
+      // Add newly suggested places to the seen list so they aren't repeated in the next fetch
+      const suggestedPlaceNames = response.suggestions.map(s => s.placeName);
+      if (suggestedPlaceNames.length > 0) {
+        await updateUserProfile(user.uid, { seenKhroujSuggestions: suggestedPlaceNames });
+      }
+
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: 'Erreur', description: "Une erreur s'est produite. Veuillez réessayer." });
@@ -71,68 +77,71 @@ export default function DecisionMaker() {
 
   const handleCategorySelect = (category: typeof outingOptions[0]) => {
     setSelectedCategory(category);
-    fetchSuggestion(category.label);
-  };
-  
-  const handleNextSuggestion = async () => {
-    if (!user || !result || !selectedCategory) return;
-    
-    // First, add the current (now rejected) suggestion to the "seen" list
-    await updateUserProfile(user.uid, { seenKhroujSuggestions: [result.placeName] });
-    
-    // Then, fetch a new one. The `useAuth` hook will update `userProfile` with the latest data
-    // ensuring the next call to `fetchSuggestion` has the updated "seen" list.
-    fetchSuggestion(selectedCategory.label);
+    fetchSuggestions(category.label);
   };
 
   const handleReset = () => {
-    setResult(null);
+    setResults(null);
     setSelectedCategory(undefined);
   };
 
-  if (isLoading || (selectedCategory && !result)) {
+  if (isLoading || (selectedCategory && !results)) {
     return (
-        <Card className="max-w-md mx-auto min-h-[400px] flex items-center justify-center">
+        <Card className="max-w-2xl mx-auto min-h-[400px] flex items-center justify-center">
             <LoadingAnimation category={selectedCategory} />
         </Card>
     )
   }
-
-  if (result) {
-    const ResultIcon = outingOptions.find(o => o.label === result.chosenOption)?.icon || MapPin;
+  
+  if (results && selectedCategory) {
     return (
-        <Card className="max-w-md mx-auto text-center animate-in fade-in-50 zoom-in-95">
-            <CardHeader className="items-center">
-                 <div className="p-3 bg-primary/10 rounded-full mb-2">
-                    <ResultIcon className="h-10 w-10 text-primary" />
-                </div>
-                <CardTitle className="text-primary font-headline text-3xl">{result.placeName}</CardTitle>
-                <CardDescription>Votre suggestion pour un(e) {result.chosenOption.toLowerCase()} parfait(e) !</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <p className="text-muted-foreground text-lg">"{result.description}"</p>
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground pt-4">
-                    <MapPin className="h-4 w-4" />
-                    <span>Suggéré à {result.location}</span>
-                </div>
-            </CardContent>
-            <CardFooter className="flex-col gap-4 justify-center pt-6">
-                <div className="grid grid-cols-2 gap-4 w-full">
-                    <Button variant="outline" className="h-12 border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={handleNextSuggestion}>
-                        <ThumbsDown className="mr-2 h-5 w-5" /> Pas pour moi
-                    </Button>
-                    <Button className="h-12" onClick={handleNextSuggestion}>
-                        <RotateCw className="mr-2 h-5 w-5" /> Autre idée
-                    </Button>
-                </div>
-                <Link href={result.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="w-full">
+      <div className="space-y-6 animate-in fade-in-50">
+        <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={handleReset}>
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Retour</span>
+            </Button>
+            <div>
+                <h2 className="text-2xl font-bold font-headline tracking-tight">Suggestions de {selectedCategory.label}s</h2>
+                <p className="text-muted-foreground">Voici quelques idées pour vous, dans des zones différentes.</p>
+            </div>
+        </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {results.map((suggestion, index) => {
+            const Icon = outingOptions.find(o => o.id === selectedCategory.id)?.icon || MapPin;
+            return (
+              <Card key={index} className="flex flex-col">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="font-headline text-2xl text-primary">{suggestion.placeName}</CardTitle>
+                      <CardDescription>{suggestion.location}</CardDescription>
+                    </div>
+                    <div className="p-2 bg-primary/10 rounded-full ml-4">
+                      <Icon className="h-6 w-6 text-primary" />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                  <p className="text-muted-foreground text-sm">"{suggestion.description}"</p>
+                </CardContent>
+                <CardFooter>
+                  <Link href={suggestion.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="w-full">
                     <Button variant="outline" className="w-full">
-                        <MapPin className="mr-2 h-4 w-4" /> M'y emmener sur Maps
+                      <MapPin className="mr-2 h-4 w-4" /> M'y emmener
                     </Button>
-                </Link>
-                 <Button variant="ghost" size="sm" onClick={handleReset}>Changer de catégorie</Button>
-            </CardFooter>
-        </Card>
+                  </Link>
+                </CardFooter>
+              </Card>
+            );
+          })}
+        </div>
+        <div className="text-center">
+          <Button onClick={() => fetchSuggestions(selectedCategory.label)}>
+            <RotateCw className="mr-2 h-4 w-4" /> Actualiser les suggestions
+          </Button>
+        </div>
+      </div>
     );
   }
   

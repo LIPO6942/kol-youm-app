@@ -13,10 +13,7 @@ export const MakeDecisionInputSchema = z.object({
 });
 export type MakeDecisionInput = z.infer<typeof MakeDecisionInputSchema>;
 
-export const MakeDecisionOutputSchema = z.object({
-  chosenOption: z
-    .string()
-    .describe('The chosen category, which should match the input category.'),
+export const SuggestionSchema = z.object({
   placeName: z
     .string()
     .describe(
@@ -34,6 +31,13 @@ export const MakeDecisionOutputSchema = z.object({
     ),
   googleMapsUrl: z
     .string()
+    .url()
     .describe('A valid Google Maps URL to the suggested place.'),
+});
+export type Suggestion = z.infer<typeof SuggestionSchema>;
+
+
+export const MakeDecisionOutputSchema = z.object({
+  suggestions: z.array(SuggestionSchema).describe("A list of outing suggestions."),
 });
 export type MakeDecisionOutput = z.infer<typeof MakeDecisionOutputSchema>;
