@@ -16,7 +16,7 @@ import type { GenerateOutfitFromPhotoOutput } from '@/ai/flows/generate-outfit-f
 import { OutfitForm } from './outfit-form';
 import { OutfitDisplay } from './outfit-display';
 
-// Extended type to include imageDataUri
+// Extended type to include imageDataUri for each part
 export type PhotoSuggestionPart = {
     description: string;
     imageDataUri: string;
@@ -82,7 +82,8 @@ export default function OutfitSuggester() {
       // Logic Path 1: "Compléter ma tenue" (with a photo)
       if (input.baseItemPhotoDataUri) {
         setBaseItemPhoto(input.baseItemPhotoDataUri);
-        
+        setSuggestion(null); // CRITICAL: Clear the other suggestion type state
+
         // 1. Get text descriptions for the outfit parts
         const descriptionResult = await generateOutfitFromPhoto({
           baseItemPhotoDataUri: input.baseItemPhotoDataUri,
@@ -111,6 +112,7 @@ export default function OutfitSuggester() {
                 .catch(error => {
                     // If one image fails, we still want to show the others.
                     console.error(`Failed to generate image for ${part.key}:`, error);
+                    handleAiError(error, toast);
                     return {
                         key: part.key,
                         description: part.description,
@@ -129,7 +131,6 @@ export default function OutfitSuggester() {
             accessoires: { description: 'N/A', imageDataUri: '' },
         };
         
-        // Populate with successful images
         generatedImages.forEach(image => {
             if (image) {
                 finalPhotoSuggestion[image.key as keyof PhotoSuggestion] = {
@@ -147,11 +148,11 @@ export default function OutfitSuggester() {
             }
         });
         
-        // **This is the key fix**: Only set the state for the photo-based suggestion.
         setPhotoSuggestion(finalPhotoSuggestion);
         
       } else {
         // Logic Path 2: "Idée de tenue complète" (text-based)
+        setPhotoSuggestion(null); // CRITICAL: Clear the other suggestion type state
         const result = await suggestOutfit(fullInput);
         setSuggestion(result);
       }
@@ -206,7 +207,6 @@ export default function OutfitSuggester() {
           suggestion={suggestion}
           photoSuggestion={photoSuggestion}
           gender={userProfile?.gender}
-          regeneratingPart={regeneratingPart}
           onRegeneratePart={handleRegeneratePart}
           baseItemPhoto={baseItemPhoto}
         />
