@@ -14,7 +14,6 @@ export type GenerateOutfitFromPhotoInput = z.infer<typeof GenerateOutfitFromPhot
 
 const OutfitPartSchema = z.object({
     description: z.string().describe("Description détaillée de la pièce suggérée (ex: 'Chemisier en soie blanc cassé'). Si non applicable (ex: robe), mettre 'N/A'."),
-    imageDataUri: z.string().describe("Une image photoréaliste de la pièce seule sur un fond neutre, en format data URI. Doit être vide ('') si non applicable."),
 });
 
 export const GenerateOutfitFromPhotoOutputSchema = z.object({

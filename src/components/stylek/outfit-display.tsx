@@ -4,7 +4,7 @@
 import Image from 'next/image';
 import { Loader2, Wand2, Shirt, Milestone, Footprints, Gem } from 'lucide-react';
 import type { SuggestOutfitOutput } from '@/ai/flows/intelligent-outfit-suggestion.types';
-import type { GenerateOutfitFromPhotoOutput } from '@/ai/flows/generate-outfit-from-photo-flow.types';
+import type { PhotoSuggestion } from './outfit-suggester';
 
 import { CardContent } from '@/components/ui/card';
 import { GeneratedOutfitImage } from './generated-outfit-image';
@@ -12,7 +12,7 @@ import { GeneratedOutfitImage } from './generated-outfit-image';
 interface OutfitDisplayProps {
   isLoading: boolean;
   suggestion: SuggestOutfitOutput | null;
-  photoSuggestion: GenerateOutfitFromPhotoOutput | null;
+  photoSuggestion: PhotoSuggestion | null;
   gender?: 'Homme' | 'Femme';
   regeneratingPart: 'haut' | 'bas' | 'chaussures' | 'accessoires' | null;
   onRegeneratePart: (part: 'haut' | 'bas' | 'chaussures' | 'accessoires') => void;
@@ -35,11 +35,22 @@ const renderPlaceholder = () => (
     </CardContent>
 );
 
-const SuggestedItem = ({ item }: { item: { description: string, imageDataUri: string }}) => {
-    if (!item?.imageDataUri) return null;
+const SuggestedItem = ({ item, title }: { item: { description: string, imageDataUri: string }, title: string }) => {
+    if (!item?.imageDataUri) {
+         // Render a placeholder with the description if the image is missing
+        return (
+             <div className="relative aspect-[3/4] w-full bg-secondary rounded-lg overflow-hidden flex flex-col items-center justify-center shadow-inner text-center p-2">
+                <p className="font-semibold text-sm">{title}</p>
+                <p className="text-xs text-muted-foreground">{item.description}</p>
+            </div>
+        )
+    }
     return (
         <div className="relative aspect-[3/4] w-full bg-secondary rounded-lg overflow-hidden flex items-center justify-center shadow-lg">
             <Image src={item.imageDataUri} alt={item.description} fill className="object-cover" />
+            <div className="absolute bottom-0 left-0 right-0 bg-black/40 text-white p-2 text-center text-xs backdrop-blur-sm">
+                {title}
+            </div>
         </div>
     );
 };
@@ -56,7 +67,12 @@ export function OutfitDisplay({ isLoading, suggestion, photoSuggestion, gender, 
 
   // New layout for when the suggestion is based on a user's photo
   if (baseItemPhoto && photoSuggestion) {
-     const suggestedParts = [photoSuggestion.haut, photoSuggestion.bas, photoSuggestion.chaussures, photoSuggestion.accessoires];
+     const suggestedParts = [
+         { part: photoSuggestion.haut, title: "Haut" },
+         { part: photoSuggestion.bas, title: "Bas" },
+         { part: photoSuggestion.chaussures, title: "Chaussures" },
+         { part: photoSuggestion.accessoires, title: "Accessoires" }
+     ];
      return (
         <CardContent className="p-4 sm:p-6 w-full">
             <h3 className="text-xl font-bold font-headline text-center mb-4">Votre Tenue Personnalisée</h3>
@@ -65,13 +81,13 @@ export function OutfitDisplay({ isLoading, suggestion, photoSuggestion, gender, 
                 {/* AI Suggestions (Left, Larger) */}
                 <div className="md:col-span-2 grid grid-cols-2 gap-4">
                     <h4 className="col-span-2 font-semibold text-center text-muted-foreground">Suggestions de l'IA</h4>
-                    {suggestedParts.map((item, index) => item.imageDataUri && <SuggestedItem key={index} item={item} />)}
+                    {suggestedParts.map((item, index) => item.part.description && item.part.description !== 'N/A' && <SuggestedItem key={index} item={item.part} title={item.title} />)}
                 </div>
 
                 {/* User's Item and full description (Right, Smaller) */}
                 <div className="space-y-4">
                     <h4 className="font-semibold text-center text-muted-foreground">Votre Pièce</h4>
-                    <div className="relative aspect-[3/4] w-full bg-secondary rounded-lg overflow-hidden flex items-center justify-center">
+                    <div className="relative aspect-[3/4] w-full bg-secondary rounded-lg overflow-hidden flex items-center justify-center shadow-lg">
                         <Image src={baseItemPhoto} alt="Votre pièce de base" fill className="object-cover" />
                     </div>
                     <div className="space-y-3 text-sm">

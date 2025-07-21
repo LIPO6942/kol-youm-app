@@ -10,10 +10,23 @@ import { suggestOutfit } from '@/ai/flows/intelligent-outfit-suggestion';
 import type { SuggestOutfitInput, SuggestOutfitOutput } from '@/ai/flows/intelligent-outfit-suggestion.types';
 import { regenerateOutfitPart } from '@/ai/flows/regenerate-outfit-part-flow';
 import { generateOutfitFromPhoto } from '@/ai/flows/generate-outfit-from-photo-flow';
+import { generateOutfitImage } from '@/ai/flows/generate-outfit-image';
 import type { GenerateOutfitFromPhotoOutput } from '@/ai/flows/generate-outfit-from-photo-flow.types';
 
 import { OutfitForm } from './outfit-form';
 import { OutfitDisplay } from './outfit-display';
+
+// Extended type to include imageDataUri
+type PhotoSuggestionPart = {
+    description: string;
+    imageDataUri: string;
+};
+export type PhotoSuggestion = {
+    haut: PhotoSuggestionPart;
+    bas: PhotoSuggestionPart;
+    chaussures: PhotoSuggestionPart;
+    accessoires: PhotoSuggestionPart;
+};
 
 const handleAiError = (error: any, toast: any) => {
     const errorMessage = error.message || '';
@@ -43,7 +56,7 @@ const handleAiError = (error: any, toast: any) => {
 export default function OutfitSuggester() {
   const { userProfile } = useAuth();
   const [suggestion, setSuggestion] = useState<SuggestOutfitOutput | null>(null);
-  const [photoSuggestion, setPhotoSuggestion] = useState<GenerateOutfitFromPhotoOutput | null>(null);
+  const [photoSuggestion, setPhotoSuggestion] = useState<PhotoSuggestion | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -67,7 +80,9 @@ export default function OutfitSuggester() {
       // If a photo is provided, use the new dedicated flow
       if (input.baseItemPhotoDataUri) {
         setBaseItemPhoto(input.baseItemPhotoDataUri);
-        const result = await generateOutfitFromPhoto({
+        
+        // 1. Get text descriptions for the outfit parts
+        const descriptionResult = await generateOutfitFromPhoto({
           baseItemPhotoDataUri: input.baseItemPhotoDataUri,
           scheduleKeywords: input.scheduleKeywords,
           weather: input.weather,
@@ -75,13 +90,49 @@ export default function OutfitSuggester() {
           preferredColors: input.preferredColors,
           gender: userProfile?.gender,
         });
-        setPhotoSuggestion(result);
+
+        // 2. Generate images for each part in parallel
+        const partsToGenerate = [
+            { key: 'haut', description: descriptionResult.haut.description },
+            { key: 'bas', description: descriptionResult.bas.description },
+            { key: 'chaussures', description: descriptionResult.chaussures.description },
+            { key: 'accessoires', description: descriptionResult.accessoires.description },
+        ].filter(p => p.description && p.description !== 'N/A');
+
+        const imagePromises = partsToGenerate.map(part => 
+            generateOutfitImage({ itemDescription: part.description, gender: userProfile?.gender })
+                .then(imageResult => ({
+                    key: part.key,
+                    description: part.description,
+                    imageDataUri: imageResult.imageDataUri
+                }))
+        );
+
+        const generatedImages = await Promise.all(imagePromises);
+
+        // 3. Assemble the final photo suggestion object
+        const finalPhotoSuggestion: PhotoSuggestion = {
+            haut: { description: 'N/A', imageDataUri: '' },
+            bas: { description: 'N/A', imageDataUri: '' },
+            chaussures: { description: 'N/A', imageDataUri: '' },
+            accessoires: { description: 'N/A', imageDataUri: '' },
+        };
+
+        generatedImages.forEach(image => {
+            finalPhotoSuggestion[image.key as keyof PhotoSuggestion] = {
+                description: image.description,
+                imageDataUri: image.imageDataUri,
+            };
+        });
+
+        setPhotoSuggestion(finalPhotoSuggestion);
+        
         // We still set a text-based suggestion for consistency in regeneration logic
         setSuggestion({
-            haut: result.haut.description,
-            bas: result.bas.description,
-            chaussures: result.chaussures.description,
-            accessoires: result.accessoires.description,
+            haut: finalPhotoSuggestion.haut.description,
+            bas: finalPhotoSuggestion.bas.description,
+            chaussures: finalPhotoSuggestion.chaussures.description,
+            accessoires: finalPhotoSuggestion.accessoires.description,
             suggestionText: 'Tenue complète générée à partir d\'une photo.',
         });
 
