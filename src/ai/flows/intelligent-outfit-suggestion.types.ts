@@ -19,6 +19,12 @@ export const SuggestOutfitInputSchema = z.object({
     )
     .optional(),
   baseItem: z.string().describe('A specific clothing item the user wants to build an outfit around.').optional(),
+  baseItemPhotoDataUri: z
+    .string()
+    .optional()
+    .describe(
+      "A photo of the base clothing item, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+    ),
   gender: z.enum(['Homme', 'Femme']).describe("The user's gender, to tailor the outfit suggestion.").optional(),
 });
 export type SuggestOutfitInput = z.infer<typeof SuggestOutfitInputSchema>;

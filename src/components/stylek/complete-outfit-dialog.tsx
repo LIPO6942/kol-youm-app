@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, PlusCircle } from 'lucide-react';
+import { Loader2, PlusCircle, Image as ImageIcon, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { Separator } from '../ui/separator';
 
 const clothingDataFemme = {
   'Un Haut': {
@@ -69,11 +71,16 @@ const clothingDataHomme = {
 const colorOptions = ['Noir', 'Blanc', 'Gris', 'Beige', 'Bleu', 'Rouge', 'Vert', 'Jaune', 'Rose', 'Violet', 'Marron', 'Orange', 'Argenté', 'Doré', 'Clair', 'Foncé'];
 
 const completeOutfitFormSchema = z.object({
-  type: z.string().min(1, 'Veuillez choisir un type.'),
-  category: z.string().min(1, 'Veuillez choisir une catégorie.'),
+  type: z.string().optional(),
+  category: z.string().optional(),
   style: z.string().optional(),
   color: z.string().optional(),
+  photo: z.string().optional(), // Will hold the data URI
+}).refine(data => data.photo || (data.type && data.category), {
+    message: 'Veuillez soit importer une photo, soit décrire la pièce.',
+    path: ['type'], // You can associate the error with a specific field
 });
+
 
 type CompleteOutfitFormValues = z.infer<typeof completeOutfitFormSchema>;
 
@@ -87,10 +94,11 @@ interface CompleteOutfitDialogProps {
 export function CompleteOutfitDialog({ gender, mainForm, onCompleteOutfit, isLoading }: CompleteOutfitDialogProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const completeOutfitForm = useForm<CompleteOutfitFormValues>({
     resolver: zodResolver(completeOutfitFormSchema),
-    defaultValues: { type: '', category: '', style: '', color: '' }
+    defaultValues: { type: '', category: '', style: '', color: '', photo: '' }
   });
 
   const clothingData = useMemo(() => {
@@ -98,11 +106,38 @@ export function CompleteOutfitDialog({ gender, mainForm, onCompleteOutfit, isLoa
   }, [gender]);
   
   useEffect(() => {
+    if (!isDialogOpen) {
+        completeOutfitForm.reset({ type: '', category: '', style: '', color: '', photo: '' });
+    }
+  }, [isDialogOpen, completeOutfitForm]);
+
+  useEffect(() => {
     completeOutfitForm.reset({ type: '', category: '', style: '', color: '' });
   }, [clothingData, completeOutfitForm]);
 
   const typeValue = completeOutfitForm.watch('type');
   const categoryValue = completeOutfitForm.watch('category');
+  const photoValue = completeOutfitForm.watch('photo');
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+        if (file.size > 4 * 1024 * 1024) { // 4MB limit
+            toast({
+                variant: 'destructive',
+                title: 'Fichier trop volumineux',
+                description: 'Veuillez choisir une image de moins de 4 Mo.',
+            });
+            return;
+        }
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            completeOutfitForm.setValue('photo', reader.result as string);
+            completeOutfitForm.clearErrors('type'); // Clear error message if user uploads photo
+        };
+        reader.readAsDataURL(file);
+    }
+  };
 
   const handleCompleteOutfitSubmit = async (values: CompleteOutfitFormValues) => {
     const isMainFormValid = await mainForm.trigger();
@@ -118,15 +153,34 @@ export function CompleteOutfitDialog({ gender, mainForm, onCompleteOutfit, isLoa
     
     setIsDialogOpen(false);
     const mainFormValues = mainForm.getValues();
-    const baseItemDescription = [values.category, values.style, values.color].filter(Boolean).join(' ');
+    
+    let baseItemDescription;
+    if (values.photo) {
+        baseItemDescription = { baseItemPhotoDataUri: values.photo };
+    } else {
+        const textDescription = [values.category, values.style, values.color].filter(Boolean).join(' ');
+        baseItemDescription = { baseItem: `${values.type}: ${textDescription}` };
+    }
+
     const input = {
       ...mainFormValues,
-      baseItem: `${values.type}: ${baseItemDescription}`
+      ...baseItemDescription,
     };
     
     onCompleteOutfit(input);
-    completeOutfitForm.reset();
   };
+  
+  const resetFields = () => {
+      completeOutfitForm.reset({ type: '', category: '', style: '', color: '' });
+  }
+  
+  const resetPhoto = () => {
+      completeOutfitForm.setValue('photo', '');
+      if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+      }
+  }
+
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -140,89 +194,122 @@ export function CompleteOutfitDialog({ gender, mainForm, onCompleteOutfit, isLoa
         <DialogHeader>
           <DialogTitle>Quelle pièce mettez-vous en vedette ?</DialogTitle>
           <DialogDescription>
-            Décrivez une pièce de votre garde-robe et nous créerons une tenue autour.
+            Décrivez une pièce ou importez sa photo. L'IA créera une tenue autour.
           </DialogDescription>
         </DialogHeader>
         <Form {...completeOutfitForm}>
             <form onSubmit={completeOutfitForm.handleSubmit(handleCompleteOutfitSubmit)} className="space-y-4 pt-4">
-                <FormField
-                    control={completeOutfitForm.control}
-                    name="type"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Type de pièce</FormLabel>
-                        <Select onValueChange={(value) => {
-                            field.onChange(value);
-                            completeOutfitForm.resetField('category');
-                            completeOutfitForm.resetField('style');
-                            completeOutfitForm.resetField('color');
-                        }} defaultValue={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Choisissez un type" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                            {Object.keys(clothingData).map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
-                        </SelectContent>
-                        </Select>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-                {typeValue && (
-                    <FormField
-                        control={completeOutfitForm.control}
-                        name="category"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Catégorie</FormLabel>
-                            <Select onValueChange={(value) => {
-                                field.onChange(value);
-                                completeOutfitForm.resetField('style');
-                                completeOutfitForm.resetField('color');
-                            }} value={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Choisissez une catégorie" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                               {Object.keys(clothingData[typeValue as keyof typeof clothingData]).map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-                            </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
+                 <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    className="hidden"
+                    accept="image/png, image/jpeg, image/webp"
+                 />
+                 
+                {photoValue ? (
+                    <div className='space-y-2'>
+                        <Label>Aperçu de la photo</Label>
+                        <div className="relative aspect-square w-full rounded-md border bg-muted overflow-hidden">
+                             <Image src={photoValue} alt="Aperçu de la pièce" fill className="object-contain" />
+                             <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 bg-background/50 hover:bg-background/80 h-7 w-7" onClick={resetPhoto}>
+                                <X className="h-4 w-4" />
+                             </Button>
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                         <Button type="button" variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()}>
+                           <ImageIcon className="mr-2 h-4 w-4" />
+                           Importer une photo
+                         </Button>
+
+                        <div className="flex items-center text-xs text-muted-foreground">
+                            <Separator className="flex-1" />
+                            <span className="px-2">OU</span>
+                            <Separator className="flex-1" />
+                        </div>
+                    
+                        <FormField
+                            control={completeOutfitForm.control}
+                            name="type"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Décrire la pièce</FormLabel>
+                                <Select onValueChange={(value) => {
+                                    field.onChange(value);
+                                    completeOutfitForm.resetField('category');
+                                    completeOutfitForm.resetField('style');
+                                    completeOutfitForm.resetField('color');
+                                }} defaultValue={field.value}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Choisissez un type" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    {Object.keys(clothingData).map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                                </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        {typeValue && (
+                            <FormField
+                                control={completeOutfitForm.control}
+                                name="category"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Catégorie</FormLabel>
+                                    <Select onValueChange={(value) => {
+                                        field.onChange(value);
+                                        completeOutfitForm.resetField('style');
+                                        completeOutfitForm.resetField('color');
+                                    }} value={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Choisissez une catégorie" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                    {Object.keys(clothingData[typeValue as keyof typeof clothingData]).map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                                    </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
                         )}
-                    />
-                )}
-                {categoryValue && (
-                    <FormField
-                        control={completeOutfitForm.control}
-                        name="style"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Style/Matière (optionnel)</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Précisez le style" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                               {(clothingData[typeValue as keyof typeof clothingData][categoryValue as keyof typeof clothingData[keyof typeof clothingData]] as string[]).map(style => <SelectItem key={style} value={style}>{style}</SelectItem>)}
-                            </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
+                        {categoryValue && (
+                            <FormField
+                                control={completeOutfitForm.control}
+                                name="style"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Style/Matière (optionnel)</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Précisez le style" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                    {(clothingData[typeValue as keyof typeof clothingData][categoryValue as keyof typeof clothingData[keyof typeof clothingData]] as string[]).map(style => <SelectItem key={style} value={style}>{style}</SelectItem>)}
+                                    </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
                         )}
-                    />
-                )}
-                 {categoryValue && (
-                    <FormField
-                        control={completeOutfitForm.control}
-                        name="color"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Couleur (optionnel)</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Précisez la couleur" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                               {colorOptions.map(color => <SelectItem key={color} value={color}>{color}</SelectItem>)}
-                            </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
+                        {categoryValue && (
+                            <FormField
+                                control={completeOutfitForm.control}
+                                name="color"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Couleur (optionnel)</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Précisez la couleur" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                    {colorOptions.map(color => <SelectItem key={color} value={color}>{color}</SelectItem>)}
+                                    </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
                         )}
-                    />
+                    </>
                 )}
 
                 <Button type="submit" disabled={isLoading} className="w-full">
