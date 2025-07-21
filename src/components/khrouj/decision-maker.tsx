@@ -1,17 +1,17 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { Suggestion } from '@/ai/flows/decision-maker-flow.types';
-import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile } from '@/lib/firebase/firestore';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
 
 const outingOptions: { id: string; label: string; icon: LucideIcon; description: string }[] = [
     { id: 'cafe', label: 'Café', icon: Coffee, description: "Pour un moment de détente" },
@@ -37,14 +37,20 @@ const LoadingAnimation = ({ category }: { category: {label: string, icon: Lucide
 
 export default function DecisionMaker() {
   const [isLoading, setIsLoading] = useState(false);
-  const [results, setResults] = useState<Suggestion[] | null>(null);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [seenSuggestions, setSeenSuggestions] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<(typeof outingOptions)[0] | undefined>(undefined);
   const { toast } = useToast();
   const { user, userProfile } = useAuth();
+  const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
 
-  const fetchSuggestions = async (categoryLabel: string) => {
+  const fetchSuggestions = useCallback(async (categoryLabel: string, isNewRequest: boolean = false) => {
     setIsLoading(true);
-    setResults(null); 
+    if (isNewRequest) {
+      setSuggestions([]);
+      setSeenSuggestions([]);
+    }
+    
     if (!user) {
         toast({ variant: "destructive", title: "Erreur", description: "Veuillez vous connecter." });
         setIsLoading(false);
@@ -52,60 +58,69 @@ export default function DecisionMaker() {
     }
 
     try {
-      const seenPlaces = userProfile?.seenKhroujSuggestions || [];
+      // Pass both previously fetched suggestions and persistent seen places
+      const combinedSeenPlaces = Array.from(new Set([...(userProfile?.seenKhroujSuggestions || []), ...seenSuggestions]));
+
       const response = await makeDecision({ 
           category: categoryLabel, 
           city: 'Tunis',
-          seenPlaceNames: seenPlaces,
+          seenPlaceNames: combinedSeenPlaces,
       });
       
-      setResults(response.suggestions);
+      const newPlaceNames = response.suggestions.map(s => s.placeName);
+      setSuggestions(prev => [...prev, ...response.suggestions]);
+      setSeenSuggestions(prev => Array.from(new Set([...prev, ...newPlaceNames])));
       
-      // Add newly suggested places to the seen list so they aren't repeated in the next fetch
-      const suggestedPlaceNames = response.suggestions.map(s => s.placeName);
-      if (suggestedPlaceNames.length > 0) {
-        await updateUserProfile(user.uid, { seenKhroujSuggestions: suggestedPlaceNames });
+      // Persist the newly seen places in Firestore
+      if (newPlaceNames.length > 0) {
+        await updateUserProfile(user.uid, { seenKhroujSuggestions: newPlaceNames });
       }
 
     } catch (error: any) {
-        const errorMessage = error.message || '';
-        if (errorMessage.includes('429') || errorMessage.includes('quota')) {
-            toast({
-                variant: 'destructive',
-                title: 'L\'IA est très demandée !',
-                description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez dans quelques minutes.",
-            });
-        } else if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
-             toast({
-                variant: 'destructive',
-                title: 'L\'IA est en surchauffe !',
-                description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant pour reprendre son souffle et réessayez.",
-            });
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'Erreur',
-                description: "Une erreur inattendue s'est produite. Veuillez réessayer.",
-            });
-        }
-        console.error(error);
-        handleReset();
+        handleAiError(error);
+        if (isNewRequest) handleReset();
     } finally {
       setIsLoading(false);
     }
+  }, [user, userProfile?.seenKhroujSuggestions, seenSuggestions, toast]);
+
+  const handleAiError = (error: any) => {
+    const errorMessage = error.message || '';
+    if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+        toast({
+            variant: 'destructive',
+            title: 'L\'IA est très demandée !',
+            description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez dans quelques minutes.",
+        });
+    } else if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
+         toast({
+            variant: 'destructive',
+            title: 'L\'IA est en surchauffe !',
+            description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant pour reprendre son souffle et réessayez.",
+        });
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Erreur',
+            description: "Une erreur inattendue s'est produite. Veuillez réessayer.",
+        });
+    }
+    console.error(error);
   };
 
   const handleCategorySelect = (category: typeof outingOptions[0]) => {
     setSelectedCategory(category);
-    fetchSuggestions(category.label);
+    fetchSuggestions(category.label, true);
   };
 
   const handleReset = () => {
-    setResults(null);
+    setSuggestions([]);
+    setSeenSuggestions([]);
     setSelectedCategory(undefined);
+    carouselApi?.destroy();
   };
 
-  if (isLoading || (selectedCategory && !results)) {
+  if (isLoading && suggestions.length === 0) {
     return (
         <Card className="max-w-2xl mx-auto min-h-[400px] flex items-center justify-center">
             <LoadingAnimation category={selectedCategory} />
@@ -113,9 +128,9 @@ export default function DecisionMaker() {
     )
   }
   
-  if (results && selectedCategory) {
+  if (suggestions.length > 0 && selectedCategory) {
     return (
-      <div className="space-y-6 animate-in fade-in-50">
+      <div className="space-y-4 animate-in fade-in-50">
         <div className="flex items-center gap-4">
             <Button variant="outline" size="icon" onClick={handleReset}>
                 <ArrowLeft className="h-4 w-4" />
@@ -126,41 +141,61 @@ export default function DecisionMaker() {
                 <p className="text-muted-foreground">Voici quelques idées pour vous, dans des zones différentes.</p>
             </div>
         </div>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {results.map((suggestion, index) => {
-            const Icon = outingOptions.find(o => o.id === selectedCategory.id)?.icon || MapPin;
-            return (
-              <Card key={index} className="flex flex-col">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="font-headline text-2xl text-primary">{suggestion.placeName}</CardTitle>
-                      <CardDescription>{suggestion.location}</CardDescription>
+
+        <Carousel setApi={setCarouselApi} className="w-full max-w-xs mx-auto">
+          <CarouselContent>
+            {suggestions.map((suggestion, index) => {
+              const Icon = outingOptions.find(o => o.id === selectedCategory.id)?.icon || MapPin;
+              return (
+                <CarouselItem key={index}>
+                    <div className="p-1">
+                    <Card className="flex flex-col h-[350px]">
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <CardTitle className="font-headline text-2xl text-primary">{suggestion.placeName}</CardTitle>
+                            <CardDescription>{suggestion.location}</CardDescription>
+                          </div>
+                          <div className="p-2 bg-primary/10 rounded-full ml-4 flex-shrink-0">
+                            <Icon className="h-6 w-6 text-primary" />
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="flex-grow">
+                        <p className="text-muted-foreground text-sm italic">"{suggestion.description}"</p>
+                      </CardContent>
+                      <CardFooter>
+                        <Link href={suggestion.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="w-full">
+                          <Button variant="outline" className="w-full">
+                            <MapPin className="mr-2 h-4 w-4" /> M'y emmener
+                          </Button>
+                        </Link>
+                      </CardFooter>
+                    </Card>
                     </div>
-                    <div className="p-2 bg-primary/10 rounded-full ml-4">
-                      <Icon className="h-6 w-6 text-primary" />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex-grow">
-                  <p className="text-muted-foreground text-sm">"{suggestion.description}"</p>
-                </CardContent>
-                <CardFooter>
-                  <Link href={suggestion.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="w-full">
-                    <Button variant="outline" className="w-full">
-                      <MapPin className="mr-2 h-4 w-4" /> M'y emmener
-                    </Button>
-                  </Link>
-                </CardFooter>
-              </Card>
-            );
-          })}
-        </div>
-        <div className="text-center">
-          <Button onClick={() => fetchSuggestions(selectedCategory.label)}>
-            <RotateCw className="mr-2 h-4 w-4" /> Actualiser les suggestions
-          </Button>
-        </div>
+                </CarouselItem>
+              );
+            })}
+             <CarouselItem>
+                <div className="p-1">
+                    <Card className="flex flex-col h-[350px] items-center justify-center text-center">
+                        <CardHeader>
+                            <CardTitle>Plus d'idées ?</CardTitle>
+                            <CardDescription>Demandez à l'IA de nouvelles suggestions.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Button onClick={() => fetchSuggestions(selectedCategory.label)} disabled={isLoading}>
+                                {isLoading ? <RotateCw className="mr-2 h-4 w-4 animate-spin" /> : <RotateCw className="mr-2 h-4 w-4" />}
+                                Actualiser
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+            </CarouselItem>
+          </CarouselContent>
+          <CarouselPrevious className="left-[-50px]" />
+          <CarouselNext className="right-[-50px]" />
+        </Carousel>
       </div>
     );
   }

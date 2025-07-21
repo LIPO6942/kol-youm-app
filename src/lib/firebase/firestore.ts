@@ -72,7 +72,7 @@ export async function moveMovieFromWatchlistToSeen(uid: string, movieTitle: stri
     }, { merge: true });
 }
 
-export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' | 'seenMovieTitles') {
+export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' | 'seenMovieTitles' | 'seenKhroujSuggestions') {
     const userRef = doc(db, 'users', uid);
     if (listName === 'seenMovieTitles') {
         // Clearing "seen" should also clear the "to watch" list for consistency.
@@ -80,9 +80,9 @@ export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' 
             seenMovieTitles: [],
             moviesToWatch: []
         }, { merge: true });
-    } else { // moviesToWatch
+    } else { // moviesToWatch or seenKhroujSuggestions
         await setDoc(userRef, {
-            moviesToWatch: []
+            [listName]: []
         }, { merge: true });
     }
 }
