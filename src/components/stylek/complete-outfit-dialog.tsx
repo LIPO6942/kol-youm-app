@@ -75,10 +75,10 @@ const completeOutfitFormSchema = z.object({
   category: z.string().optional(),
   style: z.string().optional(),
   color: z.string().optional(),
-  photo: z.string().optional(), // Will hold the data URI
-}).refine(data => data.photo || (data.type && data.category), {
+  baseItemPhotoDataUri: z.string().optional(),
+}).refine(data => data.baseItemPhotoDataUri || (data.type && data.category), {
     message: 'Veuillez soit importer une photo, soit décrire la pièce.',
-    path: ['type'], // You can associate the error with a specific field
+    path: ['type'], 
 });
 
 
@@ -98,26 +98,30 @@ export function CompleteOutfitDialog({ gender, mainForm, onCompleteOutfit, isLoa
 
   const completeOutfitForm = useForm<CompleteOutfitFormValues>({
     resolver: zodResolver(completeOutfitFormSchema),
-    defaultValues: { type: '', category: '', style: '', color: '', photo: '' }
+    defaultValues: { type: '', category: '', style: '', color: '', baseItemPhotoDataUri: '' }
   });
 
   const clothingData = useMemo(() => {
     return gender === 'Homme' ? clothingDataHomme : clothingDataFemme;
   }, [gender]);
   
-  useEffect(() => {
-    if (!isDialogOpen) {
-        completeOutfitForm.reset({ type: '', category: '', style: '', color: '', photo: '' });
-    }
-  }, [isDialogOpen, completeOutfitForm]);
+  const resetForm = useCallback(() => {
+    completeOutfitForm.reset({ type: '', category: '', style: '', color: '', baseItemPhotoDataUri: '' });
+  }, [completeOutfitForm]);
 
   useEffect(() => {
-    completeOutfitForm.reset({ type: '', category: '', style: '', color: '' });
-  }, [clothingData, completeOutfitForm]);
+    if (!isDialogOpen) {
+        resetForm();
+    }
+  }, [isDialogOpen, resetForm]);
+
+  useEffect(() => {
+    resetForm();
+  }, [clothingData, resetForm]);
 
   const typeValue = completeOutfitForm.watch('type');
   const categoryValue = completeOutfitForm.watch('category');
-  const photoValue = completeOutfitForm.watch('photo');
+  const photoValue = completeOutfitForm.watch('baseItemPhotoDataUri');
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -132,7 +136,7 @@ export function CompleteOutfitDialog({ gender, mainForm, onCompleteOutfit, isLoa
         }
         const reader = new FileReader();
         reader.onloadend = () => {
-            completeOutfitForm.setValue('photo', reader.result as string);
+            completeOutfitForm.setValue('baseItemPhotoDataUri', reader.result as string);
             completeOutfitForm.clearErrors('type'); // Clear error message if user uploads photo
         };
         reader.readAsDataURL(file);
@@ -155,8 +159,8 @@ export function CompleteOutfitDialog({ gender, mainForm, onCompleteOutfit, isLoa
     const mainFormValues = mainForm.getValues();
     
     let baseItemDescription;
-    if (values.photo) {
-        baseItemDescription = { baseItemPhotoDataUri: values.photo };
+    if (values.baseItemPhotoDataUri) {
+        baseItemDescription = { baseItemPhotoDataUri: values.baseItemPhotoDataUri };
     } else {
         const textDescription = [values.category, values.style, values.color].filter(Boolean).join(' ');
         baseItemDescription = { baseItem: `${values.type}: ${textDescription}` };
@@ -169,13 +173,9 @@ export function CompleteOutfitDialog({ gender, mainForm, onCompleteOutfit, isLoa
     
     onCompleteOutfit(input);
   };
-  
-  const resetFields = () => {
-      completeOutfitForm.reset({ type: '', category: '', style: '', color: '' });
-  }
-  
+    
   const resetPhoto = () => {
-      completeOutfitForm.setValue('photo', '');
+      completeOutfitForm.setValue('baseItemPhotoDataUri', '');
       if (fileInputRef.current) {
           fileInputRef.current.value = '';
       }
