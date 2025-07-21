@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -45,11 +46,13 @@ export default function OutfitSuggester() {
 
   const [currentConstraints, setCurrentConstraints] = useState<SuggestOutfitInput | null>(null);
   const [regeneratingPart, setRegeneratingPart] = useState<'haut' | 'bas' | 'chaussures' | 'accessoires' | null>(null);
+  const [baseItemPhoto, setBaseItemPhoto] = useState<string | null>(null);
 
   const getSuggestion = async (input: SuggestOutfitInput) => {
     setIsLoading(true);
     setSuggestion(null);
     setCurrentConstraints(null);
+    setBaseItemPhoto(input.baseItemPhotoDataUri || null);
 
     const fullInput: SuggestOutfitInput = { 
       ...input, 
@@ -101,6 +104,7 @@ export default function OutfitSuggester() {
           gender={userProfile?.gender}
           regeneratingPart={regeneratingPart}
           onRegeneratePart={handleRegeneratePart}
+          baseItemPhoto={baseItemPhoto}
         />
       </Card>
     </div>

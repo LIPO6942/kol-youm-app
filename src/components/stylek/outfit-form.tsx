@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -96,7 +97,7 @@ const weatherOptions = [
 
 interface OutfitFormProps {
     isLoading: boolean;
-    onSuggestOutfit: (values: FormValues & { baseItem?: string }) => void;
+    onSuggestOutfit: (values: FormValues & { baseItem?: string, baseItemPhotoDataUri?: string }) => void;
 }
 
 export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
