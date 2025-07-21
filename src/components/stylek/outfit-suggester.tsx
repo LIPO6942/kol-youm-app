@@ -17,7 +17,7 @@ import { OutfitForm } from './outfit-form';
 import { OutfitDisplay } from './outfit-display';
 
 // Extended type to include imageDataUri
-type PhotoSuggestionPart = {
+export type PhotoSuggestionPart = {
     description: string;
     imageDataUri: string;
 };
@@ -75,6 +75,7 @@ export default function OutfitSuggester() {
       ...input, 
       gender: userProfile?.gender 
     };
+    setCurrentConstraints(fullInput);
 
     try {
       // If a photo is provided, use the new dedicated flow
@@ -117,6 +118,13 @@ export default function OutfitSuggester() {
             chaussures: { description: 'N/A', imageDataUri: '' },
             accessoires: { description: 'N/A', imageDataUri: '' },
         };
+        
+        const textDescriptions: any = {
+           haut: descriptionResult.haut.description,
+           bas: descriptionResult.bas.description,
+           chaussures: descriptionResult.chaussures.description,
+           accessoires: descriptionResult.accessoires.description,
+        };
 
         generatedImages.forEach(image => {
             finalPhotoSuggestion[image.key as keyof PhotoSuggestion] = {
@@ -124,24 +132,25 @@ export default function OutfitSuggester() {
                 imageDataUri: image.imageDataUri,
             };
         });
+        
+        // Populate any missing descriptions from the original text result
+        for(const key of Object.keys(finalPhotoSuggestion)) {
+            if(finalPhotoSuggestion[key as keyof PhotoSuggestion].description === 'N/A') {
+                finalPhotoSuggestion[key as keyof PhotoSuggestion].description = textDescriptions[key];
+            }
+        }
+
 
         setPhotoSuggestion(finalPhotoSuggestion);
+        // DO NOT set the main `suggestion` object here, as it will trigger the wrong display component.
+        // `photoSuggestion` and `baseItemPhoto` are enough to render the detailed view.
         
-        // We still set a text-based suggestion for consistency in regeneration logic
-        setSuggestion({
-            haut: finalPhotoSuggestion.haut.description,
-            bas: finalPhotoSuggestion.bas.description,
-            chaussures: finalPhotoSuggestion.chaussures.description,
-            accessoires: finalPhotoSuggestion.accessoires.description,
-            suggestionText: 'Tenue complète générée à partir d\'une photo.',
-        });
-
       } else {
-        // Otherwise, use the text-based flow
+        // Otherwise, use the text-based flow for a full outfit suggestion
         const result = await suggestOutfit(fullInput);
         setSuggestion(result);
       }
-      setCurrentConstraints(fullInput);
+      
     } catch (error) {
       handleAiError(error, toast);
     } finally {

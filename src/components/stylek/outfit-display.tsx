@@ -61,10 +61,6 @@ export function OutfitDisplay({ isLoading, suggestion, photoSuggestion, gender, 
     return renderLoading();
   }
 
-  if (!suggestion) {
-    return renderPlaceholder();
-  }
-
   // New layout for when the suggestion is based on a user's photo
   if (baseItemPhoto && photoSuggestion) {
      const suggestedParts = [
@@ -110,20 +106,24 @@ export function OutfitDisplay({ isLoading, suggestion, photoSuggestion, gender, 
         </CardContent>
      )
   }
-
+  
   // Default display: generated full outfit image (text-based suggestion)
-  return (
-    <CardContent className="p-4 sm:p-6 w-full">
-      <h3 className="text-xl font-bold font-headline text-center mb-4">Votre Tenue du Jour</h3>
-      <div className="relative aspect-[3/4] w-full max-w-sm mx-auto bg-secondary rounded-lg overflow-hidden flex items-center justify-center">
-        <GeneratedOutfitImage description={suggestion.suggestionText} gender={gender} />
-      </div>
+  if (suggestion) {
+    return (
+      <CardContent className="p-4 sm:p-6 w-full">
+        <h3 className="text-xl font-bold font-headline text-center mb-4">Votre Tenue du Jour</h3>
+        <div className="relative aspect-[3/4] w-full max-w-sm mx-auto bg-secondary rounded-lg overflow-hidden flex items-center justify-center">
+          <GeneratedOutfitImage description={suggestion.suggestionText} gender={gender} />
+        </div>
 
-      {/* Regeneration UI (only for text-based suggestions for now) */}
-      <div className="mt-6 max-w-sm mx-auto">
-        <p className="text-sm font-semibold text-muted-foreground">Détails de la tenue :</p>
-        <p className="text-sm text-foreground mt-1 mb-4 italic">"{suggestion.suggestionText}"</p>
-      </div>
-    </CardContent>
-  );
+        <div className="mt-6 max-w-sm mx-auto">
+          <p className="text-sm font-semibold text-muted-foreground">Détails de la tenue :</p>
+          <p className="text-sm text-foreground mt-1 mb-4 italic">"{suggestion.suggestionText}"</p>
+        </div>
+      </CardContent>
+    );
+  }
+
+  // Fallback to placeholder if no data is available
+  return renderPlaceholder();
 }
