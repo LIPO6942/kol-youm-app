@@ -102,7 +102,6 @@ interface OutfitFormProps {
 
 export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
   const searchParams = useSearchParams();
-  const { userProfile } = useAuth();
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -233,7 +232,6 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
           </CardContent>
           <CardFooter className="flex-col sm:flex-row gap-2 pt-6">
             <CompleteOutfitDialog
-              gender={userProfile?.gender}
               mainForm={form}
               onCompleteOutfit={onSuggestOutfit}
               isLoading={isLoading}

@@ -64,12 +64,13 @@ export default function OutfitSuggester() {
   const [regeneratingPart, setRegeneratingPart] = useState<'haut' | 'bas' | 'chaussures' | 'accessoires' | null>(null);
   const [baseItemPhoto, setBaseItemPhoto] = useState<string | null>(null);
 
-  const getSuggestion = async (input: SuggestOutfitInput) => {
+  const getSuggestion = async (input: SuggestOutfitInput & { baseItemPhotoDataUri?: string }) => {
     setIsLoading(true);
+    // **Crucial: Reset all states to ensure a clean slate for each request**
     setSuggestion(null);
-    setCurrentConstraints(null);
-    setBaseItemPhoto(null);
     setPhotoSuggestion(null);
+    setBaseItemPhoto(null);
+    setCurrentConstraints(null);
 
     const fullInput: SuggestOutfitInput = { 
       ...input, 
@@ -78,7 +79,7 @@ export default function OutfitSuggester() {
     setCurrentConstraints(fullInput);
 
     try {
-      // If a photo is provided, use the new dedicated flow
+      // Logic Path 1: "Compléter ma tenue" (with a photo)
       if (input.baseItemPhotoDataUri) {
         setBaseItemPhoto(input.baseItemPhotoDataUri);
         
@@ -107,8 +108,17 @@ export default function OutfitSuggester() {
                     description: part.description,
                     imageDataUri: imageResult.imageDataUri
                 }))
+                .catch(error => {
+                    // If one image fails, we still want to show the others.
+                    console.error(`Failed to generate image for ${part.key}:`, error);
+                    return {
+                        key: part.key,
+                        description: part.description,
+                        imageDataUri: '' // Represents a failed image
+                    };
+                })
         );
-
+        
         const generatedImages = await Promise.all(imagePromises);
 
         // 3. Assemble the final photo suggestion object
@@ -119,34 +129,29 @@ export default function OutfitSuggester() {
             accessoires: { description: 'N/A', imageDataUri: '' },
         };
         
-        const textDescriptions: any = {
-           haut: descriptionResult.haut.description,
-           bas: descriptionResult.bas.description,
-           chaussures: descriptionResult.chaussures.description,
-           accessoires: descriptionResult.accessoires.description,
-        };
-
+        // Populate with successful images
         generatedImages.forEach(image => {
-            finalPhotoSuggestion[image.key as keyof PhotoSuggestion] = {
-                description: image.description,
-                imageDataUri: image.imageDataUri,
-            };
+            if (image) {
+                finalPhotoSuggestion[image.key as keyof PhotoSuggestion] = {
+                    description: image.description,
+                    imageDataUri: image.imageDataUri,
+                };
+            }
         });
         
-        // Populate any missing descriptions from the original text result
-        for(const key of Object.keys(finalPhotoSuggestion)) {
-            if(finalPhotoSuggestion[key as keyof PhotoSuggestion].description === 'N/A') {
-                finalPhotoSuggestion[key as keyof PhotoSuggestion].description = textDescriptions[key];
+        // Ensure descriptions are present even if image generation failed
+        Object.keys(descriptionResult).forEach(keyStr => {
+            const key = keyStr as keyof GenerateOutfitFromPhotoOutput;
+            if(descriptionResult[key] && !finalPhotoSuggestion[key].description) {
+                finalPhotoSuggestion[key].description = descriptionResult[key].description;
             }
-        }
-
-
+        });
+        
+        // **This is the key fix**: Only set the state for the photo-based suggestion.
         setPhotoSuggestion(finalPhotoSuggestion);
-        // DO NOT set the main `suggestion` object here, as it will trigger the wrong display component.
-        // `photoSuggestion` and `baseItemPhoto` are enough to render the detailed view.
         
       } else {
-        // Otherwise, use the text-based flow for a full outfit suggestion
+        // Logic Path 2: "Idée de tenue complète" (text-based)
         const result = await suggestOutfit(fullInput);
         setSuggestion(result);
       }
@@ -159,17 +164,17 @@ export default function OutfitSuggester() {
   };
 
   const handleRegeneratePart = async (part: 'haut' | 'bas' | 'chaussures' | 'accessoires') => {
-    if (!currentConstraints || !suggestion || regeneratingPart) return;
+    if (!currentConstraints || regeneratingPart) return;
 
-    // Regeneration is text-based for now.
-    // To support image regeneration, this would need to call a different flow.
-    if (baseItemPhoto) {
+    if (baseItemPhoto || photoSuggestion) {
         toast({
-            title: "Non implémenté",
-            description: "La regénération d'une seule pièce n'est pas encore disponible pour les tenues basées sur une photo."
+            title: "Fonctionnalité non disponible",
+            description: "La regénération d'une seule pièce n'est pas encore possible pour les tenues basées sur une photo."
         });
         return;
     }
+    
+    if (!suggestion) return;
 
     setRegeneratingPart(part);
     try {

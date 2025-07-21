@@ -2,7 +2,7 @@
 'use client';
 
 import Image from 'next/image';
-import { Loader2, Wand2, Shirt, Milestone, Footprints, Gem } from 'lucide-react';
+import { Loader2, Wand2, Shirt, Milestone, Footprints, Gem, ImageOff } from 'lucide-react';
 import type { SuggestOutfitOutput } from '@/ai/flows/intelligent-outfit-suggestion.types';
 import type { PhotoSuggestion } from './outfit-suggester';
 
@@ -36,10 +36,11 @@ const renderPlaceholder = () => (
 );
 
 const SuggestedItem = ({ item, title }: { item: { description: string, imageDataUri: string }, title: string }) => {
+    // Render a placeholder if the image is missing or failed to generate
     if (!item?.imageDataUri) {
-         // Render a placeholder with the description if the image is missing
         return (
              <div className="relative aspect-[3/4] w-full bg-secondary rounded-lg overflow-hidden flex flex-col items-center justify-center shadow-inner text-center p-2">
+                <ImageOff className="h-8 w-8 text-muted-foreground mb-2"/>
                 <p className="font-semibold text-sm">{title}</p>
                 <p className="text-xs text-muted-foreground">{item.description}</p>
             </div>
@@ -61,7 +62,8 @@ export function OutfitDisplay({ isLoading, suggestion, photoSuggestion, gender, 
     return renderLoading();
   }
 
-  // New layout for when the suggestion is based on a user's photo
+  // **Primary Logic**: Display for "Compléter ma tenue"
+  // This is the view with multiple images. It takes precedence.
   if (baseItemPhoto && photoSuggestion) {
      const suggestedParts = [
          { part: photoSuggestion.haut, title: "Haut" },
@@ -77,7 +79,10 @@ export function OutfitDisplay({ isLoading, suggestion, photoSuggestion, gender, 
                 {/* AI Suggestions (Left, Larger) */}
                 <div className="md:col-span-2 grid grid-cols-2 gap-4">
                     <h4 className="col-span-2 font-semibold text-center text-muted-foreground">Suggestions de l'IA</h4>
-                    {suggestedParts.map((item, index) => item.part.description && item.part.description !== 'N/A' && <SuggestedItem key={index} item={item.part} title={item.title} />)}
+                    {suggestedParts.map((item, index) => (
+                        // Render only if the part has a valid description. 'N/A' parts are skipped.
+                        item.part.description && item.part.description !== 'N/A' && <SuggestedItem key={index} item={item.part} title={item.title} />
+                    ))}
                 </div>
 
                 {/* User's Item and full description (Right, Smaller) */}
@@ -87,12 +92,14 @@ export function OutfitDisplay({ isLoading, suggestion, photoSuggestion, gender, 
                         <Image src={baseItemPhoto} alt="Votre pièce de base" fill className="object-cover" />
                     </div>
                     <div className="space-y-3 text-sm">
+                         <h4 className="font-semibold text-center text-muted-foreground">Détails de la tenue</h4>
                         {[
                             { Icon: Shirt, label: 'Haut', text: photoSuggestion.haut.description },
                             { Icon: Milestone, label: 'Bas', text: photoSuggestion.bas.description },
                             { Icon: Footprints, label: 'Chaussures', text: photoSuggestion.chaussures.description },
                             { Icon: Gem, label: 'Accessoires', text: photoSuggestion.accessoires.description },
                         ].map(({ Icon, label, text }) => (
+                            // Render description only if it's valid.
                             text && text !== 'N/A' && (
                                 <div key={label} className="p-2 bg-muted/50 rounded-md">
                                     <p className="font-semibold text-muted-foreground flex items-center gap-2"><Icon className="w-4 h-4"/> {label}</p>
@@ -107,7 +114,8 @@ export function OutfitDisplay({ isLoading, suggestion, photoSuggestion, gender, 
      )
   }
   
-  // Default display: generated full outfit image (text-based suggestion)
+  // **Secondary Logic**: Display for "Idée de tenue complète"
+  // This is the view with a single generated image.
   if (suggestion) {
     return (
       <CardContent className="p-4 sm:p-6 w-full">
