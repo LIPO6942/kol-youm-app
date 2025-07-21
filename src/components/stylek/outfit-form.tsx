@@ -119,9 +119,12 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
         form.setValue('occasion', occasion);
     }
   }, [searchParams, form]);
-
-  const handleSuggestOutfit = (values: FormValues) => {
-    onSuggestOutfit(values);
+  
+  const handleSuggestOutfit = async () => {
+    const isValid = await form.trigger();
+    if (isValid) {
+      onSuggestOutfit(form.getValues());
+    }
   };
   
   return (
@@ -131,7 +134,7 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
         <CardDescription>Obtenez une tenue sur-mesure en quelques clics.</CardDescription>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSuggestOutfit)}>
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
           <CardContent className="space-y-6">
             <FormField
               control={form.control}
@@ -236,7 +239,7 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
               onCompleteOutfit={onSuggestOutfit}
               isLoading={isLoading}
             />
-            <Button type="submit" variant="outline" disabled={isLoading} className="w-full">
+            <Button type="button" onClick={handleSuggestOutfit} variant="outline" disabled={isLoading} className="w-full">
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
               Idée de tenue complète
             </Button>
