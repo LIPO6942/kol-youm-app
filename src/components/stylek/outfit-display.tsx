@@ -40,11 +40,8 @@ export function OutfitDisplay({ isLoading, suggestion, photoSuggestion, gender, 
     return renderLoading();
   }
 
-  // **New, Simplified Logic**
-  // This acts as a router. It directs to the correct display component
-  // based on which state is populated. There's no ambiguity.
-
   // Path 1: Display for "Compléter ma tenue"
+  // This is the primary check. If we have the result for this specific feature, we render its dedicated component.
   if (baseItemPhoto && photoSuggestion) {
     return (
         <PhotoOutfitDisplay 

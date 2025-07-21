@@ -82,7 +82,6 @@ export default function OutfitSuggester() {
       // Logic Path 1: "Compléter ma tenue" (with a photo)
       if (input.baseItemPhotoDataUri) {
         setBaseItemPhoto(input.baseItemPhotoDataUri);
-        setSuggestion(null); // CRITICAL: Clear the other suggestion type state
 
         // 1. Get text descriptions for the outfit parts
         const descriptionResult = await generateOutfitFromPhoto({
@@ -149,6 +148,7 @@ export default function OutfitSuggester() {
         });
         
         setPhotoSuggestion(finalPhotoSuggestion);
+        setSuggestion(null); // CRITICAL: Clear the other suggestion type state
         
       } else {
         // Logic Path 2: "Idée de tenue complète" (text-based)
