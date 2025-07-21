@@ -1,6 +1,6 @@
 import { doc, setDoc, getDoc, serverTimestamp, arrayUnion, arrayRemove, writeBatch } from "firebase/firestore"; 
-import { db } from "./client";
-import { clearUserFromDb, db as idb } from "@/lib/indexeddb";
+import { db as firestoreDb } from "./client";
+import { clearUserFromDb, getUserFromDb, storeUserInDb } from "@/lib/indexeddb";
 
 export type UserProfile = {
     uid: string;
@@ -25,62 +25,81 @@ export async function createUserProfile(uid: string, data: { email: string | nul
     seenKhroujSuggestions: [],
   };
   // Create profile in both Firestore and IndexedDB
-  await setDoc(doc(db, "users", uid), userProfile);
-  await idb.put('user-profile', userProfile, uid);
+  await setDoc(doc(firestoreDb, "users", uid), userProfile);
+  await storeUserInDb(uid, userProfile);
   return userProfile;
 }
 
 export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>>) {
-    // Update both Firestore and IndexedDB
-    const userRef = doc(db, 'users', uid);
+    const userRef = doc(firestoreDb, 'users', uid);
     
-    // Firestore update with arrayUnion for backward compatibility or sync
-    const firestoreData: Partial<UserProfile> = {};
-    if (data.seenMovieTitles) firestoreData.seenMovieTitles = arrayUnion(...data.seenMovieTitles) as any;
-    if (data.moviesToWatch) firestoreData.moviesToWatch = arrayUnion(...data.moviesToWatch) as any;
-    if (data.seenKhroujSuggestions) firestoreData.seenKhroujSuggestions = arrayUnion(...data.seenKhroujSuggestions) as any;
+    // Create a plain object for Firestore update, don't use arrayUnion for client-side lists
+    const firestoreData: { [key: string]: any } = {};
     if (data.gender) firestoreData.gender = data.gender;
     if (typeof data.personalizationComplete === 'boolean') firestoreData.personalizationComplete = data.personalizationComplete;
+
+    // Use arrayUnion for lists that might need server-side merging/syncing
+    if (data.seenMovieTitles) firestoreData.seenMovieTitles = arrayUnion(...data.seenMovieTitles);
+    if (data.moviesToWatch) firestoreData.moviesToWatch = arrayUnion(...data.moviesToWatch);
+    if (data.seenKhroujSuggestions) firestoreData.seenKhroujSuggestions = arrayUnion(...data.seenKhroujSuggestions);
+
 
     if (Object.keys(firestoreData).length > 0) {
       await setDoc(userRef, firestoreData, { merge: true });
     }
 
     // Update IndexedDB
-    const localProfile = await idb.get('user-profile', uid) || { uid };
-    const updatedProfile = { ...localProfile };
-    if (data.seenMovieTitles) updatedProfile.seenMovieTitles = [...(localProfile.seenMovieTitles || []), ...data.seenMovieTitles];
-    if (data.moviesToWatch) updatedProfile.moviesToWatch = [...(localProfile.moviesToWatch || []), ...data.moviesToWatch];
-    if (data.seenKhroujSuggestions) updatedProfile.seenKhroujSuggestions = [...(localProfile.seenKhroujSuggestions || []), ...data.seenKhroujSuggestions];
+    const localProfile = await getUserFromDb(uid) || ({ uid } as UserProfile);
+    
+    const updatedProfile: UserProfile = { ...localProfile };
     if (data.gender) updatedProfile.gender = data.gender;
     if (typeof data.personalizationComplete === 'boolean') updatedProfile.personalizationComplete = data.personalizationComplete;
+    if (data.seenMovieTitles) {
+        const currentSeen = new Set(localProfile.seenMovieTitles || []);
+        data.seenMovieTitles.forEach(t => currentSeen.add(t));
+        updatedProfile.seenMovieTitles = Array.from(currentSeen);
+    }
+    if (data.moviesToWatch) {
+        const currentToWatch = new Set(localProfile.moviesToWatch || []);
+        data.moviesToWatch.forEach(t => currentToWatch.add(t));
+        updatedProfile.moviesToWatch = Array.from(currentToWatch);
+    }
+    if (data.seenKhroujSuggestions) {
+        const currentSeenKhrouj = new Set(localProfile.seenKhroujSuggestions || []);
+        data.seenKhroujSuggestions.forEach(t => currentSeenKhrouj.add(t));
+        updatedProfile.seenKhroujSuggestions = Array.from(currentSeenKhrouj);
+    }
 
-    await idb.put('user-profile', updatedProfile, uid);
+    await storeUserInDb(uid, updatedProfile);
 }
 
 export async function moveMovieFromWatchlistToSeen(uid: string, movieTitle: string) {
-    const batch = writeBatch(db);
-    const userRef = doc(db, "users", uid);
-    // Remove from 'to watch' in Firestore
-    batch.update(userRef, { moviesToWatch: arrayRemove(movieTitle) });
-    // 'seen' list is already updated on swipe, so no need to add here.
+    const batch = writeBatch(firestoreDb);
+    const userRef = doc(firestoreDb, "users", uid);
+    // Remove from 'to watch' and add to 'seen' in Firestore
+    batch.update(userRef, { 
+        moviesToWatch: arrayRemove(movieTitle),
+        seenMovieTitles: arrayUnion(movieTitle)
+    });
     await batch.commit();
 
     // Update IndexedDB
-    const localProfile = await idb.get('user-profile', uid);
+    const localProfile = await getUserFromDb(uid);
     if (localProfile) {
         const updatedProfile = {
             ...localProfile,
             moviesToWatch: localProfile.moviesToWatch?.filter(t => t !== movieTitle) || [],
+            seenMovieTitles: Array.from(new Set([...(localProfile.seenMovieTitles || []), movieTitle]))
         };
-        await idb.put('user-profile', updatedProfile, uid);
+        await storeUserInDb(uid, updatedProfile);
     }
 }
 
 export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' | 'seenMovieTitles' | 'seenKhroujSuggestions') {
-    const userRef = doc(db, 'users', uid);
+    const userRef = doc(firestoreDb, 'users', uid);
     const firestoreUpdate: any = {};
     
+    // Special case for 'seenMovieTitles': also clears 'moviesToWatch' as it implies a full reset of movie history
     if (listName === 'seenMovieTitles') {
         firestoreUpdate.seenMovieTitles = [];
         firestoreUpdate.moviesToWatch = [];
@@ -90,7 +109,7 @@ export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' 
     await setDoc(userRef, firestoreUpdate, { merge: true });
     
     // Update IndexedDB
-    const localProfile = await idb.get('user-profile', uid);
+    const localProfile = await getUserFromDb(uid);
     if (localProfile) {
         if (listName === 'seenMovieTitles') {
             localProfile.seenMovieTitles = [];
@@ -98,26 +117,26 @@ export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' 
         } else {
             localProfile[listName] = [];
         }
-        await idb.put('user-profile', localProfile, uid);
+        await storeUserInDb(uid, localProfile);
     }
 }
 
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     // 1. Try to get from IndexedDB first
-    const localProfile = await idb.get('user-profile', uid);
+    const localProfile = await getUserFromDb(uid);
     if (localProfile) {
         return localProfile;
     }
 
     // 2. If not in IndexedDB, fetch from Firestore
-    const userRef = doc(db, "users", uid);
+    const userRef = doc(firestoreDb, "users", uid);
     const userSnap = await getDoc(userRef);
     
     if (userSnap.exists()) {
         const firestoreProfile = userSnap.data() as UserProfile;
         // 3. Store the fetched profile in IndexedDB for future use
-        await idb.put('user-profile', firestoreProfile, uid);
+        await storeUserInDb(uid, firestoreProfile);
         return firestoreProfile;
     } else {
         return null;

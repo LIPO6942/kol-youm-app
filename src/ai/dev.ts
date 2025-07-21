@@ -9,3 +9,4 @@ import '@/ai/flows/generate-quiz-flow.ts';
 import '@/ai/flows/generate-movie-suggestions-flow.ts';
 import '@/ai/flows/generate-talla3-challenge-flow.ts';
 import '@/ai/flows/regenerate-outfit-part-flow.ts';
+import '@/ai/flows/generate-outfit-from-photo-flow.ts';

@@ -3,10 +3,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, onSnapshot } from "firebase/firestore";
-import { auth, db } from '@/lib/firebase/client';
+import { auth, db as firestoreDb } from '@/lib/firebase/client';
 import type { UserProfile } from '@/lib/firebase/firestore';
 import { Loader2 } from 'lucide-react';
-import { db as idb, getUserFromDb, storeUserInDb } from '@/lib/indexeddb';
+import { clearUserFromDb, getUserFromDb, storeUserInDb } from '@/lib/indexeddb';
 
 interface AuthContextType {
   user: User | null;
@@ -33,7 +33,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } else {
         setUser(null);
         setUserProfile(null);
-        await idb.clear('user-profile'); // Clear local data on logout
+        if (typeof window !== 'undefined') {
+            await clearUserFromDb(); // Clear local data on logout
+        }
         setLoading(false);
       }
     });
@@ -44,7 +46,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (user) {
       // Use onSnapshot to listen for real-time updates from Firestore
-      const unsub = onSnapshot(doc(db, "users", user.uid), async (doc) => {
+      const unsub = onSnapshot(doc(firestoreDb, "users", user.uid), async (doc) => {
         setLoading(true);
         const localProfile = await getUserFromDb(user.uid);
         

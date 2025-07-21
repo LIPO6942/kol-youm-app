@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,105 +10,35 @@ import { Loader2, PlusCircle, Image as ImageIcon, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Separator } from '../ui/separator';
-import { Label } from '../ui/label';
-
-const clothingDataFemme = {
-  'Un Haut': {
-    'Chemisier': ['en soie', 'en coton', 'à motifs', 'sans manches'],
-    'T-shirt': ['à col V', 'à col rond', 'imprimé', 'uni'],
-    'Pull': ['en laine', 'en cachemire', 'à col roulé', 'crop top'],
-    'Top': ['débardeur', 'à bretelles', 'bustier', 'en dentelle']
-  },
-  'Un Bas': {
-    'Pantalon': ['tailleur', 'en jean', 'cargo', 'large (palazzo)'],
-    'Jupe': ['en jean', 'plissée', 'crayon', 'longue'],
-    'Short': ['en jean', 'tailleur', 'de sport', 'en lin'],
-  },
-  'Des Chaussures': {
-    'Baskets': ['basses', 'montantes', 'plateformes', 'en toile'],
-    'Talons': ['aiguilles', 'compensés', 'carrés', 'sandales à'],
-    'Bottes': ['en cuir', 'de pluie', 'chelsea', 'cuissardes'],
-    'Chaussures plates': ['ballerines', 'mocassins', 'mules']
-  },
-  'Une Pièce Unique': {
-    'Robe': ['d\'été', 'de soirée', 'pull', 'chemise'],
-    'Combinaison': ['pantalon', 'short', 'élégante'],
-  },
-  'Un Accessoire': {
-    'Sac': ['à main', 'à dos', 'bandoulière', 'pochette'],
-    'Chapeau': ['capeline', 'bob', 'fedora', 'béret'],
-    'Bijou': ['collier', 'bracelet', 'boucles d\'oreilles', 'montre'],
-  }
-};
-
-const clothingDataHomme = {
-  'Un Haut': {
-    'Chemise': ['en lin', 'en coton', 'formelle', 'à carreaux'],
-    'T-shirt': ['à col V', 'à col rond', 'imprimé', 'uni'],
-    'Pull': ['en laine', 'en cachemire', 'à col roulé', 'à capuche'],
-    'Polo': ['à manches courtes', 'à manches longues', 'en coton piqué']
-  },
-  'Un Bas': {
-    'Pantalon': ['chino', 'en jean', 'cargo', 'de costume'],
-    'Short': ['en jean', 'bermuda', 'de sport', 'en lin'],
-  },
-  'Des Chaussures': {
-    'Baskets': ['basses', 'montantes', 'de course', 'en toile'],
-    'Chaussures de ville': ['richelieu', 'derby', 'mocassins', 'en cuir'],
-    'Bottes': ['en cuir', 'chelsea', 'desert boots'],
-  },
-  'Une Pièce Unique': {
-    'Costume': ['deux pièces', 'trois pièces', 'décontracté'],
-  },
-  'Un Accessoire': {
-    'Sac': ['à dos', 'bandoulière', 'sacoche'],
-    'Chapeau': ['casquette', 'bob', 'fedora', 'béret'],
-    'Accessoire': ['montre', 'ceinture', 'cravate', 'lunettes de soleil'],
-  }
-};
-const colorOptions = ['Noir', 'Blanc', 'Gris', 'Beige', 'Bleu', 'Rouge', 'Vert', 'Jaune', 'Rose', 'Violet', 'Marron', 'Orange', 'Argenté', 'Doré', 'Clair', 'Foncé'];
+import { Label } from '@/components/ui/label';
 
 const completeOutfitFormSchema = z.object({
-  type: z.string().optional(),
-  category: z.string().optional(),
-  style: z.string().optional(),
-  color: z.string().optional(),
-  baseItemPhotoDataUri: z.string().optional(),
-}).refine(data => data.baseItemPhotoDataUri || (data.type && data.category), {
-    message: 'Veuillez soit importer une photo, soit décrire la pièce.',
-    path: ['type'], 
+  baseItemPhotoDataUri: z.string().min(1, { message: 'Veuillez importer une photo.' }),
 });
 
 
 type CompleteOutfitFormValues = z.infer<typeof completeOutfitFormSchema>;
 
 interface CompleteOutfitDialogProps {
-  gender?: 'Homme' | 'Femme';
   mainForm: UseFormReturn<any>;
   onCompleteOutfit: (values: any) => void;
   isLoading: boolean;
 }
 
-export function CompleteOutfitDialog({ gender, mainForm, onCompleteOutfit, isLoading }: CompleteOutfitDialogProps) {
+export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: CompleteOutfitDialogProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const completeOutfitForm = useForm<CompleteOutfitFormValues>({
     resolver: zodResolver(completeOutfitFormSchema),
-    defaultValues: { type: '', category: '', style: '', color: '', baseItemPhotoDataUri: '' }
+    defaultValues: { baseItemPhotoDataUri: '' }
   });
 
-  const clothingData = useMemo(() => {
-    return gender === 'Homme' ? clothingDataHomme : clothingDataFemme;
-  }, [gender]);
-  
   const resetForm = useCallback(() => {
-    completeOutfitForm.reset({ type: '', category: '', style: '', color: '', baseItemPhotoDataUri: '' });
+    completeOutfitForm.reset({ baseItemPhotoDataUri: '' });
   }, [completeOutfitForm]);
 
   useEffect(() => {
@@ -117,12 +47,7 @@ export function CompleteOutfitDialog({ gender, mainForm, onCompleteOutfit, isLoa
     }
   }, [isDialogOpen, resetForm]);
 
-  useEffect(() => {
-    resetForm();
-  }, [clothingData, resetForm]);
 
-  const typeValue = completeOutfitForm.watch('type');
-  const categoryValue = completeOutfitForm.watch('category');
   const photoValue = completeOutfitForm.watch('baseItemPhotoDataUri');
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,7 +64,7 @@ export function CompleteOutfitDialog({ gender, mainForm, onCompleteOutfit, isLoa
         const reader = new FileReader();
         reader.onloadend = () => {
             completeOutfitForm.setValue('baseItemPhotoDataUri', reader.result as string);
-            completeOutfitForm.clearErrors('type'); // Clear error message if user uploads photo
+            completeOutfitForm.clearErrors('baseItemPhotoDataUri'); // Clear error message if user uploads photo
         };
         reader.readAsDataURL(file);
     }
@@ -160,17 +85,9 @@ export function CompleteOutfitDialog({ gender, mainForm, onCompleteOutfit, isLoa
     setIsDialogOpen(false);
     const mainFormValues = mainForm.getValues();
     
-    let baseItemDescription;
-    if (values.baseItemPhotoDataUri) {
-        baseItemDescription = { baseItemPhotoDataUri: values.baseItemPhotoDataUri };
-    } else {
-        const textDescription = [values.category, values.style, values.color].filter(Boolean).join(' ');
-        baseItemDescription = { baseItem: `${values.type}: ${textDescription}` };
-    }
-
     const input = {
       ...mainFormValues,
-      ...baseItemDescription,
+      baseItemPhotoDataUri: values.baseItemPhotoDataUri,
     };
     
     onCompleteOutfit(input);
@@ -196,7 +113,7 @@ export function CompleteOutfitDialog({ gender, mainForm, onCompleteOutfit, isLoa
         <DialogHeader>
           <DialogTitle>Quelle pièce mettez-vous en vedette ?</DialogTitle>
           <DialogDescription>
-            Décrivez une pièce ou importez sa photo. L'IA créera une tenue autour.
+            Importez la photo d'une pièce de votre garde-robe. L'IA créera une tenue autour.
           </DialogDescription>
         </DialogHeader>
         <Form {...completeOutfitForm}>
@@ -220,101 +137,26 @@ export function CompleteOutfitDialog({ gender, mainForm, onCompleteOutfit, isLoa
                         </div>
                     </div>
                 ) : (
-                    <>
-                         <Button type="button" variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()}>
-                           <ImageIcon className="mr-2 h-4 w-4" />
-                           Importer une photo
-                         </Button>
-
-                        <div className="flex items-center text-xs text-muted-foreground">
-                            <Separator className="flex-1" />
-                            <span className="px-2">OU</span>
-                            <Separator className="flex-1" />
-                        </div>
-                    
-                        <FormField
-                            control={completeOutfitForm.control}
-                            name="type"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Décrire la pièce</FormLabel>
-                                <Select onValueChange={(value) => {
-                                    field.onChange(value);
-                                    completeOutfitForm.resetField('category');
-                                    completeOutfitForm.resetField('style');
-                                    completeOutfitForm.resetField('color');
-                                }} defaultValue={field.value}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Choisissez un type" /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                    {Object.keys(clothingData).map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
-                                </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                        {typeValue && (
-                            <FormField
-                                control={completeOutfitForm.control}
-                                name="category"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Catégorie</FormLabel>
-                                    <Select onValueChange={(value) => {
-                                        field.onChange(value);
-                                        completeOutfitForm.resetField('style');
-                                        completeOutfitForm.resetField('color');
-                                    }} value={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue placeholder="Choisissez une catégorie" /></SelectTrigger></FormControl>
-                                    <SelectContent>
-                                    {Object.keys(clothingData[typeValue as keyof typeof clothingData]).map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-                                    </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                        )}
-                        {categoryValue && (
-                            <FormField
-                                control={completeOutfitForm.control}
-                                name="style"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Style/Matière (optionnel)</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue placeholder="Précisez le style" /></SelectTrigger></FormControl>
-                                    <SelectContent>
-                                    {(clothingData[typeValue as keyof typeof clothingData][categoryValue as keyof typeof clothingData[keyof typeof clothingData]] as string[]).map(style => <SelectItem key={style} value={style}>{style}</SelectItem>)}
-                                    </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                        )}
-                        {categoryValue && (
-                            <FormField
-                                control={completeOutfitForm.control}
-                                name="color"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Couleur (optionnel)</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue placeholder="Précisez la couleur" /></SelectTrigger></FormControl>
-                                    <SelectContent>
-                                    {colorOptions.map(color => <SelectItem key={color} value={color}>{color}</SelectItem>)}
-                                    </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                        )}
-                    </>
+                    <div 
+                        className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted"
+                        onClick={() => fileInputRef.current?.click()}
+                    >
+                        <ImageIcon className="w-10 h-10 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">Cliquez pour importer une photo</p>
+                    </div>
                 )}
+                
+                <FormField
+                    control={completeOutfitForm.control}
+                    name="baseItemPhotoDataUri"
+                    render={() => (
+                        <FormItem>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
 
-                <Button type="submit" disabled={isLoading} className="w-full">
+                <Button type="submit" disabled={isLoading || !photoValue} className="w-full">
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Générer la tenue'}
                 </Button>
             </form>
