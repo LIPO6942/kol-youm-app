@@ -179,20 +179,21 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
                                     <FormLabel>Quel est le type de cette pièce ?</FormLabel>
                                     <FormControl>
                                         <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                        {itemTypeOptions.map(opt => (
-                                            <FormItem key={opt.value} className="relative">
-                                            <FormControl>
-                                                <RadioGroupItem value={opt.value} className="sr-only" />
-                                            </FormControl>
-                                            <Label className={cn(
-                                                "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer h-20 text-xs",
-                                                field.value === opt.value && "border-primary"
-                                            )}>
-                                                <opt.icon className="h-5 w-5 mb-1" />
-                                                {opt.label}
-                                            </Label>
-                                            </FormItem>
-                                        ))}
+                                            {itemTypeOptions.map(opt => (
+                                                <div key={opt.value}>
+                                                    <RadioGroupItem value={opt.value} id={opt.value} className="sr-only" />
+                                                    <Label 
+                                                        htmlFor={opt.value}
+                                                        className={cn(
+                                                            "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer h-20 text-xs",
+                                                            field.value === opt.value && "border-primary"
+                                                        )}
+                                                    >
+                                                        <opt.icon className="h-5 w-5 mb-1" />
+                                                        {opt.label}
+                                                    </Label>
+                                                </div>
+                                            ))}
                                         </RadioGroup>
                                     </FormControl>
                                     <FormMessage />
