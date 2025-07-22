@@ -12,6 +12,30 @@ import type { Talla3Challenge } from '@/ai/flows/generate-talla3-challenge-flow.
 
 const TIMER_DURATION = 15;
 
+const handleAiError = (error: any, toast: any) => {
+    const errorMessage = String(error.message || '');
+    if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+        toast({
+            variant: 'destructive',
+            title: 'L\'IA est très demandée !',
+            description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez.",
+        });
+    } else if (errorMessage.includes('503') || errorMessage.includes('overloaded') || errorMessage.includes('unavailable')) {
+         toast({
+            variant: 'destructive',
+            title: 'L\'IA est en surchauffe !',
+            description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant et réessayez.",
+        });
+    } else {
+        toast({
+          variant: 'destructive',
+          title: 'Erreur Inattendue',
+          description: "Impossible de charger les défis Talla3.",
+        });
+    }
+    console.error(error);
+};
+
 export default function Talla3Game() {
   const [challenges, setChallenges] = useState<Talla3Challenge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,28 +56,8 @@ export default function Talla3Game() {
       setChallenges(data.challenges);
       setCurrentChallengeIndex(0);
     } catch (e: any) {
-      const errorMessage = e.message || '';
-      if (errorMessage.includes('429') || errorMessage.includes('quota')) {
-          toast({
-              variant: 'destructive',
-              title: 'L\'IA est très demandée !',
-              description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez.",
-          });
-      } else if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
-           toast({
-              variant: 'destructive',
-              title: 'L\'IA est en surchauffe !',
-              description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant et réessayez.",
-          });
-      } else {
-        setError("Impossible de charger de nouveaux défis. Veuillez réessayer.");
-        toast({
-          variant: 'destructive',
-          title: 'Erreur',
-          description: "Impossible de charger les défis Talla3.",
-        });
-      }
-      console.error(e);
+      handleAiError(e, toast);
+      setError("Impossible de charger de nouveaux défis. Veuillez réessayer.");
     } finally {
       setIsLoading(false);
     }

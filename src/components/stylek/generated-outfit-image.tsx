@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -14,14 +15,14 @@ export const GeneratedOutfitImage = ({ description, gender }: { description: str
   const { toast } = useToast();
 
   const handleAiError = useCallback((error: any) => {
-    const errorMessage = error.message || '';
+    const errorMessage = String(error.message || '');
     if (errorMessage.includes('429') || errorMessage.includes('quota')) {
         toast({
             variant: 'destructive',
             title: 'L\'IA est très demandée !',
             description: "Le générateur d'images se repose, réessayez dans un instant.",
         });
-    } else if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
+    } else if (errorMessage.includes('503') || errorMessage.includes('overloaded') || errorMessage.includes('unavailable')) {
          toast({
             variant: 'destructive',
             title: 'L\'IA est en surchauffe !',

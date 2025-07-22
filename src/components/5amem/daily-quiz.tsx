@@ -26,6 +26,31 @@ const quizCategories = [
 
 const TIMER_DURATION = 10;
 
+const handleAiError = (error: any, toast: any) => {
+    const errorMessage = String(error.message || '');
+    if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+        toast({
+            variant: 'destructive',
+            title: 'L\'IA est très demandée !',
+            description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez dans quelques minutes.",
+        });
+    } else if (errorMessage.includes('503') || errorMessage.includes('overloaded') || errorMessage.includes('unavailable')) {
+         toast({
+            variant: 'destructive',
+            title: 'L\'IA est en surchauffe !',
+            description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant pour reprendre son souffle et réessayez.",
+        });
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Erreur Inattendue',
+            description: "Impossible de générer le quiz. Veuillez réessayer.",
+        });
+    }
+    console.error(error);
+};
+
+
 export default function DailyQuiz() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [quizData, setQuizData] = useState<QuizData | null>(null);
@@ -74,27 +99,7 @@ export default function DailyQuiz() {
       const data = await generateQuiz({ category });
       setQuizData(data);
     } catch (error: any) {
-      const errorMessage = error.message || '';
-      if (errorMessage.includes('429') || errorMessage.includes('quota')) {
-          toast({
-              variant: 'destructive',
-              title: 'L\'IA est très demandée !',
-              description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez dans quelques minutes.",
-          });
-      } else if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
-           toast({
-              variant: 'destructive',
-              title: 'L\'IA est en surchauffe !',
-              description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant pour reprendre son souffle et réessayez.",
-          });
-      } else {
-          toast({
-              variant: 'destructive',
-              title: 'Erreur',
-              description: "Impossible de générer le quiz. Veuillez réessayer.",
-          });
-      }
-      console.error(error);
+      handleAiError(error, toast);
       setSelectedCategory(null); // Go back to category selection
     } finally {
       setIsLoading(false);

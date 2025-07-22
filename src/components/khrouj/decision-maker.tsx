@@ -44,6 +44,30 @@ export default function DecisionMaker() {
   const { user, userProfile } = useAuth();
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
 
+  const handleAiError = (error: any) => {
+    const errorMessage = String(error.message || '');
+    if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+        toast({
+            variant: 'destructive',
+            title: 'L\'IA est très demandée !',
+            description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez dans quelques minutes.",
+        });
+    } else if (errorMessage.includes('503') || errorMessage.includes('overloaded') || errorMessage.includes('unavailable')) {
+         toast({
+            variant: 'destructive',
+            title: 'L\'IA est en surchauffe !',
+            description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant pour reprendre son souffle et réessayez.",
+        });
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Erreur Inattendue',
+            description: "Une erreur s'est produite. Veuillez réessayer.",
+        });
+    }
+    console.error(error);
+  };
+
   const fetchSuggestions = useCallback(async (categoryLabel: string, isNewRequest: boolean = false) => {
     setIsLoading(true);
     if (isNewRequest) {
@@ -83,30 +107,6 @@ export default function DecisionMaker() {
       setIsLoading(false);
     }
   }, [user, userProfile?.seenKhroujSuggestions, seenSuggestions, toast]);
-
-  const handleAiError = (error: any) => {
-    const errorMessage = error.message || '';
-    if (errorMessage.includes('429') || errorMessage.includes('quota')) {
-        toast({
-            variant: 'destructive',
-            title: 'L\'IA est très demandée !',
-            description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez dans quelques minutes.",
-        });
-    } else if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
-         toast({
-            variant: 'destructive',
-            title: 'L\'IA est en surchauffe !',
-            description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant pour reprendre son souffle et réessayez.",
-        });
-    } else {
-        toast({
-            variant: 'destructive',
-            title: 'Erreur',
-            description: "Une erreur inattendue s'est produite. Veuillez réessayer.",
-        });
-    }
-    console.error(error);
-  };
 
   const handleCategorySelect = (category: typeof outingOptions[0]) => {
     setSelectedCategory(category);

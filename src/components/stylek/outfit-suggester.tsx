@@ -29,14 +29,14 @@ export type PhotoSuggestion = {
 };
 
 const handleAiError = (error: any, toast: any) => {
-    const errorMessage = error.message || '';
+    const errorMessage = String(error.message || '');
     if (errorMessage.includes('429') || errorMessage.includes('quota')) {
         toast({
             variant: 'destructive',
             title: 'L\'IA est très demandée !',
             description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez dans quelques minutes.",
         });
-    } else if (errorMessage.includes('503') || errorMessage.includes('overloaded')) {
+    } else if (errorMessage.includes('503') || errorMessage.includes('overloaded') || errorMessage.includes('unavailable')) {
          toast({
             variant: 'destructive',
             title: 'L\'IA est en surchauffe !',
@@ -45,8 +45,8 @@ const handleAiError = (error: any, toast: any) => {
     } else {
         toast({
             variant: 'destructive',
-            title: 'Erreur',
-            description: "Une erreur inattendue s'est produite. Veuillez réessayer.",
+            title: 'Erreur Inattendue',
+            description: "Une erreur s'est produite. Veuillez réessayer.",
         });
     }
     console.error(error);
