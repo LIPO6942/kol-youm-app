@@ -82,7 +82,6 @@ export default function DecisionMaker() {
     }
 
     try {
-      // Pass both previously fetched suggestions and persistent seen places
       const combinedSeenPlaces = Array.from(new Set([...(userProfile?.seenKhroujSuggestions || []), ...seenSuggestions]));
 
       const response = await makeDecision({ 
@@ -92,12 +91,16 @@ export default function DecisionMaker() {
       });
       
       const newPlaceNames = response.suggestions.map(s => s.placeName);
-      setSuggestions(prev => [...prev, ...response.suggestions]);
-      setSeenSuggestions(prev => Array.from(new Set([...prev, ...newPlaceNames])));
       
-      // Persist the newly seen places in Firestore
+      // If it's a new request, replace suggestions. Otherwise, append.
+      // For this simplified logic, let's always replace for now to ensure stability.
+      setSuggestions(response.suggestions);
+      
+      const updatedSeenSuggestions = Array.from(new Set([...seenSuggestions, ...newPlaceNames]));
+      setSeenSuggestions(updatedSeenSuggestions);
+      
       if (newPlaceNames.length > 0) {
-        await updateUserProfile(user.uid, { seenKhroujSuggestions: newPlaceNames });
+        await updateUserProfile(user.uid, { seenKhroujSuggestions: updatedSeenSuggestions });
       }
 
     } catch (error: any) {
@@ -119,6 +122,12 @@ export default function DecisionMaker() {
     setSelectedCategory(undefined);
     carouselApi?.destroy();
   };
+
+  const handleRefresh = () => {
+    if (selectedCategory) {
+        fetchSuggestions(selectedCategory.label, true);
+    }
+  }
 
   if (isLoading && suggestions.length === 0) {
     return (
@@ -184,7 +193,7 @@ export default function DecisionMaker() {
                             <CardDescription>Demandez à l'IA de nouvelles suggestions.</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <Button onClick={() => fetchSuggestions(selectedCategory.label)} disabled={isLoading}>
+                            <Button onClick={handleRefresh} disabled={isLoading}>
                                 {isLoading ? <RotateCw className="mr-2 h-4 w-4 animate-spin" /> : <RotateCw className="mr-2 h-4 w-4" />}
                                 Actualiser
                             </Button>
@@ -227,3 +236,5 @@ export default function DecisionMaker() {
     </Card>
   );
 }
+
+    
