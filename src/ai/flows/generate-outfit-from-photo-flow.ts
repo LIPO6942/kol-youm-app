@@ -29,7 +29,7 @@ const prompt = ai.definePrompt({
 **Instructions impératives :**
 1.  **Analyser l'image de base :** Identifiez le type de pièce sur la photo (est-ce un 'haut', un 'bas', des 'chaussures' ou des 'accessoires' ?).
 2.  **Compléter la tenue :** En vous basant sur la pièce identifiée et les contraintes de l'utilisateur, générez des descriptions détaillées pour TOUTES les autres pièces nécessaires pour former une tenue complète et cohérente.
-3.  **Ne pas remplacer la pièce de base :** Si la photo montre un 'haut', vous devez générer des suggestions pour 'bas', 'chaussures', et 'accessoires', mais le champ 'haut' dans la sortie doit impérativement être 'N/A'. Le même principe s'applique si la pièce est un 'bas', des 'chaussures', etc.
+3.  **Ne pas remplacer la pièce de base :** Si la photo montre un 'haut', vous devez générer des suggestions pour 'bas', 'chaussures', et 'accessoires', mais le champ 'haut' dans la sortie doit impérativement être 'N/A'. Le même principe s'applique si la pièce est un 'bas', des 'chaussures', ou des 'accessoires'.
 4.  **Gérer les pièces uniques :** Si vous suggérez une pièce unique comme une robe (pour remplacer le haut et le bas), générez sa description dans le champ 'haut', et mettez 'N/A' pour la description du 'bas'.
 5.  **Respect des contraintes :** Respectez scrupuleusement le genre (jamais de talons pour un homme) et les couleurs préférées si elles sont fournies.
 
