@@ -6,16 +6,22 @@ import Image from 'next/image';
 import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, PlusCircle, Image as ImageIcon, X } from 'lucide-react';
+import { Loader2, PlusCircle, Image as ImageIcon, X, Shirt, Milestone, Footprints, Gem } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+
 
 const completeOutfitFormSchema = z.object({
   baseItemPhotoDataUri: z.string().min(1, { message: 'Veuillez importer une photo.' }),
+  baseItemType: z.enum(['haut', 'bas', 'chaussures', 'accessoires'], {
+    required_error: 'Veuillez sélectionner le type de votre pièce.',
+  }),
 });
 
 
@@ -26,6 +32,14 @@ interface CompleteOutfitDialogProps {
   onCompleteOutfit: (values: any) => void;
   isLoading: boolean;
 }
+
+const itemTypeOptions = [
+  { value: 'haut', label: 'Haut', icon: Shirt },
+  { value: 'bas', label: 'Bas', icon: Milestone },
+  { value: 'chaussures', label: 'Chaussures', icon: Footprints },
+  { value: 'accessoires', label: 'Accessoires', icon: Gem },
+] as const;
+
 
 export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: CompleteOutfitDialogProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -38,7 +52,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
   });
 
   const resetForm = useCallback(() => {
-    completeOutfitForm.reset({ baseItemPhotoDataUri: '' });
+    completeOutfitForm.reset({ baseItemPhotoDataUri: '', baseItemType: undefined });
   }, [completeOutfitForm]);
 
   useEffect(() => {
@@ -88,6 +102,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
     const input = {
       ...mainFormValues,
       baseItemPhotoDataUri: values.baseItemPhotoDataUri,
+      baseItemType: values.baseItemType,
     };
     
     onCompleteOutfit(input);
@@ -113,11 +128,11 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
         <DialogHeader>
           <DialogTitle>Quelle pièce mettez-vous en vedette ?</DialogTitle>
           <DialogDescription>
-            Importez la photo d'une pièce de votre garde-robe. L'IA créera une tenue autour.
+            Importez la photo d'une pièce et précisez son type. L'IA créera une tenue autour.
           </DialogDescription>
         </DialogHeader>
         <Form {...completeOutfitForm}>
-            <form onSubmit={completeOutfitForm.handleSubmit(handleCompleteOutfitSubmit)} className="space-y-4 pt-4">
+            <form onSubmit={completeOutfitForm.handleSubmit(handleCompleteOutfitSubmit)} className="space-y-6 pt-2">
                  <input
                     type="file"
                     ref={fileInputRef}
@@ -138,7 +153,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
                     </div>
                 ) : (
                     <div 
-                        className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted"
+                        className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted"
                         onClick={() => fileInputRef.current?.click()}
                     >
                         <ImageIcon className="w-10 h-10 text-muted-foreground mb-2" />
@@ -149,12 +164,39 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
                 <FormField
                     control={completeOutfitForm.control}
                     name="baseItemPhotoDataUri"
-                    render={() => (
-                        <FormItem>
-                            <FormMessage />
-                        </FormItem>
-                    )}
+                    render={() => <FormItem><FormMessage /></FormItem>}
                 />
+
+                {photoValue && (
+                     <FormField
+                        control={completeOutfitForm.control}
+                        name="baseItemType"
+                        render={({ field }) => (
+                            <FormItem className="space-y-3">
+                            <FormLabel>Quel est le type de cette pièce ?</FormLabel>
+                            <FormControl>
+                                <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                {itemTypeOptions.map(opt => (
+                                    <FormItem key={opt.value} className="relative">
+                                    <FormControl>
+                                        <RadioGroupItem value={opt.value} className="sr-only" />
+                                    </FormControl>
+                                    <FormLabel className={cn(
+                                        "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer h-20 text-xs",
+                                        field.value === opt.value && "border-primary"
+                                    )}>
+                                        <opt.icon className="h-5 w-5 mb-1" />
+                                        {opt.label}
+                                    </FormLabel>
+                                    </FormItem>
+                                ))}
+                                </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                )}
 
                 <Button type="submit" disabled={isLoading || !photoValue} className="w-full">
                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Générer la tenue'}

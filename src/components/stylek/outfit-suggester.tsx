@@ -11,7 +11,7 @@ import type { SuggestOutfitInput, SuggestOutfitOutput } from '@/ai/flows/intelli
 import { regenerateOutfitPart } from '@/ai/flows/regenerate-outfit-part-flow';
 import { generateOutfitFromPhoto } from '@/ai/flows/generate-outfit-from-photo-flow';
 import { generateOutfitImage } from '@/ai/flows/generate-outfit-image';
-import type { GenerateOutfitFromPhotoOutput } from '@/ai/flows/generate-outfit-from-photo-flow.types';
+import type { GenerateOutfitFromPhotoOutput, GenerateOutfitFromPhotoInput } from '@/ai/flows/generate-outfit-from-photo-flow.types';
 
 import { OutfitForm } from './outfit-form';
 import { OutfitDisplay } from './outfit-display';
@@ -64,7 +64,7 @@ export default function OutfitSuggester() {
   const [regeneratingPart, setRegeneratingPart] = useState<'haut' | 'bas' | 'chaussures' | 'accessoires' | null>(null);
   const [baseItemPhoto, setBaseItemPhoto] = useState<string | null>(null);
 
-  const getSuggestion = async (input: SuggestOutfitInput & { baseItemPhotoDataUri?: string }) => {
+  const getSuggestion = async (input: SuggestOutfitInput & { baseItemPhotoDataUri?: string, baseItemType?: 'haut' | 'bas' | 'chaussures' | 'accessoires' }) => {
     setIsLoading(true);
     // **Crucial: Reset all states to ensure a clean slate for each request**
     setSuggestion(null);
@@ -80,12 +80,13 @@ export default function OutfitSuggester() {
 
     try {
       // Logic Path 1: "Compléter ma tenue" (with a photo)
-      if (input.baseItemPhotoDataUri) {
+      if (input.baseItemPhotoDataUri && input.baseItemType) {
         setBaseItemPhoto(input.baseItemPhotoDataUri);
 
         // 1. Get text descriptions for the outfit parts
         const descriptionResult = await generateOutfitFromPhoto({
           baseItemPhotoDataUri: input.baseItemPhotoDataUri,
+          baseItemType: input.baseItemType,
           scheduleKeywords: input.scheduleKeywords,
           weather: input.weather,
           occasion: input.occasion,

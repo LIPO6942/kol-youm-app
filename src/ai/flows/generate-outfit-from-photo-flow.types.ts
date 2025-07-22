@@ -8,12 +8,13 @@ export const GenerateOutfitFromPhotoInputSchema = SuggestOutfitInputSchema.exten
         .describe(
         "A photo of the base clothing item, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
         ),
+    baseItemType: z.enum(['haut', 'bas', 'chaussures', 'accessoires']).describe('The type of the base item provided by the user.'),
 });
 export type GenerateOutfitFromPhotoInput = z.infer<typeof GenerateOutfitFromPhotoInputSchema>;
 
 
 const OutfitPartSchema = z.object({
-    description: z.string().describe("Description détaillée de la pièce suggérée (ex: 'Chemisier en soie blanc cassé'). Si non applicable (ex: robe), mettre 'N/A'."),
+    description: z.string().describe("Description détaillée de la pièce suggérée (ex: 'Chemisier en soie blanc cassé'). Si non applicable (ex: pièce fournie par l'utilisateur), mettre 'N/A'."),
 });
 
 export const GenerateOutfitFromPhotoOutputSchema = z.object({
