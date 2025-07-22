@@ -6,6 +6,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import {z} from 'genkit';
 import { MakeDecisionInputSchema, MakeDecisionOutputSchema, type MakeDecisionInput, type MakeDecisionOutput } from './decision-maker-flow.types';
 
 
