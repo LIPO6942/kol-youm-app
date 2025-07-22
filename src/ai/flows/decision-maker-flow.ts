@@ -36,6 +36,10 @@ Ta tâche est de :
 {{/each}}
 {{/if}}
 
+{{#if (eq category "Café")}}
+- **Priorité aux cafés :** Pour la catégorie "Café", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées : Padova, Café Sangria, Beans&Co, Downtown, Bleuet, Infinity, Barista's, Ali's Coffee, Patchwork, SOHO Coffee, First, Pavlova, Lotus Café, Kälo café, GATSBY, The 716 M6, Gourmandise M5, Eric Kayser, Lv Club, Seven S M5.
+{{/if}}
+
 Assure-toi que toutes les informations sont exactes, vérifiables et que les lieux ont bien une note de 4 étoiles ou plus. Les suggestions doivent être de haute qualité et **différentes les unes des autres**. Réponds uniquement en respectant le format de sortie JSON demandé.`,
 });
 
