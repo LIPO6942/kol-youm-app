@@ -9,12 +9,13 @@ import { z } from 'zod';
 import { Loader2, PlusCircle, Image as ImageIcon, X, Shirt, Milestone, Footprints, Gem } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 const completeOutfitFormSchema = z.object({
@@ -124,7 +125,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
           Compléter ma tenue
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[425px] grid-rows-[auto_minmax(0,1fr)_auto] max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Quelle pièce mettez-vous en vedette ?</DialogTitle>
           <DialogDescription>
@@ -132,75 +133,81 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
           </DialogDescription>
         </DialogHeader>
         <Form {...completeOutfitForm}>
-            <form onSubmit={completeOutfitForm.handleSubmit(handleCompleteOutfitSubmit)} className="space-y-6 pt-2">
-                 <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    className="hidden"
-                    accept="image/png, image/jpeg, image/webp"
-                 />
-                 
-                {photoValue ? (
-                    <div className='space-y-2'>
-                        <Label>Aperçu de la photo</Label>
-                        <div className="relative aspect-square w-full rounded-md border bg-muted overflow-hidden">
-                             <Image src={photoValue} alt="Aperçu de la pièce" fill className="object-contain" />
-                             <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 bg-background/50 hover:bg-background/80 h-7 w-7" onClick={resetPhoto}>
-                                <X className="h-4 w-4" />
-                             </Button>
-                        </div>
-                    </div>
-                ) : (
-                    <div 
-                        className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted"
-                        onClick={() => fileInputRef.current?.click()}
-                    >
-                        <ImageIcon className="w-10 h-10 text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground">Cliquez pour importer une photo</p>
-                    </div>
-                )}
-                
-                <FormField
-                    control={completeOutfitForm.control}
-                    name="baseItemPhotoDataUri"
-                    render={() => <FormItem><FormMessage /></FormItem>}
-                />
-
-                {photoValue && (
-                     <FormField
-                        control={completeOutfitForm.control}
-                        name="baseItemType"
-                        render={({ field }) => (
-                            <FormItem className="space-y-3">
-                            <FormLabel>Quel est le type de cette pièce ?</FormLabel>
-                            <FormControl>
-                                <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                {itemTypeOptions.map(opt => (
-                                    <FormItem key={opt.value} className="relative">
-                                    <FormControl>
-                                        <RadioGroupItem value={opt.value} className="sr-only" />
-                                    </FormControl>
-                                    <Label className={cn(
-                                        "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer h-20 text-xs",
-                                        field.value === opt.value && "border-primary"
-                                    )}>
-                                        <opt.icon className="h-5 w-5 mb-1" />
-                                        {opt.label}
-                                    </Label>
-                                    </FormItem>
-                                ))}
-                                </RadioGroup>
-                            </FormControl>
-                            <FormMessage />
-                            </FormItem>
-                        )}
+            <form onSubmit={completeOutfitForm.handleSubmit(handleCompleteOutfitSubmit)} className="space-y-6 pt-2 overflow-hidden flex flex-col">
+                <ScrollArea className="flex-grow pr-6 -mr-6">
+                    <div className="space-y-6 pr-1">
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                            className="hidden"
+                            accept="image/png, image/jpeg, image/webp"
                         />
-                )}
+                        
+                        {photoValue ? (
+                            <div className='space-y-2'>
+                                <Label>Aperçu de la photo</Label>
+                                <div className="relative aspect-square w-full rounded-md border bg-muted overflow-hidden">
+                                    <Image src={photoValue} alt="Aperçu de la pièce" fill className="object-contain" />
+                                    <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 bg-background/50 hover:bg-background/80 h-7 w-7" onClick={resetPhoto}>
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div 
+                                className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted"
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                <ImageIcon className="w-10 h-10 text-muted-foreground mb-2" />
+                                <p className="text-sm text-muted-foreground">Cliquez pour importer une photo</p>
+                            </div>
+                        )}
+                        
+                        <FormField
+                            control={completeOutfitForm.control}
+                            name="baseItemPhotoDataUri"
+                            render={() => <FormItem><FormMessage /></FormItem>}
+                        />
 
-                <Button type="submit" disabled={isLoading || !photoValue} className="w-full">
-                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Générer la tenue'}
-                </Button>
+                        {photoValue && (
+                            <FormField
+                                control={completeOutfitForm.control}
+                                name="baseItemType"
+                                render={({ field }) => (
+                                    <FormItem className="space-y-3">
+                                    <FormLabel>Quel est le type de cette pièce ?</FormLabel>
+                                    <FormControl>
+                                        <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                        {itemTypeOptions.map(opt => (
+                                            <FormItem key={opt.value} className="relative">
+                                            <FormControl>
+                                                <RadioGroupItem value={opt.value} className="sr-only" />
+                                            </FormControl>
+                                            <Label className={cn(
+                                                "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer h-20 text-xs",
+                                                field.value === opt.value && "border-primary"
+                                            )}>
+                                                <opt.icon className="h-5 w-5 mb-1" />
+                                                {opt.label}
+                                            </Label>
+                                            </FormItem>
+                                        ))}
+                                        </RadioGroup>
+                                    </FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+                        )}
+                    </div>
+                </ScrollArea>
+                
+                <DialogFooter className="pt-6">
+                    <Button type="submit" disabled={isLoading || !photoValue} className="w-full">
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Générer la tenue'}
+                    </Button>
+                </DialogFooter>
             </form>
         </Form>
       </DialogContent>
