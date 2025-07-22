@@ -10,7 +10,7 @@ import { Loader2, PlusCircle, Image as ImageIcon, X, Shirt, Milestone, Footprint
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -181,13 +181,13 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
                                     <FormControl>
                                         <RadioGroupItem value={opt.value} className="sr-only" />
                                     </FormControl>
-                                    <FormLabel className={cn(
+                                    <Label className={cn(
                                         "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer h-20 text-xs",
                                         field.value === opt.value && "border-primary"
                                     )}>
                                         <opt.icon className="h-5 w-5 mb-1" />
                                         {opt.label}
-                                    </FormLabel>
+                                    </Label>
                                     </FormItem>
                                 ))}
                                 </RadioGroup>
