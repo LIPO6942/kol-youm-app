@@ -8,10 +8,14 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { Suggestion } from '@/ai/flows/decision-maker-flow.types';
-import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich } from 'lucide-react';
+import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile } from '@/lib/firebase/firestore';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { cn } from '@/lib/utils';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const outingOptions: { id: string; label: string; icon: LucideIcon; description: string }[] = [
     { id: 'fast-food', label: 'Fast Food', icon: Sandwich, description: "Une envie rapide et gourmande" },
@@ -20,6 +24,12 @@ const outingOptions: { id: string; label: string; icon: LucideIcon; description:
     { id: 'restaurant', label: 'Restaurant', icon: UtensilsCrossed, description: "Un repas mémorable" },
     { id: 'balade', label: 'Balade', icon: Mountain, description: "Prendre un bol d'air frais" },
     { id: 'shopping', label: 'Shopping', icon: ShoppingBag, description: "Trouver la perle rare" },
+];
+
+const zones = [
+    "La Marsa", "Gammarth", "El Aouina", "Les Berges du Lac 1", "Les Berges du Lac 2",
+    "Boumhal", "Ezzahra", "Hammamet", "Nabeul", "Mégrine", "La Soukra",
+    "Le Bardo", "Menzah 1", "Menzah 5", "Menzah 6", "Ennasr", "Centre-ville de Tunis"
 ];
 
 const LoadingAnimation = ({ category }: { category: {label: string, icon: LucideIcon} | undefined }) => {
@@ -54,6 +64,7 @@ export default function DecisionMaker() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [seenSuggestions, setSeenSuggestions] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<(typeof outingOptions)[0] | undefined>(undefined);
+  const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const { toast } = useToast();
   const { user, userProfile } = useAuth();
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
@@ -101,6 +112,7 @@ export default function DecisionMaker() {
       const response = await makeDecision({ 
           category: categoryLabel, 
           city: 'Tunis',
+          zone: selectedZone ?? undefined,
           seenPlaceNames: combinedSeenPlaces,
       });
       
@@ -122,7 +134,7 @@ export default function DecisionMaker() {
     } finally {
       setIsLoading(false);
     }
-  }, [user, userProfile?.seenKhroujSuggestions, seenSuggestions, toast]);
+  }, [user, userProfile?.seenKhroujSuggestions, seenSuggestions, toast, selectedZone]);
 
   const handleCategorySelect = (category: typeof outingOptions[0]) => {
     setSelectedCategory(category);
@@ -133,6 +145,7 @@ export default function DecisionMaker() {
     setSuggestions([]);
     setSeenSuggestions([]);
     setSelectedCategory(undefined);
+    setSelectedZone(null);
     carouselApi?.destroy();
   };
 
@@ -228,26 +241,60 @@ export default function DecisionMaker() {
             <CardTitle className="font-headline">Quelle est votre envie du moment ?</CardTitle>
             <CardDescription>Cliquez sur une catégorie et laissez la magie opérer.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 grid-cols-2 md:grid-cols-3">
-          {outingOptions.map((option) => {
-            const Icon = option.icon;
-            return (
-              <div 
-                key={option.id}
-                onClick={() => handleCategorySelect(option)}
-                className="group flex flex-col items-center justify-center rounded-lg border-2 border-dashed bg-card p-6 text-card-foreground shadow-sm hover:shadow-xl hover:border-primary hover:-translate-y-1 transition-all duration-300 cursor-pointer space-y-3"
-              >
-                  <div className="p-4 bg-muted group-hover:bg-primary/10 rounded-full transition-colors duration-300">
-                    <Icon className="h-10 w-10 text-muted-foreground group-hover:text-primary transition-colors duration-300" />
+        <CardContent className="space-y-6">
+            <Collapsible className="space-y-2">
+                <CollapsibleTrigger asChild>
+                    <div className="flex justify-center">
+                        <Button variant="ghost" className="text-sm">
+                            <Filter className="mr-2 h-4 w-4" />
+                            {selectedZone ? `Zone : ${selectedZone}` : "Filtrer par zone (optionnel)"}
+                        </Button>
+                        {selectedZone && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => {e.stopPropagation(); setSelectedZone(null);}}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                    <RadioGroup value={selectedZone || ''} onValueChange={setSelectedZone} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {zones.map(zone => (
+                        <div key={zone}>
+                            <RadioGroupItem value={zone} id={zone} className="sr-only" />
+                            <Label 
+                                htmlFor={zone}
+                                className={cn(
+                                    "flex items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer text-xs h-10",
+                                    selectedZone === zone && "border-primary"
+                                )}
+                            >
+                                {zone}
+                            </Label>
+                        </div>
+                    ))}
+                    </RadioGroup>
+                </CollapsibleContent>
+            </Collapsible>
+
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-3">
+              {outingOptions.map((option) => {
+                const Icon = option.icon;
+                return (
+                  <div 
+                    key={option.id}
+                    onClick={() => handleCategorySelect(option)}
+                    className="group flex flex-col items-center justify-center rounded-lg border-2 border-dashed bg-card p-6 text-card-foreground shadow-sm hover:shadow-xl hover:border-primary hover:-translate-y-1 transition-all duration-300 cursor-pointer space-y-3"
+                  >
+                      <div className="p-4 bg-muted group-hover:bg-primary/10 rounded-full transition-colors duration-300">
+                        <Icon className="h-10 w-10 text-muted-foreground group-hover:text-primary transition-colors duration-300" />
+                      </div>
+                      <h3 className="text-lg font-semibold">{option.label}</h3>
+                      <p className="text-xs text-center text-muted-foreground">{option.description}</p>
                   </div>
-                  <h3 className="text-lg font-semibold">{option.label}</h3>
-                  <p className="text-xs text-center text-muted-foreground">{option.description}</p>
-              </div>
-            )
-          })}
+                )
+              })}
+            </div>
         </CardContent>
     </Card>
   );
 }
-
-    

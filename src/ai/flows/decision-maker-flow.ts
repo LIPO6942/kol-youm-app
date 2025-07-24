@@ -30,7 +30,12 @@ Ta tâche est de :
 
 **Instructions importantes :**
 - **Pertinence géographique :** Ne propose **AUCUN** lieu en dehors des zones spécifiées.
+{{#if zone}}
+- **Filtre de zone :** L'utilisateur a demandé à voir des suggestions spécifiquement dans la zone suivante : **{{zone}}**. Toutes tes suggestions doivent impérativement se trouver dans cette zone.
+{{else}}
 - **Variété des lieux :** Varie les quartiers dans tes suggestions. Ne te limite pas à une seule zone.
+{{/if}}
+
 {{#if seenPlaceNames}}
 - **Éviter les répétitions :** Exclus impérativement les lieux suivants de tes suggestions, car l'utilisateur les a déjà vus :
 {{#each seenPlaceNames}}
@@ -44,7 +49,7 @@ Ta tâche est de :
 
 {{#if isFastFoodCategory}}
 - **Priorité aux Fast Foods :** Pour la catégorie "Fast Food", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées :
-  - **Zone El Aouina :** Om burger, El Ostedh, Compozz, Crispy Naan, Wok Time.
+  - **Zone El Aouina :** Om burger, El Ostedh, Compozz, Crispy Naan, Wok Time, Pimento's, Icheese, Hot Dot, Chaneb Tacos, Dma9, The Corner Italian Food, KFC, Echemi Aouina, Shrimp Burger, Benkay Sushi, Taco and co, My Potato.
   - **Zone Lac :** Pasta Cosi, Massazi, Via mercato, Soryana.
   - **Zone Menzah 5 :** Mustache, Le Réservoir, Pythagor, El Koocha, Prego.
   - **Zone Menzah 1 :** Mokito, Le Zink.
