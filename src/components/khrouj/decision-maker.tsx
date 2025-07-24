@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -138,15 +138,23 @@ export default function DecisionMaker() {
 
   const handleCategorySelect = (category: typeof outingOptions[0]) => {
     setSelectedCategory(category);
-    fetchSuggestions(category.label, true);
   };
+
+  // Trigger fetchSuggestions when selectedCategory changes
+  useEffect(() => {
+    if (selectedCategory) {
+      fetchSuggestions(selectedCategory.label, true);
+    }
+  }, [selectedCategory]); // We don't need fetchSuggestions in deps, as it would cause a loop.
 
   const handleReset = () => {
     setSuggestions([]);
     setSeenSuggestions([]);
     setSelectedCategory(undefined);
     setSelectedZone(null);
-    carouselApi?.destroy();
+    if (carouselApi) {
+        carouselApi.destroy();
+    }
   };
 
   const handleRefresh = () => {
@@ -298,3 +306,4 @@ export default function DecisionMaker() {
     </Card>
   );
 }
+ 
