@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A Genkit flow for making a decision on where to go out.
@@ -12,7 +13,7 @@ import { MakeDecisionInputSchema, MakeDecisionOutputSchema, type MakeDecisionInp
 
 const prompt = ai.definePrompt({
   name: 'makeDecisionPrompt',
-  input: {schema: MakeDecisionInputSchema.extend({ isCafeCategory: z.boolean().optional() })},
+  input: {schema: MakeDecisionInputSchema.extend({ isCafeCategory: z.boolean().optional(), isFastFoodCategory: z.boolean().optional() })},
   output: {schema: MakeDecisionOutputSchema},
   prompt: `Tu es un expert connaisseur de la vie locale en Tunisie. Tes connaissances couvrent spécifiquement les zones suivantes : **La Marsa, Gammarth, El Aouina, Les Berges du Lac (1 et 2), Boumhal, Ezzahra, Hammamet, Nabeul, Mégrine, La Soukra, Le Bardo, Menzah 1, Menzah 5, Menzah 6, Ennasr 1, Ennasr 2, Cité Ennasr, et le centre-ville de Tunis**. Ton but est de donner aux utilisateurs une liste de suggestions de sorties **nouvelles**, uniques et pertinentes parmi les meilleurs endroits **réels et existants** dans ces zones uniquement.
 
@@ -41,6 +42,14 @@ Ta tâche est de :
 - **Priorité aux cafés :** Pour la catégorie "Café", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées : Padova, Café Sangria, Beans&Co, Downtown, Bleuet, Infinity, Barista's, Ali's Coffee, Patchwork, SOHO Coffee, First, Pavlova, Lotus Café, Kälo café, GATSBY, The 716 M6, Gourmandise M5, Eric Kayser, Lv Club, Seven S M5.
 {{/if}}
 
+{{#if isFastFoodCategory}}
+- **Priorité aux Fast Foods :** Pour la catégorie "Fast Food", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées :
+  - **Zone El Aouina :** Om burger, El Ostedh, Compozz, Crispy Naan, Wok Time.
+  - **Zone Lac :** Pasta Cosi, Massazi, Via mercato, Soryana.
+  - **Zone Menzah 5 :** Mustache, Le Réservoir, Pythagor, El Koocha, Prego.
+  - **Zone Menzah 1 :** Mokito, Le Zink.
+{{/if}}
+
 Assure-toi que toutes les informations sont exactes, vérifiables et que les lieux ont bien une note de 4 étoiles ou plus. Les suggestions doivent être de haute qualité et **différentes les unes des autres**. Réponds uniquement en respectant le format de sortie JSON demandé.`,
 });
 
@@ -52,10 +61,12 @@ const makeDecisionFlow = ai.defineFlow(
   },
   async input => {
     const isCafeCategory = input.category.toLowerCase().includes('café');
+    const isFastFoodCategory = input.category.toLowerCase().includes('fast food');
     
     const {output} = await prompt({
         ...input,
         isCafeCategory: isCafeCategory,
+        isFastFoodCategory: isFastFoodCategory,
     });
     return output!;
   }
