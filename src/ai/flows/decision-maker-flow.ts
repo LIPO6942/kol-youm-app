@@ -13,7 +13,7 @@ import { MakeDecisionInputSchema, MakeDecisionOutputSchema, type MakeDecisionInp
 
 const prompt = ai.definePrompt({
   name: 'makeDecisionPrompt',
-  input: {schema: MakeDecisionInputSchema.extend({ isCafeCategory: z.boolean().optional(), isFastFoodCategory: z.boolean().optional() })},
+  input: {schema: MakeDecisionInputSchema.extend({ isCafeCategory: z.boolean().optional(), isFastFoodCategory: z.boolean().optional(), isRestaurantCategory: z.boolean().optional() })},
   output: {schema: MakeDecisionOutputSchema},
   prompt: `Tu es un expert connaisseur de la vie locale en Tunisie. Tes connaissances couvrent spécifiquement les zones suivantes : **La Marsa, Gammarth, El Aouina, Les Berges du Lac (1 et 2), Jardins de Carthage, Boumhal, Ezzahra, Hammamet, Nabeul, Mégrine, La Soukra, Le Bardo, Menzah 1, Menzah 5, Menzah 6, Ennasr 1, Ennasr 2, Cité Ennasr, et le centre-ville de Tunis**. Ton but est de donner aux utilisateurs une liste de suggestions de sorties **nouvelles**, uniques et pertinentes parmi les meilleurs endroits **réels et existants** dans ces zones uniquement.
 
@@ -59,6 +59,16 @@ Ta tâche est de :
   - **Zone La Marsa :** Doodle Burger Bar, Lapero Tapas & Pintxos, Smash’d, Pizza Pesto, Kenkō food bar, Chez Joseph, CORNICELLO NAPOLITAIN, appello, La Pause Fast food, Le Fumoir, Pizzagram, BIG MO - Burger Shack, Pizzeria COME Prima La Marsa, Andiamo, O’Potatos, Panzerotti, Bambino, BFRIES, Uno, Sanfour, Maakoulet Echem, Triade, Piccolo Marsa pizzeria, Wok Thaï La Marsa, Plan B La Marsa, SAKURA PASTA, GOA INDIANA FOOD, D'lich, Benkay Sushi, Sushiwan, La Bruschetta, Machawina, Mamma Time.
 {{/if}}
 
+{{#if isRestaurantCategory}}
+- **Priorité aux Restaurants :** Pour la catégorie "Restaurant", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées :
+  - **Zone La Soukra :** Lorenzia, Brown and Sugar Coffee.
+  - **Zone El Aouina :** Del Capo Restaurant, Restaurant Italien Terrazzino.
+  - **Zone Lac 2 :** Soryana, Via Mercato Lac 2, Al Seniour, Chef Ayhan Turkich grill rustik, K-ZIP, La Margherita, Bocca Felice, Chef Eyad, Restaurant L'Érable.
+  - **Zone La Marsa :** CULT, bistro, Kimchi, Le Golfe, Pi, La focaccia marsa, La Mescla, Restaurant La Maison, La Piadina, La Dokkana House, Karam Lobnan, DIVERSSO, AL SÉNIOUR, RESTAURANT L'ENDROIT.
+  - **Zone Gammarth :** Restaurante Vicolo, L’italien Gammarth da Davide, Restaurant Les Ombrelles, Restaurant Les Dunes, Restaurant Borago gammarth, Le Ritsi, Ocean Club, Le Grand Bleu, Olivia, LiBai, Restaurant Grec Efimero.
+  - **Zone Jardins de Carthage :** Isapori italiani, Langoustino, Hasdrubal de Carthage, Peri Peri Restaurant, Qian house chinese.
+{{/if}}
+
 Assure-toi que toutes les informations sont exactes, vérifiables et que les lieux ont bien une note de 4 étoiles ou plus. Les suggestions doivent être de haute qualité et **différentes les unes des autres**. Réponds uniquement en respectant le format de sortie JSON demandé.`,
 });
 
@@ -71,11 +81,13 @@ const makeDecisionFlow = ai.defineFlow(
   async input => {
     const isCafeCategory = input.category.toLowerCase().includes('café');
     const isFastFoodCategory = input.category.toLowerCase().includes('fast food');
+    const isRestaurantCategory = input.category.toLowerCase().includes('restaurant');
     
     const {output} = await prompt({
         ...input,
         isCafeCategory: isCafeCategory,
         isFastFoodCategory: isFastFoodCategory,
+        isRestaurantCategory: isRestaurantCategory,
     });
     return output!;
   }
