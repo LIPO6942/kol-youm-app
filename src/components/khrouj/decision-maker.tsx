@@ -36,6 +36,19 @@ const LoadingAnimation = ({ category }: { category: {label: string, icon: Lucide
     );
 };
 
+// Function to shuffle an array
+const shuffle = <T,>(array: T[]): T[] => {
+  let currentIndex = array.length, randomIndex;
+
+  while (currentIndex !== 0) {
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex--;
+    [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+  }
+
+  return array;
+};
+
 export default function DecisionMaker() {
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -93,9 +106,8 @@ export default function DecisionMaker() {
       
       const newPlaceNames = response.suggestions.map(s => s.placeName);
       
-      // If it's a new request, replace suggestions. Otherwise, append.
-      // For this simplified logic, let's always replace for now to ensure stability.
-      setSuggestions(response.suggestions);
+      // Shuffle the suggestions before displaying them
+      setSuggestions(shuffle(response.suggestions));
       
       const updatedSeenSuggestions = Array.from(new Set([...seenSuggestions, ...newPlaceNames]));
       setSeenSuggestions(updatedSeenSuggestions);
