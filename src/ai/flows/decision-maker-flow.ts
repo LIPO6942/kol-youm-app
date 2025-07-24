@@ -48,6 +48,7 @@ Ta tâche est de :
   - **Zone Lac :** Pasta Cosi, Massazi, Via mercato, Soryana.
   - **Zone Menzah 5 :** Mustache, Le Réservoir, Pythagor, El Koocha, Prego.
   - **Zone Menzah 1 :** Mokito, Le Zink.
+  - **Zone Ennasr :** Echemi, Baguette&Baguette, Cool tacos, HEY BRO, POPOLARE TRATTORIA, GUSTO PIZZA, Ya hala shawarma-يا هلا شاورما, FaceFood, THE SQUARE, Set el cham, Le Bambou, Lab station (Burger), Greens Trattoria au feu de bois, Restaurant Insomnia.
 {{/if}}
 
 Assure-toi que toutes les informations sont exactes, vérifiables et que les lieux ont bien une note de 4 étoiles ou plus. Les suggestions doivent être de haute qualité et **différentes les unes des autres**. Réponds uniquement en respectant le format de sortie JSON demandé.`,
