@@ -20,7 +20,7 @@ const prompt = ai.definePrompt({
 L'utilisateur a choisi la catégorie de sortie suivante : "{{category}}".
 
 Ta tâche est de :
-1.  Générer une liste de **4 suggestions de lieux réels, connus et très bien notés (4 étoiles ou plus sur Google Maps)** qui correspondent parfaitement à la catégorie "{{category}}" et se trouvent **exclusivement** dans les zones listées ci-dessus.
+1.  Générer une liste de **2 suggestions de lieux réels, connus et très bien notés (4 étoiles ou plus sur Google Maps)** qui correspondent parfaitement à la catégorie "{{category}}" et se trouvent **exclusivement** dans les zones listées ci-dessus.
 2.  **Diversifier les lieux :** Chaque suggestion doit être dans un **quartier ou une ville différente** de la liste pour surprendre l'utilisateur.
 3.  Pour chaque suggestion, fournir :
     - Le **nom exact** du lieu.
