@@ -29,7 +29,8 @@ const outingOptions: { id: string; label: string; icon: LucideIcon; description:
 const zones = [
     "La Marsa", "Gammarth", "El Aouina", "Les Berges du Lac 1", "Les Berges du Lac 2",
     "Jardins de Carthage", "Boumhal", "Ezzahra", "Hammamet", "Nabeul", "Mégrine", "La Soukra",
-    "Le Bardo", "Menzah 1", "Menzah 5", "Menzah 6", "Ennasr", "Centre-ville de Tunis", "Mutuelleville / Alain Savary"
+    "Le Bardo", "Menzah 1", "Menzah 5", "Menzah 6", "Menzah 9", "Ennasr", "Centre-ville de Tunis", 
+    "Mutuelleville / Alain Savary", "El Manar"
 ];
 
 const LoadingAnimation = ({ category }: { category: {label: string, icon: LucideIcon} | undefined }) => {
@@ -145,7 +146,8 @@ export default function DecisionMaker() {
     if (selectedCategory) {
       fetchSuggestions(selectedCategory.label, true);
     }
-  }, [selectedCategory]); // We don't need fetchSuggestions in deps, as it would cause a loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory]); 
 
   const handleReset = () => {
     setSuggestions([]);
@@ -266,7 +268,7 @@ export default function DecisionMaker() {
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                     <RadioGroup value={selectedZone || ''} onValueChange={setSelectedZone} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                    {zones.map(zone => (
+                    {zones.sort().map(zone => (
                         <div key={zone}>
                             <RadioGroupItem value={zone} id={zone} className="sr-only" />
                             <Label 

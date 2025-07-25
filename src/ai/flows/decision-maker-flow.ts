@@ -15,7 +15,7 @@ const prompt = ai.definePrompt({
   name: 'makeDecisionPrompt',
   input: {schema: MakeDecisionInputSchema.extend({ isCafeCategory: z.boolean().optional(), isFastFoodCategory: z.boolean().optional(), isRestaurantCategory: z.boolean().optional() })},
   output: {schema: MakeDecisionOutputSchema},
-  prompt: `Tu es un expert connaisseur de la vie locale en Tunisie. Tes connaissances couvrent spécifiquement les zones suivantes : **La Marsa, Gammarth, El Aouina, Les Berges du Lac (1 et 2), Jardins de Carthage, Boumhal, Ezzahra, Hammamet, Nabeul, Mégrine, La Soukra, Le Bardo, Menzah 1, Menzah 5, Menzah 6, Ennasr 1, Ennasr 2, Cité Ennasr, le centre-ville de Tunis, Mutuelleville, Alain Savary**. Ton but est de donner aux utilisateurs une liste de suggestions de sorties **nouvelles**, uniques et pertinentes parmi les meilleurs endroits **réels et existants** dans ces zones uniquement.
+  prompt: `Tu es un expert connaisseur de la vie locale en Tunisie. Tes connaissances couvrent spécifiquement les zones suivantes : **La Marsa, Gammarth, El Aouina, Les Berges du Lac (1 et 2), Jardins de Carthage, Boumhal, Ezzahra, Hammamet, Nabeul, Mégrine, La Soukra, Le Bardo, Menzah 1, Menzah 5, Menzah 6, Menzah 9, Ennasr 1, Ennasr 2, Cité Ennasr, le centre-ville de Tunis, Mutuelleville, Alain Savary, El Manar**. Ton but est de donner aux utilisateurs une liste de suggestions de sorties **nouvelles**, uniques et pertinentes parmi les meilleurs endroits **réels et existants** dans ces zones uniquement.
 
 L'utilisateur a choisi la catégorie de sortie suivante : "{{category}}".
 
@@ -51,6 +51,8 @@ Ta tâche est de :
   - **Zone La Marsa :** Gourmandise Marsa Corniche, A mi chemins, North Shore Coffee and Snacks, Ivy Coffee Shop & Restaurant, Grignotine, Saint Tropez, La Marsa, Le Gourmet, Barista’s, Café Victor Hugo H, SABATO COFFEE SHOP & RESTAURANT, Patchwork, Café Calimero, Eric Kayser, PAUL, Blues House and food, Café Journal.
   - **Zone Jardins de Carthage :** TCHOICE CAFE, The closet Coffee shop, Bestoff coffee, The Address, Coin d'alma - Jardins de Carthage, La vida, boho, The Bistrot B&D, Metropolitan Coffee Shop, The Glory Coffee, Athiniôs Coffee, Saint Germain JDC, 3M coffee, Mille Mercis, The Garrison 06, Galerie Café, The Mayfair Lounge.
   - **Zone Mégrine/ Sidi Rzig :** Fugazi coffee&snack, Double Dose, Javayou, Salon de thé white lounge, La Dolce Vita, SHOW OFF, Wood&ROPES, Gourmandise Megrine.
+  - **Zone El Manar :** Hillside Resto-Lounge, Brooklyn Café, Wolf And Rabbit, Pantree, Vero Gusto, Q'Mug, Story coffee, Môme Lounge.
+  - **Zone Menzah 9 :** La Verrière - Café Resto, LA DOREE, Casa De Papel.
   - **Autres Zones :** Café Sangria, Infinity, GATSBY, The 716 M6, Gourmandise M5, Eric Kayser, Lv Club, Seven S M5, Kälo café, Lotus Café.
 {{/if}}
 
@@ -65,6 +67,7 @@ Ta tâche est de :
   - **Zone Ennasr :** Echemi, Baguette&Baguette, Cool tacos, HEY BRO, POPOLARE TRATTORIA, GUSTO PIZZA, Ya hala shawarma-يا هلا شاورما, FaceFood, THE SQUARE, Set el cham, Le Bambou, Lab station (Burger), Greens Trattoria au feu de bois, Restaurant Insomnia.
   - **Zone La Marsa :** Doodle Burger Bar, Lapero Tapas & Pintxos, Smash’d, Pizza Pesto, Kenkō food bar, Chez Joseph, CORNICELLO NAPOLITAIN, appello, La Pause Fast food, Le Fumoir, Pizzagram, BIG MO - Burger Shack, Pizzeria COME Prima La Marsa, Andiamo, O’Potatos, Panzerotti, Bambino, BFRIES, Uno, Sanfour, Maakoulet Echem, Triade, Piccolo Marsa pizzeria, Wok Thaï La Marsa, Plan B La Marsa, SAKURA PASTA, GOA INDIANA FOOD, D'lich, Benkay Sushi, Sushiwan, La Bruschetta, Machawina, Mamma Time, Le Fumoir, Au Numéro 10, appello, Rosmarino.
   - **Zone Mégrine :** Benkay sushi Megrine, Papa Johns Pizza, May Food's, Malibu Food, Lilliano, Tacos chaneb megrine, Class'croute, Juste En Face Megrine, Baguette & Baguette Megrine.
+  - **Zone El Manar :** Restaurant 6019, Fringale.
 {{/if}}
 
 {{#if isRestaurantCategory}}
@@ -77,6 +80,8 @@ Ta tâche est de :
   - **Zone Jardins de Carthage :** Isapori italiani, Langoustino, Hasdrubal de Carthage, Peri Peri Restaurant, Qian house chinese.
   - **Zone Mutuelleville / Alain Savary :** L'ardoise, L'astragale, Alle scale, Le Baroque-Restaurant.
   - **Zone Mégrine :** Tavolino, Via mercato Megrine, La Bottega restaurant.
+  - **Zone El Manar :** Mashawi Halab, Chili's American's Grill, Sultan Ahmet, Go! Sushi, Pang's asian restaurant & sushi bar.
+  - **Zone Menzah 9 :** Damascino Menzah 9, Mamma Time.
 {{/if}}
 
 Assure-toi que toutes les informations sont exactes, vérifiables et que les lieux ont bien une note de 4 étoiles ou plus. Les suggestions doivent être de haute qualité et **différentes les unes des autres**. Réponds uniquement en respectant le format de sortie JSON demandé.`,
