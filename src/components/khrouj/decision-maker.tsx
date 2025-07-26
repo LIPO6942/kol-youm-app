@@ -13,7 +13,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile } from '@/lib/firebase/firestore';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
@@ -65,7 +65,7 @@ export default function DecisionMaker() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [seenSuggestions, setSeenSuggestions] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<(typeof outingOptions)[0] | undefined>(undefined);
-  const [selectedZone, setSelectedZone] = useState<string | null>(null);
+  const [selectedZones, setSelectedZones] = useState<string[]>([]);
   const { toast } = useToast();
   const { user, userProfile } = useAuth();
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
@@ -113,7 +113,7 @@ export default function DecisionMaker() {
       const response = await makeDecision({ 
           category: categoryLabel, 
           city: 'Tunis',
-          zone: selectedZone ?? undefined,
+          zones: selectedZones.length > 0 ? selectedZones : undefined,
           seenPlaceNames: combinedSeenPlaces,
       });
       
@@ -135,7 +135,7 @@ export default function DecisionMaker() {
     } finally {
       setIsLoading(false);
     }
-  }, [user, userProfile?.seenKhroujSuggestions, seenSuggestions, toast, selectedZone]);
+  }, [user, userProfile?.seenKhroujSuggestions, seenSuggestions, toast, selectedZones]);
 
   const handleCategorySelect = (category: typeof outingOptions[0]) => {
     setSelectedCategory(category);
@@ -153,7 +153,7 @@ export default function DecisionMaker() {
     setSuggestions([]);
     setSeenSuggestions([]);
     setSelectedCategory(undefined);
-    setSelectedZone(null);
+    setSelectedZones([]);
     if (carouselApi) {
         carouselApi.destroy();
     }
@@ -163,6 +163,22 @@ export default function DecisionMaker() {
     if (selectedCategory) {
         fetchSuggestions(selectedCategory.label, true);
     }
+  }
+
+  const handleZoneChange = (zone: string, checked: boolean) => {
+    setSelectedZones(prev => 
+        checked ? [...prev, zone] : prev.filter(z => z !== zone)
+    );
+  };
+  
+  const getFilterButtonText = () => {
+    if (selectedZones.length === 0) {
+        return "Filtrer par zone (optionnel)";
+    }
+    if (selectedZones.length === 1) {
+        return `Zone : ${selectedZones[0]}`;
+    }
+    return `${selectedZones.length} zones sélectionnées`;
   }
 
   if (isLoading && suggestions.length === 0) {
@@ -253,36 +269,37 @@ export default function DecisionMaker() {
         </CardHeader>
         <CardContent className="space-y-6">
             <Collapsible className="space-y-2">
-                <CollapsibleTrigger asChild>
-                    <div className="flex justify-center">
+                <div className="flex justify-center items-center">
+                    <CollapsibleTrigger asChild>
                         <Button variant="ghost" className="text-sm">
                             <Filter className="mr-2 h-4 w-4" />
-                            {selectedZone ? `Zone : ${selectedZone}` : "Filtrer par zone (optionnel)"}
+                            {getFilterButtonText()}
                         </Button>
-                        {selectedZone && (
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => {e.stopPropagation(); setSelectedZone(null);}}>
-                                <X className="h-4 w-4" />
-                            </Button>
-                        )}
-                    </div>
-                </CollapsibleTrigger>
+                    </CollapsibleTrigger>
+                    {selectedZones.length > 0 && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => {e.stopPropagation(); setSelectedZones([]);}}>
+                            <X className="h-4 w-4" />
+                        </Button>
+                    )}
+                </div>
                 <CollapsibleContent>
-                    <RadioGroup value={selectedZone || ''} onValueChange={setSelectedZone} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                    {zones.sort().map(zone => (
-                        <div key={zone}>
-                            <RadioGroupItem value={zone} id={zone} className="sr-only" />
-                            <Label 
-                                htmlFor={zone}
-                                className={cn(
-                                    "flex items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer text-xs h-10",
-                                    selectedZone === zone && "border-primary"
-                                )}
-                            >
-                                {zone}
-                            </Label>
-                        </div>
-                    ))}
-                    </RadioGroup>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 border rounded-md">
+                        {zones.sort().map(zone => (
+                            <div key={zone} className="flex items-center space-x-2">
+                                <Checkbox
+                                    id={zone}
+                                    checked={selectedZones.includes(zone)}
+                                    onCheckedChange={(checked) => handleZoneChange(zone, !!checked)}
+                                />
+                                <Label 
+                                    htmlFor={zone}
+                                    className="text-sm font-normal cursor-pointer"
+                                >
+                                    {zone}
+                                </Label>
+                            </div>
+                        ))}
+                    </div>
                 </CollapsibleContent>
             </Collapsible>
 

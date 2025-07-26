@@ -29,10 +29,10 @@ Ta tâche est de :
     - Une **URL Google Maps valide et fonctionnelle** qui pointe vers ce lieu. L'URL doit être correctement formée, par exemple : "https://www.google.com/maps/search/?api=1&query=Nom+Du+Lieu,Ville".
 
 **Instructions importantes :**
-- **Pertinence géographique :** Ne propose **AUCUN** lieu en dehors des zones spécifiées.
-{{#if zone}}
-- **Filtre de zone :** L'utilisateur a demandé à voir des suggestions spécifiquement dans la zone suivante : **{{zone}}**. Toutes tes suggestions doivent impérativement se trouver dans cette zone.
+{{#if zones.length}}
+- **Filtre de zone :** L'utilisateur a demandé à voir des suggestions spécifiquement dans les zones suivantes : **{{#each zones}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}**. Toutes tes suggestions doivent impérativement se trouver dans cette ou ces zones.
 {{else}}
+- **Pertinence géographique :** Ne propose **AUCUN** lieu en dehors des zones spécifiées.
 - **Variété des lieux :** Varie les quartiers dans tes suggestions. Ne te limite pas à une seule zone.
 {{/if}}
 
