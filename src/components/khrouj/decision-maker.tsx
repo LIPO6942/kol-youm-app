@@ -140,14 +140,20 @@ export default function DecisionMaker() {
   const handleCategorySelect = (category: typeof outingOptions[0]) => {
     setSelectedCategory(category);
   };
-
-  // Trigger fetchSuggestions when selectedCategory changes
+  
+  // Trigger fetchSuggestions when selectedCategory OR selectedZones change
   useEffect(() => {
-    if (selectedCategory) {
-      fetchSuggestions(selectedCategory.label, true);
-    }
+    const handler = setTimeout(() => {
+        if (selectedCategory) {
+            fetchSuggestions(selectedCategory.label, true);
+        }
+    }, 500); // Debounce to avoid rapid firing when changing zones
+
+    return () => {
+        clearTimeout(handler);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory]); 
+  }, [selectedCategory, selectedZones]);
 
   const handleReset = () => {
     setSuggestions([]);
