@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -97,9 +97,11 @@ export default function DecisionMaker() {
     console.error(error);
   };
   
-  const fetchSuggestions = useCallback(async (categoryLabel: string, zonesToFilter: string[]) => {
+  const fetchSuggestions = useCallback(async (category: (typeof outingOptions)[0] | undefined, zones: string[]) => {
+    if (!category) return;
     setIsLoading(true);
-    
+    setSuggestions([]); // Clear old suggestions immediately
+
     if (!user) {
         toast({ variant: "destructive", title: "Erreur", description: "Veuillez vous connecter." });
         setIsLoading(false);
@@ -111,9 +113,9 @@ export default function DecisionMaker() {
       const combinedSeenPlaces = Array.from(new Set([...(userProfile?.seenKhroujSuggestions || []), ...seenSuggestions]));
       
       const response = await makeDecision({ 
-          category: categoryLabel, 
+          category: category.label, 
           city: 'Tunis',
-          zones: zonesToFilter.length > 0 ? zonesToFilter : undefined,
+          zones: zones.length > 0 ? zones : undefined,
           seenPlaceNames: combinedSeenPlaces,
       });
       
@@ -139,20 +141,11 @@ export default function DecisionMaker() {
     }
   }, [user, userProfile?.seenKhroujSuggestions, seenSuggestions, toast]);
 
-  useEffect(() => {
-    // This effect runs whenever the selected category or zones change.
-    // It's the single source of truth for fetching data.
-    if (selectedCategory) {
-      setSuggestions([]); // Clear old suggestions immediately
-      setSeenSuggestions([]); // Reset session memory for the new category
-      fetchSuggestions(selectedCategory.label, selectedZones);
-    }
-  }, [selectedCategory, selectedZones]); // Re-run when category OR zones change
-
-
   const handleCategorySelect = (category: (typeof outingOptions)[0]) => {
     setSelectedCategory(category);
-    // The useEffect will now handle fetching the data.
+    setSeenSuggestions([]); // Reset session memory for the new category
+    // Fetch suggestions with the new category and the current zones
+    fetchSuggestions(category, selectedZones);
   };
 
   const handleReset = () => {
@@ -167,17 +160,22 @@ export default function DecisionMaker() {
 
   const handleRefresh = () => {
     if (selectedCategory) {
-        setSuggestions([]); // Clear existing suggestions
         setSeenSuggestions([]); // Reset session memory to get fresh results
-        fetchSuggestions(selectedCategory.label, selectedZones);
+        fetchSuggestions(selectedCategory, selectedZones);
     }
   }
 
   const handleZoneChange = (zone: string, checked: boolean) => {
-    setSelectedZones(prevZones => 
-      checked ? [...prevZones, zone] : prevZones.filter(z => z !== zone)
-    );
-     // The useEffect will now handle re-fetching the data.
+    const newZones = checked 
+      ? [...selectedZones, zone] 
+      : selectedZones.filter(z => z !== zone);
+      
+    setSelectedZones(newZones);
+
+    // If a category is already selected, re-fetch with the new zones
+    if (selectedCategory) {
+        fetchSuggestions(selectedCategory, newZones);
+    }
   };
   
   const getFilterButtonText = () => {
@@ -192,12 +190,15 @@ export default function DecisionMaker() {
 
   const handleClearZones = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedZones([]);
-     // The useEffect will now handle re-fetching the data.
+    const newZones: string[] = [];
+    setSelectedZones(newZones);
+     if (selectedCategory) {
+        fetchSuggestions(selectedCategory, newZones);
+    }
   }
 
 
-  if (isLoading && suggestions.length === 0) {
+  if (isLoading) {
     return (
         <Card className="max-w-2xl mx-auto min-h-[400px] flex items-center justify-center">
             <LoadingAnimation category={selectedCategory} />
@@ -342,8 +343,3 @@ export default function DecisionMaker() {
   );
 }
  
-
-    
-    
-
-    
