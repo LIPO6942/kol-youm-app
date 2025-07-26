@@ -13,7 +13,7 @@ import { MakeDecisionInputSchema, MakeDecisionOutputSchema, type MakeDecisionInp
 
 const prompt = ai.definePrompt({
   name: 'makeDecisionPrompt',
-  input: {schema: MakeDecisionInputSchema.extend({ isCafeCategory: z.boolean().optional(), isFastFoodCategory: z.boolean().optional(), isRestaurantCategory: z.boolean().optional() })},
+  input: {schema: MakeDecisionInputSchema.extend({ isCafeCategory: z.boolean().optional(), isFastFoodCategory: z.boolean().optional(), isRestaurantCategory: z.boolean().optional(), isBrunchCategory: z.boolean().optional() })},
   output: {schema: MakeDecisionOutputSchema},
   prompt: `Tu es un expert connaisseur de la vie locale en Tunisie. Tes connaissances couvrent spécifiquement les zones suivantes : **La Marsa, Gammarth, El Aouina, Les Berges du Lac (1 et 2), Jardins de Carthage, Boumhal, Ezzahra, Hammamet, Nabeul, Mégrine, La Soukra, Le Bardo, Menzah 1, Menzah 5, Menzah 6, Menzah 9, Ennasr 1, Ennasr 2, Cité Ennasr, le centre-ville de Tunis, Mutuelleville, Alain Savary, El Manar**. Ton but est de donner aux utilisateurs une liste de suggestions de sorties **nouvelles**, uniques et pertinentes parmi les meilleurs endroits **réels et existants** dans ces zones uniquement.
 
@@ -46,7 +46,7 @@ Ta tâche est de :
 {{#if isCafeCategory}}
 - **Priorité aux cafés :** Pour la catégorie "Café", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées :
   - **Zone La Soukra :** Lotus Café, Brown and Sugar Coffee, First café, Caféte du Golf.
-  - **Zone El Aouina :** Minuto di STARTELA, BEANS & CO COFFEE HOUSE, Sam's Café, Bleuet, Ali's Coffee, Café Patchwork, Infinity Aouina, SOHO Coffee, Ô Palet, Dell'Angelo Cafè, Café Sun-Side, Café Slow X, Green Coffee, Padova, Beans&Co, Downtown, Barista's.
+  - **Zone El Aouina :** Minuto di STARTELA, BEANS & CO COFFEE HOUSE, Sam's Café, Bleuet, Ali's Coffee, Café Patchwork, Infinity Aouina, SOHO Coffee, Ô Palet, Dell'Angelo Cafè, Café Sun-Side, Café Slow X, Green Coffee, Padova, Beans&Co, Downtown, Barista's, Pep’s coffee, The One Coffee Lounge, InSider L’Aouina, idea lounge, Epic Coffee Shop, GATSBY, Balkon, MYKONOS MEMORIES COFFE, Café Forever Lounge, Pivoine coffee & more, Palet Royal, Salon De Thé New Day.
   - **Zone Lac 2 :** Hookah Coffee Lounge, Côté Jardin, Frédéric CASSEL, U-TOO Coffee & Grill, Kube, George V, SO BRITISH LAC 2, Zanzibar Café, Billionaire Café, OMEGA Coffee, Barista's Lac 2, The Big Dip.
   - **Zone La Marsa :** Gourmandise Marsa Corniche, A mi chemins, North Shore Coffee and Snacks, Ivy Coffee Shop & Restaurant, Grignotine, Saint Tropez, La Marsa, Le Gourmet, Barista’s, Café Victor Hugo H, SABATO COFFEE SHOP & RESTAURANT, Patchwork, Café Calimero, Eric Kayser, PAUL, Blues House and food, Café Journal.
   - **Zone Jardins de Carthage :** TCHOICE CAFE, The closet Coffee shop, Bestoff coffee, The Address, Coin d'alma - Jardins de Carthage, La vida, boho, The Bistrot B&D, Metropolitan Coffee Shop, The Glory Coffee, Athiniôs Coffee, Saint Germain JDC, 3M coffee, Mille Mercis, The Garrison 06, Galerie Café, The Mayfair Lounge.
@@ -58,7 +58,7 @@ Ta tâche est de :
 
 {{#if isFastFoodCategory}}
 - **Priorité aux Fast Foods :** Pour la catégorie "Fast Food", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées :
-  - **Zone El Aouina :** Om burger, El Ostedh, Compozz, Crispy Naan, Wok Time, Pimento's, Icheese, Hot Dot, Chaneb Tacos, Dma9, The Corner Italian Food, KFC, Echemi Aouina, Shrimp Burger, Benkay Sushi, Taco and co, My Potato.
+  - **Zone El Aouina :** Om burger, El Ostedh, Compozz, Crispy Naan, Wok Time, Pimento's, Icheese, Hot Dot, Chaneb Tacos, Dma9, The Corner Italian Food, KFC, Echemi Aouina, Shrimp Burger, Benkay Sushi, Taco and co, My Potato, Tsunami Sushi, Restaurant l'artiste, Bonfire, Bombay, Oueld el bey, Taquería, Sanburg, Friends Pasta Bar aouina.
   - **Zone Lac 1 :** Friends Pasta Bar, The Food Court, Gino Pizza e Panino, Pizza LAGO, Pastel Food&Drinks, PIÚ Pasta, Via mercato, Soryana.
   - **Zone Lac 2 :** Sushibox, Happy’s, Indonesian Restaurant, IT Pizza & Co, Pasta Cosi, Massazi.
   - **Zone Jardins de Carthage :** POPOLARE TRATTORIA, Pizzeria & Fast Food Bombay, MAC & JO'S, Kayu Sushi, Restaurant La Cuillère, Le 45 / Supreme Burger, PORTA NIGRA, RustiK Burger, Route 66, Goomba's Pizza, Regalo Italiano, Masaniello Cucina, ch'men di fir.
@@ -73,7 +73,7 @@ Ta tâche est de :
 {{#if isRestaurantCategory}}
 - **Priorité aux Restaurants :** Pour la catégorie "Restaurant", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées :
   - **Zone La Soukra :** Lorenzia, Brown and Sugar Coffee.
-  - **Zone El Aouina :** Del Capo Restaurant, Restaurant Italien Terrazzino.
+  - **Zone El Aouina :** Del Capo Restaurant, Restaurant Italien Terrazzino, Restaurant Broche'zza, Restaurant Grillade Zine El Chem, Restaurant Emesa, RED Castle aouina, WOK Time.
   - **Zone Lac 2 :** Soryana, Via Mercato Lac 2, Al Seniour, Chef Ayhan Turkich grill rustik, K-ZIP, La Margherita, Bocca Felice, Chef Eyad, Restaurant L'Érable.
   - **Zone La Marsa :** CULT, bistro, Kimchi, Le Golfe, Pi, La focaccia marsa, La Mescla, Restaurant La Maison, La Piadina, La Dokkana House, Karam Lobnan, DIVERSSO, AL SÉNIOUR, RESTAURANT L'ENDROIT, Ô Moules, The Kitchen Restaurant la Marsa.
   - **Zone Gammarth :** Restaurante Vicolo, L’italien Gammarth da Davide, Restaurant Les Ombrelles, Restaurant Les Dunes, Restaurant Borago gammarth, Le Ritsi, Ocean Club, Le Grand Bleu, Olivia, LiBai, Restaurant Grec Efimero.
@@ -82,6 +82,13 @@ Ta tâche est de :
   - **Zone Mégrine :** Tavolino, Via mercato Megrine, La Bottega restaurant.
   - **Zone El Manar :** Mashawi Halab, Chili's American's Grill, Sultan Ahmet, Go! Sushi, Pang's asian restaurant & sushi bar.
   - **Zone Menzah 9 :** Damascino Menzah 9, Mamma Time.
+{{/if}}
+
+{{#if isBrunchCategory}}
+- **Priorité aux Brunchs :** Pour la catégorie "Brunch", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées :
+  - **Zone El Aouina :** Kalanea&co, Ali's, coffeelicious Lounge, Infinity Aouina, Downtown Lounge, Restaurant Italien Terrazzino, Pâtisserie Mio, Rozalia coffee&brunch, The One Coffee Lounge.
+  - **Zone Lac 2 :** Côté Jardin, PATCHWORK Café & Restaurant, Twiggy, Café Lounge The Gate, The Big Dip, Pinoli Restaurant, Kube, PALAZZO Café Restaurant, George V, 3OO Three Hundred, SO BRITISH.
+  - **Zone La Marsa :** Saint Tropez, Breizh Bistrot, Coin Margoum, Yardbirds, Gourmandise, North Shore Coffee and Snacks, Ivy Coffee Shop & Restaurant, Blues House and food, Café Journal, Bonsaï café & restaurant, Bistek, SABATO COFFEE SHOP & RESTAURANT, La Roquette - Salad Bar & Co.
 {{/if}}
 
 Assure-toi que toutes les informations sont exactes, vérifiables et que les lieux ont bien une note de 4 étoiles ou plus. Les suggestions doivent être de haute qualité et **différentes les unes des autres**. Réponds uniquement en respectant le format de sortie JSON demandé.`,
@@ -97,12 +104,14 @@ const makeDecisionFlow = ai.defineFlow(
     const isCafeCategory = input.category.toLowerCase().includes('café');
     const isFastFoodCategory = input.category.toLowerCase().includes('fast food');
     const isRestaurantCategory = input.category.toLowerCase().includes('restaurant');
+    const isBrunchCategory = input.category.toLowerCase().includes('brunch');
     
     const {output} = await prompt({
         ...input,
         isCafeCategory: isCafeCategory,
         isFastFoodCategory: isFastFoodCategory,
         isRestaurantCategory: isRestaurantCategory,
+        isBrunchCategory: isBrunchCategory,
     });
     return output!;
   }
