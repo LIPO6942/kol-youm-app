@@ -94,7 +94,7 @@ export default function DecisionMaker() {
     console.error(error);
   };
 
-  const fetchSuggestions = useCallback(async (categoryLabel: string, isNewRequest: boolean = false) => {
+  const fetchSuggestions = useCallback(async (categoryLabel: string, zonesToFilter: string[], isNewRequest: boolean = false) => {
     setIsLoading(true);
     if (isNewRequest) {
       setSuggestions([]);
@@ -113,7 +113,7 @@ export default function DecisionMaker() {
       const response = await makeDecision({ 
           category: categoryLabel, 
           city: 'Tunis',
-          zones: selectedZones.length > 0 ? selectedZones : undefined,
+          zones: zonesToFilter.length > 0 ? zonesToFilter : undefined,
           seenPlaceNames: combinedSeenPlaces,
       });
       
@@ -135,26 +135,13 @@ export default function DecisionMaker() {
     } finally {
       setIsLoading(false);
     }
-  }, [user, userProfile?.seenKhroujSuggestions, seenSuggestions, toast, selectedZones]);
+  }, [user, userProfile?.seenKhroujSuggestions, seenSuggestions, toast]);
 
   const handleCategorySelect = (category: typeof outingOptions[0]) => {
     setSelectedCategory(category);
-    fetchSuggestions(category.label, true);
+    // When a category is selected, use the currently selected zones for the filter.
+    fetchSuggestions(category.label, selectedZones, true);
   };
-  
-  // Trigger fetchSuggestions when selectedZones change
-  useEffect(() => {
-    const handler = setTimeout(() => {
-        if (selectedCategory) {
-            fetchSuggestions(selectedCategory.label, true);
-        }
-    }, 500); // Debounce to avoid rapid firing when changing zones
-
-    return () => {
-        clearTimeout(handler);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedZones]);
 
   const handleReset = () => {
     setSuggestions([]);
@@ -168,14 +155,18 @@ export default function DecisionMaker() {
 
   const handleRefresh = () => {
     if (selectedCategory) {
-        fetchSuggestions(selectedCategory.label, true);
+        fetchSuggestions(selectedCategory.label, selectedZones, true);
     }
   }
 
   const handleZoneChange = (zone: string, checked: boolean) => {
-    setSelectedZones(prev => 
-        checked ? [...prev, zone] : prev.filter(z => z !== zone)
-    );
+    const newZones = checked ? [...selectedZones, zone] : selectedZones.filter(z => z !== zone);
+    setSelectedZones(newZones);
+    
+    // If a category is already selected, re-fetch suggestions with the new zone filters.
+    if (selectedCategory) {
+        fetchSuggestions(selectedCategory.label, newZones, true);
+    }
   };
   
   const getFilterButtonText = () => {
@@ -187,6 +178,16 @@ export default function DecisionMaker() {
     }
     return `${selectedZones.length} zones sélectionnées`;
   }
+
+  const handleClearZones = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newZones: string[] = [];
+    setSelectedZones(newZones);
+    if (selectedCategory) {
+        fetchSuggestions(selectedCategory.label, newZones, true);
+    }
+  }
+
 
   if (isLoading && suggestions.length === 0) {
     return (
@@ -284,7 +285,7 @@ export default function DecisionMaker() {
                         </Button>
                     </CollapsibleTrigger>
                     {selectedZones.length > 0 && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => {e.stopPropagation(); setSelectedZones([]);}}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleClearZones}>
                             <X className="h-4 w-4" />
                         </Button>
                     )}
@@ -334,4 +335,5 @@ export default function DecisionMaker() {
 }
  
 
+    
     
