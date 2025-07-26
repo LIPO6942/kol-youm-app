@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -97,8 +97,7 @@ export default function DecisionMaker() {
     console.error(error);
   };
   
-  const fetchSuggestions = useCallback(async (category: (typeof outingOptions)[0] | undefined, zones: string[]) => {
-    if (!category) return;
+  const fetchSuggestions = useCallback(async (category: (typeof outingOptions)[0], zones: string[]) => {
     setIsLoading(true);
     setSuggestions([]); // Clear old suggestions immediately
 
@@ -141,12 +140,30 @@ export default function DecisionMaker() {
     }
   }, [user, userProfile?.seenKhroujSuggestions, seenSuggestions, toast]);
 
+  // This useEffect will reliably trigger the search whenever the category or zones change.
+  useEffect(() => {
+    // Only fetch if a category is actually selected.
+    if (selectedCategory) {
+        fetchSuggestions(selectedCategory, selectedZones);
+    }
+  }, [selectedCategory, selectedZones]);
+
+
   const handleCategorySelect = (category: (typeof outingOptions)[0]) => {
+    setSuggestions([]);
+    setSeenSuggestions([]);
     setSelectedCategory(category);
-    setSeenSuggestions([]); // Reset session memory for the new category
-    // Fetch suggestions with the new category and the current zones
-    fetchSuggestions(category, selectedZones);
   };
+  
+  const handleZoneChange = (zone: string, checked: boolean) => {
+    setSuggestions([]);
+    setSelectedZones(prevZones => 
+        checked 
+        ? [...prevZones, zone]
+        : prevZones.filter(z => z !== zone)
+    );
+  };
+
 
   const handleReset = () => {
     setSuggestions([]);
@@ -165,18 +182,6 @@ export default function DecisionMaker() {
     }
   }
 
-  const handleZoneChange = (zone: string, checked: boolean) => {
-    const newZones = checked 
-      ? [...selectedZones, zone] 
-      : selectedZones.filter(z => z !== zone);
-      
-    setSelectedZones(newZones);
-
-    // If a category is already selected, re-fetch with the new zones
-    if (selectedCategory) {
-        fetchSuggestions(selectedCategory, newZones);
-    }
-  };
   
   const getFilterButtonText = () => {
     if (selectedZones.length === 0) {
@@ -190,11 +195,8 @@ export default function DecisionMaker() {
 
   const handleClearZones = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const newZones: string[] = [];
-    setSelectedZones(newZones);
-     if (selectedCategory) {
-        fetchSuggestions(selectedCategory, newZones);
-    }
+    setSuggestions([]);
+    setSelectedZones([]);
   }
 
 
@@ -343,3 +345,4 @@ export default function DecisionMaker() {
   );
 }
  
+
