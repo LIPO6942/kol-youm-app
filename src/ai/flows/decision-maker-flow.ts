@@ -15,7 +15,7 @@ const prompt = ai.definePrompt({
   name: 'makeDecisionPrompt',
   input: {schema: MakeDecisionInputSchema.extend({ isCafeCategory: z.boolean().optional(), isFastFoodCategory: z.boolean().optional(), isRestaurantCategory: z.boolean().optional(), isBrunchCategory: z.boolean().optional() })},
   output: {schema: MakeDecisionOutputSchema},
-  prompt: `Tu es un expert connaisseur de la vie locale en Tunisie. Tes connaissances couvrent spécifiquement les zones suivantes : **La Marsa, Gammarth, El Aouina, Les Berges du Lac (1 et 2), Jardins de Carthage, Boumhal, Ezzahra, Hammamet, Nabeul, Mégrine, La Soukra, Le Bardo, Menzah 1, Menzah 5, Menzah 6, Menzah 9, Ennasr 1, Ennasr 2, Cité Ennasr, le centre-ville de Tunis, Mutuelleville, Alain Savary, El Manar**. Ton but est de donner aux utilisateurs une liste de suggestions de sorties **nouvelles**, uniques et pertinentes parmi les meilleurs endroits **réels et existants** dans ces zones uniquement.
+  prompt: `Tu es un expert connaisseur de la vie locale en Tunisie. Tes connaissances couvrent spécifiquement les zones suivantes : **La Marsa, Gammarth, El Aouina, Les Berges du Lac (1 et 2), Jardins de Carthage, Boumhal, Ezzahra, Hammamet, Nabeul, Mégrine, La Soukra, Le Bardo, Menzah 1, Menzah 5, Menzah 6, Menzah 8, Menzah 9, Ennasr 1, Ennasr 2, Cité Ennasr, le centre-ville de Tunis, Mutuelleville, Alain Savary, El Manar**. Ton but est de donner aux utilisateurs une liste de suggestions de sorties **nouvelles**, uniques et pertinentes parmi les meilleurs endroits **réels et existants** dans ces zones uniquement.
 
 L'utilisateur a choisi la catégorie de sortie suivante : "{{category}}".
 
@@ -53,6 +53,8 @@ Ta tâche est de :
   - **Zone Mégrine/ Sidi Rzig :** Fugazi coffee&snack, Double Dose, Javayou, Salon de thé white lounge, La Dolce Vita, SHOW OFF, Wood&ROPES, Gourmandise Megrine.
   - **Zone El Manar :** Hillside Resto-Lounge, Brooklyn Café, Wolf And Rabbit, Pantree, Vero Gusto, Q'Mug, Story coffee, Môme Lounge.
   - **Zone Menzah 9 :** La Verrière - Café Resto, LA DOREE, Casa De Papel.
+  - **Zone Menzah 6 :** 3al Kif, café 23, Le Trait d'union, A casa mia, Le Montmartre, Sacré Cœur, La Seine, The 716 Menzah 6, Tartes et haricots.
+  - **Zone Menzah 8 :** Yalova café restaurant & lounge, Affogato coffee shop, Quick Café.
   - **Zone Ennasr :** JAGGER, 4 Ever, FIVE O' CLOCK Tea House & Snack, Le Baron Café, Café Blanc, Versailles, The COFFEE 777, The 616 coffee PLUS, Cafe Royal, tornados coffee, Queen, Chesterfield, MM Café, PROST Coffee, Via Vai, HERMES CAFE, Minions coffee, Piacere, Vagary tunis, Paty coffee lounge, Barcelone Coffee.
   - **Autres Zones :** Café Sangria, Infinity, GATSBY, The 716 M6, Gourmandise M5, Eric Kayser, Lv Club, Seven S M5, Kälo café, Lotus Café.
 {{/if}}
@@ -63,8 +65,9 @@ Ta tâche est de :
   - **Zone Lac 1 :** Friends Pasta Bar, The Food Court, Gino Pizza e Panino, Pizza LAGO, Pastel Food&Drinks, PIÚ Pasta, Via mercato, Soryana.
   - **Zone Lac 2 :** Sushibox, Happy’s, Indonesian Restaurant, IT Pizza & Co, Pasta Cosi, Massazi.
   - **Zone Jardins de Carthage :** POPOLARE TRATTORIA, Pizzeria & Fast Food Bombay, MAC & JO'S, Kayu Sushi, Restaurant La Cuillère, Le 45 / Supreme Burger, PORTA NIGRA, RustiK Burger, Route 66, Goomba's Pizza, Regalo Italiano, Masaniello Cucina, ch'men di fir.
-  - **Zone Menzah 5 :** Mustache, Le Réservoir, Pythagor, El Koocha, Prego.
   - **Zone Menzah 1 :** Mokito, Le Zink.
+  - **Zone Menzah 5 :** Mustache, Le Réservoir, Pythagor, El Koocha, Prego.
+  - **Zone Menzah 6 :** Ô Four !, Cool tacos, Bout de pain, Pizza Tiburtina, Rustica Menzah 6, Restaurant Route 66, Jam Jem, Pizza al métro, Restaurant Chef Zhang, The Sunny Beans.
   - **Zone Ennasr :** Echemi, Baguette&Baguette, Cool tacos, HEY BRO, POPOLARE TRATTORIA, GUSTO PIZZA, Ya hala shawarma-يا هلا شاورما, FaceFood, THE SQUARE, Set el cham, Le Bambou, Lab station (Burger), Greens Trattoria au feu de bois, Restaurant Insomnia, Ibn chem, Tacos Chaneb, Señor tacos, GUSTO PIZZA, THE SQUARE, Olympique TACOSAIS, Malibu Ennasr.
   - **Zone La Marsa :** Doodle Burger Bar, Lapero Tapas & Pintxos, Smash’d, Pizza Pesto, Kenkō food bar, Chez Joseph, CORNICELLO NAPOLITAIN, appello, La Pause Fast food, Le Fumoir, Pizzagram, BIG MO - Burger Shack, Pizzeria COME Prima La Marsa, Andiamo, O’Potatos, Panzerotti, Bambino, BFRIES, Uno, Sanfour, Maakoulet Echem, Triade, Piccolo Marsa pizzeria, Wok Thaï La Marsa, Plan B La Marsa, SAKURA PASTA, GOA INDIANA FOOD, D'lich, Benkay Sushi, Sushiwan, La Bruschetta, Machawina, Mamma Time, Le Fumoir, Au Numéro 10, appello, Rosmarino.
   - **Zone Mégrine :** Benkay sushi Megrine, Papa Johns Pizza, May Food's, Malibu Food, Lilliano, Tacos chaneb megrine, Class'croute, Juste En Face Megrine, Baguette & Baguette Megrine.
@@ -91,6 +94,7 @@ Ta tâche est de :
   - **Zone El Aouina :** Kalanea&co, Ali's, coffeelicious Lounge, Infinity Aouina, Downtown Lounge, Restaurant Italien Terrazzino, Pâtisserie Mio, Rozalia coffee&brunch, The One Coffee Lounge.
   - **Zone Lac 2 :** Côté Jardin, PATCHWORK Café & Restaurant, Twiggy, Café Lounge The Gate, The Big Dip, Pinoli Restaurant, Kube, PALAZZO Café Restaurant, George V, 3OO Three Hundred, SO BRITISH.
   - **Zone La Marsa :** Saint Tropez, Breizh Bistrot, Coin Margoum, Yardbirds, Gourmandise, North Shore Coffee and Snacks, Ivy Coffee Shop & Restaurant, Blues House and food, Café Journal, Bonsaï café & restaurant, Bistek, SABATO COFFEE SHOP & RESTAURANT, La Roquette - Salad Bar & Co.
+  - **Zone Menzah 6 :** The 716 Menzah 6, A casa mia, Tartes et haricots, Le Montmartre.
   - **Zone Ennasr :** JAGGER, Café Blanc, tornados coffee, Café Blackstreet, Vagary tunis, Paty coffee lounge.
 {{/if}}
 
