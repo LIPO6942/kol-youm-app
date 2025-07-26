@@ -51,9 +51,12 @@ const LoadingAnimation = ({ category }: { category: {label: string, icon: Lucide
 const shuffle = <T,>(array: T[]): T[] => {
   let currentIndex = array.length, randomIndex;
 
+  // While there remain elements to shuffle.
   while (currentIndex !== 0) {
+    // Pick a remaining element.
     randomIndex = Math.floor(Math.random() * currentIndex);
     currentIndex--;
+    // And swap it with the current element.
     [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
   }
 
@@ -93,13 +96,9 @@ export default function DecisionMaker() {
     }
     console.error(error);
   };
-
-  const fetchSuggestions = useCallback(async (categoryLabel: string, zonesToFilter: string[], isNewRequest: boolean = false) => {
+  
+  const fetchSuggestions = useCallback(async (categoryLabel: string, zonesToFilter: string[]) => {
     setIsLoading(true);
-    if (isNewRequest) {
-      setSuggestions([]);
-      setSeenSuggestions([]);
-    }
     
     if (!user) {
         toast({ variant: "destructive", title: "Erreur", description: "Veuillez vous connecter." });
@@ -108,8 +107,9 @@ export default function DecisionMaker() {
     }
 
     try {
+      // Always use the latest list of seen places, combining persistent profile data and session data
       const combinedSeenPlaces = Array.from(new Set([...(userProfile?.seenKhroujSuggestions || []), ...seenSuggestions]));
-
+      
       const response = await makeDecision({ 
           category: categoryLabel, 
           city: 'Tunis',
@@ -119,35 +119,47 @@ export default function DecisionMaker() {
       
       const newPlaceNames = response.suggestions.map(s => s.placeName);
       
-      // Shuffle the suggestions before displaying them
+      // Shuffle the suggestions before displaying them for variety
       setSuggestions(shuffle(response.suggestions));
       
+      // Update the list of places seen within this session
       const updatedSeenSuggestions = Array.from(new Set([...seenSuggestions, ...newPlaceNames]));
       setSeenSuggestions(updatedSeenSuggestions);
       
+      // Persist the newly seen places to the user's profile in Firestore
       if (newPlaceNames.length > 0) {
         await updateUserProfile(user.uid, { seenKhroujSuggestions: updatedSeenSuggestions });
       }
 
     } catch (error: any) {
         handleAiError(error);
-        if (isNewRequest) handleReset();
+        setSelectedCategory(undefined); // Reset on error to go back to main screen
     } finally {
       setIsLoading(false);
     }
   }, [user, userProfile?.seenKhroujSuggestions, seenSuggestions, toast]);
 
-  const handleCategorySelect = (category: typeof outingOptions[0]) => {
+  useEffect(() => {
+    // This effect runs whenever the selected category or zones change.
+    // It's the single source of truth for fetching data.
+    if (selectedCategory) {
+      setSuggestions([]); // Clear old suggestions immediately
+      setSeenSuggestions([]); // Reset session memory for the new category
+      fetchSuggestions(selectedCategory.label, selectedZones);
+    }
+  }, [selectedCategory, selectedZones]); // Re-run when category OR zones change
+
+
+  const handleCategorySelect = (category: (typeof outingOptions)[0]) => {
     setSelectedCategory(category);
-    // When a category is selected, use the currently selected zones for the filter.
-    fetchSuggestions(category.label, selectedZones, true);
+    // The useEffect will now handle fetching the data.
   };
 
   const handleReset = () => {
     setSuggestions([]);
-    setSeenSuggestions([]);
     setSelectedCategory(undefined);
     setSelectedZones([]);
+    setSeenSuggestions([]);
     if (carouselApi) {
         carouselApi.destroy();
     }
@@ -155,18 +167,17 @@ export default function DecisionMaker() {
 
   const handleRefresh = () => {
     if (selectedCategory) {
-        fetchSuggestions(selectedCategory.label, selectedZones, true);
+        setSuggestions([]); // Clear existing suggestions
+        setSeenSuggestions([]); // Reset session memory to get fresh results
+        fetchSuggestions(selectedCategory.label, selectedZones);
     }
   }
 
   const handleZoneChange = (zone: string, checked: boolean) => {
-    const newZones = checked ? [...selectedZones, zone] : selectedZones.filter(z => z !== zone);
-    setSelectedZones(newZones);
-    
-    // If a category is already selected, re-fetch suggestions with the new zone filters.
-    if (selectedCategory) {
-        fetchSuggestions(selectedCategory.label, newZones, true);
-    }
+    setSelectedZones(prevZones => 
+      checked ? [...prevZones, zone] : prevZones.filter(z => z !== zone)
+    );
+     // The useEffect will now handle re-fetching the data.
   };
   
   const getFilterButtonText = () => {
@@ -181,11 +192,8 @@ export default function DecisionMaker() {
 
   const handleClearZones = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const newZones: string[] = [];
-    setSelectedZones(newZones);
-    if (selectedCategory) {
-        fetchSuggestions(selectedCategory.label, newZones, true);
-    }
+    setSelectedZones([]);
+     // The useEffect will now handle re-fetching the data.
   }
 
 
@@ -336,4 +344,6 @@ export default function DecisionMaker() {
  
 
     
+    
+
     
