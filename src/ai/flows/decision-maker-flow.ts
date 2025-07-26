@@ -67,11 +67,11 @@ Ta tâche est de :
   - **Zone Jardins de Carthage :** POPOLARE TRATTORIA, Pizzeria & Fast Food Bombay, MAC & JO'S, Kayu Sushi, Restaurant La Cuillère, Le 45 / Supreme Burger, PORTA NIGRA, RustiK Burger, Route 66, Goomba's Pizza, Regalo Italiano, Masaniello Cucina, ch'men di fir.
   - **Zone Menzah 1 :** Mokito, Le Zink.
   - **Zone Menzah 5 :** Mustache, Le Réservoir, Pythagor, El Koocha, Prego.
-  - **Zone Menzah 6 :** Ô Four !, Cool tacos, Bout de pain, Pizza Tiburtina, Rustica Menzah 6, Restaurant Route 66, Jam Jem, Pizza al métro, Restaurant Chef Zhang, The Sunny Beans.
+  - **Zone Menzah 6 :** Ô Four !, Cool tacos, Bout de pain, Pizza Tiburtina, Rustica Menzah 6, Jam Jem, Pizza al métro, Restaurant Chef Zhang, The Sunny Beans.
   - **Zone Ennasr :** Echemi, Baguette&Baguette, Cool tacos, HEY BRO, POPOLARE TRATTORIA, GUSTO PIZZA, Ya hala shawarma-يا هلا شاورما, FaceFood, THE SQUARE, Set el cham, Le Bambou, Lab station (Burger), Greens Trattoria au feu de bois, Restaurant Insomnia, Ibn chem, Tacos Chaneb, Señor tacos, GUSTO PIZZA, THE SQUARE, Olympique TACOSAIS, Malibu Ennasr.
-  - **Zone La Marsa :** Doodle Burger Bar, Lapero Tapas & Pintxos, Smash’d, Pizza Pesto, Kenkō food bar, Chez Joseph, CORNICELLO NAPOLITAIN, appello, La Pause Fast food, Le Fumoir, Pizzagram, BIG MO - Burger Shack, Pizzeria COME Prima La Marsa, Andiamo, O’Potatos, Panzerotti, Bambino, BFRIES, Uno, Sanfour, Maakoulet Echem, Triade, Piccolo Marsa pizzeria, Wok Thaï La Marsa, Plan B La Marsa, SAKURA PASTA, GOA INDIANA FOOD, D'lich, Benkay Sushi, Sushiwan, La Bruschetta, Machawina, Mamma Time, Le Fumoir, Au Numéro 10, appello, Rosmarino.
+  - **Zone La Marsa :** Doodle Burger Bar, Lapero Tapas & Pintxos, Smash’d, Pizza Pesto, Kenkō food bar, Chez Joseph, CORNICELLO NAPOLITAIN, appello, La Pause Fast food, Le Fumoir, Pizzagram, BIG MO - Burger Shack, Pizzeria COME Prima La Marsa, Andiamo, O’Potatos, Panzerotti, Bambino, BFRIES, Uno, Sanfour, Maakoulet Echem, Triade, Piccolo Marsa pizzeria, Wok Thaï La Marsa, Plan B La Marsa, SAKURA PASTA, GOA INDIANA FOOD, D'lich, Benkay Sushi, Sushiwan, La Bruschetta, Machawina, Mamma Time, Le Fumoir, Au Numéro 10, Rosmarino.
   - **Zone Mégrine :** Benkay sushi Megrine, Papa Johns Pizza, May Food's, Malibu Food, Lilliano, Tacos chaneb megrine, Class'croute, Juste En Face Megrine, Baguette & Baguette Megrine.
-  - **Zone El Manar :** Restaurant 6019, Fringale.
+  - **Zone El Manar :** Restaurant 6019, Fringale, Restaurant Route 66.
 {{/if}}
 
 {{#if isRestaurantCategory}}
