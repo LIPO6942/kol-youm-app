@@ -108,7 +108,6 @@ export default function DecisionMaker() {
     }
 
     try {
-      // Always use the latest list of seen places, combining persistent profile data and session data
       const combinedSeenPlaces = Array.from(new Set([...(userProfile?.seenKhroujSuggestions || []), ...seenSuggestions]));
       
       const response = await makeDecision({ 
@@ -120,45 +119,43 @@ export default function DecisionMaker() {
       
       const newPlaceNames = response.suggestions.map(s => s.placeName);
       
-      // Shuffle the suggestions before displaying them for variety
       setSuggestions(shuffle(response.suggestions));
       
-      // Update the list of places seen within this session
       const updatedSeenSuggestions = Array.from(new Set([...seenSuggestions, ...newPlaceNames]));
       setSeenSuggestions(updatedSeenSuggestions);
       
-      // Persist the newly seen places to the user's profile in Firestore
       if (newPlaceNames.length > 0) {
         await updateUserProfile(user.uid, { seenKhroujSuggestions: updatedSeenSuggestions });
       }
 
     } catch (error: any) {
         handleAiError(error);
-        setSelectedCategory(undefined); // Reset on error to go back to main screen
+        setSelectedCategory(undefined);
     } finally {
       setIsLoading(false);
     }
   }, [user, userProfile?.seenKhroujSuggestions, seenSuggestions, toast]);
 
-  const handleCategorySelect = (category: (typeof outingOptions)[0]) => {
-    setSuggestions([]);
-    setSeenSuggestions([]);
-    setSelectedCategory(category);
-    if (category) {
-        fetchSuggestions(category, selectedZones);
+  useEffect(() => {
+    // This effect reliably triggers a new search whenever the category or zones change.
+    if (selectedCategory) {
+      fetchSuggestions(selectedCategory, selectedZones);
     }
+  }, [selectedCategory, selectedZones]);
+
+
+  const handleCategorySelect = (category: (typeof outingOptions)[0]) => {
+    setSeenSuggestions([]); // Reset session memory for the new category
+    setSelectedCategory(category);
   };
 
   const handleZoneChange = (zone: string, checked: boolean) => {
-    const newSelectedZones = checked
-        ? [...selectedZones, zone]
-        : selectedZones.filter(z => z !== zone);
-
-    setSelectedZones(newSelectedZones);
-
-    if (selectedCategory) {
-        fetchSuggestions(selectedCategory, newSelectedZones);
-    }
+    setSelectedZones(prevSelectedZones => {
+        const newSelectedZones = checked
+            ? [...prevSelectedZones, zone]
+            : prevSelectedZones.filter(z => z !== zone);
+        return newSelectedZones;
+    });
   };
 
   const handleReset = () => {
@@ -191,11 +188,7 @@ export default function DecisionMaker() {
 
   const handleClearZones = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const newSelectedZones: string[] = [];
-    setSelectedZones(newSelectedZones);
-    if(selectedCategory) {
-        fetchSuggestions(selectedCategory, newSelectedZones);
-    }
+    setSelectedZones([]);
   }
 
 
@@ -343,6 +336,5 @@ export default function DecisionMaker() {
     </Card>
   );
 }
- 
 
     
