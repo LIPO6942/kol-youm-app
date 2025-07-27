@@ -140,31 +140,26 @@ export default function DecisionMaker() {
     }
   }, [user, userProfile?.seenKhroujSuggestions, seenSuggestions, toast]);
 
-  // This useEffect will reliably trigger the search whenever the category or zones change.
-  useEffect(() => {
-    // Only fetch if a category is actually selected.
-    if (selectedCategory) {
-        fetchSuggestions(selectedCategory, selectedZones);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory, selectedZones]);
-
-
   const handleCategorySelect = (category: (typeof outingOptions)[0]) => {
     setSuggestions([]);
     setSeenSuggestions([]);
     setSelectedCategory(category);
-  };
-  
-  const handleZoneChange = (zone: string, checked: boolean) => {
-    // We don't fetch here. The useEffect will handle it.
-    setSelectedZones(prevZones => 
-        checked 
-        ? [...prevZones, zone]
-        : prevZones.filter(z => z !== zone)
-    );
+    if (category) {
+        fetchSuggestions(category, selectedZones);
+    }
   };
 
+  const handleZoneChange = (zone: string, checked: boolean) => {
+    const newSelectedZones = checked
+        ? [...selectedZones, zone]
+        : selectedZones.filter(z => z !== zone);
+
+    setSelectedZones(newSelectedZones);
+
+    if (selectedCategory) {
+        fetchSuggestions(selectedCategory, newSelectedZones);
+    }
+  };
 
   const handleReset = () => {
     setSuggestions([]);
@@ -196,8 +191,11 @@ export default function DecisionMaker() {
 
   const handleClearZones = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // We don't fetch here. The useEffect will handle it.
-    setSelectedZones([]);
+    const newSelectedZones: string[] = [];
+    setSelectedZones(newSelectedZones);
+    if(selectedCategory) {
+        fetchSuggestions(selectedCategory, newSelectedZones);
+    }
   }
 
 
@@ -346,3 +344,5 @@ export default function DecisionMaker() {
   );
 }
  
+
+    
