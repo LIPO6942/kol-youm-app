@@ -27,7 +27,7 @@ const outingOptions: { id: string; label: string; icon: LucideIcon; description:
 ];
 
 const zones = [
-    "La Marsa", "Gammarth", "El Aouina", "Les Berges du Lac 1", "Les Berges du Lac 2",
+    "La Marsa", "Gammarth", "El Aouina", "Ain Zaghouan Nord", "Les Berges du Lac 1", "Les Berges du Lac 2",
     "Jardins de Carthage", "Carthage", "La Goulette/Kram", "Boumhal", "Ezzahra", "Hammamet", "Nabeul", "Mégrine", "La Soukra",
     "Le Bardo", "Menzah 1", "Menzah 5", "Menzah 6", "Menzah 8", "Menzah 9", "Ennasr", "Centre-ville de Tunis", 
     "Mutuelleville / Alain Savary", "El Manar"
