@@ -28,7 +28,7 @@ const outingOptions: { id: string; label: string; icon: LucideIcon; description:
 
 const zones = [
     "La Marsa", "Gammarth", "El Aouina", "Les Berges du Lac 1", "Les Berges du Lac 2",
-    "Jardins de Carthage", "Boumhal", "Ezzahra", "Hammamet", "Nabeul", "Mégrine", "La Soukra",
+    "Jardins de Carthage", "Carthage", "La Goulette/Kram", "Boumhal", "Ezzahra", "Hammamet", "Nabeul", "Mégrine", "La Soukra",
     "Le Bardo", "Menzah 1", "Menzah 5", "Menzah 6", "Menzah 8", "Menzah 9", "Ennasr", "Centre-ville de Tunis", 
     "Mutuelleville / Alain Savary", "El Manar"
 ];
@@ -146,6 +146,7 @@ export default function DecisionMaker() {
     if (selectedCategory) {
         fetchSuggestions(selectedCategory, selectedZones);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategory, selectedZones]);
 
 
@@ -156,7 +157,7 @@ export default function DecisionMaker() {
   };
   
   const handleZoneChange = (zone: string, checked: boolean) => {
-    setSuggestions([]);
+    // We don't fetch here. The useEffect will handle it.
     setSelectedZones(prevZones => 
         checked 
         ? [...prevZones, zone]
@@ -195,7 +196,7 @@ export default function DecisionMaker() {
 
   const handleClearZones = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setSuggestions([]);
+    // We don't fetch here. The useEffect will handle it.
     setSelectedZones([]);
   }
 
@@ -345,4 +346,3 @@ export default function DecisionMaker() {
   );
 }
  
-

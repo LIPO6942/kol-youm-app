@@ -15,7 +15,7 @@ const prompt = ai.definePrompt({
   name: 'makeDecisionPrompt',
   input: {schema: MakeDecisionInputSchema.extend({ isCafeCategory: z.boolean().optional(), isFastFoodCategory: z.boolean().optional(), isRestaurantCategory: z.boolean().optional(), isBrunchCategory: z.boolean().optional() })},
   output: {schema: MakeDecisionOutputSchema},
-  prompt: `Tu es un expert connaisseur de la vie locale en Tunisie. Tes connaissances couvrent spécifiquement les zones suivantes : **La Marsa, Gammarth, El Aouina, Les Berges du Lac (1 et 2), Jardins de Carthage, Boumhal, Ezzahra, Hammamet, Nabeul, Mégrine, La Soukra, Le Bardo, Menzah 1, Menzah 5, Menzah 6, Menzah 8, Menzah 9, Ennasr 1, Ennasr 2, Cité Ennasr, le centre-ville de Tunis, Mutuelleville, Alain Savary, El Manar**. Ton but est de donner aux utilisateurs une liste de suggestions de sorties **nouvelles**, uniques et pertinentes parmi les meilleurs endroits **réels et existants** dans ces zones uniquement.
+  prompt: `Tu es un expert connaisseur de la vie locale en Tunisie. Tes connaissances couvrent spécifiquement les zones suivantes : **La Marsa, Gammarth, El Aouina, Les Berges du Lac (1 et 2), Jardins de Carthage, Carthage, La Goulette, Le Kram, Boumhal, Ezzahra, Hammamet, Nabeul, Mégrine, La Soukra, Le Bardo, Menzah 1, Menzah 5, Menzah 6, Menzah 8, Menzah 9, Ennasr 1, Ennasr 2, Cité Ennasr, le centre-ville de Tunis, Mutuelleville, Alain Savary, El Manar**. Ton but est de donner aux utilisateurs une liste de suggestions de sorties **nouvelles**, uniques et pertinentes parmi les meilleurs endroits **réels et existants** dans ces zones uniquement.
 
 L'utilisateur a choisi la catégorie de sortie suivante : "{{category}}".
 
@@ -50,6 +50,8 @@ Ta tâche est de :
   - **Zone Lac 2 :** Hookah Coffee Lounge, Côté Jardin, Frédéric CASSEL, U-TOO Coffee & Grill, Kube, George V, SO BRITISH LAC 2, Zanzibar Café, Billionaire Café, OMEGA Coffee, Barista's Lac 2, The Big Dip.
   - **Zone La Marsa :** Gourmandise Marsa Corniche, A mi chemins, North Shore Coffee and Snacks, Ivy Coffee Shop & Restaurant, Grignotine, Saint Tropez, La Marsa, Le Gourmet, Barista’s, Café Victor Hugo H, SABATO COFFEE SHOP & RESTAURANT, Patchwork, Café Calimero, Eric Kayser, PAUL, Blues House and food, Café Journal.
   - **Zone Jardins de Carthage :** TCHOICE CAFE, The closet Coffee shop, Bestoff coffee, The Address, Coin d'alma - Jardins de Carthage, La vida, boho, The Bistrot B&D, Metropolitan Coffee Shop, The Glory Coffee, Athiniôs Coffee, Saint Germain JDC, 3M coffee, Mille Mercis, The Garrison 06, Galerie Café, The Mayfair Lounge.
+  - **Zone Carthage :** Uranium Café d'art, Barista's Carthage Dermech, Punic'Art, Café Yam's, Next One, Avra Carthage, The Hills, Matcha Club | Carthage.
+  - **Zone La Goulette/Kram :** El Aalia, Café Restaurant La Plage, Wet Flamingo(Bar).
   - **Zone Mégrine/ Sidi Rzig :** Fugazi coffee&snack, Double Dose, Javayou, Salon de thé white lounge, La Dolce Vita, SHOW OFF, Wood&ROPES, Gourmandise Megrine.
   - **Zone El Manar :** Hillside Resto-Lounge, Brooklyn Café, Wolf And Rabbit, Pantree, Vero Gusto, Q'Mug, Story coffee, Môme Lounge.
   - **Zone Menzah 9 :** La Verrière - Café Resto, LA DOREE, Casa De Papel.
@@ -65,6 +67,8 @@ Ta tâche est de :
   - **Zone Lac 1 :** Friends Pasta Bar, The Food Court, Gino Pizza e Panino, Pizza LAGO, Pastel Food&Drinks, PIÚ Pasta, Via mercato, Soryana.
   - **Zone Lac 2 :** Sushibox, Happy’s, Indonesian Restaurant, IT Pizza & Co, Pasta Cosi, Massazi.
   - **Zone Jardins de Carthage :** POPOLARE TRATTORIA, Pizzeria & Fast Food Bombay, MAC & JO'S, Kayu Sushi, Restaurant La Cuillère, Le 45 / Supreme Burger, PORTA NIGRA, RustiK Burger, Route 66, Goomba's Pizza, Regalo Italiano, Masaniello Cucina, ch'men di fir.
+  - **Zone Carthage :** too much, Baguette Et Baguette.
+  - **Zone La Goulette/Kram :** Ciao!, LOS TRADOS, Fuego, Buon Gusto, Food 'n' mood, Vagabondo, Pizza Pronto, Klitch, Big burger 🍔, The NINETY-NINE, L'antica pizzeria, After.
   - **Zone Menzah 1 :** Mokito, Le Zink.
   - **Zone Menzah 5 :** Mustache, Le Réservoir, Pythagor, El Koocha, Prego.
   - **Zone Menzah 6 :** Ô Four !, Cool tacos, Bout de pain, Pizza Tiburtina, Rustica Menzah 6, Jam Jem, Pizza al métro, Restaurant Chef Zhang, The Sunny Beans.
@@ -82,6 +86,8 @@ Ta tâche est de :
   - **Zone La Marsa :** CULT, bistro, Kimchi, Le Golfe, Pi, La focaccia marsa, La Mescla, Restaurant La Maison, La Piadina, La Dokkana House, Karam Lobnan, DIVERSSO, AL SÉNIOUR, RESTAURANT L'ENDROIT, Ô Moules, The Kitchen Restaurant la Marsa.
   - **Zone Gammarth :** Restaurante Vicolo, L’italien Gammarth da Davide, Restaurant Les Ombrelles, Restaurant Les Dunes, Restaurant Borago gammarth, Le Ritsi, Ocean Club, Le Grand Bleu, Olivia, LiBai, Restaurant Grec Efimero.
   - **Zone Jardins de Carthage :** Isapori italiani, Langoustino, Hasdrubal de Carthage, Peri Peri Restaurant, Qian house chinese.
+  - **Zone Carthage :** Rue de Siam Carthage, BIRDS, Pizza Phone, Restaurant Best Friend, Tchevap, Les Indécis, restaurant valentino, Restaurant Le Punique.
+  - **Zone La Goulette/Kram :** La Topaze, La Mer, La Spigola, La GALITE, Le Café Vert, restaurant la paella, La Spigola, Resto HEKAYA, Le Chalet Goulettois, Restaurant The House - الحوش, Les 3 Marins, Restaurant Flouka, Restaurant Waywa, La maison de la grillade, L'Aquarius, YORK Restaurant & Café, Platinium Restaurant.
   - **Zone Mutuelleville / Alain Savary :** L'ardoise, L'astragale, Alle scale, Le Baroque-Restaurant.
   - **Zone Mégrine :** Tavolino, Via mercato Megrine, La Bottega restaurant.
   - **Zone El Manar :** Mashawi Halab, Chili's American's Grill, Sultan Ahmet, Go! Sushi, Pang's asian restaurant & sushi bar.
