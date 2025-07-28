@@ -57,7 +57,7 @@ Ta tâche est de :
   - **Zone El Manar :** Hillside Resto-Lounge, Brooklyn Café, Wolf And Rabbit, Pantree, Vero Gusto, Q'Mug, Story coffee, Môme Lounge.
   - **Zone Menzah 9 :** La Verrière - Café Resto, LA DOREE, Casa De Papel.
   - **Zone Menzah 6 :** 3al Kif, café 23, Le Trait d'union, A casa mia, Le Montmartre, Sacré Cœur, La Seine, The 716 Menzah 6, Tartes et haricots.
-  - **Zone Menzah 5 :** Gourmandise M5, Eric Kayser, Lv Club, Seven S M5, Kälo café.
+  - **Zone Menzah 5 :** Gourmandise M5, Eric Kayser, Lv Club, Seven S M5, Kälo café, Nüma coffee & kitchen, The Paradise, Myplace, El Chapo, ABUELA'S CAFE.
   - **Zone Menzah 8 :** Yalova café restaurant & lounge, Affogato coffee shop, Quick Café.
   - **Zone Ennasr :** JAGGER, 4 Ever, FIVE O' CLOCK Tea House & Snack, Le Baron Café, Café Blanc, Versailles, The COFFEE 777, The 616 coffee PLUS, Cafe Royal, tornados coffee, Queen, Chesterfield, MM Café, PROST Coffee, Via Vai, HERMES CAFE, Minions coffee, Piacere, Vagary tunis, Paty coffee lounge, Barcelone Coffee.
 {{/if}}
