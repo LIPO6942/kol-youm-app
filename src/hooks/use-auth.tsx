@@ -6,7 +6,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db as firestoreDb } from '@/lib/firebase/client';
 import type { UserProfile } from '@/lib/firebase/firestore';
 import { Loader2 } from 'lucide-react';
-import { clearUserFromDb, getUserFromDb, storeUserInDb } from '@/lib/indexeddb';
+import { getUserFromDb, storeUserInDb } from '@/lib/indexeddb';
 
 interface AuthContextType {
   user: User | null;
@@ -28,14 +28,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        // First, try to load from local DB for speed
+        const localProfile = await getUserFromDb(user.uid);
+        if (localProfile) {
+          setUserProfile(localProfile);
+        }
         setUser(user);
-        // We will fetch profile in the next useEffect, triggered by user change
+        // The Firestore listener will then provide real-time updates
       } else {
         setUser(null);
         setUserProfile(null);
-        if (typeof window !== 'undefined') {
-            await clearUserFromDb(); // Clear local data on logout
-        }
+        // In a real-world scenario, you might clear IndexedDB on logout
         setLoading(false);
       }
     });
@@ -47,46 +50,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (user) {
       // Use onSnapshot to listen for real-time updates from Firestore
       const unsub = onSnapshot(doc(firestoreDb, "users", user.uid), async (doc) => {
-        setLoading(true);
-        const localProfile = await getUserFromDb(user.uid);
-        
         if (doc.exists()) {
           const firestoreProfile = doc.data() as UserProfile;
-          
-          // Merge Firestore data with local data, giving precedence to Firestore for core fields
-          // but keeping local lists if they are more recent (this is a simple merge)
-          const mergedProfile = {
-            ...localProfile,
-            ...firestoreProfile,
-            // A more sophisticated merge could compare timestamps if available
-            moviesToWatch: firestoreProfile.moviesToWatch || localProfile?.moviesToWatch || [],
-            seenMovieTitles: firestoreProfile.seenMovieTitles || localProfile?.seenMovieTitles || [],
-            seenKhroujSuggestions: firestoreProfile.seenKhroujSuggestions || localProfile?.seenKhroujSuggestions || [],
-          };
-
-          setUserProfile(mergedProfile);
-          await storeUserInDb(user.uid, mergedProfile);
-        } else if (localProfile) {
-            // Firestore doc doesn't exist, but local one does. Use local.
-            setUserProfile(localProfile);
+          setUserProfile(firestoreProfile);
+          // Keep IndexedDB in sync with Firestore
+          await storeUserInDb(user.uid, firestoreProfile);
         } else {
-          // No data anywhere
-          setUserProfile(null);
+          // Document doesn't exist in Firestore, might be a new signup
+          // or user has local data but no Firestore doc yet.
+          // We rely on the personalization step to create the doc.
+           const localProfile = await getUserFromDb(user.uid);
+           setUserProfile(localProfile || null);
         }
         setLoading(false);
       });
       return () => unsub();
+    } else {
+        // No user, stop loading
+        setLoading(false);
     }
   }, [user]);
 
 
   return (
     <AuthContext.Provider value={{ user, userProfile, loading }}>
-      {loading ? (
-          <div className="flex items-center justify-center h-screen bg-background">
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          </div>
-      ) : children}
+      {children}
     </AuthContext.Provider>
   );
 };
