@@ -4,7 +4,7 @@
   "description": "Un assistant personnel intelligent qui transforme la routine en opportunité de découverte.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#F3F4F6",
+  "background_color": "#FFFFFF",
   "theme_color": "#A98DDE",
   "icons": [
     {

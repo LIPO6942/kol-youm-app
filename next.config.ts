@@ -6,6 +6,16 @@ const withPWA = withPWAInit({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: true,
+  reloadOnOnline: true,
+  swcMinify: true,
+  workboxOptions: {
+    disableDevLogs: true,
+  },
+  fallbacks: {
+    image: "/icons/icon-512x512.png",
+  }
 });
 
 const nextConfig: NextConfig = {
