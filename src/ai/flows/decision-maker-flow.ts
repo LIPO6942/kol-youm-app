@@ -73,7 +73,7 @@ Ta tâche est de :
   - **Zone Carthage :** too much, Baguette Et Baguette.
   - **Zone La Goulette/Kram :** Ciao!, LOS TRADOS, Fuego, Buon Gusto, Food 'n' mood, Vagabondo, Pizza Pronto, Klitch, Big burger 🍔, The NINETY-NINE, L'antica pizzeria, After.
   - **Zone Menzah 1 :** Mokito, Le Zink.
-  - **Zone Menzah 5 :** Mustache, El Koocha, Prego, Le Réservoir, Pythagor.
+  - **Zone Menzah 5 :** Mustache, El Koocha, Prego, Le Réservoir, Pythagor, Hamburgasme, Compozz’ ElMenzah 5, Ma Che Vuoi !, Antika.
   - **Zone Menzah 6 :** Ô Four !, Bout de pain, Pizza Tiburtina, Rustica Menzah 6, Jam Jem, Pizza al métro, Restaurant Chef Zhang, The Sunny Beans.
   - **Zone Ennasr :** Echemi, Baguette&Baguette, Cool tacos, HEY BRO, POPOLARE TRATTORIA, GUSTO PIZZA, Ya hala shawarma-يا هلا شاورما, FaceFood, THE SQUARE, Set el cham, Le Bambou, Lab station (Burger), Greens Trattoria au feu de bois, Restaurant Insomnia, Ibn chem, Tacos Chaneb, Señor tacos, Olympique TACOSAIS, Malibu Ennasr.
   - **Zone La Marsa :** Doodle Burger Bar, Lapero Tapas & Pintxos, Smash’d, Pizza Pesto, Kenkō food bar, Chez Joseph, CORNICELLO NAPOLITAIN, appello, La Pause Fast food, Le Fumoir, Pizzagram, BIG MO - Burger Shack, Pizzeria COME Prima La Marsa, Andiamo, O’Potatos, Panzerotti, Bambino, BFRIES, Uno, Sanfour, Maakoulet Echem, Triade, Piccolo Marsa pizzeria, Wok Thaï La Marsa, Plan B La Marsa, SAKURA PASTA, GOA INDIANA FOOD, D'lich, Benkay Sushi, Sushiwan, La Bruschetta, Machawina, Mamma Time.
@@ -96,6 +96,7 @@ Ta tâche est de :
   - **Zone Mégrine :** Tavolino, Via mercato Megrine, La Bottega restaurant.
   - **Zone El Manar :** Mashawi Halab, Chili's American's Grill, Sultan Ahmet, Go! Sushi, Pang's asian restaurant & sushi bar, Route 66.
   - **Zone Menzah 9 :** Damascino Menzah 9, Mamma Time.
+  - **Zone Menzah 5 :** les dents de la mer.
   - **Zone Ennasr :** Thaïfood, Farm Ranch Pizza Ennasr, INSIDE Turkish Restaurant Lounge, Café Blackstreet, Le safran, Restaurant Le Sfaxien- Abou Lezz, Momenti Italiani, meatopia, Wokthaï Ennaser.
 {{/if}}
 
