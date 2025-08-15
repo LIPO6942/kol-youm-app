@@ -68,7 +68,7 @@ Ta tâche est de :
   - **Zone El Aouina :** Om burger, El Ostedh, Compozz, Crispy Naan, Wok Time, Pimento's, Icheese, Hot Dot, Chaneb Tacos, Dma9, The Corner Italian Food, KFC, Echemi Aouina, Shrimp Burger, Benkay Sushi, Taco and co, My Potato, Tsunami Sushi, Restaurant l'artiste, Bonfire, Bombay, Oueld el bey, Taquería, Sanburg, Friends Pasta Bar aouina, Restaurant The Hood, Machewi Tchiko Fruits de mer, Pizzeria Speed’za, Fahita.
   - **Zone Ain Zaghouan Nord :** Cozy corner, Pizzeria Thapsus 5090, BBQ, BB Food, Restaurant Pasta'Up.
   - **Zone Lac 1 :** Friends Pasta Bar, The Food Court, Gino Pizza e Panino, Pizza LAGO, Pastel Food&Drinks, PIÚ Pasta.
-  - **Zone Lac 2 :** Sushibox, Happy’s, Indonesian Restaurant, IT Pizza & Co, Pasta Cosi, Massazi.
+  - **Zone Lac 2 :** Sushibox, Happy’s, Indonesian Restaurant, IT Pizza & Co.
   - **Zone Jardins de Carthage :** POPOLARE TRATTORIA, Pizzeria & Fast Food Bombay, MAC & JO'S, Kayu Sushi, Restaurant La Cuillère, Le 45 / Supreme Burger, PORTA NIGRA, RustiK Burger, Route 66, Goomba's Pizza, Regalo Italiano, Masaniello Cucina, ch'men di fir.
   - **Zone Carthage :** too much, Baguette Et Baguette.
   - **Zone La Goulette/Kram :** Ciao!, LOS TRADOS, Fuego, Buon Gusto, Food 'n' mood, Vagabondo, Pizza Pronto, Klitch, Big burger 🍔, The NINETY-NINE, L'antica pizzeria, After.
@@ -86,6 +86,7 @@ Ta tâche est de :
   - **Zone La Soukra :** Lorenzia, Brown and Sugar Coffee, Tredici, Italiano Vero, Ristorante La Carbonara.
   - **Zone El Aouina :** Del Capo Restaurant, Restaurant Italien Terrazzino, Restaurant Broche'zza, Restaurant Grillade Zine El Chem, Restaurant Emesa, RED Castle aouina, WOK Time.
   - **Zone Ain Zaghouan Nord :** Restaurant Thaïlandais House, The Nine - Lifestyle Experience.
+  - **Zone Lac 1 :** Pasta Cosi, Massazi.
   - **Zone Lac 2 :** Soryana, Via Mercato Lac 2, Al Seniour, Chef Ayhan Turkich grill rustik, K-ZIP, La Margherita, Bocca Felice, Chef Eyad, Restaurant L'Érable, Damascino Lac 2, L’olivier bleu.
   - **Zone La Marsa :** CULT, bistro, Kimchi, Le Golfe, Pi, La focaccia marsa, La Mescla, Restaurant La Maison, La Piadina, La Dokkana House, Karam Lobnan, DIVERSSO, AL SÉNIOUR, RESTAURANT L'ENDROIT, Ô Moules, The Kitchen Restaurant la Marsa.
   - **Zone Gammarth :** Restaurante Vicolo, L’italien Gammarth da Davide, Restaurant Les Ombrelles, Restaurant Les Dunes, Restaurant Borago gammarth, Le Ritsi, Ocean Club, Le Grand Bleu, Olivia, LiBai, Restaurant Grec Efimero.
