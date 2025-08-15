@@ -48,6 +48,7 @@ Ta tâche est de :
   - **Zone La Soukra :** Lotus Café, Brown and Sugar Coffee, First café, Caféte du Golf.
   - **Zone El Aouina :** Minuto di STARTELA, BEANS & CO COFFEE HOUSE, Sam's Café, Bleuet, Ali's Coffee, Café Patchwork, Infinity Aouina, SOHO Coffee, Ô Palet, Dell'Angelo Cafè, Café Sun-Side, Café Slow X, Green Coffee, Padova, Beans&Co, Downtown, Barista's, Pep’s coffee, The One Coffee Lounge, InSider L’Aouina, idea lounge, Epic Coffee Shop, GATSBY, Balkon, MYKONOS MEMORIES COFFE, Café Forever Lounge, Pivoine coffee & more, Palet Royal, Salon De Thé New Day, Le Wagram ,BELLUCCI coffee & more.
   - **Zone Ain Zaghouan Nord :** Barista's, Way cup, Il fiore del caffe, CAFE ROSE COTTAGE, La Duchesse, Carré Gourmand, The W's Coffee, PlayPresso, Coffe shop Copa vida.
+  - **Zone Lac 1 :** Pavarotti, La Croisette, Eric Kayser, Biwa, Le Bistrot, Cosmitto.
   - **Zone Lac 2 :** Hookah Coffee Lounge, Côté Jardin, Frédéric CASSEL, U-TOO Coffee & Grill, Kube, George V, SO BRITISH LAC 2, Zanzibar Café, Billionaire Café, OMEGA Coffee, Barista's Lac 2, The Big Dip.
   - **Zone La Marsa :** Gourmandise Marsa Corniche, A mi chemins, North Shore Coffee and Snacks, Ivy Coffee Shop & Restaurant, Grignotine, Saint Tropez, La Marsa, Le Gourmet, Barista’s, Café Victor Hugo H, SABATO COFFEE SHOP & RESTAURANT, Patchwork, Café Calimero, Eric Kayser, PAUL, Blues House and food, Café Journal.
   - **Zone Jardins de Carthage :** TCHOICE CAFE, The closet Coffee shop, Bestoff coffee, The Address, Coin d'alma - Jardins de Carthage, La vida, boho, The Bistrot B&D, Metropolitan Coffee Shop, The Glory Coffee, Athiniôs Coffee, Saint Germain JDC, 3M coffee, Mille Mercis, The Garrison 06, Galerie Café, The Mayfair Lounge.
@@ -67,7 +68,7 @@ Ta tâche est de :
   - **Zone La Soukra :** Tredici, BiBi, Chicken Light.
   - **Zone El Aouina :** Om burger, El Ostedh, Compozz, Crispy Naan, Wok Time, Pimento's, Icheese, Hot Dot, Chaneb Tacos, Dma9, The Corner Italian Food, KFC, Echemi Aouina, Shrimp Burger, Benkay Sushi, Taco and co, My Potato, Tsunami Sushi, Restaurant l'artiste, Bonfire, Bombay, Oueld el bey, Taquería, Sanburg, Friends Pasta Bar aouina, Restaurant The Hood, Machewi Tchiko Fruits de mer, Pizzeria Speed’za, Fahita.
   - **Zone Ain Zaghouan Nord :** Cozy corner, Pizzeria Thapsus 5090, BBQ, BB Food, Restaurant Pasta'Up.
-  - **Zone Lac 1 :** Friends Pasta Bar, The Food Court, Gino Pizza e Panino, Pizza LAGO, Pastel Food&Drinks, PIÚ Pasta.
+  - **Zone Lac 1 :** Friends Pasta Bar, The Food Court, Gino Pizza e Panino, Pizza LAGO, Pastel Food&Drinks, PIÚ Pasta, Ben's, LACantine, BIGABOO, Papa john’s, hobo lac 1.
   - **Zone Lac 2 :** Sushibox, Happy’s, Indonesian Restaurant, IT Pizza & Co.
   - **Zone Jardins de Carthage :** POPOLARE TRATTORIA, Pizzeria & Fast Food Bombay, MAC & JO'S, Kayu Sushi, Restaurant La Cuillère, Le 45 / Supreme Burger, PORTA NIGRA, RustiK Burger, Route 66, Goomba's Pizza, Regalo Italiano, Masaniello Cucina, ch'men di fir.
   - **Zone Carthage :** too much, Baguette Et Baguette.
@@ -86,8 +87,8 @@ Ta tâche est de :
   - **Zone La Soukra :** Lorenzia, Brown and Sugar Coffee, Tredici, Italiano Vero, Ristorante La Carbonara.
   - **Zone El Aouina :** Del Capo Restaurant, Restaurant Italien Terrazzino, Restaurant Broche'zza, Restaurant Grillade Zine El Chem, Restaurant Emesa, RED Castle aouina, WOK Time.
   - **Zone Ain Zaghouan Nord :** Restaurant Thaïlandais House, The Nine - Lifestyle Experience.
-  - **Zone Lac 1 :** Pasta Cosi, Massazi.
-  - **Zone Lac 2 :** Soryana, Via Mercato Lac 2, Al Seniour, Chef Ayhan Turkich grill rustik, K-ZIP, La Margherita, Bocca Felice, Chef Eyad, Restaurant L'Érable, Damascino Lac 2, L’olivier bleu.
+  - **Zone Lac 1 :** Pasta Cosi, Massazi, Port Fino, Le Safran, Chili's, Antony Lac 1, Aqua Lounge, KFC LAC 1, Ah Table !, Le Farfalle, CROQUEMBOUCHE, FEDERICO, Pavarotti Pasta.
+  - **Zone Lac 2 :** Via Mercato Lac 2, Al Seniour, Chef Ayhan Turkich grill rustik, K-ZIP, La Margherita, Bocca Felice, Chef Eyad, Restaurant L'Érable, Damascino Lac 2, L’olivier bleu.
   - **Zone La Marsa :** CULT, bistro, Kimchi, Le Golfe, Pi, La focaccia marsa, La Mescla, Restaurant La Maison, La Piadina, La Dokkana House, Karam Lobnan, DIVERSSO, AL SÉNIOUR, RESTAURANT L'ENDROIT, Ô Moules, The Kitchen Restaurant la Marsa.
   - **Zone Gammarth :** Restaurante Vicolo, L’italien Gammarth da Davide, Restaurant Les Ombrelles, Restaurant Les Dunes, Restaurant Borago gammarth, Le Ritsi, Ocean Club, Le Grand Bleu, Olivia, LiBai, Restaurant Grec Efimero.
   - **Zone Jardins de Carthage :** Isapori italiani, Langostino, Hasdrubal de Carthage, Peri Peri Restaurant, Qian house chinese.
