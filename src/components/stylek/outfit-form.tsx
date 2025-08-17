@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useSearchParams } from 'next/navigation';
-import { Briefcase, Users, Dumbbell, Coffee, Sun, Cloudy, CloudRain, Snowflake, Wand2, Loader2, Check } from 'lucide-react';
+import { Briefcase, Users, Dumbbell, Coffee, Sun, Cloudy, CloudRain, Snowflake, Wand2, Loader2, Check, Sparkles, Building, Shirt } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -75,11 +75,12 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 const occasionOptions = [
-  { value: 'Professionnel', label: 'Pro' },
-  { value: 'Décontracté', label: 'Casual' },
-  { value: 'Chic', label: 'Chic' },
-  { value: 'Sportif', label: 'Sport' },
+  { value: 'Professionnel', label: 'Pro', icon: Building, colorClass: 'text-indigo-700', bgClass: 'bg-indigo-50', hoverClass: 'hover:bg-indigo-100', selectedClass: 'border-indigo-500 bg-indigo-100' },
+  { value: 'Décontracté', label: 'Casual', icon: Shirt, colorClass: 'text-cyan-700', bgClass: 'bg-cyan-50', hoverClass: 'hover:bg-cyan-100', selectedClass: 'border-cyan-500 bg-cyan-100' },
+  { value: 'Chic', label: 'Chic', icon: Sparkles, colorClass: 'text-fuchsia-700', bgClass: 'bg-fuchsia-50', hoverClass: 'hover:bg-fuchsia-100', selectedClass: 'border-fuchsia-500 bg-fuchsia-100' },
+  { value: 'Sportif', label: 'Sport', icon: Dumbbell, colorClass: 'text-red-700', bgClass: 'bg-red-50', hoverClass: 'hover:bg-red-100', selectedClass: 'border-red-500 bg-red-100' },
 ];
+
 
 const scheduleOptions = [
   { value: 'Réunion Pro', label: 'Réunion', icon: Briefcase, colorClass: 'text-blue-700', bgClass: 'bg-blue-50', hoverClass: 'hover:bg-blue-100', selectedClass: 'border-blue-500 bg-blue-100' },
@@ -90,11 +91,12 @@ const scheduleOptions = [
 
 
 const weatherOptions = [
-  { value: 'Ensoleillé', label: 'Soleil', icon: Sun, className: "text-yellow-500" },
-  { value: 'Nuageux', label: 'Nuages', icon: Cloudy, className: "text-gray-500" },
-  { value: 'Pluvieux', label: 'Pluie', icon: CloudRain, className: "text-blue-500" },
-  { value: 'Froid', label: 'Froid', icon: Snowflake, className: "text-blue-500" },
+  { value: 'Ensoleillé', label: 'Soleil', icon: Sun, colorClass: 'text-amber-600', bgClass: 'bg-amber-50', hoverClass: 'hover:bg-amber-100', selectedClass: 'border-amber-500 bg-amber-100' },
+  { value: 'Nuageux', label: 'Nuages', icon: Cloudy, colorClass: 'text-slate-600', bgClass: 'bg-slate-100', hoverClass: 'hover:bg-slate-200', selectedClass: 'border-slate-500 bg-slate-200' },
+  { value: 'Pluvieux', label: 'Pluie', icon: CloudRain, colorClass: 'text-blue-600', bgClass: 'bg-blue-50', hoverClass: 'hover:bg-blue-100', selectedClass: 'border-blue-500 bg-blue-100' },
+  { value: 'Froid', label: 'Froid', icon: Snowflake, colorClass: 'text-sky-600', bgClass: 'bg-sky-50', hoverClass: 'hover:bg-sky-100', selectedClass: 'border-sky-500 bg-sky-100' },
 ];
+
 
 interface OutfitFormProps {
     isLoading: boolean;
@@ -157,7 +159,7 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
                               field.value === opt.value ? opt.selectedClass : "text-foreground"
                           )}>
                               <opt.icon className={cn("h-5 w-5 mb-1", opt.colorClass)} />
-                              <span className={opt.colorClass}>{opt.label}</span>
+                              <span className={cn("text-sm font-medium", opt.colorClass)}>{opt.label}</span>
                          </FormLabel>
                         </FormItem>
                       ))}
@@ -182,11 +184,13 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
                               <RadioGroupItem value={opt.value} className="sr-only" />
                           </FormControl>
                           <FormLabel className={cn(
-                              "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer h-20",
-                              field.value === opt.value && "border-primary"
+                              "flex flex-col items-center justify-center rounded-md border-2 border-muted p-2 font-normal cursor-pointer h-20 transition-colors",
+                              opt.bgClass,
+                              opt.hoverClass,
+                              field.value === opt.value ? opt.selectedClass : "text-foreground"
                           )}>
-                              <opt.icon className={cn("h-5 w-5 mb-1", opt.className)} />
-                              {opt.label}
+                              <opt.icon className={cn("h-5 w-5 mb-1", opt.colorClass)} />
+                              <span className={cn("text-sm font-medium", opt.colorClass)}>{opt.label}</span>
                          </FormLabel>
                         </FormItem>
                       ))}
@@ -208,10 +212,16 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
                       {occasionOptions.map(opt => (
                         <FormItem key={opt.value}>
                           <FormControl>
-                              <RadioGroupItem value={opt.value} id={opt.value} className="peer sr-only" />
+                              <RadioGroupItem value={opt.value} id={opt.value} className="sr-only" />
                           </FormControl>
-                           <FormLabel htmlFor={opt.value} className="flex h-12 items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer">
-                              {opt.label}
+                           <FormLabel htmlFor={opt.value} className={cn(
+                              "flex flex-col items-center justify-center rounded-md border-2 border-muted p-2 font-normal cursor-pointer h-20 transition-colors",
+                              opt.bgClass,
+                              opt.hoverClass,
+                              field.value === opt.value ? opt.selectedClass : "text-foreground"
+                           )}>
+                              <opt.icon className={cn("h-5 w-5 mb-1", opt.colorClass)} />
+                              <span className={cn("text-sm font-medium", opt.colorClass)}>{opt.label}</span>
                           </FormLabel>
                         </FormItem>
                       ))}
