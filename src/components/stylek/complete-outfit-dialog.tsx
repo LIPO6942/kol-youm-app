@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, PlusCircle, Image as ImageIcon, X, Shirt, Milestone, Footprints, Gem } from 'lucide-react';
+import { Loader2, PlusCircle, Image as ImageIcon, X, Shirt, Milestone, Footprints, Gem, Upload, Camera, CameraOff } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
@@ -16,10 +16,11 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 const completeOutfitFormSchema = z.object({
-  baseItemPhotoDataUri: z.string().min(1, { message: 'Veuillez importer une photo.' }),
+  baseItemPhotoDataUri: z.string().min(1, { message: 'Veuillez importer ou prendre une photo.' }),
   baseItemType: z.enum(['haut', 'bas', 'chaussures', 'accessoires'], {
     required_error: 'Veuillez sélectionner le type de votre pièce.',
   }),
@@ -44,24 +45,64 @@ const itemTypeOptions = [
 
 export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: CompleteOutfitDialogProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [view, setView] = useState<'idle' | 'upload' | 'camera'>('idle');
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const completeOutfitForm = useForm<CompleteOutfitFormValues>({
     resolver: zodResolver(completeOutfitFormSchema),
     defaultValues: { baseItemPhotoDataUri: '' }
   });
 
-  const resetForm = useCallback(() => {
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+    }
+  }, []);
+
+  const resetFormAndState = useCallback(() => {
     completeOutfitForm.reset({ baseItemPhotoDataUri: '', baseItemType: undefined });
-  }, [completeOutfitForm]);
+    setView('idle');
+    stopCamera();
+    setHasCameraPermission(null);
+  }, [completeOutfitForm, stopCamera]);
 
   useEffect(() => {
     if (!isDialogOpen) {
-        resetForm();
+        resetFormAndState();
     }
-  }, [isDialogOpen, resetForm]);
+  }, [isDialogOpen, resetFormAndState]);
 
+  const setupCamera = async () => {
+      try {
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+              video: { facingMode: 'environment' } // Prioritize back camera
+          });
+          streamRef.current = stream;
+          if (videoRef.current) {
+              videoRef.current.srcObject = stream;
+          }
+          setHasCameraPermission(true);
+      } catch (error) {
+          console.error("Error accessing camera:", error);
+          setHasCameraPermission(false);
+          toast({
+              variant: 'destructive',
+              title: 'Accès Caméra Refusé',
+              description: "Veuillez autoriser l'accès à la caméra dans les paramètres de votre navigateur.",
+          });
+          setView('idle');
+      }
+  };
+
+  const handleCameraView = () => {
+    setView('camera');
+    setupCamera();
+  }
 
   const photoValue = completeOutfitForm.watch('baseItemPhotoDataUri');
 
@@ -79,11 +120,28 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
         const reader = new FileReader();
         reader.onloadend = () => {
             completeOutfitForm.setValue('baseItemPhotoDataUri', reader.result as string);
-            completeOutfitForm.clearErrors('baseItemPhotoDataUri'); // Clear error message if user uploads photo
+            completeOutfitForm.clearErrors('baseItemPhotoDataUri');
         };
         reader.readAsDataURL(file);
     }
   };
+
+  const handleCapturePhoto = () => {
+    if (videoRef.current) {
+        const canvas = document.createElement('canvas');
+        canvas.width = videoRef.current.videoWidth;
+        canvas.height = videoRef.current.videoHeight;
+        const context = canvas.getContext('2d');
+        if (context) {
+            context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+            const dataUri = canvas.toDataURL('image/jpeg');
+            completeOutfitForm.setValue('baseItemPhotoDataUri', dataUri);
+            stopCamera();
+            setView('idle'); // Go back to the form view with the captured image
+        }
+    }
+  };
+
 
   const handleCompleteOutfitSubmit = async (values: CompleteOutfitFormValues) => {
     const isMainFormValid = await mainForm.trigger();
@@ -114,7 +172,91 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
       if (fileInputRef.current) {
           fileInputRef.current.value = '';
       }
+      setView('idle');
   }
+
+  const renderIdleView = () => (
+    <div className="space-y-4">
+      <Button variant="outline" className="w-full h-20" onClick={() => fileInputRef.current?.click()}>
+        <Upload className="mr-2" /> Importer une photo
+      </Button>
+      <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          className="hidden"
+          accept="image/png, image/jpeg, image/webp"
+      />
+      <Button variant="outline" className="w-full h-20" onClick={handleCameraView}>
+        <Camera className="mr-2" /> Prendre une photo
+      </Button>
+    </div>
+  );
+
+  const renderCameraView = () => (
+    <div className="space-y-4">
+        <div className="relative aspect-square w-full rounded-md border bg-muted overflow-hidden">
+            <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
+            {hasCameraPermission === false && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white p-4 text-center">
+                    <CameraOff className="h-10 w-10 mb-4" />
+                    <p className="font-bold">Accès caméra requis</p>
+                    <p className="text-sm">Veuillez autoriser l'accès dans votre navigateur.</p>
+                </div>
+            )}
+        </div>
+        <Button onClick={handleCapturePhoto} className="w-full" disabled={!hasCameraPermission}>Capturer</Button>
+        <Button variant="ghost" onClick={() => setView('idle')} className="w-full">Annuler</Button>
+    </div>
+  );
+
+  const renderFormContent = () => (
+    <>
+      <div className='space-y-2'>
+          <Label>Aperçu de la photo</Label>
+          <div className="relative aspect-square w-full rounded-md border bg-muted overflow-hidden">
+              <Image src={photoValue} alt="Aperçu de la pièce" fill className="object-contain" />
+              <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 bg-background/50 hover:bg-background/80 h-7 w-7" onClick={resetPhoto}>
+                  <X className="h-4 w-4" />
+              </Button>
+          </div>
+      </div>
+      <FormField
+          control={completeOutfitForm.control}
+          name="baseItemPhotoDataUri"
+          render={() => <FormItem><FormMessage /></FormItem>}
+      />
+      <FormField
+          control={completeOutfitForm.control}
+          name="baseItemType"
+          render={({ field }) => (
+              <FormItem className="space-y-3">
+              <FormLabel>Quel est le type de cette pièce ?</FormLabel>
+              <FormControl>
+                  <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {itemTypeOptions.map(opt => (
+                          <div key={opt.value}>
+                              <RadioGroupItem value={opt.value} id={opt.value} className="sr-only" />
+                              <Label 
+                                  htmlFor={opt.value}
+                                  className={cn(
+                                      "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer h-20 text-xs",
+                                      field.value === opt.value && "border-primary"
+                                  )}
+                              >
+                                  <opt.icon className="h-5 w-5 mb-1" />
+                                  {opt.label}
+                              </Label>
+                          </div>
+                      ))}
+                  </RadioGroup>
+              </FormControl>
+              <FormMessage />
+              </FormItem>
+          )}
+      />
+    </>
+  );
 
 
   return (
@@ -129,78 +271,16 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
         <DialogHeader>
           <DialogTitle>Quelle pièce mettez-vous en vedette ?</DialogTitle>
           <DialogDescription>
-            Importez la photo d'une pièce et précisez son type. L'IA créera une tenue autour.
+            Importez ou prenez une photo, précisez son type, et l'IA créera une tenue autour.
           </DialogDescription>
         </DialogHeader>
         <Form {...completeOutfitForm}>
             <form onSubmit={completeOutfitForm.handleSubmit(handleCompleteOutfitSubmit)} className="space-y-6 pt-2 overflow-hidden flex flex-col">
                 <ScrollArea className="flex-grow pr-6 -mr-6">
                     <div className="space-y-6 pr-1">
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            className="hidden"
-                            accept="image/png, image/jpeg, image/webp"
-                        />
-                        
-                        {photoValue ? (
-                            <div className='space-y-2'>
-                                <Label>Aperçu de la photo</Label>
-                                <div className="relative aspect-square w-full rounded-md border bg-muted overflow-hidden">
-                                    <Image src={photoValue} alt="Aperçu de la pièce" fill className="object-contain" />
-                                    <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 bg-background/50 hover:bg-background/80 h-7 w-7" onClick={resetPhoto}>
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div 
-                                className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer bg-muted/50 hover:bg-muted"
-                                onClick={() => fileInputRef.current?.click()}
-                            >
-                                <ImageIcon className="w-10 h-10 text-muted-foreground mb-2" />
-                                <p className="text-sm text-muted-foreground">Cliquez pour importer une photo</p>
-                            </div>
-                        )}
-                        
-                        <FormField
-                            control={completeOutfitForm.control}
-                            name="baseItemPhotoDataUri"
-                            render={() => <FormItem><FormMessage /></FormItem>}
-                        />
-
-                        {photoValue && (
-                            <FormField
-                                control={completeOutfitForm.control}
-                                name="baseItemType"
-                                render={({ field }) => (
-                                    <FormItem className="space-y-3">
-                                    <FormLabel>Quel est le type de cette pièce ?</FormLabel>
-                                    <FormControl>
-                                        <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                            {itemTypeOptions.map(opt => (
-                                                <div key={opt.value}>
-                                                    <RadioGroupItem value={opt.value} id={opt.value} className="sr-only" />
-                                                    <Label 
-                                                        htmlFor={opt.value}
-                                                        className={cn(
-                                                            "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer h-20 text-xs",
-                                                            field.value === opt.value && "border-primary"
-                                                        )}
-                                                    >
-                                                        <opt.icon className="h-5 w-5 mb-1" />
-                                                        {opt.label}
-                                                    </Label>
-                                                </div>
-                                            ))}
-                                        </RadioGroup>
-                                    </FormControl>
-                                    <FormMessage />
-                                    </FormItem>
-                                )}
-                                />
-                        )}
+                      {view === 'camera' && renderCameraView()}
+                      {view === 'idle' && !photoValue && renderIdleView()}
+                      {(view !== 'camera' && photoValue) && renderFormContent()}
                     </div>
                 </ScrollArea>
                 
