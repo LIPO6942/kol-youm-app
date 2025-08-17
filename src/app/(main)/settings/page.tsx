@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, User, UserSquare, UploadCloud } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
 
 const formSchema = z.object({
   age: z.coerce.number().min(13, { message: 'Vous devez avoir au moins 13 ans.' }).max(120, { message: 'Âge invalide.' }).optional().or(z.literal('')),
@@ -76,7 +77,7 @@ const PhotoUploader = ({
 
   return (
     <div className="space-y-2">
-      <FormLabel>{title}</FormLabel>
+      <Label>{title}</Label>
       <input
         type="file"
         ref={fileInputRef}
