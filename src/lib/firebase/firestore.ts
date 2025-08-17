@@ -6,6 +6,7 @@ export type UserProfile = {
     uid: string;
     email: string | null;
     gender?: 'Homme' | 'Femme';
+    age?: number;
     personalizationComplete: boolean;
     createdAt: any;
     // These lists are synced between Firestore and IndexedDB
@@ -36,6 +37,7 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
     // Create a plain object for Firestore update
     const firestoreData: { [key: string]: any } = {};
     if (data.gender) firestoreData.gender = data.gender;
+    if (data.age) firestoreData.age = data.age;
     if (typeof data.personalizationComplete === 'boolean') firestoreData.personalizationComplete = data.personalizationComplete;
     if (data.seenMovieTitles) firestoreData.seenMovieTitles = arrayUnion(...data.seenMovieTitles);
     if (data.moviesToWatch) firestoreData.moviesToWatch = arrayUnion(...data.moviesToWatch);
@@ -52,6 +54,7 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
     if (localProfile) {
         const updatedProfile: UserProfile = { ...localProfile };
         if (data.gender) updatedProfile.gender = data.gender;
+        if (data.age) updatedProfile.age = data.age;
         if (typeof data.personalizationComplete === 'boolean') updatedProfile.personalizationComplete = data.personalizationComplete;
         
         // Use Sets for efficient merging and duplicate removal
