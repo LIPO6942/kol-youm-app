@@ -91,8 +91,8 @@ const scheduleOptions = [
 const weatherOptions = [
   { value: 'Ensoleillé', label: 'Soleil', icon: Sun },
   { value: 'Nuageux', label: 'Nuages', icon: Cloudy },
-  { value: 'Pluvieux', label: 'Pluie', icon: CloudRain },
-  { value: 'Froid', label: 'Froid', icon: Snowflake },
+  { value: 'Pluvieux', label: 'Pluie', icon: CloudRain, className: "text-blue-500" },
+  { value: 'Froid', label: 'Froid', icon: Snowflake, className: "text-blue-500" },
 ];
 
 interface OutfitFormProps {
@@ -182,7 +182,7 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
                               "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer h-20",
                               field.value === opt.value && "border-primary"
                           )}>
-                              <opt.icon className="h-5 w-5 mb-1" />
+                              <opt.icon className={cn("h-5 w-5 mb-1", opt.className)} />
                               {opt.label}
                          </FormLabel>
                         </FormItem>
