@@ -7,6 +7,7 @@ import type { PhotoSuggestion, OutfitPart } from './outfit-suggester';
 import { Button } from '@/components/ui/button';
 import { CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { Separator } from '../ui/separator';
 
 interface SuggestedItemProps {
     item: { description: string, imageDataUri: string };
@@ -79,49 +80,45 @@ export function PhotoOutfitDisplay({ photoSuggestion, baseItemPhoto, onRegenerat
         { key: 'accessoires', part: photoSuggestion.accessoires, title: "Accessoires" }
     ];
 
+    const allDescriptions = [
+        { label: 'Haut', text: photoSuggestion.haut.description },
+        { label: 'Bas', text: photoSuggestion.bas.description },
+        { label: 'Chaussures', text: photoSuggestion.chaussures.description },
+        { label: 'Accessoires', text: photoSuggestion.accessoires.description },
+    ].filter(d => d.text && d.text !== 'N/A').map(d => `${d.label}: ${d.text}`).join(' · ');
+
     return (
         <CardContent className="p-4 sm:p-6 w-full animate-in fade-in-50">
             <h3 className="text-xl font-bold font-headline text-center mb-4">Votre Tenue Personnalisée</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-                
-                <div className="md:col-span-2 grid grid-cols-2 gap-4">
-                    <h4 className="col-span-2 font-semibold text-center text-muted-foreground">Suggestions de l'IA</h4>
-                    {suggestedParts.map((item) => (
-                        item.part.description && item.part.description !== 'N/A' && (
-                            <SuggestedItem 
-                                key={item.key} 
-                                item={item.part} 
-                                title={item.title} 
-                                onRegenerate={() => onRegeneratePart(item.key as OutfitPart)}
-                                isRegenerating={regeneratingPart === item.key}
-                            />
-                        )
-                    ))}
-                </div>
-
-                <div className="space-y-4">
-                    <h4 className="font-semibold text-center text-muted-foreground">Votre Pièce</h4>
-                    <div className="relative aspect-[3/4] w-full bg-secondary rounded-lg overflow-hidden flex items-center justify-center shadow-lg">
-                        <Image src={baseItemPhoto} alt="Votre pièce de base" fill className="object-cover" />
-                    </div>
-                    <div className="space-y-3 text-sm">
-                         <h4 className="font-semibold text-center text-muted-foreground">Détails de la tenue</h4>
-                        {[
-                            { Icon: Shirt, label: 'Haut', text: photoSuggestion.haut.description },
-                            { Icon: Milestone, label: 'Bas', text: photoSuggestion.bas.description },
-                            { Icon: Footprints, label: 'Chaussures', text: photoSuggestion.chaussures.description },
-                            { Icon: Gem, label: 'Accessoires', text: photoSuggestion.accessoires.description },
-                        ].map(({ Icon, label, text }) => (
-                            text && text !== 'N/A' && (
-                                <div key={label} className="p-2 bg-muted/50 rounded-md">
-                                    <p className="font-semibold text-muted-foreground flex items-center gap-2"><Icon className="w-4 h-4"/> {label}</p>
-                                    <p className="pl-6">{text}</p>
-                                </div>
-                            )
-                        ))}
-                    </div>
+            
+            <div className="flex flex-col items-center gap-2 mb-4">
+                <h4 className="font-semibold text-center text-muted-foreground text-sm">Votre Pièce</h4>
+                <div className="relative aspect-square w-24 bg-secondary rounded-lg overflow-hidden flex items-center justify-center shadow-lg">
+                    <Image src={baseItemPhoto} alt="Votre pièce de base" fill className="object-cover" />
                 </div>
             </div>
+            
+            <div className="text-center mb-4">
+                <p className="text-sm font-semibold text-muted-foreground">Détails de la tenue :</p>
+                <p className="text-xs text-foreground mt-1 italic">"{allDescriptions}"</p>
+            </div>
+
+            <Separator className="my-4" />
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {suggestedParts.map((item) => (
+                    item.part.description && item.part.description !== 'N/A' && (
+                        <SuggestedItem 
+                            key={item.key} 
+                            item={item.part} 
+                            title={item.title} 
+                            onRegenerate={() => onRegeneratePart(item.key as OutfitPart)}
+                            isRegenerating={regeneratingPart === item.key}
+                        />
+                    )
+                ))}
+            </div>
+
         </CardContent>
     );
 }
