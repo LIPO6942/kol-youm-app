@@ -3,7 +3,7 @@
 
 import { Loader2, Wand2 } from 'lucide-react';
 import type { SuggestOutfitOutput } from '@/ai/flows/intelligent-outfit-suggestion.types';
-import type { PhotoSuggestion } from './outfit-suggester';
+import type { PhotoSuggestion, OutfitPart } from './outfit-suggester';
 
 import { CardContent } from '@/components/ui/card';
 import { PhotoOutfitDisplay } from './photo-outfit-display';
@@ -14,7 +14,8 @@ interface OutfitDisplayProps {
   suggestion: SuggestOutfitOutput | null;
   photoSuggestion: PhotoSuggestion | null;
   gender?: 'Homme' | 'Femme';
-  onRegeneratePart: (part: 'haut' | 'bas' | 'chaussures' | 'accessoires') => void;
+  onRegeneratePart: (part: OutfitPart) => void;
+  regeneratingPart: OutfitPart | null;
   baseItemPhoto: string | null;
 }
 
@@ -34,24 +35,23 @@ const renderPlaceholder = () => (
     </CardContent>
 );
 
-export function OutfitDisplay({ isLoading, suggestion, photoSuggestion, gender, onRegeneratePart, baseItemPhoto }: OutfitDisplayProps) {
+export function OutfitDisplay({ isLoading, suggestion, photoSuggestion, gender, onRegeneratePart, regeneratingPart, baseItemPhoto }: OutfitDisplayProps) {
 
   if (isLoading) {
     return renderLoading();
   }
 
-  // Path 1: Display for "Compléter ma tenue"
-  // This is the primary check. If we have the result for this specific feature, we render its dedicated component.
   if (baseItemPhoto && photoSuggestion) {
     return (
         <PhotoOutfitDisplay 
             photoSuggestion={photoSuggestion}
             baseItemPhoto={baseItemPhoto}
+            onRegeneratePart={onRegeneratePart}
+            regeneratingPart={regeneratingPart}
         />
     );
   }
   
-  // Path 2: Display for "Idée de tenue complète"
   if (suggestion) {
     return (
         <GeneratedOutfitDisplay 
@@ -61,6 +61,5 @@ export function OutfitDisplay({ isLoading, suggestion, photoSuggestion, gender, 
     );
   }
 
-  // Fallback to placeholder if no data is available
   return renderPlaceholder();
 }
