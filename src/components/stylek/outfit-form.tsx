@@ -89,8 +89,8 @@ const scheduleOptions = [
 ];
 
 const weatherOptions = [
-  { value: 'Ensoleillé', label: 'Soleil', icon: Sun },
-  { value: 'Nuageux', label: 'Nuages', icon: Cloudy },
+  { value: 'Ensoleillé', label: 'Soleil', icon: Sun, className: "text-yellow-500" },
+  { value: 'Nuageux', label: 'Nuages', icon: Cloudy, className: "text-gray-500" },
   { value: 'Pluvieux', label: 'Pluie', icon: CloudRain, className: "text-blue-500" },
   { value: 'Froid', label: 'Froid', icon: Snowflake, className: "text-blue-500" },
 ];
