@@ -82,11 +82,12 @@ const occasionOptions = [
 ];
 
 const scheduleOptions = [
-  { value: 'Réunion Pro', label: 'Réunion', icon: Briefcase },
-  { value: 'Sortie entre amis', label: 'Amis', icon: Users },
-  { value: 'Session de Sport', label: 'Sport', icon: Dumbbell },
-  { value: 'Journée détente', label: 'Détente', icon: Coffee },
+  { value: 'Réunion Pro', label: 'Réunion', icon: Briefcase, colorClass: 'text-blue-700', bgClass: 'bg-blue-50', hoverClass: 'hover:bg-blue-100', selectedClass: 'border-blue-500 bg-blue-100' },
+  { value: 'Sortie entre amis', label: 'Amis', icon: Users, colorClass: 'text-green-700', bgClass: 'bg-green-50', hoverClass: 'hover:bg-green-100', selectedClass: 'border-green-500 bg-green-100' },
+  { value: 'Session de Sport', label: 'Sport', icon: Dumbbell, colorClass: 'text-red-700', bgClass: 'bg-red-50', hoverClass: 'hover:bg-red-100', selectedClass: 'border-red-500 bg-red-100' },
+  { value: 'Journée détente', label: 'Détente', icon: Coffee, colorClass: 'text-amber-800', bgClass: 'bg-amber-50', hoverClass: 'hover:bg-amber-100', selectedClass: 'border-amber-600 bg-amber-100' },
 ];
+
 
 const weatherOptions = [
   { value: 'Ensoleillé', label: 'Soleil', icon: Sun, className: "text-yellow-500" },
@@ -150,11 +151,13 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
                               <RadioGroupItem value={opt.value} className="sr-only" />
                           </FormControl>
                           <FormLabel className={cn(
-                              "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer h-20",
-                              field.value === opt.value && "border-primary"
+                              "flex flex-col items-center justify-center rounded-md border-2 border-muted p-2 font-normal cursor-pointer h-20 transition-colors",
+                              opt.bgClass,
+                              opt.hoverClass,
+                              field.value === opt.value ? opt.selectedClass : "text-foreground"
                           )}>
-                              <opt.icon className="h-5 w-5 mb-1" />
-                              {opt.label}
+                              <opt.icon className={cn("h-5 w-5 mb-1", opt.colorClass)} />
+                              <span className={opt.colorClass}>{opt.label}</span>
                          </FormLabel>
                         </FormItem>
                       ))}
