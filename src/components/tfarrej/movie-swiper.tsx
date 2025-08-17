@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Eye, ListVideo, Loader2, Film, RotateCcw, Star, Link as LinkIcon, Users, Calendar, Globe, SkipForward } from 'lucide-react';
 
 import { recordMovieSwipe } from '@/ai/flows/movie-preference-learning';
@@ -47,6 +47,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   const [isSwipeLoading, setIsSwipeLoading] = useState(false);
   const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(true);
   const { toast } = useToast();
+  const initialFetchDone = useRef(false);
   
   const fetchMovies = useCallback(() => {
     // We need userProfile to get the list of seen movies.
@@ -73,13 +74,13 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   }, [genre, toast, userProfile]);
 
   useEffect(() => {
-    // Fetch movies only when the user profile is first loaded, or the genre changes.
-    // This prevents re-fetching during a swipe session. The button will handle subsequent fetches.
-    if(userProfile) {
-      fetchMovies();
+    // This effect ensures we only fetch movies once when the component is ready.
+    if (userProfile && !initialFetchDone.current) {
+        fetchMovies();
+        initialFetchDone.current = true;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userProfile?.uid, genre]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userProfile]);
 
 
   const handleSwipe = async (swipeDirection: 'left' | 'right') => {
