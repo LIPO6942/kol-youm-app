@@ -17,8 +17,7 @@ const generateOutfitImageFlow = ai.defineFlow(
   async (input) => {
     const { media } = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
-      prompt: `Generate a single, photorealistic, full-body image of a complete fashion outfit for a ${input.gender}. The outfit is described as: "${input.itemDescription}".
-The image should be styled like a high-end fashion editorial. The person wearing the outfit should be on a clean, plain, neutral light gray background. Do not show the person's face. The focus is entirely on the clothing.`,
+      prompt: `Generate a photorealistic image of a single fashion item: '${input.itemDescription}'. The item should be presented on a clean, plain, neutral light gray background, as if for a product catalog. Do not show any person or body parts. The focus is entirely on the item itself.`,
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
