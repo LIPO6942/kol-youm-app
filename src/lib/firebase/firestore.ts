@@ -13,6 +13,8 @@ export type UserProfile = {
     seenMovieTitles?: string[];
     moviesToWatch?: string[];
     seenKhroujSuggestions?: string[];
+    fullBodyPhotoUrl?: string;
+    closeupPhotoUrl?: string;
 };
 
 export async function createUserProfile(uid: string, data: { email: string | null }) {
@@ -37,7 +39,9 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
     // Create a plain object for Firestore update
     const firestoreData: { [key: string]: any } = {};
     if (data.gender) firestoreData.gender = data.gender;
-    if (data.age) firestoreData.age = data.age;
+    if (data.age !== undefined) firestoreData.age = data.age; // Allow setting age to null/undefined
+    if (data.fullBodyPhotoUrl) firestoreData.fullBodyPhotoUrl = data.fullBodyPhotoUrl;
+    if (data.closeupPhotoUrl) firestoreData.closeupPhotoUrl = data.closeupPhotoUrl;
     if (typeof data.personalizationComplete === 'boolean') firestoreData.personalizationComplete = data.personalizationComplete;
     if (data.seenMovieTitles) firestoreData.seenMovieTitles = arrayUnion(...data.seenMovieTitles);
     if (data.moviesToWatch) firestoreData.moviesToWatch = arrayUnion(...data.moviesToWatch);
@@ -52,11 +56,9 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
     // Then, update IndexedDB by merging with existing local data
     const localProfile = await getUserFromDb(uid);
     if (localProfile) {
-        const updatedProfile: UserProfile = { ...localProfile };
-        if (data.gender) updatedProfile.gender = data.gender;
-        if (data.age) updatedProfile.age = data.age;
-        if (typeof data.personalizationComplete === 'boolean') updatedProfile.personalizationComplete = data.personalizationComplete;
-        
+        const updatedProfile: UserProfile = { ...localProfile, ...data };
+        if (data.age !== undefined) updatedProfile.age = data.age;
+
         // Use Sets for efficient merging and duplicate removal
         if (data.seenMovieTitles) {
             updatedProfile.seenMovieTitles = Array.from(new Set([...(localProfile.seenMovieTitles || []), ...data.seenMovieTitles]));
