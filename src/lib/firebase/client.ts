@@ -17,6 +17,7 @@ const app: FirebaseApp = getApps().length ? getApp() : initializeApp(firebaseCon
 
 const auth: Auth = getAuth(app);
 const db: Firestore = getFirestore(app);
+// Storage is not used for now, but client is kept for potential future use
 const storage: FirebaseStorage = getStorage(app);
 
 export { auth, db, storage };

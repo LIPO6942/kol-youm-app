@@ -8,19 +8,27 @@ import { z } from 'zod';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile } from '@/lib/firebase/firestore';
-import { uploadProfileImage } from '@/lib/firebase/storage';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, User, UserSquare, UploadCloud, Image as ImageIcon } from 'lucide-react';
+import { Loader2, User, UserSquare, UploadCloud } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
 const formSchema = z.object({
   age: z.coerce.number().min(13, { message: 'Vous devez avoir au moins 13 ans.' }).max(120, { message: 'Âge invalide.' }).optional().or(z.literal('')),
 });
+
+const fileToDataUri = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+};
 
 const PhotoUploader = ({
   title,
@@ -29,11 +37,12 @@ const PhotoUploader = ({
 }: {
   title: string,
   currentImageUrl?: string,
-  onImageUpload: (file: File) => Promise<void>,
+  onImageUpload: (dataUri: string) => Promise<void>,
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentImageUrl || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     setPreviewUrl(currentImageUrl || null);
@@ -42,10 +51,23 @@ const PhotoUploader = ({
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit for base64
+        toast({
+            variant: 'destructive',
+            title: 'Fichier trop volumineux',
+            description: 'Veuillez choisir une image de moins de 5 Mo.',
+        });
+        return;
+      }
       setIsUploading(true);
-      setPreviewUrl(URL.createObjectURL(file)); // Show local preview immediately
       try {
-        await onImageUpload(file);
+        const dataUri = await fileToDataUri(file);
+        setPreviewUrl(dataUri); // Show local preview immediately
+        await onImageUpload(dataUri);
+      } catch (error) {
+         console.error(error);
+         toast({ variant: 'destructive', title: 'Erreur de lecture', description: 'Impossible de traiter le fichier image.' });
+         setPreviewUrl(currentImageUrl || null); // Revert preview on error
       } finally {
         setIsUploading(false);
       }
@@ -104,19 +126,18 @@ export default function SettingsPage() {
     }
   }, [userProfile, form]);
 
-  const handleImageUpload = async (file: File, type: 'fullBody' | 'closeup') => {
+  const handleImageUpload = async (dataUri: string, type: 'fullBody' | 'closeup') => {
     if (!user) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Utilisateur non connecté.' });
       return;
     }
     try {
-      const downloadURL = await uploadProfileImage(user.uid, file, type);
       const fieldToUpdate = type === 'fullBody' ? 'fullBodyPhotoUrl' : 'closeupPhotoUrl';
-      await updateUserProfile(user.uid, { [fieldToUpdate]: downloadURL });
-      toast({ title: 'Photo mise à jour !', description: 'Votre nouvelle photo a été enregistrée.' });
+      await updateUserProfile(user.uid, { [fieldToUpdate]: dataUri }, true); // Pass true to force local-only update for this
+      toast({ title: 'Photo mise à jour !', description: 'Votre nouvelle photo a été enregistrée localement.' });
     } catch (error) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Erreur de téléversement', description: 'Impossible de sauvegarder votre photo.' });
+      toast({ variant: 'destructive', title: 'Erreur de sauvegarde', description: 'Impossible de sauvegarder votre photo.' });
     }
   };
 
@@ -129,6 +150,7 @@ export default function SettingsPage() {
     setIsLoading(true);
     try {
       const ageValue = values.age === '' ? undefined : Number(values.age);
+      // We only send the age to Firestore, photos are handled locally
       await updateUserProfile(user.uid, { age: ageValue });
       toast({
         title: 'Profil mis à jour !',
@@ -203,19 +225,19 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Vos photos</CardTitle>
           <CardDescription>
-            Ces photos seront utilisées pour les futures fonctionnalités d'essayage virtuel.
+            Ces photos seront utilisées pour les futures fonctionnalités d'essayage virtuel et sont stockées **uniquement sur votre appareil**.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <PhotoUploader 
               title="Photo en pied" 
               currentImageUrl={userProfile?.fullBodyPhotoUrl}
-              onImageUpload={(file) => handleImageUpload(file, 'fullBody')}
+              onImageUpload={(dataUri) => handleImageUpload(dataUri, 'fullBody')}
             />
             <PhotoUploader 
               title="Photo de près"
               currentImageUrl={userProfile?.closeupPhotoUrl}
-              onImageUpload={(file) => handleImageUpload(file, 'closeup')}
+              onImageUpload={(dataUri) => handleImageUpload(dataUri, 'closeup')}
             />
         </CardContent>
       </Card>

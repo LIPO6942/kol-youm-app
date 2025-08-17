@@ -13,6 +13,7 @@ export type UserProfile = {
     seenMovieTitles?: string[];
     moviesToWatch?: string[];
     seenKhroujSuggestions?: string[];
+    // These are stored as base64 Data URIs ONLY in IndexedDB for privacy and performance
     fullBodyPhotoUrl?: string;
     closeupPhotoUrl?: string;
 };
@@ -26,40 +27,47 @@ export async function createUserProfile(uid: string, data: { email: string | nul
     seenMovieTitles: [],
     moviesToWatch: [],
     seenKhroujSuggestions: [],
+    fullBodyPhotoUrl: '',
+    closeupPhotoUrl: '',
   };
   // Create profile in both Firestore and IndexedDB to ensure consistency from the start
-  await setDoc(doc(firestoreDb, "users", uid), userProfile);
+  // We don't store photo URLs in firestore initially.
+  const { fullBodyPhotoUrl, closeupPhotoUrl, ...firestoreProfile } = userProfile;
+  await setDoc(doc(firestoreDb, "users", uid), firestoreProfile);
   await storeUserInDb(uid, userProfile);
   return userProfile;
 }
 
-export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>>) {
-    const userRef = doc(firestoreDb, 'users', uid);
-    
-    // Create a plain object for Firestore update
+export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>>, localOnly: boolean = false) {
     const firestoreData: { [key: string]: any } = {};
-    if (data.gender) firestoreData.gender = data.gender;
-    if (data.age !== undefined) firestoreData.age = data.age; // Allow setting age to null/undefined
-    if (data.fullBodyPhotoUrl) firestoreData.fullBodyPhotoUrl = data.fullBodyPhotoUrl;
-    if (data.closeupPhotoUrl) firestoreData.closeupPhotoUrl = data.closeupPhotoUrl;
-    if (typeof data.personalizationComplete === 'boolean') firestoreData.personalizationComplete = data.personalizationComplete;
-    if (data.seenMovieTitles) firestoreData.seenMovieTitles = arrayUnion(...data.seenMovieTitles);
-    if (data.moviesToWatch) firestoreData.moviesToWatch = arrayUnion(...data.moviesToWatch);
-    if (data.seenKhroujSuggestions) firestoreData.seenKhroujSuggestions = arrayUnion(...data.seenKhroujSuggestions);
+    const localData: { [key: string]: any } = {};
 
+    // Separate data for Firestore and IndexedDB
+    for (const key in data) {
+        if (key === 'fullBodyPhotoUrl' || key === 'closeupPhotoUrl') {
+            localData[key] = (data as any)[key];
+        } else {
+             if (key === 'seenMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions') {
+                firestoreData[key] = arrayUnion(...(data as any)[key]);
+            } else {
+                firestoreData[key] = (data as any)[key];
+            }
+            localData[key] = (data as any)[key];
+        }
+    }
 
-    // Update Firestore first
-    if (Object.keys(firestoreData).length > 0) {
+    // Update Firestore only if not localOnly and there's data for it
+    if (!localOnly && Object.keys(firestoreData).length > 0) {
+      const userRef = doc(firestoreDb, 'users', uid);
       await setDoc(userRef, firestoreData, { merge: true });
     }
 
-    // Then, update IndexedDB by merging with existing local data
+    // Always update IndexedDB with combined data
     const localProfile = await getUserFromDb(uid);
     if (localProfile) {
         const updatedProfile: UserProfile = { ...localProfile, ...data };
-        if (data.age !== undefined) updatedProfile.age = data.age;
-
-        // Use Sets for efficient merging and duplicate removal
+        
+        // Handle array merging logic for local update
         if (data.seenMovieTitles) {
             updatedProfile.seenMovieTitles = Array.from(new Set([...(localProfile.seenMovieTitles || []), ...data.seenMovieTitles]));
         }
@@ -69,6 +77,7 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
         if (data.seenKhroujSuggestions) {
             updatedProfile.seenKhroujSuggestions = Array.from(new Set([...(localProfile.seenKhroujSuggestions || []), ...data.seenKhroujSuggestions]));
         }
+
         await storeUserInDb(uid, updatedProfile);
     }
 }
@@ -121,21 +130,28 @@ export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' 
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     // 1. Try to get from IndexedDB first for speed
-    const localProfile = await getUserFromDb(uid);
-    if (localProfile) {
-        return localProfile;
-    }
+    let localProfile = await getUserFromDb(uid);
 
-    // 2. If not in cache, fetch from Firestore
+    // 2. Fetch from Firestore to get latest non-local data
     const userRef = doc(firestoreDb, "users", uid);
     const userSnap = await getDoc(userRef);
     
     if (userSnap.exists()) {
-        const firestoreProfile = userSnap.data() as UserProfile;
-        // 3. Store the fetched profile in IndexedDB for future offline use
-        await storeUserInDb(uid, firestoreProfile);
-        return firestoreProfile;
-    } else {
-        return null;
+        const firestoreProfileData = userSnap.data();
+        // 3. Merge Firestore data with local data (local photos take precedence)
+        const mergedProfile: UserProfile = {
+            ...firestoreProfileData,
+            ...localProfile, // This ensures local photos are not overwritten
+            uid: uid, // ensure uid is set correctly
+        } as UserProfile;
+
+        await storeUserInDb(uid, mergedProfile);
+        return mergedProfile;
+    } 
+    
+    if (localProfile) {
+        return localProfile;
     }
+
+    return null;
 }
