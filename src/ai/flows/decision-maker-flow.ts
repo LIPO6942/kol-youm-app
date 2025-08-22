@@ -66,7 +66,7 @@ Ta tâche est de :
 {{#if isFastFoodCategory}}
 - **Priorité aux Fast Foods :** Pour la catégorie "Fast Food", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées :
   - **Zone La Soukra :** Tredici, BiBi, Chicken Light, Italiano Vero.
-  - **Zone El Aouina :** Om burger, El Ostedh, Compozz, Crispy Naan, Wok Time, Pimento's, Icheese, Hot Dot, Chaneb Tacos, Dma9, The Corner Italian Food, KFC, Echemi Aouina, Shrimp Burger, Benkay Sushi, Taco and co, My Potato, Tsunami Sushi, Restaurant l'artiste, Bonfire, Bombay, Oueld el bey, Taquería, Sanburg, Friends Pasta Bar aouina, Restaurant The Hood, Machewi Tchiko Fruits de mer, Pizzeria Speed’za, Fahita, Restaurant Broche'zza.
+  - **Zone El Aouina :** Om burger, El Ostedh, Compozz, Crispy Naan, Wok Time, Pimento's, Icheese, Hot Dot, Chaneb Tacos, Dma9, The Corner Italian Food, KFC, Echemi Aouina, Shrimp Burger, Benkay Sushi, Taco and co, My Potato, Tsunami Sushi, Restaurant l'artiste, Bonfire, Bombay, Oueld el bey, Taquería, Sanburg, Friends Pasta Bar aouina, Restaurant The Hood, Machewi Tchiko Fruits de mer, Pizzeria Speed’za, Fahita, Restaurant Broche'zza, White ghost Burger.
   - **Zone Ain Zaghouan Nord :** Cozy corner, Pizzeria Thapsus 5090, BBQ, BB Food, Restaurant Pasta'Up.
   - **Zone Lac 1 :** Friends Pasta Bar, The Food Court, Gino Pizza e Panino, Pizza LAGO, Pastel Food&Drinks, PIÚ Pasta, Ben's, LACantine, BIGABOO, Papa john’s, hobo lac 1.
   - **Zone Lac 2 :** Sushibox, Happy’s, Indonesian Restaurant, IT Pizza & Co.
