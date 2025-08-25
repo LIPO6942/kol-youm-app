@@ -46,7 +46,7 @@ Ta tâche est de :
 {{#if isCafeCategory}}
 - **Priorité aux cafés :** Pour la catégorie "Café", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées :
   - **Zone La Soukra :** Lotus Café, Brown and Sugar Coffee, First café, Caféte du Golf.
-  - **Zone El Aouina :** Minuto di STARTELA, BEANS & CO COFFEE HOUSE, Sam's Café, Bleuet, Ali's Coffee, Café Patchwork, Infinity Aouina, SOHO Coffee, Ô Palet, Dell'Angelo Cafè, Café Sun-Side, Café Slow X, Green Coffee, Padova, Beans&Co, Downtown, Barista's, Pep’s coffee, The One Coffee Lounge, InSider L’Aouina, idea lounge, Epic Coffee Shop, GATSBY, Balkon, MYKONOS MEMORIES COFFE, Café Forever Lounge, Pivoine coffee & more, Palet Royal, Salon De Thé New Day, Le Wagram ,BELLUCCI coffee & more, Business bey, Café Resto Sun-Side.
+  - **Zone El Aouina :** Minuto di STARTELA, BEANS & CO COFFEE HOUSE, Sam's Café, Bleuet, Ali's Coffee, Café Patchwork, Infinity Aouina, SOHO Coffee, Ô Palet, Dell'Angelo Cafè, Café Sun-Side, Café Slow X, Green Coffee, Padova, Beans&Co, Downtown, Barista's, Pep’s coffee, The One Coffee Lounge, InSider L’Aouina, idea lounge, Epic Coffee Shop, GATSBY, Balkon, MYKONOS MEMORIES COFFE, Café Forever Lounge, Pivoine coffee & more, Palet Royal, Salon De Thé New Day, Le Wagram ,BELLUCCI coffee & more, Business bey, Café Resto Sun-Side, Restaurant Italien Terrazzino.
   - **Zone Ain Zaghouan Nord :** Barista's, Way cup, Il fiore del caffe, CAFE ROSE COTTAGE, La Duchesse, Carré Gourmand, The W's Coffee, PlayPresso, Coffe shop Copa vida.
   - **Zone Lac 1 :** Pavarotti, La Croisette, Eric Kayser, Biwa, Le Bistrot, Cosmitto.
   - **Zone Lac 2 :** Hookah Coffee Lounge, Côté Jardin, Frédéric CASSEL, U-TOO Coffee & Grill, Kube, George V, SO BRITISH LAC 2, Zanzibar Café, Billionaire Café, OMEGA Coffee, Barista's Lac 2, The Big Dip.
@@ -84,7 +84,7 @@ Ta tâche est de :
 
 {{#if isRestaurantCategory}}
 - **Priorité aux Restaurants :** Pour la catégorie "Restaurant", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées :
-  - **Zone La Soukra :** Lorenzia, Brown and Sugar Coffee, Tredici, Ristorante La Carbonara.
+  - **Zone La Soukra :** Lorenzia, Brown and Sugar Coffee, Tredici.
   - **Zone El Aouina :** Del Capo Restaurant, Restaurant Italien Terrazzino, Restaurant Grillade Zine El Chem, Restaurant Emesa, RED Castle aouina, WOK Time, Slayta Bar à Salade.
   - **Zone Ain Zaghouan Nord :** Restaurant Thaïlandais House, The Nine - Lifestyle Experience.
   - **Zone Lac 1 :** Pasta Cosi, Massazi, Port Fino, Le Safran, Chili's, Antony Lac 1, Aqua Lounge, KFC LAC 1, Ah Table !, Le Farfalle, CROQUEMBOUCHE, FEDERICO, Pavarotti Pasta.
