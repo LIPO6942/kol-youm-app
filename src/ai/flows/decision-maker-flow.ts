@@ -46,7 +46,7 @@ Ta tâche est de :
 {{#if isCafeCategory}}
 - **Priorité aux cafés :** Pour la catégorie "Café", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées :
   - **Zone La Soukra :** Lotus Café, Brown and Sugar Coffee, First café, Caféte du Golf.
-  - **Zone El Aouina :** Minuto di STARTELA, BEANS & CO COFFEE HOUSE, Sam's Café, Bleuet, Ali's Coffee, Café Patchwork, Infinity Aouina, SOHO Coffee, Ô Palet, Dell'Angelo Cafè, Café Slow X, Green Coffee, Padova, Beans&Co, Downtown, Barista's, Pep’s coffee, The One Coffee Lounge, InSider L’Aouina, idea lounge, Epic Coffee Shop, GATSBY, Balkon, MYKONOS MEMORIES COFFE, Café Forever Lounge, Pivoine coffee & more, Palet Royal, Salon De Thé New Day, Le Wagram ,BELLUCCI coffee & more, Business bey, Café Resto Sun-Side, Restaurant Italien Terrazzino.
+  - **Zone El Aouina :** Minuto di STARTELA, BEANS & CO COFFEE HOUSE, Sam's Café, Bleuet, Ali's Coffee, Café Patchwork, Infinity Aouina, SOHO Coffee, Ô Palet, Dell'Angelo Cafè, Café Slow X, Green Coffee, Padova, Beans&Co, Downtown, Barista's, Pep’s coffee, The One Coffee Lounge, InSider L’Aouina, idea lounge, Epic Coffee Shop, GATSBY, Balkon, MYKONOS MEMORIES COFFE, Café Forever Lounge, Pivoine coffee & more, Palet Royal, Salon De Thé New Day, Le Wagram ,BELLUCCI coffee & more, Business bey, Restaurant Italien Terrazzino.
   - **Zone Ain Zaghouan Nord :** Barista's, Way cup, Il fiore del caffe, CAFE ROSE COTTAGE, La Duchesse, Carré Gourmand, The W's Coffee, PlayPresso, Coffe shop Copa vida.
   - **Zone Lac 1 :** Pavarotti, La Croisette, Eric Kayser, Biwa, Le Bistrot, Cosmitto.
   - **Zone Lac 2 :** Hookah Coffee Lounge, Côté Jardin, Frédéric CASSEL, U-TOO Coffee & Grill, Kube, George V, SO BRITISH LAC 2, Zanzibar Café, Billionaire Café, OMEGA Coffee, Barista's Lac 2, The Big Dip.
@@ -61,6 +61,7 @@ Ta tâche est de :
   - **Zone Menzah 5 :** Gourmandise M5, Eric Kayser, Lv Club, Seven S M5, Kälo café, Nüma coffee & kitchen, The Paradise, Myplace, El Chapo, ABUELA'S CAFE.
   - **Zone Menzah 8 :** Yalova café restaurant & lounge, Affogato coffee shop, Quick Café.
   - **Zone Ennasr :** JAGGER, 4 Ever, FIVE O' CLOCK Tea House & Snack, Le Baron Café, Café Blanc, Versailles, The COFFEE 777, The 616 coffee PLUS, Cafe Royal, tornados coffee, Queen, Chesterfield, MM Café, PROST Coffee, Via Vai, HERMES CAFE, Minions coffee, Piacere, Vagary tunis, Paty coffee lounge, Barcelone Coffee.
+  - **Zone Mutuelleville / Alain Savary :** Eric Kayser.
 {{/if}}
 
 {{#if isFastFoodCategory}}
