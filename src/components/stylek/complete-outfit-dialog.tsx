@@ -44,37 +44,6 @@ const itemTypeOptions = [
   { value: 'accessoires', label: 'Accessoires', icon: Gem },
 ] as const;
 
-const resizeImage = (fileOrDataUri: File | string, width: number, height: number): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const img = document.createElement('img');
-        
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-                return reject(new Error('Could not get canvas context'));
-            }
-            ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 1.0)); // Utiliser la qualité maximale pour JPEG
-        };
-        
-        img.onerror = (error) => reject(error);
-
-        if (typeof fileOrDataUri === 'string') {
-            img.src = fileOrDataUri;
-        } else {
-            const reader = new FileReader();
-            reader.readAsDataURL(fileOrDataUri);
-            reader.onload = (event) => {
-                img.src = event.target?.result as string;
-            };
-            reader.onerror = (error) => reject(error);
-        }
-    });
-};
-
 
 export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: CompleteOutfitDialogProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -143,7 +112,8 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-        if (file.size > 10 * 1024 * 1024) { // 10MB limit for original file
+        // Limite de 10 Mo pour l'importation de fichiers
+        if (file.size > 10 * 1024 * 1024) {
             toast({
                 variant: 'destructive',
                 title: 'Fichier trop volumineux',
@@ -203,22 +173,24 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
     }
     
     try {
-        const storageDataUri = await resizeImage(values.baseItemPhotoDataUri, 80, 80);
-
+        // Sauvegarder l'image en pleine résolution dans la garde-robe
         await addWardrobeItem(user.uid, {
             type: values.baseItemType,
             style: mainFormValues.occasion,
-            photoDataUri: storageDataUri,
-        });
-        await forceProfileRefresh(); // Force refresh from indexedDB
-        toast({
-            title: "Pièce ajoutée !",
-            description: "Votre article a été sauvegardé dans votre garde-robe virtuelle.",
+            photoDataUri: values.baseItemPhotoDataUri,
         });
 
+        await forceProfileRefresh(); // Forcer la mise à jour depuis IndexedDB
+        
+        toast({
+            title: "Pièce ajoutée !",
+            description: "Votre article a été sauvegardé en haute qualité dans votre garde-robe virtuelle.",
+        });
+
+        // Utiliser l'image en pleine résolution pour la génération de la tenue
         const completeOutfitInput = {
           ...mainFormValues,
-          baseItemPhotoDataUri: values.baseItemPhotoDataUri, // Use original for generation
+          baseItemPhotoDataUri: values.baseItemPhotoDataUri,
           baseItemType: values.baseItemType,
         };
         onCompleteOutfit(completeOutfitInput);
@@ -284,7 +256,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
       <div className='space-y-2'>
           <Label>Aperçu de la photo</Label>
           <div className="relative aspect-square w-full rounded-md border bg-muted overflow-hidden">
-              <Image src={previewImage!} alt="Aperçu de la pièce" fill className="object-contain" />
+              <Image src={previewImage!} alt="Aperçu de la pièce" fill className="object-cover" />
               <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 bg-background/50 hover:bg-background/80 h-7 w-7" onClick={resetPhoto}>
                   <X className="h-4 w-4" />
               </Button>
@@ -364,5 +336,3 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
     </Dialog>
   );
 }
-
-    
