@@ -87,7 +87,12 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
             updatedProfile.seenKhroujSuggestions = Array.from(new Set([...(localProfile.seenKhroujSuggestions || []), ...data.seenKhroujSuggestions]));
         }
         if (data.wardrobe) { // This is for adding new items
-            updatedProfile.wardrobe = [...(localProfile.wardrobe || []), ...data.wardrobe];
+             // Ensure this is a full replacement, not a merge, if the whole array is passed
+            if (Array.isArray(data.wardrobe) && Array.isArray(localProfile.wardrobe) && data.wardrobe.length !== localProfile.wardrobe.length) {
+                updatedProfile.wardrobe = data.wardrobe;
+            } else { // This handles the initial addition
+                updatedProfile.wardrobe = [...(localProfile.wardrobe || []), ...data.wardrobe];
+            }
         }
 
         await storeUserInDb(uid, updatedProfile);
@@ -108,6 +113,18 @@ export async function addWardrobeItem(uid: string, item: Omit<WardrobeItem, 'id'
     };
 
     const updatedWardrobe = [...(localProfile.wardrobe || []), newItem];
+    await storeUserInDb(uid, { ...localProfile, wardrobe: updatedWardrobe });
+}
+
+export async function deleteWardrobeItem(uid: string, itemId: string) {
+    const localProfile = await getUserFromDb(uid);
+    if (!localProfile) {
+        console.error("Profile not found locally, cannot delete wardrobe item.");
+        throw new Error("Local user profile not found.");
+    }
+
+    const updatedWardrobe = (localProfile.wardrobe || []).filter(item => item.id !== itemId);
+    
     await storeUserInDb(uid, { ...localProfile, wardrobe: updatedWardrobe });
 }
 
