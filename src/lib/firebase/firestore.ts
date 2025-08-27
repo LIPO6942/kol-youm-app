@@ -81,13 +81,10 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
         if (data.seenKhroujSuggestions) {
             updatedProfile.seenKhroujSuggestions = Array.from(new Set([...(localProfile.seenKhroujSuggestions || []), ...data.seenKhroujSuggestions]));
         }
-        if (data.wardrobe) { 
-             updatedProfile.wardrobe = Array.from(new Set([...(localProfile.wardrobe || []).map(i => i.id), ...data.wardrobe.map(i => i.id)]))
-                .map(id => {
-                    const fromNewData = data.wardrobe?.find(i => i.id === id);
-                    const fromOldData = localProfile.wardrobe?.find(i => i.id === id);
-                    return fromNewData || fromOldData!;
-                });
+         if (data.wardrobe) {
+            const allItems = [...(localProfile.wardrobe || []), ...data.wardrobe];
+            const uniqueItems = Array.from(new Map(allItems.map(item => [item.id, item])).values());
+            updatedProfile.wardrobe = uniqueItems;
         }
 
         await storeUserInDb(uid, updatedProfile);
