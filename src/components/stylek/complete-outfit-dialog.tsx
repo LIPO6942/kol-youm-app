@@ -57,7 +57,7 @@ const resizeImage = (fileOrDataUri: File | string, width: number, height: number
                 return reject(new Error('Could not get canvas context'));
             }
             ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg'));
+            resolve(canvas.toDataURL('image/jpeg', 1.0)); // Utiliser la qualité maximale pour JPEG
         };
         
         img.onerror = (error) => reject(error);
@@ -143,11 +143,11 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-        if (file.size > 4 * 1024 * 1024) { // 4MB limit
+        if (file.size > 10 * 1024 * 1024) { // 10MB limit for original file
             toast({
                 variant: 'destructive',
                 title: 'Fichier trop volumineux',
-                description: 'Veuillez choisir une image de moins de 4 Mo.',
+                description: 'Veuillez choisir une image de moins de 10 Mo.',
             });
             return;
         }
@@ -218,7 +218,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
 
         const completeOutfitInput = {
           ...mainFormValues,
-          baseItemPhotoDataUri: storageDataUri,
+          baseItemPhotoDataUri: values.baseItemPhotoDataUri, // Use original for generation
           baseItemType: values.baseItemType,
         };
         onCompleteOutfit(completeOutfitInput);
@@ -284,7 +284,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
       <div className='space-y-2'>
           <Label>Aperçu de la photo</Label>
           <div className="relative aspect-square w-full rounded-md border bg-muted overflow-hidden">
-              <Image src={previewImage!} alt="Aperçu de la pièce" fill className="object-cover" />
+              <Image src={previewImage!} alt="Aperçu de la pièce" fill className="object-contain" />
               <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 bg-background/50 hover:bg-background/80 h-7 w-7" onClick={resetPhoto}>
                   <X className="h-4 w-4" />
               </Button>
@@ -364,3 +364,5 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
     </Dialog>
   );
 }
+
+    
