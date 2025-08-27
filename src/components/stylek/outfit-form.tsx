@@ -14,6 +14,7 @@ import { CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CompleteOutfitDialog } from './complete-outfit-dialog';
+import { CompleteFromWardrobeDialog } from './complete-from-wardrobe-dialog';
 
 const colors = [
     { name: 'Noir', value: '#1a1a1a' },
@@ -99,7 +100,7 @@ const weatherOptions = [
 
 interface OutfitFormProps {
     isLoading: boolean;
-    onSuggestOutfit: (values: FormValues & { baseItem?: string, baseItemPhotoDataUri?: string }) => void;
+    onSuggestOutfit: (values: FormValues & { baseItem?: string, baseItemPhotoDataUri?: string, baseItemType?: 'haut' | 'bas' | 'chaussures' | 'accessoires' }) => void;
 }
 
 export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
@@ -246,6 +247,11 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
             />
           </CardContent>
           <CardFooter className="flex-col pt-6 space-y-2">
+            <CompleteFromWardrobeDialog
+                mainForm={form}
+                onCompleteOutfit={onSuggestOutfit}
+                isGenerating={isLoading}
+            />
             <CompleteOutfitDialog
               mainForm={form}
               onCompleteOutfit={onSuggestOutfit}
