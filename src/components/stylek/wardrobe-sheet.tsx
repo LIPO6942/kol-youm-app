@@ -20,7 +20,7 @@ const categoryConfig = {
     accessoires: { label: 'Accessoires', icon: Gem },
 };
 
-export function WardrobeSheet({ children }: { children: React.ReactNode }) {
+export function WardrobeSheet() {
   const { user, userProfile } = useAuth();
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
@@ -58,7 +58,12 @@ export function WardrobeSheet({ children }: { children: React.ReactNode }) {
 
   return (
     <Sheet>
-      <SheetTrigger asChild>{children}</SheetTrigger>
+      <SheetTrigger asChild>
+        <Button variant="outline">
+            <Hanger className="mr-2 h-4 w-4" />
+            Garde-Robe
+        </Button>
+      </SheetTrigger>
       <SheetContent className="flex flex-col sm:max-w-md">
         <SheetHeader>
           <SheetTitle>Ma Garde-Robe Virtuelle</SheetTitle>

@@ -1,7 +1,5 @@
 import OutfitSuggester from '@/components/stylek/outfit-suggester';
 import { WardrobeSheet } from '@/components/stylek/wardrobe-sheet';
-import { Button } from '@/components/ui/button';
-import { Hanger } from 'lucide-react';
 
 export default function StylekPage() {
   return (
@@ -13,12 +11,7 @@ export default function StylekPage() {
               Recevez des suggestions de tenues personnalisées.
             </p>
         </div>
-        <WardrobeSheet>
-            <Button variant="outline">
-                <Hanger className="mr-2 h-4 w-4" />
-                Garde-Robe
-            </Button>
-        </WardrobeSheet>
+        <WardrobeSheet />
       </div>
       <OutfitSuggester />
     </div>
