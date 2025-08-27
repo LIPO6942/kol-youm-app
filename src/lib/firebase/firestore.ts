@@ -107,7 +107,25 @@ export async function addWardrobeItem(uid: string, item: Omit<WardrobeItem, 'id'
 }
 
 export async function deleteWardrobeItem(uid: string, itemToDelete: WardrobeItem) {
-    // ONLY update Firestore. The onSnapshot listener in useAuth will handle updating the local state and IndexedDB.
+    // First, try to delete the image from Cloudinary
+    try {
+        const response = await fetch('/api/delete-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageUrl: itemToDelete.photoDataUri }),
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            // Log the error but proceed with Firestore deletion anyway,
+            // as the image might already be deleted or the URL is invalid.
+            console.warn(`Could not delete image from Cloudinary: ${result.error}`);
+        }
+    } catch (error) {
+        console.error("Error calling delete-image API route:", error);
+    }
+    
+    // Then, delete the item from Firestore.
+    // The onSnapshot listener in useAuth will handle updating the local state and IndexedDB.
     const userRef = doc(firestoreDb, 'users', uid);
     await setDoc(userRef, {
         wardrobe: arrayRemove(itemToDelete)
