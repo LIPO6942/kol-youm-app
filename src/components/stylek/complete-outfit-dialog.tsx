@@ -151,21 +151,13 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
             });
             return;
         }
-        try {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = async (e) => {
-                const originalDataUri = e.target?.result as string;
-                const previewDataUri = await resizeImage(originalDataUri, 150, 150);
-                setPreviewImage(previewDataUri);
-
-                const storageDataUri = await resizeImage(originalDataUri, 80, 80);
-                completeOutfitForm.setValue('baseItemPhotoDataUri', storageDataUri, { shouldValidate: true });
-            };
-        } catch (error) {
-            console.error("Image resize error:", error);
-            toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de redimensionner l\'image.' });
-        }
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (e) => {
+            const originalDataUri = e.target?.result as string;
+            setPreviewImage(originalDataUri);
+            completeOutfitForm.setValue('baseItemPhotoDataUri', originalDataUri, { shouldValidate: true });
+        };
     }
   };
 
@@ -180,21 +172,13 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
 
         if (context) {
             context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-            const fullCaptureUri = canvas.toDataURL('image/jpeg');
+            const originalDataUri = canvas.toDataURL('image/jpeg');
 
-            try {
-                const previewUri = await resizeImage(fullCaptureUri, 150, 150);
-                setPreviewImage(previewUri);
-                
-                const storageUri = await resizeImage(fullCaptureUri, 80, 80);
-                completeOutfitForm.setValue('baseItemPhotoDataUri', storageUri, { shouldValidate: true });
-                
-                stopCamera();
-                setView('idle');
-            } catch (error) {
-                console.error("Image resize error after capture:", error);
-                toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de redimensionner la photo capturée.' });
-            }
+            setPreviewImage(originalDataUri);
+            completeOutfitForm.setValue('baseItemPhotoDataUri', originalDataUri, { shouldValidate: true });
+            
+            stopCamera();
+            setView('idle');
         }
     }
 };
@@ -219,34 +203,36 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
     }
     
     try {
+        const storageDataUri = await resizeImage(values.baseItemPhotoDataUri, 80, 80);
+
         await addWardrobeItem(user.uid, {
             type: values.baseItemType,
             style: mainFormValues.occasion,
-            photoDataUri: values.baseItemPhotoDataUri,
+            photoDataUri: storageDataUri,
         });
         await forceProfileRefresh(); // Force refresh from indexedDB
         toast({
             title: "Pièce ajoutée !",
             description: "Votre article a été sauvegardé dans votre garde-robe virtuelle.",
         });
+
+        const completeOutfitInput = {
+          ...mainFormValues,
+          baseItemPhotoDataUri: storageDataUri,
+          baseItemType: values.baseItemType,
+        };
+        onCompleteOutfit(completeOutfitInput);
+
     } catch (error) {
-        console.error("Failed to save wardrobe item:", error);
+        console.error("Failed to save wardrobe item or generate outfit:", error);
         toast({
             variant: "destructive",
-            title: "Erreur de sauvegarde",
-            description: "Impossible d'ajouter la pièce à votre garde-robe.",
+            title: "Erreur de Traitement",
+            description: "Impossible de traiter la photo ou de générer la tenue.",
         });
     }
 
     setIsDialogOpen(false);
-    
-    const input = {
-      ...mainFormValues,
-      baseItemPhotoDataUri: values.baseItemPhotoDataUri,
-      baseItemType: values.baseItemType,
-    };
-    
-    onCompleteOutfit(input);
   };
     
   const resetPhoto = () => {
