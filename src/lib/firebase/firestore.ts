@@ -17,14 +17,14 @@ export type UserProfile = {
     age?: number;
     personalizationComplete: boolean;
     createdAt: any;
-    // These lists are synced between Firestore and IndexedDB
+    // These lists are synced via Firestore
     seenMovieTitles?: string[];
     moviesToWatch?: string[];
     seenKhroujSuggestions?: string[];
-    // These are stored ONLY in IndexedDB for privacy and performance
+    wardrobe?: WardrobeItem[];
+    // These are stored ONLY in IndexedDB for privacy
     fullBodyPhotoUrl?: string; // This will also be a Cloudinary URL
     closeupPhotoUrl?: string; // This will also be a Cloudinary URL
-    wardrobe?: WardrobeItem[];
 };
 
 export async function createUserProfile(uid: string, data: { email: string | null }) {
@@ -36,11 +36,11 @@ export async function createUserProfile(uid: string, data: { email: string | nul
     seenMovieTitles: [],
     moviesToWatch: [],
     seenKhroujSuggestions: [],
+    wardrobe: [],
     fullBodyPhotoUrl: '',
     closeupPhotoUrl: '',
-    wardrobe: [],
   };
-  const { fullBodyPhotoUrl, closeupPhotoUrl, wardrobe, ...firestoreProfile } = userProfile;
+  const { fullBodyPhotoUrl, closeupPhotoUrl, ...firestoreProfile } = userProfile;
   await setDoc(doc(firestoreDb, "users", uid), firestoreProfile);
   await storeUserInDb(uid, userProfile);
   return userProfile;
@@ -51,10 +51,10 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
     const localData: { [key: string]: any } = {};
 
     for (const key in data) {
-        if (key === 'fullBodyPhotoUrl' || key === 'closeupPhotoUrl' || key === 'wardrobe') {
+        if (key === 'fullBodyPhotoUrl' || key === 'closeupPhotoUrl') {
             localData[key] = (data as any)[key];
         } else {
-             if (key === 'seenMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions') {
+             if (key === 'seenMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions' || key === 'wardrobe') {
                 firestoreData[key] = arrayUnion(...(data as any)[key]);
             } else {
                 firestoreData[key] = (data as any)[key];
@@ -82,11 +82,12 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
             updatedProfile.seenKhroujSuggestions = Array.from(new Set([...(localProfile.seenKhroujSuggestions || []), ...data.seenKhroujSuggestions]));
         }
         if (data.wardrobe) { 
-            if (Array.isArray(data.wardrobe) && Array.isArray(localProfile.wardrobe) && data.wardrobe.length !== localProfile.wardrobe.length) {
-                updatedProfile.wardrobe = data.wardrobe;
-            } else { 
-                updatedProfile.wardrobe = [...(localProfile.wardrobe || []), ...data.wardrobe];
-            }
+             updatedProfile.wardrobe = Array.from(new Set([...(localProfile.wardrobe || []).map(i => i.id), ...data.wardrobe.map(i => i.id)]))
+                .map(id => {
+                    const fromNewData = data.wardrobe?.find(i => i.id === id);
+                    const fromOldData = localProfile.wardrobe?.find(i => i.id === id);
+                    return fromNewData || fromOldData!;
+                });
         }
 
         await storeUserInDb(uid, updatedProfile);
@@ -94,32 +95,39 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
 }
 
 export async function addWardrobeItem(uid: string, item: Omit<WardrobeItem, 'id' | 'createdAt'>) {
-    const localProfile = await getUserFromDb(uid);
-    if (!localProfile) {
-        console.error("Profile not found locally, cannot add wardrobe item.");
-        return;
-    }
-    
     const newItem: WardrobeItem = {
         ...item,
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         createdAt: Date.now(),
     };
 
-    const updatedWardrobe = [...(localProfile.wardrobe || []), newItem];
-    await storeUserInDb(uid, { ...localProfile, wardrobe: updatedWardrobe });
+    // Update Firestore first
+    const userRef = doc(firestoreDb, 'users', uid);
+    await setDoc(userRef, {
+        wardrobe: arrayUnion(newItem)
+    }, { merge: true });
+    
+    // Then update IndexedDB to stay in sync
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedWardrobe = [...(localProfile.wardrobe || []), newItem];
+        await storeUserInDb(uid, { ...localProfile, wardrobe: updatedWardrobe });
+    }
 }
 
-export async function deleteWardrobeItem(uid: string, itemId: string) {
-    const localProfile = await getUserFromDb(uid);
-    if (!localProfile) {
-        console.error("Profile not found locally, cannot delete wardrobe item.");
-        throw new Error("Local user profile not found.");
-    }
+export async function deleteWardrobeItem(uid: string, itemToDelete: WardrobeItem) {
+    // Update Firestore first
+    const userRef = doc(firestoreDb, 'users', uid);
+    await setDoc(userRef, {
+        wardrobe: arrayRemove(itemToDelete)
+    }, { merge: true });
 
-    const updatedWardrobe = (localProfile.wardrobe || []).filter(item => item.id !== itemId);
-    
-    await storeUserInDb(uid, { ...localProfile, wardrobe: updatedWardrobe });
+    // Then update IndexedDB
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedWardrobe = (localProfile.wardrobe || []).filter(item => item.id !== itemToDelete.id);
+        await storeUserInDb(uid, { ...localProfile, wardrobe: updatedWardrobe });
+    }
 }
 
 
@@ -142,11 +150,12 @@ export async function moveMovieFromWatchlistToSeen(uid: string, movieTitle: stri
     }
 }
 
-export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' | 'seenMovieTitles' | 'seenKhroujSuggestions') {
+export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' | 'seenMovieTitles' | 'seenKhroujSuggestions' | 'wardrobe') {
     const userRef = doc(firestoreDb, 'users', uid);
     const firestoreUpdate: any = {};
     firestoreUpdate[listName] = [];
     
+    // Special handling for seenMovieTitles to also clear moviesToWatch
     if (listName === 'seenMovieTitles') {
         firestoreUpdate.moviesToWatch = [];
     }
@@ -156,7 +165,7 @@ export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' 
     const localProfile = await getUserFromDb(uid);
     if (localProfile) {
         const updatedProfile = {...localProfile};
-        updatedProfile[listName] = [];
+        (updatedProfile as any)[listName] = [];
         if (listName === 'seenMovieTitles') {
             updatedProfile.moviesToWatch = [];
         }
@@ -172,12 +181,16 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     const userSnap = await getDoc(userRef);
     
     if (userSnap.exists()) {
-        const firestoreProfileData = userSnap.data();
+        const firestoreProfileData = userSnap.data() as UserProfile;
+        
+        // Merge Firestore data with local-only data
         const mergedProfile: UserProfile = {
-            ...firestoreProfileData,
-            ...localProfile,
+            ...firestoreProfileData, // Base from Firestore
             uid: uid,
-        } as UserProfile;
+            // Keep local-only fields from IndexedDB
+            fullBodyPhotoUrl: localProfile?.fullBodyPhotoUrl,
+            closeupPhotoUrl: localProfile?.closeupPhotoUrl,
+        };
 
         await storeUserInDb(uid, mergedProfile);
         return mergedProfile;

@@ -40,12 +40,12 @@ export default function WardrobePage() {
     return acc;
   }, {} as Record<WardrobeItem['type'], WardrobeItem[]>);
 
-  const handleDelete = async (itemId: string) => {
+  const handleDelete = async (item: WardrobeItem) => {
     if (!user) return;
-    setIsDeleting(itemId);
+    setIsDeleting(item.id);
     try {
-      await deleteWardrobeItem(user.uid, itemId);
-      await forceProfileRefresh();
+      await deleteWardrobeItem(user.uid, item);
+      await forceProfileRefresh(); // This should now correctly refresh the state
       toast({ title: 'Article supprimé', description: 'La pièce a été retirée de votre garde-robe.' });
     } catch (error) {
       console.error(error);
@@ -113,7 +113,7 @@ export default function WardrobePage() {
                                     )}
                                 </div>
                             </DialogTrigger>
-                             <DialogContent className="p-0 border-0 max-w-2xl bg-transparent">
+                             <DialogContent className="p-0 border-0 max-w-2xl bg-transparent shadow-none">
                                 <DialogHeader>
                                   <DialogTitle className="sr-only">Aperçu de la pièce: {item.style} {item.type}</DialogTitle>
                                 </DialogHeader>
@@ -136,12 +136,12 @@ export default function WardrobePage() {
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>Supprimer cette pièce ?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        Cette action est irréversible et supprimera l'article de votre garde-robe. L'image sur Cloudinary ne sera pas supprimée.
+                                        Cette action est irréversible et supprimera l'article de votre garde-robe.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>Annuler</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDelete(item.id)}>Confirmer</AlertDialogAction>
+                                    <AlertDialogAction onClick={() => handleDelete(item)}>Confirmer</AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>

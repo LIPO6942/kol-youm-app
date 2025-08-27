@@ -66,15 +66,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         let finalProfile: UserProfile | null = localProfile || null;
 
         if (doc.exists()) {
-          const firestoreData = doc.data() as Omit<UserProfile, 'fullBodyPhotoUrl' | 'closeupPhotoUrl' | 'wardrobe'>;
+          const firestoreData = doc.data() as UserProfile;
           
+          // Merge Firestore data with sensitive local data
           finalProfile = {
-            ...(localProfile || {}), 
-            ...firestoreData, 
+            ...firestoreData, // Base from Firestore (includes synced wardrobe)
             uid: user.uid, 
-            fullBodyPhotoUrl: localProfile?.fullBodyPhotoUrl, 
-            closeupPhotoUrl: localProfile?.closeupPhotoUrl,
-            wardrobe: localProfile?.wardrobe, // Prioritize local wardrobe
+            fullBodyPhotoUrl: localProfile?.fullBodyPhotoUrl, // Keep local
+            closeupPhotoUrl: localProfile?.closeupPhotoUrl, // Keep local
           } as UserProfile;
           
           await storeUserInDb(user.uid, finalProfile);
