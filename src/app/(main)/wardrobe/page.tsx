@@ -7,13 +7,9 @@ import { useAuth } from '@/hooks/use-auth';
 import { deleteWardrobeItem } from '@/lib/firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Shirt, Milestone, Footprints, Gem, Trash2, Loader2 } from 'lucide-react';
 import type { WardrobeItem } from '@/lib/firebase/firestore';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from '@/lib/utils';
-
 
 const categoryConfig = {
     haut: { label: 'Hauts', icon: Shirt },
@@ -25,7 +21,7 @@ const categoryConfig = {
 const styleFilters = ['Tout', 'Décontracté', 'Professionnel', 'Chic', 'Sportif'];
 
 export default function WardrobePage() {
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, forceProfileRefresh } = useAuth();
   const { toast } = useToast();
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [activeStyle, setActiveStyle] = useState('Tout');
@@ -48,6 +44,7 @@ export default function WardrobePage() {
     setIsDeleting(itemId);
     try {
       await deleteWardrobeItem(user.uid, itemId);
+      await forceProfileRefresh(); // Force a refresh of the profile from IndexedDB
       toast({ title: 'Article supprimé', description: 'La pièce a été retirée de votre garde-robe.' });
     } catch (error) {
       console.error(error);

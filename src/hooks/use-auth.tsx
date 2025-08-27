@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db as firestoreDb } from '@/lib/firebase/client';
@@ -12,12 +12,14 @@ interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
+  forceProfileRefresh: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   userProfile: null,
   loading: true,
+  forceProfileRefresh: () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -25,17 +27,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchAndSetProfile = useCallback(async (uid: string) => {
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+      setUserProfile(localProfile);
+    }
+    return localProfile;
+  }, []);
+
+  const forceProfileRefresh = useCallback(async () => {
+    if (user) {
+      await fetchAndSetProfile(user.uid);
+    }
+  }, [user, fetchAndSetProfile]);
+
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setLoading(true);
       if (user) {
-        // First, try to load from local DB for speed
-        const localProfile = await getUserFromDb(user.uid);
-        if (localProfile) {
-          setUserProfile(localProfile);
-        }
         setUser(user);
-        // The Firestore listener will then provide real-time updates and merge data
+        await fetchAndSetProfile(user.uid);
+        // The Firestore listener will provide real-time updates and merge data
       } else {
         setUser(null);
         setUserProfile(null);
@@ -44,7 +56,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => unsubscribeAuth();
-  }, []);
+  }, [fetchAndSetProfile]);
   
   useEffect(() => {
     if (user) {
@@ -54,15 +66,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         let finalProfile: UserProfile | null = localProfile || null;
 
         if (doc.exists()) {
-          const firestoreData = doc.data() as Omit<UserProfile, 'fullBodyPhotoUrl' | 'closeupPhotoUrl'>;
-          // Merge firestore data with local data (local photos are preserved)
+          const firestoreData = doc.data() as Omit<UserProfile, 'fullBodyPhotoUrl' | 'closeupPhotoUrl' | 'wardrobe'>;
+          
           finalProfile = {
-            ...(localProfile || {}), // Start with local data
-            ...firestoreData, // Overwrite with fresh firestore data
-            uid: user.uid, // Ensure UID is correct
-            // Explicitly keep local photos if they exist
+            ...(localProfile || {}), 
+            ...firestoreData, 
+            uid: user.uid, 
             fullBodyPhotoUrl: localProfile?.fullBodyPhotoUrl, 
             closeupPhotoUrl: localProfile?.closeupPhotoUrl,
+            wardrobe: localProfile?.wardrobe, // Prioritize local wardrobe
           } as UserProfile;
           
           await storeUserInDb(user.uid, finalProfile);
@@ -73,14 +85,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       return () => unsub();
     } else {
-        // No user, stop loading
         setLoading(false);
     }
   }, [user]);
 
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, forceProfileRefresh }}>
       {children}
     </AuthContext.Provider>
   );
