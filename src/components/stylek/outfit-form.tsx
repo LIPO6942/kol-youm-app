@@ -246,16 +246,12 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
               )}
             />
           </CardContent>
-          <CardFooter className="flex-col sm:flex-row gap-2 pt-6">
+          <CardFooter className="flex-col pt-6">
             <CompleteOutfitDialog
               mainForm={form}
               onCompleteOutfit={onSuggestOutfit}
               isLoading={isLoading}
             />
-            <Button type="button" onClick={handleSuggestOutfit} variant="outline" disabled={isLoading} className="w-full">
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-              Idée de tenue complète
-            </Button>
           </CardFooter>
         </form>
       </Form>
