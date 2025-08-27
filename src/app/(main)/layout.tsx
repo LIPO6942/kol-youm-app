@@ -59,9 +59,11 @@ export default function MainLayout({ children }: { children: ReactNode }) {
                     </Button>
                 </Link>
             </div>
-            <h1 className="text-2xl font-headline font-bold text-center text-primary-foreground select-none bg-primary px-4 py-1 rounded-lg shadow-sm">
-              kol youm
-            </h1>
+            <Link href="/stylek" className="cursor-pointer">
+                <h1 className="text-2xl font-headline font-bold text-center text-primary-foreground select-none bg-primary px-4 py-1 rounded-lg shadow-sm">
+                  kol youm
+                </h1>
+            </Link>
              <div className="flex items-center gap-2">
                 <Link href="/settings" passHref>
                     <Button variant="ghost" size="icon">
