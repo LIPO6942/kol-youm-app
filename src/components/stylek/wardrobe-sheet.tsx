@@ -10,7 +10,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Hanger, Shirt, Milestone, Footprints, Gem, Trash2, Loader2 } from 'lucide-react';
+import { Shirt, Milestone, Footprints, Gem, Trash2, Loader2 } from 'lucide-react';
 import type { WardrobeItem } from '@/lib/firebase/firestore';
 
 const categoryConfig = {
@@ -50,7 +50,7 @@ export function WardrobeSheet() {
 
   const renderEmptyState = () => (
     <div className="flex flex-col items-center justify-center text-center text-muted-foreground h-full py-20">
-      <Hanger className="h-12 w-12 mb-4" />
+      <Shirt className="h-12 w-12 mb-4" />
       <h3 className="font-semibold text-lg text-foreground">Votre garde-robe est vide</h3>
       <p className="text-sm">Utilisez la fonction "Compléter ma tenue" pour y ajouter vos pièces préférées.</p>
     </div>
@@ -60,7 +60,7 @@ export function WardrobeSheet() {
     <Sheet>
       <SheetTrigger asChild>
         <Button variant="outline">
-            <Hanger className="mr-2 h-4 w-4" />
+            <Shirt className="mr-2 h-4 w-4" />
             Garde-Robe
         </Button>
       </SheetTrigger>
