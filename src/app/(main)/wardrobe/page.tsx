@@ -8,7 +8,7 @@ import { deleteWardrobeItem } from '@/lib/firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Shirt, Milestone, Footprints, Gem, Trash2, Loader2 } from 'lucide-react';
 import type { WardrobeItem } from '@/lib/firebase/firestore';
 
@@ -114,7 +114,10 @@ export default function WardrobePage() {
                                 </div>
                             </DialogTrigger>
                              <DialogContent className="p-0 border-0 max-w-2xl bg-transparent">
-                                <Image src={item.photoDataUri} alt={`${item.style} ${item.type}`} width={1024} height={1024} className="object-contain rounded-lg w-full h-auto" />
+                                <DialogHeader>
+                                  <DialogTitle className="sr-only">Aperçu de la pièce: {item.style} {item.type}</DialogTitle>
+                                </DialogHeader>
+                                <Image src={item.photoDataUri} alt={`Aperçu de ${item.style} ${item.type}`} width={1024} height={1024} className="object-contain rounded-lg w-full h-auto" />
                             </DialogContent>
                         </Dialog>
 
