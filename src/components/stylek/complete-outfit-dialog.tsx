@@ -44,27 +44,34 @@ const itemTypeOptions = [
   { value: 'accessoires', label: 'Accessoires', icon: Gem },
 ] as const;
 
-const resizeImage = (file: File, width: number, height: number): Promise<string> => {
+const resizeImage = (fileOrDataUri: File | string, width: number, height: number): Promise<string> => {
     return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = document.createElement('img');
-            img.src = event.target?.result as string;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) {
-                    return reject(new Error('Could not get canvas context'));
-                }
-                ctx.drawImage(img, 0, 0, width, height);
-                resolve(canvas.toDataURL('image/jpeg'));
-            };
-            img.onerror = (error) => reject(error);
+        const img = document.createElement('img');
+        
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                return reject(new Error('Could not get canvas context'));
+            }
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg'));
         };
-        reader.onerror = (error) => reject(error);
+        
+        img.onerror = (error) => reject(error);
+
+        if (typeof fileOrDataUri === 'string') {
+            img.src = fileOrDataUri;
+        } else {
+            const reader = new FileReader();
+            reader.readAsDataURL(fileOrDataUri);
+            reader.onload = (event) => {
+                img.src = event.target?.result as string;
+            };
+            reader.onerror = (error) => reject(error);
+        }
     });
 };
 
@@ -73,6 +80,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [view, setView] = useState<'idle' | 'upload' | 'camera'>('idle');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -93,6 +101,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
 
   const resetFormAndState = useCallback(() => {
     completeOutfitForm.reset({ baseItemPhotoDataUri: '', baseItemType: undefined });
+    setPreviewImage(null);
     setView('idle');
     stopCamera();
     setHasCameraPermission(null);
@@ -131,8 +140,6 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
     setupCamera();
   }
 
-  const photoValue = completeOutfitForm.watch('baseItemPhotoDataUri');
-
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -145,8 +152,11 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
             return;
         }
         try {
-            const resizedDataUri = await resizeImage(file, 80, 80);
-            completeOutfitForm.setValue('baseItemPhotoDataUri', resizedDataUri);
+            const previewDataUri = await resizeImage(file, 150, 150);
+            setPreviewImage(previewDataUri);
+            
+            const storageDataUri = await resizeImage(file, 80, 80);
+            completeOutfitForm.setValue('baseItemPhotoDataUri', storageDataUri);
             completeOutfitForm.clearErrors('baseItemPhotoDataUri');
         } catch (error) {
             console.error("Image resize error:", error);
@@ -155,19 +165,25 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
     }
   };
 
-  const handleCapturePhoto = () => {
+  const handleCapturePhoto = async () => {
     if (videoRef.current) {
         const canvas = document.createElement('canvas');
-        const finalSize = 80;
-        canvas.width = finalSize;
-        canvas.height = finalSize;
+        // Capture a higher res for the preview
+        const previewSize = 150;
+        canvas.width = previewSize;
+        canvas.height = previewSize;
         const context = canvas.getContext('2d');
         if (context) {
-            context.drawImage(videoRef.current, 0, 0, finalSize, finalSize);
-            const dataUri = canvas.toDataURL('image/jpeg');
-            completeOutfitForm.setValue('baseItemPhotoDataUri', dataUri);
+            context.drawImage(videoRef.current, 0, 0, previewSize, previewSize);
+            const previewUri = canvas.toDataURL('image/jpeg');
+            setPreviewImage(previewUri);
+            
+            // Now create the smaller version for storage
+            const storageUri = await resizeImage(previewUri, 80, 80);
+            completeOutfitForm.setValue('baseItemPhotoDataUri', storageUri);
+            
             stopCamera();
-            setView('idle'); // Go back to the form view with the captured image
+            setView('idle');
         }
     }
   };
@@ -224,6 +240,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
     
   const resetPhoto = () => {
       completeOutfitForm.setValue('baseItemPhotoDataUri', '');
+      setPreviewImage(null);
       if (fileInputRef.current) {
           fileInputRef.current.value = '';
       }
@@ -270,7 +287,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
       <div className='space-y-2'>
           <Label>Aperçu de la photo</Label>
           <div className="relative aspect-square w-full rounded-md border bg-muted overflow-hidden">
-              <Image src={photoValue} alt="Aperçu de la pièce" fill className="object-contain" />
+              <Image src={previewImage!} alt="Aperçu de la pièce" fill className="object-contain" />
               <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 bg-background/50 hover:bg-background/80 h-7 w-7" onClick={resetPhoto}>
                   <X className="h-4 w-4" />
               </Button>
@@ -334,13 +351,13 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
                 <ScrollArea className="flex-grow pr-6 -mr-6">
                     <div className="space-y-6 pr-1">
                       {view === 'camera' && renderCameraView()}
-                      {view === 'idle' && !photoValue && renderIdleView()}
-                      {(view !== 'camera' && photoValue) && renderFormContent()}
+                      {view === 'idle' && !previewImage && renderIdleView()}
+                      {(view !== 'camera' && previewImage) && renderFormContent()}
                     </div>
                 </ScrollArea>
                 
                 <DialogFooter className="pt-6">
-                    <Button type="submit" disabled={isLoading || !photoValue} className="w-full">
+                    <Button type="submit" disabled={isLoading || !previewImage} className="w-full">
                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Générer la tenue'}
                     </Button>
                 </DialogFooter>
@@ -350,3 +367,5 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
     </Dialog>
   );
 }
+
+    
