@@ -167,26 +167,35 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
 
   const handleCapturePhoto = async () => {
     if (videoRef.current) {
+        const video = videoRef.current;
         const canvas = document.createElement('canvas');
-        // Capture a higher res for the preview
-        const previewSize = 150;
-        canvas.width = previewSize;
-        canvas.height = previewSize;
+        
+        // Use video dimensions to draw on canvas before resizing
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
         const context = canvas.getContext('2d');
+
         if (context) {
-            context.drawImage(videoRef.current, 0, 0, previewSize, previewSize);
-            const previewUri = canvas.toDataURL('image/jpeg');
-            setPreviewImage(previewUri);
-            
-            // Now create the smaller version for storage
-            const storageUri = await resizeImage(previewUri, 80, 80);
-            completeOutfitForm.setValue('baseItemPhotoDataUri', storageUri);
-            
-            stopCamera();
-            setView('idle');
+            context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+            const fullCaptureUri = canvas.toDataURL('image/jpeg');
+
+            try {
+                // Now create the two different sizes from the full capture
+                const previewUri = await resizeImage(fullCaptureUri, 150, 150);
+                setPreviewImage(previewUri);
+                
+                const storageUri = await resizeImage(fullCaptureUri, 80, 80);
+                completeOutfitForm.setValue('baseItemPhotoDataUri', storageUri, { shouldValidate: true });
+                
+                stopCamera();
+                setView('idle');
+            } catch (error) {
+                console.error("Image resize error after capture:", error);
+                toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de redimensionner la photo capturée.' });
+            }
         }
     }
-  };
+};
 
 
   const handleCompleteOutfitSubmit = async (values: CompleteOutfitFormValues) => {
@@ -367,5 +376,3 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
     </Dialog>
   );
 }
-
-    
