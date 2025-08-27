@@ -1,5 +1,4 @@
 import OutfitSuggester from '@/components/stylek/outfit-suggester';
-import { WardrobeSheet } from '@/components/stylek/wardrobe-sheet';
 
 export default function StylekPage() {
   return (
@@ -11,7 +10,6 @@ export default function StylekPage() {
               Recevez des suggestions de tenues personnalisées.
             </p>
         </div>
-        <WardrobeSheet />
       </div>
       <OutfitSuggester />
     </div>

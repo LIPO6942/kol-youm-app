@@ -44,6 +44,30 @@ const itemTypeOptions = [
   { value: 'accessoires', label: 'Accessoires', icon: Gem },
 ] as const;
 
+const resizeImage = (file: File, width: number, height: number): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = document.createElement('img');
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    return reject(new Error('Could not get canvas context'));
+                }
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg'));
+            };
+            img.onerror = (error) => reject(error);
+        };
+        reader.onerror = (error) => reject(error);
+    });
+};
+
 
 export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: CompleteOutfitDialogProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -109,7 +133,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
 
   const photoValue = completeOutfitForm.watch('baseItemPhotoDataUri');
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
         if (file.size > 4 * 1024 * 1024) { // 4MB limit
@@ -120,23 +144,26 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
             });
             return;
         }
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            completeOutfitForm.setValue('baseItemPhotoDataUri', reader.result as string);
+        try {
+            const resizedDataUri = await resizeImage(file, 80, 80);
+            completeOutfitForm.setValue('baseItemPhotoDataUri', resizedDataUri);
             completeOutfitForm.clearErrors('baseItemPhotoDataUri');
-        };
-        reader.readAsDataURL(file);
+        } catch (error) {
+            console.error("Image resize error:", error);
+            toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de redimensionner l\'image.' });
+        }
     }
   };
 
   const handleCapturePhoto = () => {
     if (videoRef.current) {
         const canvas = document.createElement('canvas');
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
+        const finalSize = 80;
+        canvas.width = finalSize;
+        canvas.height = finalSize;
         const context = canvas.getContext('2d');
         if (context) {
-            context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+            context.drawImage(videoRef.current, 0, 0, finalSize, finalSize);
             const dataUri = canvas.toDataURL('image/jpeg');
             completeOutfitForm.setValue('baseItemPhotoDataUri', dataUri);
             stopCamera();

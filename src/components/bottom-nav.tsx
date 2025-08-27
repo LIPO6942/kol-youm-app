@@ -22,14 +22,14 @@ export default function BottomNav() {
     const themeClasses = navItems.map(item => `theme-${item.href.slice(1)}`);
     
     // Remove any existing theme classes from the body
-    document.body.classList.remove(...themeClasses, 'theme-profil', 'theme-settings', 'theme-stylek'); 
+    document.body.classList.remove(...themeClasses, 'theme-profil', 'theme-settings', 'theme-stylek', 'theme-wardrobe'); 
 
     // Find the current section and add its theme class
     const section = navItems.find(item => pathname.startsWith(item.href));
     if (section) {
         const themeClass = `theme-${section.href.slice(1)}`; 
         document.body.classList.add(themeClass);
-    } else if (pathname.startsWith('/settings')) {
+    } else if (pathname.startsWith('/settings') || pathname.startsWith('/wardrobe')) {
         // Special case for settings page since it's not in navItems anymore
         document.body.classList.add('theme-stylek');
     } else {
