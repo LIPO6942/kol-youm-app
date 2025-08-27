@@ -1,3 +1,4 @@
+
 import { doc, setDoc, getDoc, serverTimestamp, arrayUnion, arrayRemove, writeBatch } from "firebase/firestore"; 
 import { db as firestoreDb } from "./client";
 import { getUserFromDb, storeUserInDb } from "@/lib/indexeddb";
@@ -98,33 +99,19 @@ export async function addWardrobeItem(uid: string, item: Omit<WardrobeItem, 'id'
         createdAt: Date.now(),
     };
 
-    // Update Firestore first
+    // ONLY update Firestore. The onSnapshot listener in useAuth will handle updating the local state and IndexedDB.
     const userRef = doc(firestoreDb, 'users', uid);
     await setDoc(userRef, {
         wardrobe: arrayUnion(newItem)
     }, { merge: true });
-    
-    // Then update IndexedDB to stay in sync
-    const localProfile = await getUserFromDb(uid);
-    if (localProfile) {
-        const updatedWardrobe = [...(localProfile.wardrobe || []), newItem];
-        await storeUserInDb(uid, { ...localProfile, wardrobe: updatedWardrobe });
-    }
 }
 
 export async function deleteWardrobeItem(uid: string, itemToDelete: WardrobeItem) {
-    // Update Firestore first
+    // ONLY update Firestore. The onSnapshot listener in useAuth will handle updating the local state and IndexedDB.
     const userRef = doc(firestoreDb, 'users', uid);
     await setDoc(userRef, {
         wardrobe: arrayRemove(itemToDelete)
     }, { merge: true });
-
-    // Then update IndexedDB
-    const localProfile = await getUserFromDb(uid);
-    if (localProfile) {
-        const updatedWardrobe = (localProfile.wardrobe || []).filter(item => item.id !== itemToDelete.id);
-        await storeUserInDb(uid, { ...localProfile, wardrobe: updatedWardrobe });
-    }
 }
 
 

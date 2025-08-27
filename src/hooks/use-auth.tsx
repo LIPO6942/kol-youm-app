@@ -5,7 +5,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db as firestoreDb } from '@/lib/firebase/client';
-import type { UserProfile } from '@/lib/firebase/firestore';
+import type { UserProfile, WardrobeItem } from '@/lib/firebase/firestore';
 import { getUserFromDb, storeUserInDb } from '@/lib/indexeddb';
 
 interface AuthContextType {
@@ -68,10 +68,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (doc.exists()) {
           const firestoreData = doc.data() as UserProfile;
           
+          // Ensure wardrobe is always an array and de-duplicated
+          const firestoreWardrobe = firestoreData.wardrobe || [];
+          const uniqueItems = Array.from(new Map(firestoreWardrobe.map((item: WardrobeItem) => [item.id, item])).values());
+          
           // Merge Firestore data with sensitive local data
           finalProfile = {
             ...firestoreData, // Base from Firestore (includes synced wardrobe)
             uid: user.uid, 
+            wardrobe: uniqueItems, // Use de-duplicated wardrobe
             fullBodyPhotoUrl: localProfile?.fullBodyPhotoUrl, // Keep local
             closeupPhotoUrl: localProfile?.closeupPhotoUrl, // Keep local
           } as UserProfile;
