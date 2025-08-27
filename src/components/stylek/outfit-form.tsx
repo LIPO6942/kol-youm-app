@@ -246,7 +246,7 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
               )}
             />
           </CardContent>
-          <CardFooter className="flex-col pt-6">
+          <CardFooter className="flex-col pt-6 space-y-2">
             <CompleteOutfitDialog
               mainForm={form}
               onCompleteOutfit={onSuggestOutfit}

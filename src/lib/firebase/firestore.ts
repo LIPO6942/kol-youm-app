@@ -2,6 +2,13 @@ import { doc, setDoc, getDoc, serverTimestamp, arrayUnion, arrayRemove, writeBat
 import { db as firestoreDb } from "./client";
 import { getUserFromDb, storeUserInDb } from "@/lib/indexeddb";
 
+export type WardrobeItem = {
+    id: string; // Unique ID, e.g., timestamp + random string
+    type: 'haut' | 'bas' | 'chaussures' | 'accessoires';
+    photoDataUri: string; // The base64 Data URI of the image
+    createdAt: number; // Timestamp for sorting
+};
+
 export type UserProfile = {
     uid: string;
     email: string | null;
@@ -13,9 +20,10 @@ export type UserProfile = {
     seenMovieTitles?: string[];
     moviesToWatch?: string[];
     seenKhroujSuggestions?: string[];
-    // These are stored as base64 Data URIs ONLY in IndexedDB for privacy and performance
+    // These are stored ONLY in IndexedDB for privacy and performance
     fullBodyPhotoUrl?: string;
     closeupPhotoUrl?: string;
+    wardrobe?: WardrobeItem[];
 };
 
 export async function createUserProfile(uid: string, data: { email: string | null }) {
@@ -29,10 +37,11 @@ export async function createUserProfile(uid: string, data: { email: string | nul
     seenKhroujSuggestions: [],
     fullBodyPhotoUrl: '',
     closeupPhotoUrl: '',
+    wardrobe: [],
   };
   // Create profile in both Firestore and IndexedDB to ensure consistency from the start
-  // We don't store photo URLs in firestore initially.
-  const { fullBodyPhotoUrl, closeupPhotoUrl, ...firestoreProfile } = userProfile;
+  // We don't store photo or wardrobe URLs in firestore initially.
+  const { fullBodyPhotoUrl, closeupPhotoUrl, wardrobe, ...firestoreProfile } = userProfile;
   await setDoc(doc(firestoreDb, "users", uid), firestoreProfile);
   await storeUserInDb(uid, userProfile);
   return userProfile;
@@ -44,7 +53,7 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
 
     // Separate data for Firestore and IndexedDB
     for (const key in data) {
-        if (key === 'fullBodyPhotoUrl' || key === 'closeupPhotoUrl') {
+        if (key === 'fullBodyPhotoUrl' || key === 'closeupPhotoUrl' || key === 'wardrobe') {
             localData[key] = (data as any)[key];
         } else {
              if (key === 'seenMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions') {
@@ -77,10 +86,31 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
         if (data.seenKhroujSuggestions) {
             updatedProfile.seenKhroujSuggestions = Array.from(new Set([...(localProfile.seenKhroujSuggestions || []), ...data.seenKhroujSuggestions]));
         }
+        if (data.wardrobe) { // This is for adding new items
+            updatedProfile.wardrobe = [...(localProfile.wardrobe || []), ...data.wardrobe];
+        }
 
         await storeUserInDb(uid, updatedProfile);
     }
 }
+
+export async function addWardrobeItem(uid: string, item: Omit<WardrobeItem, 'id' | 'createdAt'>) {
+    const localProfile = await getUserFromDb(uid);
+    if (!localProfile) {
+        console.error("Profile not found locally, cannot add wardrobe item.");
+        return;
+    }
+    
+    const newItem: WardrobeItem = {
+        ...item,
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        createdAt: Date.now(),
+    };
+
+    const updatedWardrobe = [...(localProfile.wardrobe || []), newItem];
+    await storeUserInDb(uid, { ...localProfile, wardrobe: updatedWardrobe });
+}
+
 
 export async function moveMovieFromWatchlistToSeen(uid: string, movieTitle: string) {
     const userRef = doc(firestoreDb, "users", uid);

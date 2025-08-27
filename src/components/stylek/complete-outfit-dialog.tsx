@@ -17,6 +17,8 @@ import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useAuth } from '@/hooks/use-auth';
+import { addWardrobeItem } from '@/lib/firebase/firestore';
 
 
 const completeOutfitFormSchema = z.object({
@@ -48,6 +50,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
   const [view, setView] = useState<'idle' | 'upload' | 'camera'>('idle');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -144,6 +147,11 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
 
 
   const handleCompleteOutfitSubmit = async (values: CompleteOutfitFormValues) => {
+    if (!user) {
+        toast({ variant: "destructive", title: "Non connecté", description: "Veuillez vous connecter." });
+        return;
+    }
+
     const isMainFormValid = await mainForm.trigger();
     if (!isMainFormValid) {
         toast({
@@ -155,6 +163,25 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
         return;
     }
     
+    // Save item to virtual wardrobe (locally)
+    try {
+        await addWardrobeItem(user.uid, {
+            type: values.baseItemType,
+            photoDataUri: values.baseItemPhotoDataUri,
+        });
+        toast({
+            title: "Pièce ajoutée !",
+            description: "Votre article a été sauvegardé dans votre garde-robe virtuelle.",
+        });
+    } catch (error) {
+        console.error("Failed to save wardrobe item:", error);
+        toast({
+            variant: "destructive",
+            title: "Erreur de sauvegarde",
+            description: "Impossible d'ajouter la pièce à votre garde-robe.",
+        });
+    }
+
     setIsDialogOpen(false);
     const mainFormValues = mainForm.getValues();
     
@@ -262,7 +289,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
-        <Button type="button" className="w-full">
+        <Button type="button" variant="outline" className="w-full">
           <PlusCircle className="mr-2 h-4 w-4" />
           Compléter ma tenue
         </Button>
