@@ -29,7 +29,8 @@ export function WardrobeSheet({ children }: { children: React.ReactNode }) {
   const sortedItems = wardrobeItems.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   const groupedItems = sortedItems.reduce((acc, item) => {
-    (acc[item.type] = acc[item.type] || []).push(item);
+    const category = item.type as keyof typeof categoryConfig;
+    (acc[category] = acc[category] || []).push(item);
     return acc;
   }, {} as Record<WardrobeItem['type'], WardrobeItem[]>);
 
