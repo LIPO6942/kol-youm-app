@@ -8,6 +8,7 @@ import { deleteWardrobeItem } from '@/lib/firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Shirt, Milestone, Footprints, Gem, Trash2, Loader2 } from 'lucide-react';
 import type { WardrobeItem } from '@/lib/firebase/firestore';
 
@@ -44,7 +45,7 @@ export default function WardrobePage() {
     setIsDeleting(itemId);
     try {
       await deleteWardrobeItem(user.uid, itemId);
-      await forceProfileRefresh(); // Force a refresh of the profile from IndexedDB
+      await forceProfileRefresh();
       toast({ title: 'Article supprimé', description: 'La pièce a été retirée de votre garde-robe.' });
     } catch (error) {
       console.error(error);
@@ -100,21 +101,29 @@ export default function WardrobePage() {
                     <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-3">
                     {items.map(item => (
                         <div key={item.id} className="group relative aspect-square">
-                        <div className="relative h-full w-full rounded-md overflow-hidden border bg-secondary">
-                            {isDeleting === item.id ? (
-                                <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
-                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <div className="relative h-full w-full rounded-md overflow-hidden border bg-secondary cursor-pointer hover:ring-2 hover:ring-primary hover:ring-offset-2 transition-all">
+                                    {isDeleting === item.id ? (
+                                        <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
+                                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                        </div>
+                                    ) : (
+                                        <Image src={item.photoDataUri} alt={`${item.style} ${item.type}`} width={80} height={80} className="object-cover h-full w-full" />
+                                    )}
                                 </div>
-                            ) : (
-                                <Image src={item.photoDataUri} alt={`${item.style} ${item.type}`} width={80} height={80} className="object-cover h-full w-full" />
-                            )}
-                        </div>
+                            </DialogTrigger>
+                             <DialogContent className="p-0 border-0 max-w-2xl">
+                                <Image src={item.photoDataUri} alt={`${item.style} ${item.type}`} width={1024} height={1024} className="object-contain rounded-lg" />
+                            </DialogContent>
+                        </Dialog>
+
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
                             <Button
                                 variant="destructive"
                                 size="icon"
-                                className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
                                 disabled={!!isDeleting}
                             >
                                 <Trash2 className="h-3 w-3" />
