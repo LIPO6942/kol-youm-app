@@ -82,7 +82,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, forceProfileRefresh } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -152,12 +152,16 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
             return;
         }
         try {
-            const previewDataUri = await resizeImage(file, 150, 150);
-            setPreviewImage(previewDataUri);
-            
-            const storageDataUri = await resizeImage(file, 80, 80);
-            completeOutfitForm.setValue('baseItemPhotoDataUri', storageDataUri);
-            completeOutfitForm.clearErrors('baseItemPhotoDataUri');
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = async (e) => {
+                const originalDataUri = e.target?.result as string;
+                const previewDataUri = await resizeImage(originalDataUri, 150, 150);
+                setPreviewImage(previewDataUri);
+
+                const storageDataUri = await resizeImage(originalDataUri, 80, 80);
+                completeOutfitForm.setValue('baseItemPhotoDataUri', storageDataUri, { shouldValidate: true });
+            };
         } catch (error) {
             console.error("Image resize error:", error);
             toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de redimensionner l\'image.' });
@@ -170,7 +174,6 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
         const video = videoRef.current;
         const canvas = document.createElement('canvas');
         
-        // Use video dimensions to draw on canvas before resizing
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const context = canvas.getContext('2d');
@@ -180,7 +183,6 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
             const fullCaptureUri = canvas.toDataURL('image/jpeg');
 
             try {
-                // Now create the two different sizes from the full capture
                 const previewUri = await resizeImage(fullCaptureUri, 150, 150);
                 setPreviewImage(previewUri);
                 
@@ -216,13 +218,13 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
         return;
     }
     
-    // Save item to virtual wardrobe, including the style from the main form
     try {
         await addWardrobeItem(user.uid, {
             type: values.baseItemType,
-            style: mainFormValues.occasion, // Use occasion from main form as style
+            style: mainFormValues.occasion,
             photoDataUri: values.baseItemPhotoDataUri,
         });
+        await forceProfileRefresh(); // Force refresh from indexedDB
         toast({
             title: "Pièce ajoutée !",
             description: "Votre article a été sauvegardé dans votre garde-robe virtuelle.",
@@ -287,7 +289,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
             )}
         </div>
         <Button onClick={handleCapturePhoto} className="w-full" disabled={!hasCameraPermission}>Capturer</Button>
-        <Button variant="ghost" onClick={() => setView('idle')} className="w-full">Annuler</Button>
+        <Button variant="ghost" onClick={() => { stopCamera(); setView('idle'); }} className="w-full">Annuler</Button>
     </div>
   );
 
@@ -296,7 +298,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
       <div className='space-y-2'>
           <Label>Aperçu de la photo</Label>
           <div className="relative aspect-square w-full rounded-md border bg-muted overflow-hidden">
-              <Image src={previewImage!} alt="Aperçu de la pièce" fill className="object-contain" />
+              <Image src={previewImage!} alt="Aperçu de la pièce" fill className="object-cover" />
               <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 bg-background/50 hover:bg-background/80 h-7 w-7" onClick={resetPhoto}>
                   <X className="h-4 w-4" />
               </Button>
