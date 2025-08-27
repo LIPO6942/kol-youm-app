@@ -5,6 +5,7 @@ import { getUserFromDb, storeUserInDb } from "@/lib/indexeddb";
 export type WardrobeItem = {
     id: string; // Unique ID, e.g., timestamp + random string
     type: 'haut' | 'bas' | 'chaussures' | 'accessoires';
+    style: 'Professionnel' | 'Décontracté' | 'Chic' | 'Sportif';
     photoDataUri: string; // The base64 Data URI of the image
     createdAt: number; // Timestamp for sorting
 };

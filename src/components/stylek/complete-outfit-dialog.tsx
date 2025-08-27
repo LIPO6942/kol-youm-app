@@ -152,6 +152,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
         return;
     }
 
+    const mainFormValues = mainForm.getValues();
     const isMainFormValid = await mainForm.trigger();
     if (!isMainFormValid) {
         toast({
@@ -163,10 +164,11 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
         return;
     }
     
-    // Save item to virtual wardrobe (locally)
+    // Save item to virtual wardrobe, including the style from the main form
     try {
         await addWardrobeItem(user.uid, {
             type: values.baseItemType,
+            style: mainFormValues.occasion, // Use occasion from main form as style
             photoDataUri: values.baseItemPhotoDataUri,
         });
         toast({
@@ -183,7 +185,6 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
     }
 
     setIsDialogOpen(false);
-    const mainFormValues = mainForm.getValues();
     
     const input = {
       ...mainFormValues,
