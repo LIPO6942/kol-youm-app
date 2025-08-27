@@ -9,9 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Hanger, Shirt, Milestone, Footprints, Gem, Trash2, Loader2, ImageOff } from 'lucide-react';
+import { Hanger, Shirt, Milestone, Footprints, Gem, Trash2, Loader2 } from 'lucide-react';
 import type { WardrobeItem } from '@/lib/firebase/firestore';
 
 const categoryConfig = {
@@ -27,7 +26,7 @@ export function WardrobeSheet({ children }: { children: React.ReactNode }) {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const wardrobeItems = userProfile?.wardrobe || [];
-  const sortedItems = wardrobeItems.sort((a, b) => b.createdAt - a.createdAt);
+  const sortedItems = wardrobeItems.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   const groupedItems = sortedItems.reduce((acc, item) => {
     (acc[item.type] = acc[item.type] || []).push(item);
@@ -68,62 +67,63 @@ export function WardrobeSheet({ children }: { children: React.ReactNode }) {
         </SheetHeader>
         <div className="relative flex-grow min-h-0">
           <ScrollArea className="absolute inset-0 pr-6">
-            {wardrobeItems.length === 0 && renderEmptyState()}
-            <div className="space-y-6 py-4">
-              {(Object.keys(categoryConfig) as Array<keyof typeof categoryConfig>).map(categoryKey => {
-                const items = groupedItems[categoryKey];
-                const config = categoryConfig[categoryKey];
-                if (!items || items.length === 0) return null;
+            {wardrobeItems.length === 0 ? renderEmptyState() : (
+              <div className="space-y-6 py-4">
+                {(Object.keys(categoryConfig) as Array<keyof typeof categoryConfig>).map(categoryKey => {
+                  const items = groupedItems[categoryKey];
+                  const config = categoryConfig[categoryKey];
+                  if (!items || items.length === 0) return null;
 
-                return (
-                  <div key={categoryKey}>
-                    <div className="flex items-center gap-2 mb-3">
-                      <config.icon className="h-5 w-5 text-primary" />
-                      <h3 className="text-lg font-semibold font-headline">{config.label}</h3>
-                    </div>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                      {items.map(item => (
-                        <div key={item.id} className="group relative aspect-square">
-                          <div className="relative h-full w-full rounded-md overflow-hidden border bg-secondary">
-                             {isDeleting === item.id ? (
-                                <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
-                                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                </div>
-                            ) : (
-                                <Image src={item.photoDataUri} alt={item.type} fill className="object-cover" />
-                            )}
+                  return (
+                    <div key={categoryKey}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <config.icon className="h-5 w-5 text-primary" />
+                        <h3 className="text-lg font-semibold font-headline">{config.label}</h3>
+                      </div>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                        {items.map(item => (
+                          <div key={item.id} className="group relative aspect-square">
+                            <div className="relative h-full w-full rounded-md overflow-hidden border bg-secondary">
+                               {isDeleting === item.id ? (
+                                  <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
+                                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                  </div>
+                              ) : (
+                                  <Image src={item.photoDataUri} alt={item.type} fill className="object-cover" />
+                              )}
+                            </div>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="destructive"
+                                  size="icon"
+                                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                  disabled={!!isDeleting}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                      <AlertDialogTitle>Supprimer cette pièce ?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                          Cette action est irréversible et supprimera l'article de votre garde-robe locale.
+                                      </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                      <AlertDialogCancel>Annuler</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDelete(item.id)}>Confirmer</AlertDialogAction>
+                                  </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="destructive"
-                                size="icon"
-                                className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                disabled={!!isDeleting}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Supprimer cette pièce ?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Cette action est irréversible et supprimera l'article de votre garde-robe locale.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Annuler</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDelete(item.id)}>Confirmer</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </ScrollArea>
         </div>
       </SheetContent>
