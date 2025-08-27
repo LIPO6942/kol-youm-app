@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, PlusCircle, Image as ImageIcon, X, Shirt, Milestone, Footprints, Gem, Upload, Camera, CameraOff } from 'lucide-react';
+import { Loader2, PlusCircle, X, Shirt, Milestone, Footprints, Gem, Upload, Camera, CameraOff } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
@@ -16,7 +16,6 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/use-auth';
 import { addWardrobeItem } from '@/lib/firebase/firestore';
 
@@ -34,7 +33,7 @@ type CompleteOutfitFormValues = z.infer<typeof completeOutfitFormSchema>;
 interface CompleteOutfitDialogProps {
   mainForm: UseFormReturn<any>;
   onCompleteOutfit: (values: any) => void;
-  isLoading: boolean;
+  isGenerating: boolean;
 }
 
 const itemTypeOptions = [
@@ -45,11 +44,12 @@ const itemTypeOptions = [
 ] as const;
 
 
-export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: CompleteOutfitDialogProps) {
+export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating }: CompleteOutfitDialogProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [view, setView] = useState<'idle' | 'upload' | 'camera'>('idle');
+  const [view, setView] = useState<'idle' | 'camera'>('idle');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
   const { user, forceProfileRefresh } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,7 +85,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
   const setupCamera = async () => {
       try {
           const stream = await navigator.mediaDevices.getUserMedia({ 
-              video: { facingMode: 'environment' } // Prioritize back camera
+              video: { facingMode: 'environment' }
           });
           streamRef.current = stream;
           if (videoRef.current) {
@@ -109,11 +109,40 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
     setupCamera();
   }
 
+  const uploadImage = async (file: File | Blob) => {
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Upload failed');
+      }
+      
+      const { secure_url } = await response.json();
+      setPreviewImage(secure_url);
+      completeOutfitForm.setValue('baseItemPhotoDataUri', secure_url, { shouldValidate: true });
+
+    } catch (error) {
+      console.error(error);
+      toast({ variant: 'destructive', title: 'Erreur de téléversement', description: (error as Error).message });
+      resetPhoto();
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-        // Limite de 10 Mo pour l'importation de fichiers
-        if (file.size > 10 * 1024 * 1024) {
+        if (file.size > 10 * 1024 * 1024) { // 10MB limit
             toast({
                 variant: 'destructive',
                 title: 'Fichier trop volumineux',
@@ -121,13 +150,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
             });
             return;
         }
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (e) => {
-            const originalDataUri = e.target?.result as string;
-            setPreviewImage(originalDataUri);
-            completeOutfitForm.setValue('baseItemPhotoDataUri', originalDataUri, { shouldValidate: true });
-        };
+        await uploadImage(file);
     }
   };
 
@@ -135,23 +158,22 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
     if (videoRef.current) {
         const video = videoRef.current;
         const canvas = document.createElement('canvas');
-        
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const context = canvas.getContext('2d');
 
         if (context) {
             context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-            const originalDataUri = canvas.toDataURL('image/jpeg');
-
-            setPreviewImage(originalDataUri);
-            completeOutfitForm.setValue('baseItemPhotoDataUri', originalDataUri, { shouldValidate: true });
-            
+            canvas.toBlob(async (blob) => {
+                if (blob) {
+                    await uploadImage(blob);
+                }
+            }, 'image/jpeg', 0.95);
             stopCamera();
             setView('idle');
         }
     }
-};
+  };
 
 
   const handleCompleteOutfitSubmit = async (values: CompleteOutfitFormValues) => {
@@ -173,21 +195,19 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
     }
     
     try {
-        // Sauvegarder l'image en pleine résolution dans la garde-robe
         await addWardrobeItem(user.uid, {
             type: values.baseItemType,
             style: mainFormValues.occasion,
             photoDataUri: values.baseItemPhotoDataUri,
         });
 
-        await forceProfileRefresh(); // Forcer la mise à jour depuis IndexedDB
+        await forceProfileRefresh();
         
         toast({
             title: "Pièce ajoutée !",
-            description: "Votre article a été sauvegardé en haute qualité dans votre garde-robe virtuelle.",
+            description: "Votre article a été sauvegardé dans votre garde-robe virtuelle.",
         });
 
-        // Utiliser l'image en pleine résolution pour la génération de la tenue
         const completeOutfitInput = {
           ...mainFormValues,
           baseItemPhotoDataUri: values.baseItemPhotoDataUri,
@@ -200,7 +220,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
         toast({
             variant: "destructive",
             title: "Erreur de Traitement",
-            description: "Impossible de traiter la photo ou de générer la tenue.",
+            description: "Impossible de sauvegarder la photo ou de générer la tenue.",
         });
     }
 
@@ -218,7 +238,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
 
   const renderIdleView = () => (
     <div className="space-y-4">
-      <Button variant="outline" className="w-full h-20" onClick={() => fileInputRef.current?.click()}>
+      <Button variant="outline" className="w-full h-20" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
         <Upload className="mr-2" /> Importer une photo
       </Button>
       <input
@@ -228,7 +248,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
           className="hidden"
           accept="image/png, image/jpeg, image/webp"
       />
-      <Button variant="outline" className="w-full h-20" onClick={handleCameraView}>
+      <Button variant="outline" className="w-full h-20" onClick={handleCameraView} disabled={isUploading}>
         <Camera className="mr-2" /> Prendre une photo
       </Button>
     </div>
@@ -246,7 +266,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
                 </div>
             )}
         </div>
-        <Button onClick={handleCapturePhoto} className="w-full" disabled={!hasCameraPermission}>Capturer</Button>
+        <Button onClick={handleCapturePhoto} className="w-full" disabled={!hasCameraPermission || isUploading}>Capturer</Button>
         <Button variant="ghost" onClick={() => { stopCamera(); setView('idle'); }} className="w-full">Annuler</Button>
     </div>
   );
@@ -256,7 +276,12 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
       <div className='space-y-2'>
           <Label>Aperçu de la photo</Label>
           <div className="relative aspect-square w-full rounded-md border bg-muted overflow-hidden">
-              <Image src={previewImage!} alt="Aperçu de la pièce" fill className="object-cover" />
+              {isUploading && (
+                <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              )}
+              {previewImage && <Image src={previewImage} alt="Aperçu de la pièce" fill className="object-cover" />}
               <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 bg-background/50 hover:bg-background/80 h-7 w-7" onClick={resetPhoto}>
                   <X className="h-4 w-4" />
               </Button>
@@ -321,13 +346,14 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isLoading }: 
                     <div className="space-y-6 pr-1">
                       {view === 'camera' && renderCameraView()}
                       {view === 'idle' && !previewImage && renderIdleView()}
-                      {(view !== 'camera' && previewImage) && renderFormContent()}
+                      {(view === 'idle' && previewImage) && renderFormContent()}
                     </div>
                 </ScrollArea>
                 
                 <DialogFooter className="pt-6">
-                    <Button type="submit" disabled={isLoading || !previewImage} className="w-full">
-                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Générer la tenue'}
+                    <Button type="submit" disabled={isUploading || isGenerating || !previewImage} className="w-full">
+                        {(isUploading || isGenerating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Générer la tenue
                     </Button>
                 </DialogFooter>
             </form>

@@ -8,7 +8,6 @@ import { z } from 'zod';
 import { useSearchParams } from 'next/navigation';
 import { Briefcase, Users, Dumbbell, Coffee, Sun, Cloudy, CloudRain, Snowflake, Wand2, Loader2, Check, Sparkles, Building, Shirt } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/hooks/use-auth';
 
 import { Button } from '@/components/ui/button';
 import { CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -250,7 +249,7 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
             <CompleteOutfitDialog
               mainForm={form}
               onCompleteOutfit={onSuggestOutfit}
-              isLoading={isLoading}
+              isGenerating={isLoading}
             />
           </CardFooter>
         </form>

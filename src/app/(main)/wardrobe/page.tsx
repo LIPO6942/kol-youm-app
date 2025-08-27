@@ -113,8 +113,8 @@ export default function WardrobePage() {
                                     )}
                                 </div>
                             </DialogTrigger>
-                             <DialogContent className="p-0 border-0 max-w-2xl">
-                                <Image src={item.photoDataUri} alt={`${item.style} ${item.type}`} width={1024} height={1024} className="object-contain rounded-lg" />
+                             <DialogContent className="p-0 border-0 max-w-2xl bg-transparent">
+                                <Image src={item.photoDataUri} alt={`${item.style} ${item.type}`} width={1024} height={1024} className="object-contain rounded-lg w-full h-auto" />
                             </DialogContent>
                         </Dialog>
 
@@ -133,7 +133,7 @@ export default function WardrobePage() {
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>Supprimer cette pièce ?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        Cette action est irréversible et supprimera l'article de votre garde-robe locale.
+                                        Cette action est irréversible et supprimera l'article de votre garde-robe. L'image sur Cloudinary ne sera pas supprimée.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>

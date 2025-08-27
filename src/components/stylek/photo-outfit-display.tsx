@@ -57,7 +57,7 @@ const SuggestedItem = ({ item, title, onRegenerate, isRegenerating }: SuggestedI
 
             {!isRegenerating && !hasFailed && (
                 <div className="absolute bottom-0 left-0 right-0 bg-black/40 text-white p-2 text-center text-xs backdrop-blur-sm">
-                    {title}
+                    <p className="truncate">{item.description}</p>
                 </div>
             )}
         </div>

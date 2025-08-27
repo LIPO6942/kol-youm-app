@@ -6,7 +6,7 @@ export const GenerateOutfitFromPhotoInputSchema = SuggestOutfitInputSchema.exten
     baseItemPhotoDataUri: z
         .string()
         .describe(
-        "A photo of the base clothing item, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+        "A photo of the base clothing item, as a data URI or a public URL."
         ),
     baseItemType: z.enum(['haut', 'bas', 'chaussures', 'accessoires']).describe('The type of the base item provided by the user.'),
 });

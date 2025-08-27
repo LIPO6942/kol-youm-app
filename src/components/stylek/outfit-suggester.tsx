@@ -59,7 +59,7 @@ export default function OutfitSuggester() {
   const { userProfile } = useAuth();
   const [suggestion, setSuggestion] = useState<SuggestOutfitOutput | null>(null);
   const [photoSuggestion, setPhotoSuggestion] = useState<PhotoSuggestion | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
   const [currentPhotoConstraints, setCurrentPhotoConstraints] = useState<GenerateOutfitFromPhotoInput | null>(null);
@@ -67,7 +67,7 @@ export default function OutfitSuggester() {
   const [baseItemPhoto, setBaseItemPhoto] = useState<string | null>(null);
 
   const getSuggestion = async (input: SuggestOutfitInput & { baseItemPhotoDataUri?: string, baseItemType?: 'haut' | 'bas' | 'chaussures' | 'accessoires' }) => {
-    setIsLoading(true);
+    setIsGenerating(true);
     setSuggestion(null);
     setPhotoSuggestion(null);
     setBaseItemPhoto(null);
@@ -148,7 +148,7 @@ export default function OutfitSuggester() {
     } catch (error) {
       handleAiError(error, toast);
     } finally {
-      setIsLoading(false);
+      setIsGenerating(false);
     }
   };
 
@@ -199,14 +199,14 @@ export default function OutfitSuggester() {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
       <Card>
         <OutfitForm 
-          isLoading={isLoading} 
+          isLoading={isGenerating} 
           onSuggestOutfit={getSuggestion} 
         />
       </Card>
 
       <Card className="min-h-[600px] flex flex-col justify-center items-center sticky top-24">
         <OutfitDisplay
-          isLoading={isLoading}
+          isLoading={isGenerating}
           suggestion={suggestion}
           photoSuggestion={photoSuggestion}
           gender={userProfile?.gender}
