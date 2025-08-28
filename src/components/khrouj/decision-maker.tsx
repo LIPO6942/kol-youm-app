@@ -282,7 +282,7 @@ export default function DecisionMaker() {
             <Collapsible className="space-y-2">
                 <div className="flex justify-center items-center">
                     <CollapsibleTrigger asChild>
-                        <Button variant="ghost" className="text-sm">
+                        <Button variant="ocean">
                             <Filter className="mr-2 h-4 w-4" />
                             {getFilterButtonText()}
                         </Button>
