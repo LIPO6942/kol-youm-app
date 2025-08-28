@@ -141,7 +141,7 @@ export default function DecisionMaker() {
     if (selectedCategory) {
       fetchSuggestions(selectedCategory, selectedZones);
     }
-  }, [selectedCategory, selectedZones]);
+  }, [selectedCategory, selectedZones, fetchSuggestions]);
 
 
   const handleCategorySelect = (category: (typeof outingOptions)[0]) => {
@@ -170,7 +170,6 @@ export default function DecisionMaker() {
 
   const handleRefresh = () => {
     if (selectedCategory) {
-        setSeenSuggestions([]); // Reset session memory to get fresh results
         fetchSuggestions(selectedCategory, selectedZones);
     }
   }
