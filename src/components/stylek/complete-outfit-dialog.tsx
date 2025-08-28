@@ -329,7 +329,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" className="w-full">
+        <Button type="button" variant="default" className="w-full">
           <PlusCircle className="mr-2 h-4 w-4" />
           Compléter ma tenue
         </Button>
