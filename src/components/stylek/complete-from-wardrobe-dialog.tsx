@@ -90,7 +90,7 @@ export function CompleteFromWardrobeDialog({ mainForm, onCompleteOutfit, isGener
         }
     }}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" className="w-full">
+        <Button type="button" variant="ocean" className="w-full">
           <Library className="mr-2 h-4 w-4" />
           Compléter depuis ma garde-robe
         </Button>
