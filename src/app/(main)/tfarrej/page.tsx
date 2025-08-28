@@ -77,13 +77,13 @@ function TfarrejContent() {
             </div>
             <div className="flex gap-2 self-end sm:self-center">
                 <MovieListSheet
-                    trigger={<Button variant="outline"><ListVideo className="mr-2 h-4 w-4" /> À Voir</Button>}
+                    trigger={<Button variant="ocean"><ListVideo className="mr-2 h-4 w-4" /> À Voir</Button>}
                     title="Ma Liste 'À Voir'"
                     description="Les films que vous avez aimés et mis de côté pour plus tard."
                     listType="moviesToWatch"
                 />
                 <MovieListSheet
-                    trigger={<Button variant="outline"><Eye className="mr-2 h-4 w-4" /> Vus</Button>}
+                    trigger={<Button variant="default"><Eye className="mr-2 h-4 w-4" /> Vus</Button>}
                     title="Mes Films 'Vus'"
                     description="L'historique de tous les films que vous avez notés."
                     listType="seenMovieTitles"
