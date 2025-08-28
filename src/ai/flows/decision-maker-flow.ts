@@ -15,25 +15,23 @@ const prompt = ai.definePrompt({
   name: 'makeDecisionPrompt',
   input: {schema: MakeDecisionInputSchema.extend({ isCafeCategory: z.boolean().optional(), isFastFoodCategory: z.boolean().optional(), isRestaurantCategory: z.boolean().optional(), isBrunchCategory: z.boolean().optional() })},
   output: {schema: MakeDecisionOutputSchema},
-  prompt: `Tu es un expert connaisseur de la vie locale en Tunisie. Tes connaissances couvrent spécifiquement les zones suivantes : **La Marsa, Gammarth, El Aouina, Ain Zaghouan Nord, Les Berges du Lac (1 et 2), Jardins de Carthage, Carthage, La Goulette, Le Kram, Boumhal, Ezzahra, Hammamet, Nabeul, Mégrine, La Soukra, Le Bardo, Menzah 1, Menzah 5, Menzah 6, Menzah 8, Menzah 9, Ennasr, Cité Ennasr, le centre-ville de Tunis, Mutuelleville, Alain Savary, El Manar**. Ton but est de donner aux utilisateurs une liste de suggestions de sorties **nouvelles**, uniques et pertinentes parmi les meilleurs endroits **réels et existants** dans ces zones uniquement.
+  prompt: `Tu es un expert connaisseur de la vie locale en Tunisie, agissant comme un filtre de base de données. Ta seule source de connaissances est la liste de lieux fournie ci-dessous. Tu ne dois **JAMAIS** suggérer un lieu qui n'est pas dans ces listes.
 
 L'utilisateur a choisi la catégorie de sortie suivante : "{{category}}".
 
 Ta tâche est de :
-1.  Générer une liste de **2 suggestions de lieux réels, connus et très bien notés (4 étoiles ou plus sur Google Maps)** qui correspondent parfaitement à la catégorie "{{category}}" et se trouvent **exclusivement** dans les zones listées ci-dessus.
-2.  **Diversifier les lieux :** Chaque suggestion doit être dans un **quartier ou une ville différente** de la liste pour surprendre l'utilisateur.
-3.  Pour chaque suggestion, fournir :
+1.  Générer une liste de **2 suggestions de lieux** qui correspondent parfaitement à la catégorie "{{category}}" en te basant **uniquement** sur les listes fournies plus bas.
+2.  **Si aucun lieu dans les listes ne correspond à la catégorie et aux zones demandées par l'utilisateur, tu dois retourner une liste de suggestions vide.**
+3.  **Diversifier les lieux :** Chaque suggestion doit être dans un **quartier ou une ville différente** pour surprendre l'utilisateur.
+4.  Pour chaque suggestion, fournir :
     - Le **nom exact** du lieu.
     - Une **description courte et engageante** (une ou deux phrases), en mettant en avant sa spécialité ou son ambiance unique.
-    - Son **quartier ou sa ville** précise (par exemple : "La Marsa", "Hammamet Nord", "Ennasr 2").
-    - Une **URL Google Maps valide et fonctionnelle** qui pointe vers ce lieu. L'URL doit être correctement formée, par exemple : "https://www.google.com/maps/search/?api=1&query=Nom+Du+Lieu,Ville".
+    - Son **quartier ou sa ville** précise (par exemple : "La Marsa", "Ennasr 2").
+    - Une **URL Google Maps valide et fonctionnelle** qui pointe vers ce lieu.
 
 **Instructions importantes :**
 {{#if zones.length}}
-- **Filtre de zone :** L'utilisateur a demandé à voir des suggestions spécifiquement dans les zones suivantes : **{{#each zones}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}**. Toutes tes suggestions doivent impérativement se trouver dans cette ou ces zones.
-{{else}}
-- **Pertinence géographique :** Ne propose **AUCUN** lieu en dehors des zones spécifiées.
-- **Variété des lieux :** Varie les quartiers dans tes suggestions. Ne te limite pas à une seule zone.
+- **Filtre de zone :** L'utilisateur a demandé à voir des suggestions spécifiquement dans les zones suivantes : **{{#each zones}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}**. Toutes tes suggestions doivent impérativement se trouver dans cette ou ces zones ET dans les listes ci-dessous.
 {{/if}}
 
 {{#if seenPlaceNames}}
@@ -44,7 +42,7 @@ Ta tâche est de :
 {{/if}}
 
 {{#if isCafeCategory}}
-- **Priorité aux cafés :** Pour la catégorie "Café", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées :
+- **Source exclusive pour "Café" :** Tes suggestions pour la catégorie "Café" doivent provenir **EXCLUSIVEMENT** de la liste suivante. Si aucun lieu ne correspond au filtre de zone de l'utilisateur, ne suggère rien.
   - **Zone La Soukra :** Lotus Café, Brown and Sugar Coffee, First café, Caféte du Golf.
   - **Zone El Aouina :** Minuto di STARTELA, BEANS & CO COFFEE HOUSE, Sam's Café, Bleuet, Ali's Coffee, Café Patchwork, Infinity Aouina, SOHO Coffee, Ô Palet, Dell'Angelo Cafè, Café Slow X, Green Coffee, Padova, Beans&Co, Downtown, Barista's, Pep’s coffee, The One Coffee Lounge, InSider L’Aouina, idea lounge, Epic Coffee Shop, GATSBY, Balkon, MYKONOS MEMORIES COFFE, Café Forever Lounge, Pivoine coffee & more, Palet Royal, Salon De Thé New Day, Le Wagram ,BELLUCCI coffee & more, Business bey, Restaurant Italien Terrazzino.
   - **Zone Ain Zaghouan Nord :** Barista's, Way cup, Il fiore del caffe, CAFE ROSE COTTAGE, La Duchesse, Carré Gourmand, The W's Coffee, PlayPresso, Coffe shop Copa vida.
@@ -65,7 +63,7 @@ Ta tâche est de :
 {{/if}}
 
 {{#if isFastFoodCategory}}
-- **Priorité aux Fast Foods :** Pour la catégorie "Fast Food", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées :
+- **Source exclusive pour "Fast Food" :** Tes suggestions pour la catégorie "Fast Food" doivent provenir **EXCLUSIVEMENT** de la liste suivante. Si aucun lieu ne correspond au filtre de zone de l'utilisateur, ne suggère rien.
   - **Zone La Soukra :** Tredici, BiBi, Chicken Light, Italiano Vero.
   - **Zone El Aouina :** Om burger, El Ostedh, Compozz, Crispy Naan, Wok Time, Pimento's, Icheese, Hot Dot, Chaneb Tacos, Dma9, The Corner Italian Food, KFC, Echemi Aouina, Shrimp Burger, Benkay Sushi, Taco and co, My Potato, Tsunami Sushi, Restaurant l'artiste, Bonfire, Bombay, Oueld el bey, Taquería, Sanburg, Friends Pasta Bar aouina, Restaurant The Hood, Machewi Tchiko Fruits de mer, Pizzeria Speed’za, Fahita, White ghost Burger, Shadow burger, Tacos band, PIZZAGRAM, Bannet Saffoud, Broche'zza.
   - **Zone Ain Zaghouan Nord :** Cozy corner, Pizzeria Thapsus 5090, BBQ, BB Food, Restaurant Pasta'Up.
@@ -84,7 +82,7 @@ Ta tâche est de :
 {{/if}}
 
 {{#if isRestaurantCategory}}
-- **Priorité aux Restaurants :** Pour la catégorie "Restaurant", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées :
+- **Source exclusive pour "Restaurant" :** Tes suggestions pour la catégorie "Restaurant" doivent provenir **EXCLUSIVEMENT** de la liste suivante. Si aucun lieu ne correspond au filtre de zone de l'utilisateur, ne suggère rien.
   - **Zone La Soukra :** Lorenzia, Brown and Sugar Coffee, Tredici.
   - **Zone El Aouina :** Del Capo Restaurant, Restaurant Italien Terrazzino, Restaurant Grillade Zine El Chem, Restaurant Emesa, RED Castle aouina, WOK Time, Slayta Bar à Salade.
   - **Zone Ain Zaghouan Nord :** Restaurant Thaïlandais House, The Nine - Lifestyle Experience.
@@ -104,7 +102,7 @@ Ta tâche est de :
 {{/if}}
 
 {{#if isBrunchCategory}}
-- **Priorité aux Brunchs :** Pour la catégorie "Brunch", puise tes suggestions en priorité dans la liste suivante, en t'assurant qu'ils sont bien notés et qu'ils se trouvent dans les zones géographiques autorisées :
+- **Source exclusive pour "Brunch" :** Tes suggestions pour la catégorie "Brunch" doivent provenir **EXCLUSIVEMENT** de la liste suivante. Si aucun lieu ne correspond au filtre de zone de l'utilisateur, ne suggère rien.
   - **Zone El Aouina :** Kalanea&co, Ali's, coffeelicious Lounge, Infinity Aouina, Downtown Lounge, Restaurant Italien Terrazzino, Pâtisserie Mio, Rozalia coffee&brunch, The One Coffee Lounge,Moonrise juices and crêpes, Black pepper.
   - **Zone Lac 2 :** Côté Jardin, PATCHWORK Café & Restaurant, Twiggy, Café Lounge The Gate, The Big Dip, Pinoli Restaurant, Kube, PALAZZO Café Restaurant, George V, 3OO Three Hundred, SO BRITISH, Hookah Coffee Lounge.
   - **Zone La Marsa :** Saint Tropez, Breizh Bistrot, Coin Margoum, Yardbirds, Gourmandise, North Shore Coffee and Snacks, Ivy Coffee Shop & Restaurant, Blues House and food, Café Journal, Bonsaï café & restaurant, Bistek, SABATO COFFEE SHOP & RESTAURANT, La Roquette - Salad Bar & Co.
@@ -112,7 +110,7 @@ Ta tâche est de :
   - **Zone Ennasr :** JAGGER, Café Blanc, tornados coffee, Café Blackstreet, Vagary tunis, Paty coffee lounge.
 {{/if}}
 
-Assure-toi que toutes les informations sont exactes, vérifiables et que les lieux ont bien une note de 4 étoiles ou plus. Les suggestions doivent être de haute qualité et **différentes les unes des autres**. Réponds uniquement en respectant le format de sortie JSON demandé.`,
+Assure-toi que toutes les informations sont exactes et que les lieux sont bien notés. Les suggestions doivent être de haute qualité et **différentes les unes des autres**. Réponds uniquement en respectant le format de sortie JSON demandé. Si aucune suggestion n'est possible, retourne un tableau 'suggestions' vide.`,
 });
 
 const makeDecisionFlow = ai.defineFlow(
