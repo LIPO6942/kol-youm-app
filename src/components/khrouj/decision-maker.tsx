@@ -136,17 +136,11 @@ export default function DecisionMaker() {
     }
   }, [user, userProfile?.seenKhroujSuggestions, seenSuggestions, toast]);
 
-  useEffect(() => {
-    // This effect reliably triggers a new search whenever the category or zones change.
-    if (selectedCategory) {
-      fetchSuggestions(selectedCategory, selectedZones);
-    }
-  }, [selectedCategory, selectedZones, fetchSuggestions]);
-
-
   const handleCategorySelect = (category: (typeof outingOptions)[0]) => {
     setSeenSuggestions([]); // Reset session memory for the new category
     setSelectedCategory(category);
+    // The actual fetch is triggered from here now
+    fetchSuggestions(category, selectedZones);
   };
 
   const handleZoneChange = (zone: string, checked: boolean) => {
