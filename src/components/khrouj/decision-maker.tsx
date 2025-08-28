@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { Suggestion } from '@/ai/flows/decision-maker-flow.types';
-import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X } from 'lucide-react';
+import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile } from '@/lib/firebase/firestore';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
@@ -17,13 +17,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-const outingOptions: { id: string; label: string; icon: LucideIcon; description: string }[] = [
-    { id: 'fast-food', label: 'Fast Food', icon: Sandwich, description: "Une envie rapide et gourmande" },
-    { id: 'cafe', label: 'Café', icon: Coffee, description: "Pour un moment de détente" },
-    { id: 'brunch', label: 'Brunch', icon: UtensilsCrossed, description: "Gourmandise du week-end" },
-    { id: 'restaurant', label: 'Restaurant', icon: UtensilsCrossed, description: "Un repas mémorable" },
-    { id: 'balade', label: 'Balade', icon: Mountain, description: "Prendre un bol d'air frais" },
-    { id: 'shopping', label: 'Shopping', icon: ShoppingBag, description: "Trouver la perle rare" },
+const outingOptions: { id: string; label: string; icon: LucideIcon; description: string, colorClass: string, bgClass: string, hoverClass: string, selectedClass: string }[] = [
+    { id: 'fast-food', label: 'Fast Food', icon: Sandwich, description: "Rapide et gourmand", colorClass: 'text-orange-700', bgClass: 'bg-orange-50', hoverClass: 'hover:bg-orange-100', selectedClass: 'border-orange-500 bg-orange-100' },
+    { id: 'cafe', label: 'Café', icon: Coffee, description: "Pour se détendre", colorClass: 'text-amber-800', bgClass: 'bg-amber-50', hoverClass: 'hover:bg-amber-100', selectedClass: 'border-amber-600 bg-amber-100' },
+    { id: 'brunch', label: 'Brunch', icon: Sun, description: "Gourmandise du matin", colorClass: 'text-yellow-600', bgClass: 'bg-yellow-50', hoverClass: 'hover:bg-yellow-100', selectedClass: 'border-yellow-500 bg-yellow-100' },
+    { id: 'restaurant', label: 'Restaurant', icon: Pizza, description: "Un repas mémorable", colorClass: 'text-red-700', bgClass: 'bg-red-50', hoverClass: 'hover:bg-red-100', selectedClass: 'border-red-500 bg-red-100' },
+    { id: 'balade', label: 'Balade', icon: Mountain, description: "Prendre l'air", colorClass: 'text-green-700', bgClass: 'bg-green-50', hoverClass: 'hover:bg-green-100', selectedClass: 'border-green-500 bg-green-100' },
+    { id: 'shopping', label: 'Shopping', icon: ShoppingBag, description: "Trouver la perle", colorClass: 'text-pink-700', bgClass: 'bg-pink-50', hoverClass: 'hover:bg-pink-100', selectedClass: 'border-pink-500 bg-pink-100' },
 ];
 
 const zones = [
@@ -155,7 +155,8 @@ export default function DecisionMaker() {
   const handleReset = () => {
     setSuggestions([]);
     setSelectedCategory(undefined);
-    setSelectedZones([]);
+    // Let's keep the zone filter selected for user convenience
+    // setSelectedZones([]); 
     setSeenSuggestions([]);
     if (carouselApi) {
         carouselApi.destroy();
@@ -314,12 +315,15 @@ export default function DecisionMaker() {
                   <div 
                     key={option.id}
                     onClick={() => handleCategorySelect(option)}
-                    className="group flex flex-col items-center justify-center rounded-lg border-2 border-dashed bg-card p-6 text-card-foreground shadow-sm hover:shadow-xl hover:border-primary hover:-translate-y-1 transition-all duration-300 cursor-pointer space-y-3"
+                    className={cn(
+                        "group flex flex-col items-center justify-center rounded-lg border-2 p-4 text-card-foreground shadow-sm hover:-translate-y-1 transition-all duration-300 cursor-pointer space-y-2",
+                        option.bgClass,
+                        option.hoverClass,
+                        "border-muted"
+                    )}
                   >
-                      <div className="p-4 bg-muted group-hover:bg-primary/10 rounded-full transition-colors duration-300">
-                        <Icon className="h-10 w-10 text-muted-foreground group-hover:text-primary transition-colors duration-300" />
-                      </div>
-                      <h3 className="text-lg font-semibold">{option.label}</h3>
+                      <Icon className={cn("h-8 w-8 mb-1 transition-colors duration-300", option.colorClass)} />
+                      <h3 className={cn("text-md font-semibold transition-colors duration-300", option.colorClass)}>{option.label}</h3>
                       <p className="text-xs text-center text-muted-foreground">{option.description}</p>
                   </div>
                 )
@@ -329,5 +333,3 @@ export default function DecisionMaker() {
     </Card>
   );
 }
-
-    
