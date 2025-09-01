@@ -65,7 +65,8 @@ Ta tâche est de :
   - **Zone Carthage :** Uranium Café d'art, Barista's Carthage Dermech, Punic'Art, Café Yam's, Next One, Avra Carthage, The Hills, Matcha Club | Carthage.
   - **Zone La Goulette/Kram :** El Aalia, Café Restaurant La Plage, Wet Flamingo(Bar).
   - **Zone Mégrine/ Sidi Rzig :** Fugazi coffee&snack, Double Dose, Javayou, Salon de thé white lounge, La Dolce Vita, SHOW OFF, Wood&ROPES, Gourmandise Megrine.
-  - **Zone El Manar :** Hillside Resto-Lounge, Brooklyn Café, Wolf And Rabbit, Pantree, Vero Gusto, Q'Mug, Story coffee, Môme Lounge.
+  - **Zone Boumhal :** Verde Coffee Boumhal , The 21 Lounge, JOSEPH COFEE LOUNGE, Beverly Hills Lounge, Di più ,BISOU , Le Parisien ,Times Square.
+  - **Zone El Manar :** Hillside Resto-Lounge, Brooklyn Café, Wolf And Rabbit, Pantree, Vero Gusto, Q'Mug, Story coffee, Môme Lounge, Tirana Café, Villa Azzura.
   - **Zone Menzah 9 :** La Verrière - Café Resto, LA DOREE, Casa De Papel.
   - **Zone Menzah 6 :** 3al Kif, café 23, Le Trait d'union, A casa mia, Le Montmartre, Sacré Cœur, La Seine, The 716 Menzah 6, Tartes et haricots.
   - **Zone Menzah 5 :** Gourmandise M5, Eric Kayser, Lv Club, Seven S M5, Kälo café, Nüma coffee & kitchen, The Paradise, Myplace, El Chapo, ABUELA'S CAFE.
@@ -90,8 +91,8 @@ Ta tâche est de :
   - **Zone Ennasr :** Echemi, Baguette&Baguette, Cool tacos, HEY BRO, POPOLARE TRATTORIA, GUSTO PIZZA, Ya hala shawarma-يا هلا شاورما, FaceFood, THE SQUARE, Set el cham, Le Bambou, Lab station (Burger), Greens Trattoria au feu de bois, Restaurant Insomnia, Ibn chem, Tacos Chaneb, Señor tacos, Olympique TACOSAIS, Malibu Ennasr.
   - **Zone La Marsa :** Doodle Burger Bar, Lapero Tapas & Pintxos, Smash’d, Pizza Pesto, Kenkō food bar, Chez Joseph, CORNICELLO NAPOLITAIN, appello, La Pause Fast food, Le Fumoir, Pizzagram, BIG MO - Burger Shack, Pizzeria COME Prima La Marsa, Andiamo, O’Potatos, Panzerotti, Bambino, BFRIES, Uno, Sanfour, Maakoulet Echem, Triade, Piccolo Marsa pizzeria, Wok Thaï La Marsa, Plan B La Marsa, SAKURA PASTA, GOA INDIANA FOOD, D'lich, Benkay Sushi, Sushiwan, La Bruschetta, Machawina, Mamma Time.
   - **Zone Mégrine :** Benkay sushi Megrine, Papa Johns Pizza, May Food's, Malibu Food, Lilliano, Tacos chaneb megrine, Class'croute, Juste En Face Megrine, Baguette & Baguette Megrine.
-  - **Zone Boumhal :** El Boty.
-  - **Zone El Manar :** Restaurant 6019, Fringale.
+  - **Zone Boumhal :** El Boty, CHICK'N CHIPS Boumhal , Montana , Di Napoli Boumhel , Goomba's Pizza Boumhal.
+  - **Zone El Manar :** Restaurant 6019, Fringale, Woodland Pizza, La Padella, Restaurant Le DOMAINE.
 {{/if}}
 
 {{#if isRestaurantCategory}}
@@ -108,6 +109,7 @@ Ta tâche est de :
   - **Zone La Goulette/Kram :** La Topaze, La Mer, La Spigola, La GALITE, Le Café Vert, restaurant la paella, Resto HEKAYA, Le Chalet Goulettois, Restaurant The House - الحوش, Les 3 Marins, Restaurant Flouka, Restaurant Waywa, La maison de la grillade, L'Aquarius, YORK Restaurant & Café, Platinium Restaurant.
   - **Zone Mutuelleville / Alain Savary :** L'ardoise, L'astragale, Alle scale, Le Baroque-Restaurant.
   - **Zone Mégrine :** Tavolino, Via mercato Megrine, La Bottega restaurant.
+   - **Zone Boumhal :** Papito Resto - Lounge.
   - **Zone El Manar :** Mashawi Halab, Chili's American's Grill, Sultan Ahmet, Go! Sushi, Pang's asian restaurant & sushi bar, Route 66.
   - **Zone Menzah 9 :** Damascino Menzah 9, Mamma Time.
   - **Zone Menzah 5 :** les dents de la mer.
@@ -121,6 +123,7 @@ Ta tâche est de :
   - **Zone La Marsa :** Saint Tropez, Breizh Bistrot, Coin Margoum, Yardbirds, Gourmandise, North Shore Coffee and Snacks, Ivy Coffee Shop & Restaurant, Blues House and food, Café Journal, Bonsaï café & restaurant, Bistek, SABATO COFFEE SHOP & RESTAURANT, La Roquette - Salad Bar & Co.
   - **Zone Menzah 6 :** The 716 Menzah 6, A casa mia, Tartes et haricots, Le Montmartre.
   - **Zone Ennasr :** JAGGER, Café Blanc, tornados coffee, Café Blackstreet, Vagary tunis, Paty coffee lounge.
+  - **Zone El Manar :** Restaurant Le DOMAINE, Brooklyn Café, Wolf And Rabbit, Q'Mug, Story coffee.
 {{/if}}
 
 Assure-toi que toutes les informations sont exactes et que les lieux sont bien notés. Les suggestions doivent être de haute qualité et **différentes les unes des autres**. Réponds uniquement en respectant le format de sortie JSON demandé. Si aucune suggestion n'est possible, retourne un tableau 'suggestions' vide.`,
