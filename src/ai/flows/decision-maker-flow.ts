@@ -40,6 +40,13 @@ Ta tâche est de :
     - Une **description courte et engageante** (une ou deux phrases), en mettant en avant sa spécialité ou son ambiance unique.
     - Son **quartier ou sa ville** précise (par exemple : "La Marsa", "Ennasr 2").
     - Une **URL Google Maps valide et fonctionnelle** qui pointe vers ce lieu.
+    Règles supplémentaires :
+
+Actualisation : Lorsqu’un utilisateur clique sur Actualiser, propose toujours de nouveaux lieux différents de ceux déjà affichés.
+
+Aléatoire : Choisis les suggestions de manière aléatoire parmi la liste disponible dans la catégorie (et la zone si précisée).
+
+Exclusion : Ne jamais répéter les lieux déjà vus par l’utilisateur.
 
 **Instructions importantes :**
 {{#if zones.length}}
