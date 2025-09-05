@@ -43,12 +43,10 @@ Ta tâche est de :
     Règles supplémentaires :
 Actualisation : Lorsqu’un utilisateur clique sur Actualiser, propose toujours des lieux différents de ceux déjà affichés.
 Aléatoire : Tire les suggestions de manière aléatoire parmi la liste disponible (et filtrée par zone si précisé).
-Exclusion : Ne jamais répéter les lieux déjà vus par l’utilisateur (seenPlaceNames).
 **Instructions importantes :**
 {{#if zones.length}}
 - **Filtre de zone :** L'utilisateur a demandé à voir des suggestions spécifiquement dans les zones suivantes : **{{#each zones}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}**. Toutes tes suggestions doivent impérativement se trouver dans cette ou ces zones ET dans les listes ci-dessous.
 {{/if}}
-
 {{#if seenPlaceNames}}
 - **Éviter les répétitions :** Exclus impérativement les lieux suivants de tes suggestions, car l'utilisateur les a déjà vus :
 {{#each seenPlaceNames}}
