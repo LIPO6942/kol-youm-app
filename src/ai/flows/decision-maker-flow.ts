@@ -27,26 +27,31 @@ const makeDecisionFlow = ai.defineFlow(
           name: 'makeDecisionPrompt',
           input: {schema: MakeDecisionInputSchema.extend({ isCafeCategory: z.boolean().optional(), isFastFoodCategory: z.boolean().optional(), isRestaurantCategory: z.boolean().optional(), isBrunchCategory: z.boolean().optional() })},
           output: {schema: MakeDecisionOutputSchema},
-          prompt: `Tu es un expert connaisseur de la vie locale en Tunisie, agissant comme un filtre de base de données. Ta seule source de connaissances est la liste de lieux fournie ci-dessous. Tu ne dois **JAMAIS** suggérer un lieu qui n'est pas dans ces listes.
+          prompt: `Tu es un générateur de suggestions aléatoires. Ta seule source de connaissances est la liste de lieux fournie ci-dessous. Tu ne dois JAMAIS suggérer un lieu qui n'est pas dans ces listes.
 
-L'utilisateur a choisi la catégorie de sortie suivante : "{{category}}".
+L'utilisateur a choisi la catégorie de sortie : "{{category}}".
 
-Ta tâche est de :
-1.  Générer une liste de **2 suggestions de lieux** qui correspondent parfaitement à la catégorie "{{category}}" en te basant **uniquement** sur les listes fournies plus bas.
-2.  **Si aucun lieu dans les listes ne correspond à la catégorie et aux zones demandées par l'utilisateur, tu dois retourner une liste de suggestions vide.**
-3.  **Diversifier les lieux :** Chaque suggestion doit être dans un **quartier ou une ville différente** pour surprendre l'utilisateur.
-4.  Pour chaque suggestion, fournir :
+Ta tâche est la suivante :
+
+1.  **Filtrer la liste :** D'abord, identifie la bonne liste de lieux en fonction de la catégorie "{{category}}". Si l'utilisateur a spécifié des zones ({{zones}}), filtre cette liste pour ne garder que les lieux qui se trouvent dans ces zones.
+2.  **Sélection Aléatoire :** Dans la liste filtrée, choisis **DEUX** lieux de manière **COMPLÈTEMENT ALÉATOIRE**. La sélection doit être différente à chaque fois.
+3.  **Éviter les répétitions :** Si l'utilisateur a déjà vu certains lieux ({{seenPlaceNames}}), exclus-les de ta sélection.
+4.  **Formatage de la sortie :** Pour les deux lieux que tu as choisis au hasard, retourne les informations suivantes :
     - Le **nom exact** du lieu.
-    - Une **description courte et engageante** (une ou deux phrases), en mettant en avant sa spécialité ou son ambiance unique.
-    - Son **quartier ou sa ville** précise (par exemple : "La Marsa", "Ennasr 2").
-    - Une **URL Google Maps valide et fonctionnelle** qui pointe vers ce lieu.
-    Règles supplémentaires :
-Actualisation : Lorsqu’un utilisateur clique sur Actualiser, propose toujours des lieux différents de ceux déjà affichés.
-Aléatoire : Tire les suggestions de manière aléatoire parmi la liste disponible (et filtrée par zone si précisé).
+    - Une **description courte et engageante** (une ou deux phrases).
+    - Son **quartier ou sa ville**.
+    - Une **URL Google Maps valide**.
+
+**Instructions Cruciales :**
+- L'aspect le plus important est que la sélection soit **purement aléatoire**. Ne choisis pas les premiers de la liste ou les plus populaires.
+- Si, après filtrage, il y a moins de deux lieux disponibles, n'en retourne qu'un seul, ou retourne une liste vide si aucun ne correspond.
+- Si l'utilisateur clique sur "Actualiser", tes nouvelles suggestions doivent être différentes des précédentes.
+
 **Instructions importantes :**
 {{#if zones.length}}
 - **Filtre de zone :** L'utilisateur a demandé à voir des suggestions spécifiquement dans les zones suivantes : **{{#each zones}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}**. Toutes tes suggestions doivent impérativement se trouver dans cette ou ces zones ET dans les listes ci-dessous.
 {{/if}}
+
 {{#if seenPlaceNames}}
 - **Éviter les répétitions :** Exclus impérativement les lieux suivants de tes suggestions, car l'utilisateur les a déjà vus :
 {{#each seenPlaceNames}}
