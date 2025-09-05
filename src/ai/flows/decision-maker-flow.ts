@@ -25,11 +25,13 @@ const makeDecisionFlow = ai.defineFlow(
     if (!makeDecisionPrompt) {
         makeDecisionPrompt = ai.definePrompt({
           name: 'makeDecisionPrompt',
-          input: {schema: MakeDecisionInputSchema.extend({ isCafeCategory: z.boolean().optional(), isFastFoodCategory: z.boolean().optional(), isRestaurantCategory: z.boolean().optional(), isBrunchCategory: z.boolean().optional() })},
+          input: {schema: MakeDecisionInputSchema.extend({ isCafeCategory: z.boolean().optional(), isFastFoodCategory: z.boolean().optional(), isRestaurantCategory: z.boolean().optional(), isBrunchCategory: z.boolean().optional(), randomNumber: z.number().optional() })},
           output: {schema: MakeDecisionOutputSchema},
-          prompt: `Tu es un générateur de suggestions aléatoires. Ta seule source de connaissances est la liste de lieux fournie ci-dessous. Tu ne dois JAMAIS suggérer un lieu qui n'est pas dans ces listes.
+          prompt: `Tu es un générateur de suggestions purement aléatoires. Ta seule source de connaissances est la liste de lieux fournie ci-dessous. Tu ne dois JAMAIS suggérer un lieu qui n'est pas dans ces listes.
 
 L'utilisateur a choisi la catégorie de sortie : "{{category}}".
+
+Pour garantir que tes suggestions sont uniques et imprévisibles, utilise ce nombre aléatoire comme source d'inspiration pour ta sélection : {{randomNumber}}.
 
 Ta tâche est la suivante :
 
@@ -45,7 +47,7 @@ Ta tâche est la suivante :
 **Instructions Cruciales :**
 - L'aspect le plus important est que la sélection soit **purement aléatoire**. Ne choisis pas les premiers de la liste ou les plus populaires.
 - Si, après filtrage, il y a moins de deux lieux disponibles, n'en retourne qu'un seul, ou retourne une liste vide si aucun ne correspond.
-- Si l'utilisateur clique sur "Actualiser", tes nouvelles suggestions doivent être différentes des précédentes.
+- Si l'utilisateur clique sur "Actualiser", tes nouvelles suggestions DOIVENT être différentes des précédentes. L'utilisation du 'randomNumber' doit garantir cela.
 
 **Instructions importantes :**
 {{#if zones.length}}
@@ -132,7 +134,7 @@ Ta tâche est la suivante :
   - **Zone El Manar :** Restaurant Le DOMAINE, Brooklyn Café, Wolf And Rabbit, Q'Mug, Story coffee.
 {{/if}}
 
-Assure-toi que toutes les informations sont exactes et que les lieux sont bien notés. Les suggestions doivent être de haute qualité et **différentes les unes des autres**. Réponds uniquement en respectant le format de sortie JSON demandé. Si aucune suggestion n'est possible, retourne un tableau 'suggestions' vide.`,
+Assure-toi que toutes les informations sont exactes. Les suggestions doivent être **différentes les unes des autres**. Réponds uniquement en respectant le format de sortie JSON demandé. Si aucune suggestion n'est possible, retourne un tableau 'suggestions' vide.`,
         });
     }
 
@@ -147,6 +149,7 @@ Assure-toi que toutes les informations sont exactes et que les lieux sont bien n
         isFastFoodCategory: isFastFoodCategory,
         isRestaurantCategory: isRestaurantCategory,
         isBrunchCategory: isBrunchCategory,
+        randomNumber: Math.random(),
     });
     return output!;
   }
