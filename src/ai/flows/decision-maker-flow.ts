@@ -64,7 +64,7 @@ Ta tâche est la suivante :
 {{#if isCafeCategory}}
 - **Source exclusive pour "Café" :** Tes suggestions pour la catégorie "Café" doivent provenir **EXCLUSIVEMENT** de la liste suivante. Si aucun lieu ne correspond au filtre de zone de l'utilisateur, ne suggère rien.
   - **Zone La Soukra :** Lotus Café, Brown and Sugar Coffee, First café, Caféte du Golf.
-  - **Zone El Aouina :** Minuto di STARTELA, BEANS & CO COFFEE HOUSE, Sam's Café, Bleuet, Ali's Coffee, Café Patchwork, Infinity Aouina, SOHO Coffee, Ô Palet, Dell'Angelo Cafè, Café Slow X, Green Coffee, Padova, Beans&Co, Downtown, Barista's, Pep’s coffee, The One Coffee Lounge, InSider L’Aouina, idea lounge, Epic Coffee Shop, GATSBY, Balkon, MYKONOS MEMORIES COFFE, Café Forever Lounge, Pivoine coffee & more, Palet Royal, Salon De Thé New Day, Le Wagram ,BELLUCCI coffee & more, Business bey, Restaurant Italien Terrazzino.
+  - **Zone El Aouina :** Minuto di STARTELA, BEANS & CO COFFEE HOUSE,La Vero café Lounge , Sam's Café, Bleuet, Ali's Coffee, Café Patchwork, Infinity Aouina, SOHO Coffee, Ô Palet, Dell'Angelo Cafè, Café Slow X, Green Coffee, Padova, Beans&Co, Downtown, Barista's, Pep’s coffee, The One Coffee Lounge, InSider L’Aouina, idea lounge, Epic Coffee Shop, GATSBY, Balkon, MYKONOS MEMORIES COFFE, Café Forever Lounge, Pivoine coffee & more, Palet Royal, Salon De Thé New Day, Le Wagram ,BELLUCCI coffee & more, Business bey, Restaurant Italien Terrazzino.
   - **Zone Ain Zaghouan Nord :** Barista's, Way cup, Il fiore del caffe, CAFE ROSE COTTAGE, La Duchesse, Carré Gourmand, The W's Coffee, PlayPresso, Coffe shop Copa vida.
   - **Zone Lac 1 :** Pavarotti, La Croisette, Eric Kayser, Biwa, Le Bistrot, Cosmitto.
   - **Zone Lac 2 :** Hookah Coffee Lounge, Côté Jardin, Frédéric CASSEL, U-TOO Coffee & Grill, Kube, George V, SO BRITISH LAC 2, Zanzibar Café, Billionaire Café, OMEGA Coffee, Barista's Lac 2, The Big Dip.
@@ -126,7 +126,7 @@ Ta tâche est la suivante :
 
 {{#if isBrunchCategory}}
 - **Source exclusive pour "Brunch" :** Tes suggestions pour la catégorie "Brunch" doivent provenir **EXCLUSIVEMENT** de la liste suivante. Si aucun lieu ne correspond au filtre de zone de l'utilisateur, ne suggère rien.
-  - **Zone El Aouina :** Kalanea&co, Ali's, coffeelicious Lounge, Infinity Aouina, Downtown Lounge, Restaurant Italien Terrazzino, Pâtisserie Mio, Rozalia coffee&brunch, The One Coffee Lounge,Moonrise juices and crêpes, Black pepper.
+  - **Zone El Aouina :** Kalanea&co, Ali's, coffeelicious Lounge, Infinity Aouina, Downtown Lounge, Restaurant Italien Terrazzino, Pâtisserie Mio, Rozalia coffee&brunch, The One Coffee Lounge,Moonrise juices and crêpes, La Vero café Lounge.
   - **Zone Lac 2 :** Côté Jardin, PATCHWORK Café & Restaurant, Twiggy, Café Lounge The Gate, The Big Dip, Pinoli Restaurant, Kube, PALAZZO Café Restaurant, George V, 3OO Three Hundred, SO BRITISH, Hookah Coffee Lounge.
   - **Zone La Marsa :** Saint Tropez, Breizh Bistrot, Coin Margoum, Yardbirds, Gourmandise, North Shore Coffee and Snacks, Ivy Coffee Shop & Restaurant, Blues House and food, Café Journal, Bonsaï café & restaurant, Bistek, SABATO COFFEE SHOP & RESTAURANT, La Roquette - Salad Bar & Co.
   - **Zone Menzah 6 :** The 716 Menzah 6, A casa mia, Tartes et haricots, Le Montmartre.
