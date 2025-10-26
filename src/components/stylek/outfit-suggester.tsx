@@ -8,10 +8,10 @@ import { useAuth } from '@/hooks/use-auth';
 
 import { suggestOutfit } from '@/ai/flows/intelligent-outfit-suggestion-fixed';
 import type { SuggestOutfitInput, SuggestOutfitOutput } from '@/ai/flows/intelligent-outfit-suggestion.types';
-import { generateOutfitFromPhoto } from '@/ai/flows/generate-outfit-from-photo-flow';
-import { generateOutfitImage } from '@/ai/flows/generate-outfit-image';
+import { generateOutfitFromPhoto } from '@/ai/flows/generate-outfit-from-photo-flow-fixed';
+import { generateOutfitImage } from '@/ai/flows/generate-outfit-image-fixed';
 import type { GenerateOutfitFromPhotoOutput, GenerateOutfitFromPhotoInput } from '@/ai/flows/generate-outfit-from-photo-flow.types';
-import { regeneratePhotoOutfitPart } from '@/ai/flows/regenerate-photo-outfit-part-flow';
+import { regeneratePhotoOutfitPart } from '@/ai/flows/regenerate-photo-outfit-part-flow-fixed';
 
 import { OutfitForm } from './outfit-form';
 import { OutfitDisplay } from './outfit-display';
