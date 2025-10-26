@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { makeDecision } from '@/ai/flows/decision-maker-flow-new';
+import { makeDecision } from '@/ai/flows/decision-maker-flow-fixed';
 import type { Suggestion } from '@/ai/flows/decision-maker-flow.types';
 import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';

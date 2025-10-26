@@ -7,7 +7,7 @@ import MovieSwiper from '@/components/tfarrej/movie-swiper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo } from 'lucide-react';
-import { AIStatusCard } from '@/components/ui/ai-status-card';
+import { MovieListSheet } from '@/components/tfarrej/movie-list-sheet';
 
 const genres = [
     { name: 'Comédie', iconName: 'Laugh', description: 'Pour rire aux éclats.' },
@@ -68,7 +68,6 @@ function TfarrejContent() {
 
   return (
     <div className="space-y-4">
-      <AIStatusCard />
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
                 <h2 className="text-2xl font-bold font-headline tracking-tight">Le Tinder du Cinéma</h2>
