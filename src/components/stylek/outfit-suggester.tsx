@@ -6,7 +6,7 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 
-import { suggestOutfit } from '@/ai/flows/intelligent-outfit-suggestion';
+import { suggestOutfit } from '@/ai/flows/intelligent-outfit-suggestion-new';
 import type { SuggestOutfitInput, SuggestOutfitOutput } from '@/ai/flows/intelligent-outfit-suggestion.types';
 import { generateOutfitFromPhoto } from '@/ai/flows/generate-outfit-from-photo-flow';
 import { generateOutfitImage } from '@/ai/flows/generate-outfit-image';
