@@ -1,4 +1,4 @@
-'use server';
+ 
 
 /**
  * Flow de génération d'images avec Hugging Face API

@@ -1,4 +1,4 @@
-'use server';
+ 
 
 /**
  * Flow de fallback pour la génération de tenues à partir de photos
@@ -38,11 +38,16 @@ export async function generateOutfitFromPhoto(input: GenerateOutfitFromPhotoInpu
       }
     };
     
-    const baseSuggestions = suggestions[baseItemType as keyof typeof suggestions] || suggestions['haut'];
+    const baseSuggestionsRaw = suggestions[baseItemType as keyof typeof suggestions] || suggestions['haut'];
+    // Toujours garantir les 4 clés pour éviter les erreurs de type
+    const adaptedSuggestions: Record<'haut' | 'bas' | 'chaussures' | 'accessoires', string> = {
+      haut: (baseSuggestionsRaw as any).haut || 'T-shirt ou chemise',
+      bas: (baseSuggestionsRaw as any).bas || 'Pantalon ou jean',
+      chaussures: (baseSuggestionsRaw as any).chaussures || 'Chaussures appropriées',
+      accessoires: (baseSuggestionsRaw as any).accessoires || 'Accessoires selon vos préférences'
+    };
     
     // Adapter selon l'occasion
-    let adaptedSuggestions = { ...baseSuggestions };
-    
     if (occasion.includes('travail') || occasion.includes('professionnel')) {
       adaptedSuggestions.haut = 'Chemise blanche ou chemisier élégant';
       adaptedSuggestions.bas = 'Pantalon de costume ou jupe droite';

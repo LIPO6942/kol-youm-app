@@ -1,4 +1,4 @@
-'use server';
+ 
 
 /**
  * Flow de fallback simple pour les suggestions de tenues
