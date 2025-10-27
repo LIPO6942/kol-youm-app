@@ -4,7 +4,7 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
-    const { prompt, gender } = await request.json();
+    const { prompt, gender, category } = await request.json();
     const apiKey = process.env.HUGGINGFACE_API_KEY;
 
     if (!apiKey) {
@@ -23,10 +23,18 @@ export async function POST(request: Request) {
       'CompVis/stable-diffusion-v1-4',
     ];
 
-    const enhancePromptForFashion = (description: string, g?: 'Homme' | 'Femme') => {
-      const base = `fashion product photography, ${description}, clean white background, e-commerce studio lighting, high quality, detailed, sharp focus, clothing item only`;
+    const enhancePromptForFashion = (description: string, g?: 'Homme' | 'Femme', cat?: 'haut' | 'bas' | 'chaussures' | 'accessoires') => {
+      const singleItemMap: Record<string, { noun: string; extras?: string }> = {
+        haut: { noun: 'a single top garment (shirt, t-shirt, sweater, jacket)', extras: 'single garment' },
+        bas: { noun: 'a single bottom garment (pants, jeans, skirt, shorts)', extras: 'single garment' },
+        chaussures: { noun: 'a single pair of shoes', extras: 'single pair' },
+        accessoires: { noun: 'a single fashion accessory (watch, sunglasses, belt, hat)', extras: 'single accessory' },
+      };
+      const catSpec = cat && singleItemMap[cat] ? `${singleItemMap[cat].noun}, ${singleItemMap[cat].extras}` : 'single clothing item';
+
+      const base = `fashion product photography of ${catSpec}, ${description}, clean white background, e-commerce studio lighting, high quality, detailed, sharp focus`;
       let genderBias = '';
-      let negatives = 'no person, no model, no human, no body, mannequin invisible, disembodied apparel';
+      let negatives = 'no person, no model, no human, no body, mannequin invisible, disembodied apparel, no outfit set, no multiple items, no collage';
       if (g === 'Homme') {
         genderBias = ", men's clothing, male fit, masculine style";
         negatives += ', no female, no woman, no feminine style';
@@ -50,7 +58,7 @@ export async function POST(request: Request) {
       },
     });
 
-    const enhanced = enhancePromptForFashion(prompt, gender);
+    const enhanced = enhancePromptForFashion(prompt, gender, category);
 
     let lastError: any = null;
     const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));

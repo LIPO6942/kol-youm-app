@@ -94,11 +94,11 @@ export default function OutfitSuggester() {
         const descriptionResult = await generateOutfitFromPhoto(photoInput);
 
         const partsToGenerate = Object.entries(descriptionResult)
-            .map(([key, value]) => ({ key: key as OutfitPart, description: value.description }))
+            .map(([key, value]: [string, any]) => ({ key: key as OutfitPart, description: (value?.description as string) }))
             .filter(p => p.description && p.description !== 'N/A');
 
         const imagePromises = partsToGenerate.map(part => 
-            generateOutfitImage({ itemDescription: part.description, gender: userProfile?.gender })
+            generateOutfitImage({ itemDescription: part.description, gender: userProfile?.gender, category: part.key })
                 .then(imageResult => ({
                     key: part.key,
                     description: part.description,
@@ -173,10 +173,11 @@ export default function OutfitSuggester() {
 
         const { imageDataUri } = await generateOutfitImage({
             itemDescription: newDescription,
-            gender: userProfile?.gender
+            gender: userProfile?.gender,
+            category: part
         });
 
-        setPhotoSuggestion(prev => {
+        setPhotoSuggestion((prev: PhotoSuggestion | null) => {
             if (!prev) return null;
             return {
                 ...prev,

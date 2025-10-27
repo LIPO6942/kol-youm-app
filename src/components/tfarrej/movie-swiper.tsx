@@ -204,7 +204,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
                 </div>
             </CardHeader>
             <CardContent className="flex-grow flex flex-col justify-between p-6 pt-0">
-                <div className="relative w-full h-64 mb-4 rounded-lg overflow-hidden bg-muted">
+                <div className="relative w-full h-40 mb-3 rounded-lg overflow-hidden bg-muted">
                   {posterLoading && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -213,10 +213,13 @@ export default function MovieSwiper({ genre }: { genre: string }) {
                   {posterUrl ? (
                     <Image src={posterUrl} alt={`Affiche de ${currentMovie.title}`} fill className="object-cover" sizes="(max-width: 640px) 100vw, 600px" />
                   ) : (
-                    <div className="h-full w-full flex items-center justify-center text-muted-foreground">
-                      <Film className="h-10 w-10 mr-2" />
-                      <span>Aucune affiche trouvée</span>
-                    </div>
+                    <Image
+                      src={`https://placehold.co/600x300/111827/94a3b8?text=${encodeURIComponent(currentMovie.title)}`}
+                      alt={`Affiche indisponible: ${currentMovie.title}`}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 640px) 100vw, 600px"
+                    />
                   )}
                 </div>
                 <div>
