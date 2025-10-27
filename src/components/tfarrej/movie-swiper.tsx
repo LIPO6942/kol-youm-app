@@ -1,7 +1,7 @@
 'use client';
 
+import type React from 'react'
 import { useState, useEffect, useCallback, useRef } from 'react';
-import Image from 'next/image';
 import { Eye, ListVideo, Loader2, Film, RotateCcw, Star, Link as LinkIcon, Users, Calendar, Globe, SkipForward } from 'lucide-react';
 
 import { recordMovieSwipe } from '@/ai/flows/movie-preference-learning';
@@ -17,40 +17,73 @@ import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile } from '@/lib/firebase/firestore';
 
-const handleAiError = (error: any, toast: any) => {
-    const errorMessage = String(error.message || '');
-    if (errorMessage.includes('429') || errorMessage.includes('quota')) {
-        toast({
-            variant: 'destructive',
-            title: 'L\'IA est très demandée !',
-            description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez dans quelques minutes.",
-        });
-    } else if (errorMessage.includes('503') || errorMessage.includes('overloaded') || errorMessage.includes('unavailable')) {
-         toast({
-            variant: 'destructive',
-            title: 'L\'IA est en surchauffe !',
-            description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant pour reprendre son souffle et réessayez.",
-        });
-    } else {
-         toast({
-          variant: 'destructive',
-          title: 'Erreur Inattendue',
-          description: "Impossible de charger les suggestions de films.",
-        });
+// Client-side filtering util
+function applyFilters(list: MovieSuggestion[], opts: { minRating: number; country: string; minYear: number }) {
+  const ctry = (opts.country || '').toLowerCase().trim();
+  return list.filter(m =>
+    m.rating >= (opts.minRating || 0) &&
+    m.year >= (opts.minYear || 0) &&
+    (!ctry || (m.country || '').toLowerCase().includes(ctry))
+  );
+}
+
+// Dismissed titles persistence (localStorage)
+const DISMISSED_KEY = 'tfarrej_dismissed_titles';
+function getDismissedTitles(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(DISMISSED_KEY);
+    return raw ? JSON.parse(raw) as string[] : [];
+  } catch { return []; }
+}
+function addDismissedTitle(title: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const cur = getDismissedTitles();
+    if (!cur.includes(title)) {
+      const next = [title, ...cur].slice(0, 300);
+      window.localStorage.setItem(DISMISSED_KEY, JSON.stringify(next));
     }
-    console.error('Failed to fetch movie suggestions', error);
+  } catch {}
+}
+
+const handleAiError = (error: any, toast: any) => {
+  const errorMessage = String(error.message || '');
+  if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+    toast({
+      variant: 'destructive',
+      title: 'L\'IA est très demandée !',
+      description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez dans quelques minutes.",
+    });
+  } else if (errorMessage.includes('503') || errorMessage.includes('overloaded') || errorMessage.includes('unavailable')) {
+    toast({
+      variant: 'destructive',
+      title: 'L\'IA est en surchauffe !',
+      description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant pour reprendre son souffle et réessayez.",
+    });
+  } else {
+    toast({
+      variant: 'destructive',
+      title: 'Erreur Inattendue',
+      description: "Impossible de charger les suggestions de films.",
+    });
+  }
+  console.error('Failed to fetch movie suggestions', error);
 };
 
 export default function MovieSwiper({ genre }: { genre: string }) {
   const { user, userProfile } = useAuth();
+  const [originalMovies, setOriginalMovies] = useState<MovieSuggestion[]>([]);
   const [movies, setMovies] = useState<MovieSuggestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSwipeLoading, setIsSwipeLoading] = useState(false);
   const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(true);
-  const [posterUrl, setPosterUrl] = useState<string | null>(null);
-  const [posterLoading, setPosterLoading] = useState<boolean>(false);
   const { toast } = useToast();
   const initialFetchDone = useRef(false);
+  // Quick filters
+  const [minRating, setMinRating] = useState<number>(0);
+  const [countryFilter, setCountryFilter] = useState<string>("");
+  const [minYear, setMinYear] = useState<number>(0);
   
   const fetchMovies = useCallback(() => {
     // We need userProfile to get the list of seen movies.
@@ -65,11 +98,15 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     // Exclude also movies in the watchlist so they don't get suggested again.
     const seen = userProfile.seenMovieTitles || [];
     const watchlist = userProfile.moviesToWatch || [] as string[];
-    const seenMovieTitles = Array.from(new Set([...(seen as string[]), ...watchlist]));
+    const dismissed = getDismissedTitles();
+    const seenMovieTitles = Array.from(new Set([...(seen as string[]), ...watchlist, ...dismissed]));
     
     generateMovieSuggestions({ genre: genre, count: 7, seenMovieTitles })
       .then((result) => {
-        setMovies(result.movies);
+        setOriginalMovies(result.movies);
+        // apply filters immediately
+        const filtered = applyFilters(result.movies, { minRating, country: countryFilter, minYear });
+        setMovies(filtered);
       })
       .catch((error) => {
         handleAiError(error, toast);
@@ -77,7 +114,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
       .finally(() => {
         setIsSuggestionsLoading(false);
       });
-  }, [genre, toast, userProfile]);
+  }, [genre, toast, userProfile, minRating, countryFilter, minYear]);
 
   useEffect(() => {
     // This effect ensures we only fetch movies once when the component is ready.
@@ -133,44 +170,41 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     }
   };
 
-  const handleSkip = async () => {
+  const handleSkip = () => {
     if (isSwipeLoading || currentIndex >= movies.length) return;
     const movie = movies[currentIndex];
-    if (!movie || !user) {
-      setCurrentIndex((prevIndex: number) => prevIndex + 1);
-      return;
+    if (movie?.title) addDismissedTitle(movie.title);
+    if (movie?.title) {
+      toast({ title: 'Ignoré', description: `"${movie.title}" ignoré.` });
     }
-    setIsSwipeLoading(true);
-    try {
-      await updateUserProfile(user.uid, { seenMovieTitles: [movie.title] });
-    } catch (e) {
-      console.warn('Failed to record skip as seen', e);
-    } finally {
-      setCurrentIndex((prevIndex: number) => prevIndex + 1);
-      setIsSwipeLoading(false);
-    }
+    setCurrentIndex((prevIndex: number) => prevIndex + 1);
   };
   
   const currentMovie = currentIndex < movies.length ? movies[currentIndex] : null;
 
-  // Fetch poster when currentMovie changes
+  // Posters removed by request; no fetch here.
+
+  // Keyboard shortcuts: Left=Skip, Right=Add to Watchlist
   useEffect(() => {
-    const loadPoster = async () => {
-      if (!currentMovie) { setPosterUrl(null); return; }
-      setPosterLoading(true);
-      try {
-        const res = await fetch(`/api/movie-poster?title=${encodeURIComponent(currentMovie.title)}`, { cache: 'no-store' });
-        if (!res.ok) throw new Error('poster_not_found');
-        const data = await res.json();
-        setPosterUrl(typeof data?.url === 'string' ? data.url : null);
-      } catch {
-        setPosterUrl(null);
-      } finally {
-        setPosterLoading(false);
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Avoid interfering with typing in inputs
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag && ['INPUT','TEXTAREA','SELECT'].includes(tag)) return;
+      if (isSwipeLoading) return;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handleSkip();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        // Only act if there is a current movie
+        if (currentIndex < movies.length) {
+          void handleSwipe('right');
+        }
       }
     };
-    loadPoster();
-  }, [currentMovie]);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isSwipeLoading, currentIndex, movies.length, handleSkip]);
 
   if (isSuggestionsLoading) {
     return (
@@ -186,6 +220,41 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   return (
     <div className="flex justify-center">
       <div className="relative w-full max-w-sm h-[600px]">
+        {/* Filters */}
+        <div className="absolute top-0 left-0 right-0 z-10 px-4 py-2 flex items-center gap-2 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 rounded-t-lg">
+          <select
+            className="h-8 rounded border px-2 text-sm"
+            value={minRating}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { const v = Number(e.target.value); setMinRating(v); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating: v, country: countryFilter, minYear })); }}
+            aria-label="Note minimale"
+          >
+            <option value={0}>Note ≥ 0</option>
+            <option value={6}>Note ≥ 6</option>
+            <option value={7}>Note ≥ 7</option>
+            <option value={8}>Note ≥ 8</option>
+            <option value={9}>Note ≥ 9</option>
+          </select>
+          <input
+            className="h-8 rounded border px-2 text-sm flex-1"
+            placeholder="Pays (ex: France)"
+            value={countryFilter}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const v = e.target.value; setCountryFilter(v); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating, country: v, minYear })); }}
+            aria-label="Filtrer par pays"
+          />
+          <select
+            className="h-8 rounded border px-2 text-sm"
+            value={minYear}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { const v = Number(e.target.value); setMinYear(v); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating, country: countryFilter, minYear: v })); }}
+            aria-label="Année minimale"
+          >
+            <option value={0}>Année ≥ 0</option>
+            <option value={1980}>Année ≥ 1980</option>
+            <option value={1990}>Année ≥ 1990</option>
+            <option value={2000}>Année ≥ 2000</option>
+            <option value={2010}>Année ≥ 2010</option>
+            <option value={2020}>Année ≥ 2020</option>
+          </select>
+        </div>
         {movies.length === 0 && !isSuggestionsLoading ? (
           <Card className="absolute inset-0 flex flex-col items-center justify-center text-center">
             <CardContent className="p-6">
@@ -200,7 +269,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
             </CardContent>
           </Card>
         ) : currentMovie ? (
-          <Card className="absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out shadow-2xl">
+          <Card className="absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out shadow-2xl pt-10">
             <CardHeader className="p-6">
                 <div className={`${badgeVariants({ variant: 'secondary' })} mb-2 self-start`}>{currentMovie.genre}</div>
                 <CardTitle className="font-headline text-3xl leading-tight">{currentMovie.title}</CardTitle>
@@ -220,24 +289,6 @@ export default function MovieSwiper({ genre }: { genre: string }) {
                 </div>
             </CardHeader>
             <CardContent className="flex-grow flex flex-col justify-between p-6 pt-0">
-                <div className="relative w-full h-40 mb-3 rounded-lg overflow-hidden bg-muted">
-                  {posterLoading && (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                    </div>
-                  )}
-                  {posterUrl ? (
-                    <Image src={posterUrl} alt={`Affiche de ${currentMovie.title}`} fill className="object-cover" sizes="(max-width: 640px) 100vw, 600px" />
-                  ) : (
-                    <Image
-                      src={`https://placehold.co/600x300/111827/94a3b8?text=${encodeURIComponent(currentMovie.title)}`}
-                      alt={`Affiche indisponible: ${currentMovie.title}`}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 640px) 100vw, 600px"
-                    />
-                  )}
-                </div>
                 <div>
                     <h4 className="font-semibold text-sm mb-1">Synopsis</h4>
                     <p className="text-sm text-muted-foreground max-h-24 overflow-y-auto">{currentMovie.synopsis}</p>
