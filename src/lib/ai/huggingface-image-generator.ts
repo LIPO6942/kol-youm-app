@@ -141,9 +141,9 @@ export class HuggingFaceImageGenerator {
     const keywords = this.extractKeywords(description);
     const color = this.getColorFromDescription(description);
     
-    // Utiliser un service de placeholder plus sophistiqué
+    // Utiliser placehold.co (autorisé dans next.config) pour éviter les images bloquées
     const encodedDescription = encodeURIComponent(keywords);
-    return `https://via.placeholder.com/512x512/${color}/ffffff?text=${encodedDescription}`;
+    return `https://placehold.co/512x512/${color}/ffffff?text=${encodedDescription}`;
   }
 
   private extractKeywords(description: string): string {
