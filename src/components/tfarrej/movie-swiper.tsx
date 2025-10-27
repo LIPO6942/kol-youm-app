@@ -62,7 +62,10 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     setMovies([]);
     
     // Always use the up-to-date list of seen movies from the user's profile.
-    const seenMovieTitles = userProfile.seenMovieTitles || [];
+    // Exclude also movies in the watchlist so they don't get suggested again.
+    const seen = userProfile.seenMovieTitles || [];
+    const watchlist = userProfile.moviesToWatch || [] as string[];
+    const seenMovieTitles = Array.from(new Set([...(seen as string[]), ...watchlist]));
     
     generateMovieSuggestions({ genre: genre, count: 7, seenMovieTitles })
       .then((result) => {
@@ -130,9 +133,22 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     }
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
     if (isSwipeLoading || currentIndex >= movies.length) return;
-    setCurrentIndex((prevIndex: number) => prevIndex + 1);
+    const movie = movies[currentIndex];
+    if (!movie || !user) {
+      setCurrentIndex((prevIndex: number) => prevIndex + 1);
+      return;
+    }
+    setIsSwipeLoading(true);
+    try {
+      await updateUserProfile(user.uid, { seenMovieTitles: [movie.title] });
+    } catch (e) {
+      console.warn('Failed to record skip as seen', e);
+    } finally {
+      setCurrentIndex((prevIndex: number) => prevIndex + 1);
+      setIsSwipeLoading(false);
+    }
   };
   
   const currentMovie = currentIndex < movies.length ? movies[currentIndex] : null;
