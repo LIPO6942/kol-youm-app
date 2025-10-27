@@ -4,7 +4,7 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
-    const { prompt } = await request.json();
+    const { prompt, gender } = await request.json();
     const apiKey = process.env.HUGGINGFACE_API_KEY;
 
     if (!apiKey) {
@@ -23,12 +23,18 @@ export async function POST(request: Request) {
       'CompVis/stable-diffusion-v1-4',
     ];
 
-    const enhancePromptForFashion = (description: string) => {
-      const lower = description.toLowerCase();
-      let enhanced = `fashion photography, ${description}, clean white background, product shot, high quality, detailed`;
-      // negative terms to avoid people
-      enhanced += ', no person, no model, no human, clothing item only';
-      return enhanced;
+    const enhancePromptForFashion = (description: string, g?: 'Homme' | 'Femme') => {
+      const base = `fashion product photography, ${description}, clean white background, e-commerce studio lighting, high quality, detailed, sharp focus, clothing item only`;
+      let genderBias = '';
+      let negatives = 'no person, no model, no human, no body, mannequin invisible, disembodied apparel';
+      if (g === 'Homme') {
+        genderBias = ", men's clothing, male fit, masculine style";
+        negatives += ', no female, no woman, no feminine style';
+      } else if (g === 'Femme') {
+        genderBias = ", women's clothing, female fit, feminine style";
+        negatives += ', no male, no man, no masculine style';
+      }
+      return `${base}${genderBias}, ${negatives}`;
     };
 
     const body = (inputs: string) => ({
@@ -44,7 +50,7 @@ export async function POST(request: Request) {
       },
     });
 
-    const enhanced = enhancePromptForFashion(prompt);
+    const enhanced = enhancePromptForFashion(prompt, gender);
 
     let lastError: any = null;
     const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));

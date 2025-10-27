@@ -14,7 +14,7 @@ export async function generateOutfitImage(input: GenerateOutfitImageInput): Prom
     const resp = await fetch('/api/hf-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: input.itemDescription })
+      body: JSON.stringify({ prompt: input.itemDescription, gender: input.gender })
     });
 
     if (!resp.ok) {

@@ -1,7 +1,7 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Image from 'next/image';
 import { Eye, ListVideo, Loader2, Film, RotateCcw, Star, Link as LinkIcon, Users, Calendar, Globe, SkipForward } from 'lucide-react';
 
 import { recordMovieSwipe } from '@/ai/flows/movie-preference-learning';
@@ -11,6 +11,7 @@ import type { UserProfile } from '@/lib/firebase/firestore';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { badgeVariants } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
@@ -46,6 +47,8 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSwipeLoading, setIsSwipeLoading] = useState(false);
   const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(true);
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
+  const [posterLoading, setPosterLoading] = useState<boolean>(false);
   const { toast } = useToast();
   const initialFetchDone = useRef(false);
   
@@ -122,17 +125,36 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         description: "Impossible d'enregistrer votre choix. Veuillez réessayer.",
       });
     } finally {
-      setCurrentIndex(prevIndex => prevIndex + 1);
+      setCurrentIndex((prevIndex: number) => prevIndex + 1);
       setIsSwipeLoading(false);
     }
   };
 
   const handleSkip = () => {
     if (isSwipeLoading || currentIndex >= movies.length) return;
-    setCurrentIndex(prevIndex => prevIndex + 1);
+    setCurrentIndex((prevIndex: number) => prevIndex + 1);
   };
   
   const currentMovie = currentIndex < movies.length ? movies[currentIndex] : null;
+
+  // Fetch poster when currentMovie changes
+  useEffect(() => {
+    const loadPoster = async () => {
+      if (!currentMovie) { setPosterUrl(null); return; }
+      setPosterLoading(true);
+      try {
+        const res = await fetch(`/api/movie-poster?title=${encodeURIComponent(currentMovie.title)}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error('poster_not_found');
+        const data = await res.json();
+        setPosterUrl(typeof data?.url === 'string' ? data.url : null);
+      } catch {
+        setPosterUrl(null);
+      } finally {
+        setPosterLoading(false);
+      }
+    };
+    loadPoster();
+  }, [currentMovie]);
 
   if (isSuggestionsLoading) {
     return (
@@ -164,7 +186,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         ) : currentMovie ? (
           <Card className="absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out shadow-2xl">
             <CardHeader className="p-6">
-                <Badge variant="secondary" className="mb-2 self-start">{currentMovie.genre}</Badge>
+                <div className={`${badgeVariants({ variant: 'secondary' })} mb-2 self-start`}>{currentMovie.genre}</div>
                 <CardTitle className="font-headline text-3xl leading-tight">{currentMovie.title}</CardTitle>
                 <div className="flex items-center flex-wrap gap-x-4 gap-y-1 pt-2 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1.5">
@@ -182,6 +204,21 @@ export default function MovieSwiper({ genre }: { genre: string }) {
                 </div>
             </CardHeader>
             <CardContent className="flex-grow flex flex-col justify-between p-6 pt-0">
+                <div className="relative w-full h-64 mb-4 rounded-lg overflow-hidden bg-muted">
+                  {posterLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
+                  )}
+                  {posterUrl ? (
+                    <Image src={posterUrl} alt={`Affiche de ${currentMovie.title}`} fill className="object-cover" sizes="(max-width: 640px) 100vw, 600px" />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-muted-foreground">
+                      <Film className="h-10 w-10 mr-2" />
+                      <span>Aucune affiche trouvée</span>
+                    </div>
+                  )}
+                </div>
                 <div>
                     <h4 className="font-semibold text-sm mb-1">Synopsis</h4>
                     <p className="text-sm text-muted-foreground max-h-24 overflow-y-auto">{currentMovie.synopsis}</p>
