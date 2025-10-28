@@ -204,7 +204,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Take top N by vote_average then popularity as tie-breaker
-    unique.sort((a, b) => (b?.vote_average || 0) - (a?.vote_average || 0) || (b?.popularity || 0) - (a?.popularity || 0))
+    // Prefer specific countries: US, GB, KR, FR, TN
+    const preferred = new Set(['US', 'GB', 'KR', 'FR', 'TN'])
+    const score = (m: any) => {
+      const base = Number(m?.vote_average || 0)
+      const codes: string[] = Array.isArray(m?.origin_country) ? m.origin_country : []
+      const hasPreferred = codes.some((c: string) => preferred.has(String(c)))
+      const boost = hasPreferred ? 1.5 : 0
+      return base + boost
+    }
+    unique.sort((a, b) => score(b) - score(a) || (b?.popularity || 0) - (a?.popularity || 0))
     const selected = unique.slice(0, count)
 
     // Enrich with cast (parallel with limited concurrency)
@@ -223,6 +232,23 @@ export async function POST(req: NextRequest) {
           const enDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, 'en-US')
           synopsis = (enDetails?.overview || m.overview || '').trim()
         }
+        // Country name from details (prefer FR names), fallback to origin_country code
+        let country = ''
+        const frCountries = (frDetails as any)?.production_countries
+        if (Array.isArray(frCountries) && frCountries.length) {
+          country = frCountries.map((c: any) => c?.name).filter(Boolean).join(', ')
+        }
+        if (!country) {
+          const enDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, 'en-US')
+          const enCountries = (enDetails as any)?.production_countries
+          if (Array.isArray(enCountries) && enCountries.length) {
+            country = enCountries.map((c: any) => c?.name).filter(Boolean).join(', ')
+          }
+        }
+        if (!country) {
+          const codes: string[] = Array.isArray(m?.origin_country) ? m.origin_country : []
+          country = codes.join(', ')
+        }
         // Build Wikipedia URL using Wikipedia search API
         const titleStr = (m.title || m.original_title || '').trim()
         const wikipediaUrl = await findWikipediaUrl(titleStr, year)
@@ -235,7 +261,7 @@ export async function POST(req: NextRequest) {
           year,
           wikipediaUrl,
           genre: genre || (m.genre_ids && m.genre_ids.length ? String(m.genre_ids[0]) : ''),
-          country: '', // origin country is not provided per item reliably here
+          country,
         }
       }))
       out.push(...data)
