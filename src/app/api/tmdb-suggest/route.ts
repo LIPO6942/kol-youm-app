@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 const TMDB_API_BASE = 'https://api.themoviedb.org/3'
 
 function mapCountryLabelToCode(label: string): string | null {
@@ -51,15 +54,22 @@ async function fetchCountryMovies(params: {
   url.searchParams.set('with_release_type', '3|2') // Theatrical | Digital
   url.searchParams.set('page', String(page))
   // Year bounds
-  const [yMin, yMax] = yearRange
+  let [yMin, yMax] = yearRange
+  const CURRENT = new Date().getFullYear()
+  if (!Number.isFinite(yMin) || yMin < 1900) yMin = 1990
+  if (!Number.isFinite(yMax) || yMax > CURRENT) yMax = CURRENT
+  if (yMin > yMax) [yMin, yMax] = [yMax, yMin]
   url.searchParams.set('primary_release_date.gte', `${yMin}-01-01`)
   url.searchParams.set('primary_release_date.lte', `${yMax}-12-31`)
   if (genre && genre.trim()) {
     // Optionally: map genre name to TMDB genre IDs. Skipped for now.
   }
 
-  const res = await fetch(url.toString(), { next: { revalidate: 60 } })
-  if (!res.ok) throw new Error(`TMDB discover failed: ${res.status}`)
+  const res = await fetch(url.toString())
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`TMDB discover failed: ${res.status} ${text?.slice(0,200)}`)
+  }
   const data = await res.json()
   return data?.results || []
 }
@@ -81,7 +91,7 @@ export async function POST(req: NextRequest) {
   try {
     const apiKey = process.env.TMDB_API_KEY
     if (!apiKey) {
-      return NextResponse.json({ error: 'TMDB_API_KEY not configured' }, { status: 500 })
+      return NextResponse.json({ error: 'TMDB_API_KEY not configured' }, { status: 400 })
     }
 
     const body = await req.json()
@@ -108,9 +118,13 @@ export async function POST(req: NextRequest) {
     // Fetch multiple pages modestly to diversify
     const results: any[] = []
     for (const code of poolCodes) {
-      const page1 = await fetchCountryMovies({ apiKey, countryCode: code, yearRange, minRating, genre, page: 1 })
-      const page2 = await fetchCountryMovies({ apiKey, countryCode: code, yearRange, minRating, genre, page: 2 })
-      results.push(...page1, ...page2)
+      try {
+        const page1 = await fetchCountryMovies({ apiKey, countryCode: code, yearRange, minRating, genre, page: 1 })
+        const page2 = await fetchCountryMovies({ apiKey, countryCode: code, yearRange, minRating, genre, page: 2 })
+        results.push(...page1, ...page2)
+      } catch (e) {
+        // continue other countries
+      }
     }
 
     // Dedupe by title and exclude seen
