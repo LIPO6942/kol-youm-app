@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -81,8 +81,63 @@ export default function OutfitSuggester() {
       gender: userProfile?.gender,
     };
 
+    // Helper: map occasion/schedule to wardrobe style
+    const resolveTargetStyle = (occasion?: string, schedule?: string): 'Professionnel' | 'Décontracté' | 'Chic' | 'Sportif' => {
+      const occ = (occasion || '').toLowerCase();
+      const sch = (schedule || '').toLowerCase();
+      if (occ.includes('professionnel') || sch.includes('réunion') || sch.includes('bureau')) return 'Professionnel';
+      if (occ.includes('chic') || sch.includes('soirée') || sch.includes('gala') || sch.includes('mariage')) return 'Chic';
+      if (occ.includes('sport') || sch.includes('sport') || sch.includes('gym') || sch.includes('course')) return 'Sportif';
+      return 'Décontracté';
+    };
+
+    // Build a coherent suggestion from wardrobe (no AI) when selection is from wardrobe
+    const trySuggestFromWardrobe = (): SuggestOutfitOutput | null => {
+      const wardrobe = userProfile?.wardrobe || [];
+      if (!wardrobe.length) return null;
+      const targetStyle = resolveTargetStyle(input.occasion, input.scheduleKeywords);
+      const filtered = wardrobe.filter(w => w.style === targetStyle).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      if (!filtered.length) return null;
+      // Pick one per missing category, avoiding the base type
+      const pick = (type: 'haut' | 'bas' | 'chaussures' | 'accessoires') => filtered.find(w => w.type === type);
+      const parts: Record<'haut'|'bas'|'chaussures'|'accessoires', string> = {
+        haut: 'N/A', bas: 'N/A', chaussures: 'N/A', accessoires: 'N/A'
+      };
+      const base = input.baseItemType;
+      if (base !== 'haut') parts.haut = pick('haut') ? `${targetStyle} - haut assorti` : 'N/A';
+      if (base !== 'bas') parts.bas = pick('bas') ? `${targetStyle} - bas assorti` : 'N/A';
+      if (base !== 'chaussures') parts.chaussures = pick('chaussures') ? `${targetStyle} - chaussures adaptées` : 'N/A';
+      if (base !== 'accessoires') {
+        // Weather heuristic: add écharpe/parapluie mention
+        const wx = (input.weather || '').toLowerCase();
+        const acc = pick('accessoires');
+        if (acc) {
+          if (wx.includes('pluie')) parts.accessoires = `${targetStyle} - accessoires adaptés (parapluie si possible)`;
+          else if (wx.includes('froid')) parts.accessoires = `${targetStyle} - accessoires chauds (écharpe si possible)`;
+          else parts.accessoires = `${targetStyle} - accessoires discrets`;
+        }
+      }
+      const summary = `Tenue ${targetStyle.toLowerCase()} construite autour de votre pièce, adaptée à la météo (${input.weather}).`;
+      return {
+        haut: parts.haut,
+        bas: parts.bas,
+        chaussures: parts.chaussures,
+        accessoires: parts.accessoires,
+        suggestionText: summary,
+      };
+    };
+
     try {
       if (input.baseItemPhotoDataUri && input.baseItemType) {
+        // If source is wardrobe, use local coherent selection first
+        // @ts-ignore
+        if ((input as any).source === 'wardrobe') {
+          const local = trySuggestFromWardrobe();
+          if (local) {
+            setSuggestion(local);
+            return;
+          }
+        }
         const photoInput: GenerateOutfitFromPhotoInput = {
           ...commonInput,
           baseItemPhotoDataUri: input.baseItemPhotoDataUri,
