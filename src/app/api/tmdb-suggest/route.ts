@@ -442,8 +442,8 @@ export async function POST(req: NextRequest) {
       unique.push(r)
     }
 
-    // Also collect extra suggestions from Wikipedia (then dedupe)
-    const extraWiki = await collectWikipediaSuggestions({ apiKey, bearer, genre, yearRange, count: Math.ceil(count / 2), excludeTitles: titleSet })
+    // Also collect extra suggestions from Wikipedia (disabled for performance)
+    const extraWiki: any[] = []
     for (const w of extraWiki) unique.push(w)
 
     // Randomize fairly across origin countries using round-robin selection
@@ -491,7 +491,7 @@ export async function POST(req: NextRequest) {
     while (i < selected.length) {
       const chunk = selected.slice(i, i + concurrency)
       const data = await Promise.all(chunk.map(async (m) => {
-        const actors = await fetchTopCast({ apiKey, bearer }, m.id).catch(() => [])
+        const actors: string[] = [] // Skip fetching cast to speed up response
         const year = Number((m.release_date || '0000-00-00').substring(0, 4)) || 0
         // Robust synopsis: prefer FR details, fallback to EN, then to discover overview
         const frDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, 'fr-FR')
