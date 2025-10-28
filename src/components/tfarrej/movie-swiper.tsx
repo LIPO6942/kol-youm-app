@@ -85,6 +85,15 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   const [minRating, setMinRating] = useState<number>(0);
   const [countryFilter, setCountryFilter] = useState<string>("");
   const [minYear, setMinYear] = useState<number>(0);
+ 
+  // Country options derived from originalMovies
+  const countryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of originalMovies) {
+      if (m.country) set.add(m.country);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [originalMovies]);
   
   const fetchMovies = useCallback(() => {
     // We need userProfile to get the list of seen movies.
@@ -241,31 +250,20 @@ export default function MovieSwiper({ genre }: { genre: string }) {
           </Select>
 
           {/* Pays (Select stylé) */}
-          {(() => {
-            const countryOptions = useMemo(() => {
-              const set = new Set<string>();
-              for (const m of originalMovies) {
-                if (m.country) set.add(m.country);
-              }
-              return Array.from(set).sort((a, b) => a.localeCompare(b));
-            }, [originalMovies]);
-            return (
-              <Select
-                value={countryFilter || ''}
-                onValueChange={(v: string) => { setCountryFilter(v); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating, country: v, minYear })); }}
-              >
-                <SelectTrigger className={`${buttonVariants({ variant: 'outline', size: 'sm' })} h-8 w-full sm:w-auto`} aria-label="Filtrer par pays">
-                  <SelectValue placeholder="Pays" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Tous pays</SelectItem>
-                  {countryOptions.map((c: string) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            );
-          })()}
+          <Select
+            value={countryFilter || ''}
+            onValueChange={(v: string) => { setCountryFilter(v); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating, country: v, minYear })); }}
+          >
+            <SelectTrigger className={`${buttonVariants({ variant: 'outline', size: 'sm' })} h-8 w-full sm:w-auto`} aria-label="Filtrer par pays">
+              <SelectValue placeholder="Pays" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Tous pays</SelectItem>
+              {countryOptions.map((c: string) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           {/* Année (mauve comme Vus) */}
           <Select
