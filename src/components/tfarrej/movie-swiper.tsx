@@ -251,14 +251,14 @@ export default function MovieSwiper({ genre }: { genre: string }) {
 
           {/* Pays (Select stylé) */}
           <Select
-            value={countryFilter || ''}
-            onValueChange={(v: string) => { setCountryFilter(v); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating, country: v, minYear })); }}
+            value={countryFilter || 'all'}
+            onValueChange={(v: string) => { const val = v === 'all' ? '' : v; setCountryFilter(val); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating, country: val, minYear })); }}
           >
             <SelectTrigger className={`${buttonVariants({ variant: 'outline', size: 'sm' })} h-8 w-full sm:w-auto`} aria-label="Filtrer par pays">
               <SelectValue placeholder="Pays" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tous pays</SelectItem>
+              <SelectItem value="all">Tous pays</SelectItem>
               {countryOptions.map((c: string) => (
                 <SelectItem key={c} value={c}>{c}</SelectItem>
               ))}
