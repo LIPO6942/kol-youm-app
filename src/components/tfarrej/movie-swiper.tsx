@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react'
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Eye, ListVideo, Loader2, Film, RotateCcw, Star, Link as LinkIcon, Users, Calendar, Globe, SkipForward } from 'lucide-react';
 
 import { recordMovieSwipe } from '@/ai/flows/movie-preference-learning';
@@ -240,14 +240,32 @@ export default function MovieSwiper({ genre }: { genre: string }) {
             </SelectContent>
           </Select>
 
-          {/* Pays (input) */}
-          <input
-            className="h-8 rounded border px-2 text-sm w-full sm:w-auto flex-1"
-            placeholder="Pays (ex: France)"
-            value={countryFilter}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const v = e.target.value; setCountryFilter(v); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating, country: v, minYear })); }}
-            aria-label="Filtrer par pays"
-          />
+          {/* Pays (Select stylé) */}
+          {(() => {
+            const countryOptions = useMemo(() => {
+              const set = new Set<string>();
+              for (const m of originalMovies) {
+                if (m.country) set.add(m.country);
+              }
+              return Array.from(set).sort((a, b) => a.localeCompare(b));
+            }, [originalMovies]);
+            return (
+              <Select
+                value={countryFilter || ''}
+                onValueChange={(v: string) => { setCountryFilter(v); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating, country: v, minYear })); }}
+              >
+                <SelectTrigger className={`${buttonVariants({ variant: 'outline', size: 'sm' })} h-8 w-full sm:w-auto`} aria-label="Filtrer par pays">
+                  <SelectValue placeholder="Pays" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Tous pays</SelectItem>
+                  {countryOptions.map((c: string) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            );
+          })()}
 
           {/* Année (mauve comme Vus) */}
           <Select
