@@ -94,6 +94,60 @@ async function fetchTopCast(apiKeyOrBearer: { apiKey?: string; bearer?: string }
   }
 }
 
+// Fetch TMDB movie details in a specific language to obtain overview reliably
+async function fetchMovieDetails(
+  apiKeyOrBearer: { apiKey?: string; bearer?: string },
+  tmdbId: number,
+  language: string
+): Promise<{ overview?: string; release_date?: string; title?: string; original_title?: string } | null> {
+  try {
+    const url = new URL(`${TMDB_API_BASE}/movie/${tmdbId}`)
+    url.searchParams.set('language', language)
+    if (apiKeyOrBearer.apiKey) url.searchParams.set('api_key', apiKeyOrBearer.apiKey)
+    const headers: Record<string, string> = {}
+    if (apiKeyOrBearer.bearer) headers['Authorization'] = `Bearer ${apiKeyOrBearer.bearer}`
+    const res = await fetch(url.toString(), { cache: 'force-cache', headers })
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
+// Try to find the best matching Wikipedia URL for a movie (prefer FR, fallback EN)
+async function findWikipediaUrl(title: string, year: number): Promise<string> {
+  const tryLang = async (lang: 'fr' | 'en') => {
+    const queries = [
+      `${title} (${year}) film`,
+      `${title} (${year})`,
+      `${title} film`,
+      `${title}`,
+    ]
+    for (const q of queries) {
+      try {
+        const api = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&format=json&srnamespace=0&utf8=1&origin=*`
+        const res = await fetch(api, { cache: 'no-store' })
+        if (!res.ok) continue
+        const data = await res.json()
+        const hits: Array<{ title: string; snippet?: string }> = data?.query?.search || []
+        if (hits.length > 0) {
+          const best = hits[0]
+          const pageTitle = best.title
+          return `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(pageTitle.replace(/\s/g, '_'))}`
+        }
+      } catch {
+        // try next query/lang
+      }
+    }
+    return ''
+  }
+  // Prefer French, then English
+  const fr = await tryLang('fr')
+  if (fr) return fr
+  const en = await tryLang('en')
+  return en || ''
+}
+
 export async function POST(req: NextRequest) {
   try {
     const apiKey = process.env.TMDB_API_KEY
@@ -161,14 +215,25 @@ export async function POST(req: NextRequest) {
       const chunk = selected.slice(i, i + concurrency)
       const data = await Promise.all(chunk.map(async (m) => {
         const actors = await fetchTopCast({ apiKey, bearer }, m.id).catch(() => [])
+        const year = Number((m.release_date || '0000-00-00').substring(0, 4)) || 0
+        // Robust synopsis: prefer FR details, fallback to EN, then to discover overview
+        const frDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, 'fr-FR')
+        let synopsis = (frDetails?.overview || '').trim()
+        if (!synopsis) {
+          const enDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, 'en-US')
+          synopsis = (enDetails?.overview || m.overview || '').trim()
+        }
+        // Build Wikipedia URL using Wikipedia search API
+        const titleStr = (m.title || m.original_title || '').trim()
+        const wikipediaUrl = await findWikipediaUrl(titleStr, year)
         return {
           id: String(m.id),
-          title: m.title || m.original_title,
-          synopsis: m.overview || '',
+          title: titleStr,
+          synopsis,
           actors,
           rating: Number(m.vote_average || 0),
-          year: Number((m.release_date || '0000-00-00').substring(0, 4)) || 0,
-          wikipediaUrl: '',
+          year,
+          wikipediaUrl,
           genre: genre || (m.genre_ids && m.genre_ids.length ? String(m.genre_ids[0]) : ''),
           country: '', // origin country is not provided per item reliably here
         }

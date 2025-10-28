@@ -88,7 +88,6 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   const { toast } = useToast();
   const initialFetchDone = useRef(false);
   // Quick filters
-  const [minRating, setMinRating] = useState<number>(0);
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [countrySearch, setCountrySearch] = useState<string>("");
   const CURRENT_YEAR = new Date().getFullYear();
@@ -160,7 +159,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
       body: JSON.stringify({
         countries: selectedCountries,
         yearRange,
-        minRating,
+        minRating: 6,
         count: 12,
         seenMovieTitles,
         genre,
@@ -171,7 +170,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         const data = await res.json();
         const items = Array.isArray(data?.movies) ? data.movies as MovieSuggestion[] : [];
         setOriginalMovies(items);
-        const filtered = applyFilters(items, { minRating, countries: selectedCountries, yearRange });
+        const filtered = applyFilters(items, { minRating: 6, countries: selectedCountries, yearRange });
         setMovies(filtered);
       })
       .catch((error) => {
@@ -180,16 +179,14 @@ export default function MovieSwiper({ genre }: { genre: string }) {
       .finally(() => {
         setIsSuggestionsLoading(false);
       });
-  }, [genre, toast, userProfile, minRating, selectedCountries, yearRange]);
+  }, [genre, toast, userProfile, selectedCountries, yearRange]);
 
   // Load persisted filters on mount
   useEffect(() => {
     try {
-      const r = window.localStorage.getItem('tfarrej_minRating');
       const cArr = window.localStorage.getItem('tfarrej_countries');
       const cLegacy = window.localStorage.getItem('tfarrej_country');
       const y = window.localStorage.getItem('tfarrej_yearRange');
-      if (r !== null) setMinRating(Number(r));
       if (cArr) {
         try {
           const parsed = JSON.parse(cArr) as string[];
@@ -208,11 +205,10 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   // Persist filters
   useEffect(() => {
     try {
-      window.localStorage.setItem('tfarrej_minRating', String(minRating));
       window.localStorage.setItem('tfarrej_countries', JSON.stringify(selectedCountries));
       window.localStorage.setItem('tfarrej_yearRange', JSON.stringify(yearRange));
     } catch {}
-  }, [minRating, selectedCountries, yearRange]);
+  }, [selectedCountries, yearRange]);
 
   useEffect(() => {
     // This effect ensures we only fetch movies once when the component is ready.
@@ -229,7 +225,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     if (!initialFetchDone.current) return;
     fetchMovies();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [minRating, JSON.stringify(selectedCountries), JSON.stringify(yearRange), genre]);
+  }, [JSON.stringify(selectedCountries), JSON.stringify(yearRange), genre]);
 
 
   const handleSwipe = async (swipeDirection: 'left' | 'right') => {
@@ -322,29 +318,11 @@ export default function MovieSwiper({ genre }: { genre: string }) {
        </div>
     )
   }
-
   return (
-    <div className="flex justify-center">
-      <div className="relative w-full max-w-sm h-[600px]">
+    <div className="w-full flex justify-center">
+      <div className="relative w-full max-w-sm">
         {/* Filters */}
-        <div className="absolute top-0 left-0 right-0 z-10 px-4 py-2 flex flex-wrap items-center gap-2 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 rounded-t-lg">
-          {/* Note (6 à 10) */}
-          <Select
-            value={String(minRating)}
-            onValueChange={(v: string) => { const num = Number(v); setMinRating(num); setCurrentIndex(0); const filtered = applyFilters(originalMovies, { minRating: num, countries: selectedCountries, yearRange }); setMovies(filtered); }}
-          >
-            <SelectTrigger className={`${buttonVariants({ variant: 'ocean', size: 'sm' })} h-8 w-full sm:w-auto`} aria-label="Note minimale">
-              <SelectValue placeholder="Note" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={String(6)}>Note ≥ 6</SelectItem>
-              <SelectItem value={String(7)}>Note ≥ 7</SelectItem>
-              <SelectItem value={String(8)}>Note ≥ 8</SelectItem>
-              <SelectItem value={String(9)}>Note ≥ 9</SelectItem>
-              <SelectItem value={String(10)}>Note = 10</SelectItem>
-            </SelectContent>
-          </Select>
-
+        <div className="absolute top-0 left-0 right-0 z-10 px-3 py-2 flex flex-wrap items-center gap-2 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 rounded-t-lg">
           {/* Pays (multi-sélection avec recherche) */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -352,7 +330,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
                 {selectedCountries.length > 0 ? `Pays (${selectedCountries.length})` : 'Pays'}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56">
+            <DropdownMenuContent className="w-56 max-h-64 overflow-y-auto">
               <div className="px-2 py-1.5">
                 <Input
                   placeholder="Rechercher un pays..."
@@ -360,8 +338,8 @@ export default function MovieSwiper({ genre }: { genre: string }) {
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCountrySearch(e.target.value)}
                 />
               </div>
-              <DropdownMenuItem onSelect={(e: Event) => { e.preventDefault(); setSelectedCountries([]); setCurrentIndex(0); const filtered = applyFilters(originalMovies, { minRating, countries: [], yearRange }); setMovies(filtered); }}>Tous pays</DropdownMenuItem>
-              <DropdownMenuItem onSelect={(e: Event) => { e.preventDefault(); const pool = (countryOptions && countryOptions.length ? countryOptions : DEFAULT_COUNTRIES); const rand = pool[Math.floor(Math.random() * pool.length)]; const next = rand ? [rand] : []; setSelectedCountries(next); setCurrentIndex(0); const filtered = applyFilters(originalMovies, { minRating, countries: next, yearRange }); setMovies(filtered); }}>Au hasard</DropdownMenuItem>
+              <DropdownMenuItem onSelect={(e: Event) => { e.preventDefault(); setSelectedCountries([]); setCurrentIndex(0); const filtered = applyFilters(originalMovies, { minRating: 6, countries: [], yearRange }); setMovies(filtered); }}>Tous pays</DropdownMenuItem>
+              <DropdownMenuItem onSelect={(e: Event) => { e.preventDefault(); const pool = (countryOptions && countryOptions.length ? countryOptions : DEFAULT_COUNTRIES); const rand = pool[Math.floor(Math.random() * pool.length)]; const next = rand ? [rand] : []; setSelectedCountries(next); setCurrentIndex(0); const filtered = applyFilters(originalMovies, { minRating: 6, countries: next, yearRange }); setMovies(filtered); }}>Au hasard</DropdownMenuItem>
               <DropdownMenuSeparator />
               {filteredCountryOptions.map((c: string) => {
                 const checked = selectedCountries.includes(c);
@@ -373,7 +351,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
                       const next = state ? Array.from(new Set([...selectedCountries, c])) : selectedCountries.filter((x: string) => x !== c);
                       setSelectedCountries(next);
                       setCurrentIndex(0);
-                      const filtered = applyFilters(originalMovies, { minRating, countries: next, yearRange });
+                      const filtered = applyFilters(originalMovies, { minRating: 6, countries: next, yearRange });
                       setMovies(filtered);
                     }}
                   >
@@ -384,92 +362,88 @@ export default function MovieSwiper({ genre }: { genre: string }) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Année (plage mauve) */}
-          <div className="flex items-center gap-2 w-full sm:w-64">
-            <div className={`${buttonVariants({ variant: 'default', size: 'sm' })} h-8 px-2 flex items-center rounded-md text-xs whitespace-nowrap`}>
-              {yearRange[0]} - {yearRange[1]}
-            </div>
-            <div className="flex-1 px-2">
-              <Slider
-                value={yearRange as unknown as number[]}
+          {/* Année (de - à) */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground">De</span>
+              <Input
+                type="number"
+                className="h-8 w-20"
+                value={yearRange[0]}
                 min={yearBounds[0]}
-                max={yearBounds[1]}
-                step={1}
-                rangeClassName="bg-purple-500"
-                thumbClassName="border-purple-500"
-                onValueChange={(vals: number[]) => {
-                  if (!Array.isArray(vals) || vals.length !== 2) return;
-                  const next: [number, number] = [Math.min(vals[0], vals[1]), Math.max(vals[0], vals[1])];
+                max={yearRange[1]}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  const val = Number(e.target.value) || yearBounds[0];
+                  const next: [number, number] = [Math.min(val, yearRange[1]), yearRange[1]];
                   setYearRange(next);
                   setCurrentIndex(0);
-                  const filtered = applyFilters(originalMovies, { minRating, countries: selectedCountries, yearRange: next });
+                  const filtered = applyFilters(originalMovies, { minRating: 6, countries: selectedCountries, yearRange: next });
+                  setMovies(filtered);
+                }}
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground">À</span>
+              <Input
+                type="number"
+                className="h-8 w-20"
+                value={yearRange[1]}
+                min={yearRange[0]}
+                max={yearBounds[1]}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  const val = Number(e.target.value) || yearBounds[1];
+                  const next: [number, number] = [yearRange[0], Math.max(val, yearRange[0])];
+                  setYearRange(next);
+                  setCurrentIndex(0);
+                  const filtered = applyFilters(originalMovies, { minRating: 6, countries: selectedCountries, yearRange: next });
                   setMovies(filtered);
                 }}
               />
             </div>
           </div>
-
-          {/* Fin filtres */}
         </div>
-        {/* Fin badges */}
-        {movies.length === 0 && !isSuggestionsLoading ? (
-          <Card className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <CardContent className="p-6">
-              <Film className="h-12 w-12 mx-auto text-muted-foreground" />
-              <h3 className="text-xl font-bold font-headline mt-4">Aucun film trouvé</h3>
-              <p className="text-muted-foreground mt-2">
-                Vous avez vu tous les films pour le genre "{genre}" ou il n'y a pas de nouvelles suggestions.
-              </p>
-              <Button className="mt-4" variant="outline" onClick={fetchMovies}>
-                <RotateCcw className="mr-2 h-4 w-4" /> Réessayer
-              </Button>
-            </CardContent>
-          </Card>
-        ) : currentMovie ? (
-          <Card className="absolute inset-0 flex flex-col transition-transform duration-300 ease-in-out shadow-2xl pt-10">
-            <CardHeader className="p-6">
+
+        {/* Content card */}
+        <Card className="relative w-full h-[550px] overflow-hidden">
+          {currentMovie ? (
+            <>
+              <CardHeader className="p-6 pt-8">
                 <div className={`${badgeVariants({ variant: 'secondary' })} mb-2 self-start`}>{currentMovie.genre}</div>
                 <CardTitle className="font-headline text-3xl leading-tight">{currentMovie.title}</CardTitle>
                 <div className="flex items-center flex-wrap gap-x-4 gap-y-1 pt-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1.5">
-                        <Star className="h-4 w-4 text-amber-400" /> 
-                        <span className="font-bold">{currentMovie.rating.toFixed(1)}</span>/10
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <Calendar className="h-4 w-4" /> 
-                        <span className="font-bold">{currentMovie.year}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <Globe className="h-4 w-4" /> 
-                        <span className="font-bold">{currentMovie.country}</span>
-                    </div>
+                  <div className="flex items-center gap-1.5">
+                    <Star className="h-4 w-4 text-amber-400" />
+                    <span className="font-bold">{currentMovie.rating.toFixed(1)}</span>/10
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-4 w-4" />
+                    <span className="font-bold">{currentMovie.year}</span>
+                  </div>
                 </div>
-            </CardHeader>
-            <CardContent className="flex-grow flex flex-col justify-between p-6 pt-0">
+              </CardHeader>
+              <CardContent className="flex-grow flex flex-col justify-between p-6 pt-0">
                 <div>
-                    <h4 className="font-semibold text-sm mb-1">Synopsis</h4>
-                    <p className="text-sm text-muted-foreground max-h-24 overflow-y-auto">{currentMovie.synopsis}</p>
+                  <h4 className="font-semibold text-sm mb-1">Synopsis</h4>
+                  <p className="text-sm text-muted-foreground max-h-24 overflow-y-auto">{currentMovie.synopsis}</p>
                 </div>
-              
-              <Separator className="my-4"/>
-              
-              <div className="space-y-3">
-                 <div>
+                <Separator className="my-4" />
+                <div className="space-y-3">
+                  <div>
                     <h4 className="font-semibold text-sm mb-1">Acteurs principaux</h4>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Users className="h-4 w-4 flex-shrink-0" />
-                        <span>{currentMovie.actors.join(', ')}</span>
+                      <Users className="h-4 w-4 flex-shrink-0" />
+                      <span>{currentMovie.actors.join(', ')}</span>
                     </div>
-                 </div>
-                <a href={currentMovie.wikipediaUrl} target="_blank" rel="noopener noreferrer">
+                  </div>
+                  <a href={currentMovie.wikipediaUrl} target="_blank" rel="noopener noreferrer">
                     <Button variant="link" className="p-0 h-auto text-sm">
-                        <LinkIcon className="mr-2 h-4 w-4" />
-                        En savoir plus sur Wikipédia
+                      <LinkIcon className="mr-2 h-4 w-4" />
+                      En savoir plus sur Wikipédia
                     </Button>
-                </a>
-              </div>
-            </CardContent>
-             <CardFooter className="p-4 pt-0 grid grid-cols-3 gap-4">
+                  </a>
+                </div>
+              </CardContent>
+              <CardFooter className="p-4 pt-0 grid grid-cols-3 gap-4">
                 <Button variant="outline" size="lg" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive h-14" onClick={() => handleSwipe('left')} disabled={isSwipeLoading}>
                   {isSwipeLoading ? <Loader2 className="animate-spin" /> : <Eye className="h-8 w-8" />}
                 </Button>
@@ -479,19 +453,20 @@ export default function MovieSwiper({ genre }: { genre: string }) {
                 <Button variant="outline" size="lg" className="border-green-500 text-green-500 hover:bg-green-500/10 hover:text-green-500 h-14" onClick={() => handleSwipe('right')} disabled={isSwipeLoading}>
                   {isSwipeLoading ? <Loader2 className="animate-spin" /> : <ListVideo className="h-8 w-8" />}
                 </Button>
-            </CardFooter>
-          </Card>
-        ) : (
-          <Card className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <CardContent className="p-6">
-              <h3 className="text-xl font-bold font-headline">C'est tout pour le moment !</h3>
-              <p className="text-muted-foreground mt-2">Vous avez vu toutes les suggestions pour ce genre.</p>
-              <Button className="mt-4" onClick={fetchMovies}>
-                <RotateCcw className="mr-2 h-4 w-4" /> M'en proposer d'autres
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+              </CardFooter>
+            </>
+          ) : (
+            <Card className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <CardContent className="p-6">
+                <h3 className="text-xl font-bold font-headline">C'est tout pour le moment !</h3>
+                <p className="text-muted-foreground mt-2">Vous avez vu toutes les suggestions pour ce genre.</p>
+                <Button className="mt-4" onClick={fetchMovies}>
+                  <RotateCcw className="mr-2 h-4 w-4" /> M'en proposer d'autres
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </Card>
       </div>
     </div>
   );
