@@ -2,7 +2,7 @@
 
 import type React from 'react'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Eye, ListVideo, Loader2, Film, RotateCcw, Star, Link as LinkIcon, Users, Calendar, Globe, SkipForward } from 'lucide-react';
+import { Eye, ListVideo, Loader2, Film, RotateCcw, Star, Link as LinkIcon, Users, Calendar, Globe, SkipForward, X } from 'lucide-react';
 
 import { recordMovieSwipe } from '@/ai/flows/movie-preference-learning';
 import { generateMovieSuggestions } from '@/ai/flows/generate-movie-suggestions-flow-fixed';
@@ -17,15 +17,30 @@ import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile } from '@/lib/firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 // Client-side filtering util
-function applyFilters(list: MovieSuggestion[], opts: { minRating: number; country: string; minYear: number }) {
-  const ctry = (opts.country || '').toLowerCase().trim();
-  return list.filter(m =>
-    m.rating >= (opts.minRating || 0) &&
-    m.year >= (opts.minYear || 0) &&
-    (!ctry || (m.country || '').toLowerCase().includes(ctry))
-  );
+function applyFilters(list: MovieSuggestion[], opts: { minRating: number; countries: string[]; yearRange: [number, number] }) {
+  const selected = (opts.countries || []).map(c => c.toLowerCase().trim()).filter(Boolean);
+  const [yMin, yMax] = opts.yearRange || [0, new Date().getFullYear()];
+  return list.filter((m: MovieSuggestion) => {
+    const inYear = m.year >= (yMin || 0) && m.year <= (yMax || new Date().getFullYear());
+    const inRating = m.rating >= (opts.minRating || 0);
+    const mCountry = (m.country || '').toLowerCase();
+    const inCountry = selected.length === 0 ? true : selected.some(ct => mCountry.includes(ct));
+    return inYear && inRating && inCountry;
+  });
+}
+
+function applySort(list: MovieSuggestion[], sortBy: 'none' | 'rating_desc' | 'year_desc' | 'year_asc') {
+  if (sortBy === 'none') return list;
+  const arr = [...list];
+  if (sortBy === 'rating_desc') arr.sort((a, b) => (b.rating - a.rating) || (b.year - a.year));
+  if (sortBy === 'year_desc') arr.sort((a, b) => b.year - a.year);
+  if (sortBy === 'year_asc') arr.sort((a, b) => a.year - b.year);
+  return arr;
 }
 
 // Dismissed titles persistence (localStorage)
@@ -83,16 +98,51 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   const initialFetchDone = useRef(false);
   // Quick filters
   const [minRating, setMinRating] = useState<number>(0);
-  const [countryFilter, setCountryFilter] = useState<string>("");
-  const [minYear, setMinYear] = useState<number>(0);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
+  const CURRENT_YEAR = new Date().getFullYear();
+  const [yearRange, setYearRange] = useState<[number, number]>([0, CURRENT_YEAR]);
+  const [countrySearch, setCountrySearch] = useState<string>("");
+  const [sortBy, setSortBy] = useState<'none' | 'rating_desc' | 'year_desc' | 'year_asc'>('none');
  
-  // Country options derived from originalMovies
+  // Country options: include popular defaults + those derived from current results
+  const DEFAULT_COUNTRIES = [
+    'France',
+    'Italie',
+    'Tunisie',
+    'Égypte',
+    'Corée du Sud',
+    'Japon',
+    'Allemagne',
+    'Espagne',
+    'Maroc',
+    'Inde',
+    'Turquie',
+    'Canada',
+    'Mexique',
+    'Brésil',
+    'Chine',
+  ];
+
   const countryOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const m of originalMovies) {
+    for (const c of DEFAULT_COUNTRIES) set.add(c);
+    for (const m of originalMovies as MovieSuggestion[]) {
       if (m.country) set.add(m.country);
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [originalMovies]);
+
+  const filteredCountryOptions = useMemo(() => {
+    const q = countrySearch.toLowerCase().trim();
+    if (!q) return countryOptions;
+    return countryOptions.filter((c: string) => c.toLowerCase().includes(q));
+  }, [countryOptions, countrySearch]);
+
+  const yearBounds = useMemo(() => {
+    const years = (originalMovies as MovieSuggestion[]).map((m: MovieSuggestion) => m.year).filter(Boolean as any) as number[];
+    const min = years.length ? Math.min(...years) : 1950;
+    const max = years.length ? Math.max(...years) : CURRENT_YEAR;
+    return [min, max] as [number, number];
   }, [originalMovies]);
   
   const fetchMovies = useCallback(() => {
@@ -114,9 +164,8 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     generateMovieSuggestions({ genre: genre, count: 7, seenMovieTitles })
       .then((result) => {
         setOriginalMovies(result.movies);
-        // apply filters immediately
-        const filtered = applyFilters(result.movies, { minRating, country: countryFilter, minYear });
-        setMovies(filtered);
+        const filtered = applyFilters(result.movies, { minRating, countries: selectedCountries, yearRange });
+        setMovies(applySort(filtered, sortBy));
       })
       .catch((error) => {
         handleAiError(error, toast);
@@ -124,7 +173,42 @@ export default function MovieSwiper({ genre }: { genre: string }) {
       .finally(() => {
         setIsSuggestionsLoading(false);
       });
-  }, [genre, toast, userProfile, minRating, countryFilter, minYear]);
+  }, [genre, toast, userProfile, minRating, selectedCountries, yearRange, sortBy]);
+
+  // Load persisted filters on mount
+  useEffect(() => {
+    try {
+      const r = window.localStorage.getItem('tfarrej_minRating');
+      const cArr = window.localStorage.getItem('tfarrej_countries');
+      const cLegacy = window.localStorage.getItem('tfarrej_country');
+      const y = window.localStorage.getItem('tfarrej_yearRange');
+      const s = window.localStorage.getItem('tfarrej_sortBy');
+      if (r !== null) setMinRating(Number(r));
+      if (cArr) {
+        try {
+          const parsed = JSON.parse(cArr) as string[];
+          if (Array.isArray(parsed)) setSelectedCountries(parsed);
+        } catch {}
+      } else if (cLegacy !== null) {
+        if (cLegacy) setSelectedCountries([cLegacy]);
+      }
+      if (y) {
+        const parsed = JSON.parse(y) as [number, number];
+        if (Array.isArray(parsed) && parsed.length === 2) setYearRange(parsed);
+      }
+      if (s === 'rating_desc' || s === 'year_desc' || s === 'year_asc' || s === 'none') setSortBy(s);
+    } catch {}
+  }, []);
+
+  // Persist filters
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('tfarrej_minRating', String(minRating));
+      window.localStorage.setItem('tfarrej_countries', JSON.stringify(selectedCountries));
+      window.localStorage.setItem('tfarrej_yearRange', JSON.stringify(yearRange));
+      window.localStorage.setItem('tfarrej_sortBy', sortBy);
+    } catch {}
+  }, [minRating, selectedCountries, yearRange, sortBy]);
 
   useEffect(() => {
     // This effect ensures we only fetch movies once when the component is ready.
@@ -235,7 +319,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
           {/* Note (bleu comme À Voir) */}
           <Select
             value={String(minRating)}
-            onValueChange={(v: string) => { const num = Number(v); setMinRating(num); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating: num, country: countryFilter, minYear })); }}
+            onValueChange={(v: string) => { const num = Number(v); setMinRating(num); setCurrentIndex(0); const filtered = applyFilters(originalMovies, { minRating: num, countries: selectedCountries, yearRange }); setMovies(applySort(filtered, sortBy)); }}
           >
             <SelectTrigger className={`${buttonVariants({ variant: 'ocean', size: 'sm' })} h-8 w-full sm:w-auto`} aria-label="Note minimale">
               <SelectValue placeholder="Note" />
@@ -249,39 +333,129 @@ export default function MovieSwiper({ genre }: { genre: string }) {
             </SelectContent>
           </Select>
 
-          {/* Pays (Select stylé) */}
+          {/* Pays (multi-sélection) */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 w-full sm:w-auto">
+                {selectedCountries.length > 0 ? `Pays (${selectedCountries.length})` : 'Pays'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56">
+              <div className="px-2 py-1.5">
+                <Input
+                  placeholder="Rechercher un pays..."
+                  value={countrySearch}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCountrySearch(e.target.value)}
+                />
+              </div>
+              <DropdownMenuItem onSelect={(e: Event) => { e.preventDefault(); setSelectedCountries([]); setCurrentIndex(0); const filtered = applyFilters(originalMovies, { minRating, countries: [], yearRange }); setMovies(applySort(filtered, sortBy)); }}>Tous pays</DropdownMenuItem>
+              <DropdownMenuItem onSelect={(e: Event) => { e.preventDefault(); const pool = (countryOptions && countryOptions.length ? countryOptions : DEFAULT_COUNTRIES); const rand = pool[Math.floor(Math.random() * pool.length)]; const next = rand ? [rand] : []; setSelectedCountries(next); setCurrentIndex(0); const filtered = applyFilters(originalMovies, { minRating, countries: next, yearRange }); setMovies(applySort(filtered, sortBy)); }}>Au hasard</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {filteredCountryOptions.map((c: string) => {
+                const checked = selectedCountries.includes(c);
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={c}
+                    checked={checked}
+                    onCheckedChange={(state: boolean) => {
+                      const next = state ? Array.from(new Set([...selectedCountries, c])) : selectedCountries.filter((x: string) => x !== c);
+                      setSelectedCountries(next);
+                      setCurrentIndex(0);
+                      const filtered = applyFilters(originalMovies, { minRating, countries: next, yearRange });
+                      setMovies(applySort(filtered, sortBy));
+                    }}
+                  >
+                    {c}
+                  </DropdownMenuCheckboxItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Année (plage) */}
+          <div className="flex items-center gap-2 w-full sm:w-64">
+            <div className={`${buttonVariants({ variant: 'default', size: 'sm' })} h-8 px-2 flex items-center rounded-md text-xs whitespace-nowrap`}>
+              {yearRange[0]} - {yearRange[1]}
+            </div>
+            <div className="flex-1 px-2">
+              <Slider
+                value={yearRange as unknown as number[]}
+                min={yearBounds[0]}
+                max={yearBounds[1]}
+                step={1}
+                onValueChange={(vals: number[]) => {
+                  if (!Array.isArray(vals) || vals.length !== 2) return;
+                  const next: [number, number] = [Math.min(vals[0], vals[1]), Math.max(vals[0], vals[1])];
+                  setYearRange(next);
+                  setCurrentIndex(0);
+                  const filtered = applyFilters(originalMovies, { minRating, countries: selectedCountries, yearRange: next });
+                  setMovies(applySort(filtered, sortBy));
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Tri */}
           <Select
-            value={countryFilter || 'all'}
-            onValueChange={(v: string) => { const val = v === 'all' ? '' : v; setCountryFilter(val); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating, country: val, minYear })); }}
+            value={sortBy}
+            onValueChange={(v: 'none' | 'rating_desc' | 'year_desc' | 'year_asc') => {
+              setSortBy(v);
+              setCurrentIndex(0);
+              const filtered = applyFilters(originalMovies, { minRating, countries: selectedCountries, yearRange });
+              setMovies(applySort(filtered, v));
+            }}
           >
-            <SelectTrigger className={`${buttonVariants({ variant: 'outline', size: 'sm' })} h-8 w-full sm:w-auto`} aria-label="Filtrer par pays">
-              <SelectValue placeholder="Pays" />
+            <SelectTrigger className={`${buttonVariants({ variant: 'secondary', size: 'sm' })} h-8 w-full sm:w-auto`} aria-label="Trier">
+              <SelectValue placeholder="Tri" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tous pays</SelectItem>
-              {countryOptions.map((c: string) => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
-              ))}
+              <SelectItem value={'none'}>Par défaut</SelectItem>
+              <SelectItem value={'rating_desc'}>Note décroissante</SelectItem>
+              <SelectItem value={'year_desc'}>Année décroissante</SelectItem>
+              <SelectItem value={'year_asc'}>Année croissante</SelectItem>
             </SelectContent>
           </Select>
 
-          {/* Année (mauve comme Vus) */}
-          <Select
-            value={String(minYear)}
-            onValueChange={(v: string) => { const num = Number(v); setMinYear(num); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating, country: countryFilter, minYear: num })); }}
+          {/* Réinitialiser */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8"
+            onClick={() => {
+              const resetRange: [number, number] = [yearBounds[0], yearBounds[1]];
+              setMinRating(0);
+              setSelectedCountries([]);
+              setYearRange(resetRange);
+              setSortBy('none');
+              setCurrentIndex(0);
+              const filtered = applyFilters(originalMovies, { minRating: 0, countries: [], yearRange: resetRange });
+              setMovies(filtered);
+            }}
           >
-            <SelectTrigger className={`${buttonVariants({ variant: 'default', size: 'sm' })} h-8 w-full sm:w-auto`} aria-label="Année minimale">
-              <SelectValue placeholder="Année" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={String(0)}>Année ≥ 0</SelectItem>
-              <SelectItem value={String(1980)}>Année ≥ 1980</SelectItem>
-              <SelectItem value={String(1990)}>Année ≥ 1990</SelectItem>
-              <SelectItem value={String(2000)}>Année ≥ 2000</SelectItem>
-              <SelectItem value={String(2010)}>Année ≥ 2010</SelectItem>
-              <SelectItem value={String(2020)}>Année ≥ 2020</SelectItem>
-            </SelectContent>
-          </Select>
+            Réinitialiser
+          </Button>
+        </div>
+
+        {/* Badges filtres actifs */}
+        <div className="flex flex-wrap gap-2 px-4 pt-2">
+          {minRating > 0 && (
+            <Button variant="secondary" size="sm" className="h-7 px-2" onClick={() => { setMinRating(0); setCurrentIndex(0); const filtered = applyFilters(originalMovies, { minRating: 0, countries: selectedCountries, yearRange }); setMovies(applySort(filtered, sortBy)); }}>
+              Note ≥ {minRating}
+              <X className="ml-1 h-3 w-3" />
+            </Button>
+          )}
+          {(selectedCountries || []).map((c: string) => (
+            <Button key={c} variant="outline" size="sm" className="h-7 px-2" onClick={() => { const next = selectedCountries.filter((x: string) => x !== c); setSelectedCountries(next); setCurrentIndex(0); const filtered = applyFilters(originalMovies, { minRating, countries: next, yearRange }); setMovies(applySort(filtered, sortBy)); }}>
+              {c}
+              <X className="ml-1 h-3 w-3" />
+            </Button>
+          ))}
+          {(yearRange[0] !== yearBounds[0] || yearRange[1] !== yearBounds[1]) && (
+            <Button variant="outline" size="sm" className="h-7 px-2" onClick={() => { const resetRange: [number, number] = [yearBounds[0], yearBounds[1]]; setYearRange(resetRange); setCurrentIndex(0); const filtered = applyFilters(originalMovies, { minRating, countries: selectedCountries, yearRange: resetRange }); setMovies(applySort(filtered, sortBy)); }}>
+              Année {yearRange[0]} - {yearRange[1]}
+              <X className="ml-1 h-3 w-3" />
+            </Button>
+          )}
         </div>
         {movies.length === 0 && !isSuggestionsLoading ? (
           <Card className="absolute inset-0 flex flex-col items-center justify-center text-center">
