@@ -90,6 +90,8 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   // Quick filters
   const CURRENT_YEAR = new Date().getFullYear();
   const [yearRange, setYearRange] = useState<[number, number]>([0, CURRENT_YEAR]);
+  const [yearStartInput, setYearStartInput] = useState<string>('0');
+  const [yearEndInput, setYearEndInput] = useState<string>(String(CURRENT_YEAR));
  
   // Country filter removed by request; we only display nationality from API
 
@@ -100,6 +102,31 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     return [min, max] as [number, number];
   }, [originalMovies]);
  
+  // Keep text inputs in sync when yearRange changes externally
+  useEffect(() => {
+    setYearStartInput(String(yearRange[0]));
+    setYearEndInput(String(yearRange[1]));
+  }, [yearRange[0], yearRange[1]]);
+ 
+  const applyYearStart = useCallback(() => {
+    let valNum = parseInt(yearStartInput || String(yearBounds[0]), 10);
+    if (isNaN(valNum)) valNum = yearBounds[0];
+    const next: [number, number] = [Math.min(Math.max(valNum, yearBounds[0]), yearRange[1]), yearRange[1]];
+    setYearRange(next);
+    setCurrentIndex(0);
+    const filtered = applyFilters(originalMovies, { minRating: 6, countries: [], yearRange: next });
+    setMovies(filtered);
+  }, [yearStartInput, yearBounds, yearRange[1], originalMovies]);
+
+  const applyYearEnd = useCallback(() => {
+    let valNum = parseInt(yearEndInput || String(yearBounds[1]), 10);
+    if (isNaN(valNum)) valNum = yearBounds[1];
+    const next: [number, number] = [yearRange[0], Math.max(Math.min(valNum, yearBounds[1]), yearRange[0])];
+    setYearRange(next);
+    setCurrentIndex(0);
+    const filtered = applyFilters(originalMovies, { minRating: 6, countries: [], yearRange: next });
+    setMovies(filtered);
+  }, [yearEndInput, yearBounds, yearRange[0], originalMovies]);
   
   
   const fetchMovies = useCallback(() => {
@@ -284,36 +311,32 @@ export default function MovieSwiper({ genre }: { genre: string }) {
               <span className="text-xs text-muted-foreground">De</span>
               <Input
                 type="number"
-                className="h-8 w-20"
-                value={yearRange[0]}
+                inputMode="numeric"
+                className="h-8 w-24"
+                value={yearStartInput}
                 min={yearBounds[0]}
                 max={yearRange[1]}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  const val = Number(e.target.value) || yearBounds[0];
-                  const next: [number, number] = [Math.min(val, yearRange[1]), yearRange[1]];
-                  setYearRange(next);
-                  setCurrentIndex(0);
-                  const filtered = applyFilters(originalMovies, { minRating: 6, countries: [], yearRange: next });
-                  setMovies(filtered);
+                  setYearStartInput(e.target.value);
                 }}
+                onBlur={applyYearStart}
+                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { applyYearStart(); } }}
               />
             </div>
             <div className="flex items-center gap-1">
               <span className="text-xs text-muted-foreground">À</span>
               <Input
                 type="number"
-                className="h-8 w-20"
-                value={yearRange[1]} 
+                inputMode="numeric"
+                className="h-8 w-24"
+                value={yearEndInput}
                 min={yearRange[0]}
                 max={yearBounds[1]}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  const val = Number(e.target.value) || yearBounds[1];
-                  const next: [number, number] = [yearRange[0], Math.max(val, yearRange[0])];
-                  setYearRange(next);
-                  setCurrentIndex(0);
-                  const filtered = applyFilters(originalMovies, { minRating: 6, countries: [], yearRange: next });
-                  setMovies(filtered);
+                  setYearEndInput(e.target.value);
                 }}
+                onBlur={applyYearEnd}
+                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { applyYearEnd(); } }}
               />
             </div>
           </div>

@@ -248,6 +248,24 @@ async function fetchMovieDetails(
   }
 }
 
+function isNonLatinTitle(s: string): boolean {
+  // Detect common CJK/Hangul ranges
+  return /[\u3040-\u30FF\u4E00-\u9FFF\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF]/.test(s)
+}
+
+async function normalizeTitle(
+  apiKeyOrBearer: { apiKey?: string; bearer?: string },
+  tmdbId: number,
+  currentTitle: string
+): Promise<string> {
+  if (!currentTitle || isNonLatinTitle(currentTitle)) {
+    const en = await fetchMovieDetails(apiKeyOrBearer, tmdbId, 'en-US')
+    const candidate = (en?.title || en?.original_title || '').trim()
+    if (candidate) return candidate
+  }
+  return currentTitle
+}
+
 // Try to find a reliable Wikipedia URL for a movie (prefer FR, fallback EN)
 async function findWikipediaUrl(title: string, year: number): Promise<string> {
   const tryLang = async (lang: 'fr' | 'en') => {
@@ -275,10 +293,10 @@ async function findWikipediaUrl(title: string, year: number): Promise<string> {
         const hits: Array<{ title: string; pageid?: number }> = data?.query?.search || []
         if (hits.length > 0) {
           const best = preferFilmHit(hits)
-          // Resolve canonical URL via pageids
-          const infoApi = `https://${lang}.wikipedia.org/w/api.php?action=query&prop=info&inprop=url&format=json&pageids=${(data?.query?.searchinfo ? '' : '')}`
+          // Use REST summary to get canonical content_urls if possible
+          const sum = await getWikipediaSummary(lang, best.title)
+          if (sum?.url) return sum.url
           const pageTitle = encodeURIComponent(best.title.replace(/\s/g, '_'))
-          // If we can't resolve via info, fall back to direct /wiki/<Title>
           return `https://${lang}.wikipedia.org/wiki/${pageTitle}`
         }
       } catch {
@@ -365,8 +383,8 @@ export async function POST(req: NextRequest) {
     const shuffle = <T,>(arr: T[]) => arr.sort(() => Math.random() - 0.5)
     const baseKeys = shuffle(Array.from(byCountry.keys()))
     for (const k of baseKeys) byCountry.set(k, shuffle(byCountry.get(k)!))
-    // Apply slight bias: duplicate preferred keys to increase their chance in round-robin
-    const weightFor = (code: string) => (code === 'US' || code === 'GB' || code === 'FR' ? 2 : 1)
+    // Apply stronger bias: US, GB, FR, ES get higher weight
+    const weightFor = (code: string) => (code === 'US' || code === 'GB' || code === 'FR' || code === 'ES' ? 3 : 1)
     const keys: string[] = []
     for (const k of baseKeys) {
       const w = weightFor(k)
@@ -424,8 +442,10 @@ export async function POST(req: NextRequest) {
           const codes: string[] = Array.isArray(m?.origin_country) ? m.origin_country : []
           country = codes.join(', ')
         }
+        // Normalize title to avoid non-Latin scripts in UI
+        let titleStr = (m.title || m.original_title || '').trim()
+        titleStr = await normalizeTitle({ apiKey, bearer }, m.id, titleStr)
         // Build Wikipedia URL using Wikipedia search API
-        const titleStr = (m.title || m.original_title || '').trim()
         const wikipediaUrl = await findWikipediaUrl(titleStr, year)
         return {
           id: String(m.id),
