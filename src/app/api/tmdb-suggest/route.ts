@@ -36,16 +36,17 @@ function mapCountryLabelToCode(label: string): string | null {
 }
 
 async function fetchCountryMovies(params: {
-  apiKey: string,
+  apiKey?: string,
+  bearer?: string,
   countryCode: string,
   yearRange: [number, number],
   minRating: number,
   genre?: string,
   page?: number,
 }) {
-  const { apiKey, countryCode, yearRange, minRating, genre, page = 1 } = params
+  const { apiKey, bearer, countryCode, yearRange, minRating, genre, page = 1 } = params
   const url = new URL(`${TMDB_API_BASE}/discover/movie`)
-  url.searchParams.set('api_key', apiKey)
+  if (apiKey) url.searchParams.set('api_key', apiKey)
   url.searchParams.set('with_origin_country', countryCode)
   url.searchParams.set('language', 'fr-FR')
   url.searchParams.set('sort_by', 'vote_average.desc')
@@ -65,7 +66,9 @@ async function fetchCountryMovies(params: {
     // Optionally: map genre name to TMDB genre IDs. Skipped for now.
   }
 
-  const res = await fetch(url.toString())
+  const headers: Record<string, string> = {}
+  if (bearer) headers['Authorization'] = `Bearer ${bearer}`
+  const res = await fetch(url.toString(), { headers })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(`TMDB discover failed: ${res.status} ${text?.slice(0,200)}`)
@@ -74,10 +77,14 @@ async function fetchCountryMovies(params: {
   return data?.results || []
 }
 
-async function fetchTopCast(apiKey: string, tmdbId: number): Promise<string[]> {
+async function fetchTopCast(apiKeyOrBearer: { apiKey?: string; bearer?: string }, tmdbId: number): Promise<string[]> {
   try {
-    const url = `${TMDB_API_BASE}/movie/${tmdbId}/credits?api_key=${apiKey}&language=fr-FR`
-    const res = await fetch(url, { cache: 'force-cache' })
+    const url = new URL(`${TMDB_API_BASE}/movie/${tmdbId}/credits`)
+    url.searchParams.set('language', 'fr-FR')
+    if (apiKeyOrBearer.apiKey) url.searchParams.set('api_key', apiKeyOrBearer.apiKey)
+    const headers: Record<string, string> = {}
+    if (apiKeyOrBearer.bearer) headers['Authorization'] = `Bearer ${apiKeyOrBearer.bearer}`
+    const res = await fetch(url.toString(), { cache: 'force-cache', headers })
     if (!res.ok) return []
     const data = await res.json()
     const cast = Array.isArray(data?.cast) ? data.cast.slice(0, 3).map((c: any) => c?.name).filter(Boolean) : []
@@ -90,8 +97,9 @@ async function fetchTopCast(apiKey: string, tmdbId: number): Promise<string[]> {
 export async function POST(req: NextRequest) {
   try {
     const apiKey = process.env.TMDB_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'TMDB_API_KEY not configured' }, { status: 400 })
+    const bearer = process.env.TMDB_BEARER
+    if (!apiKey && !bearer) {
+      return NextResponse.json({ error: 'TMDB credentials missing: set TMDB_API_KEY (v3) or TMDB_BEARER (v4)' }, { status: 400 })
     }
 
     const body = await req.json()
@@ -119,8 +127,8 @@ export async function POST(req: NextRequest) {
     const results: any[] = []
     for (const code of poolCodes) {
       try {
-        const page1 = await fetchCountryMovies({ apiKey, countryCode: code, yearRange, minRating, genre, page: 1 })
-        const page2 = await fetchCountryMovies({ apiKey, countryCode: code, yearRange, minRating, genre, page: 2 })
+        const page1 = await fetchCountryMovies({ apiKey, bearer, countryCode: code, yearRange, minRating, genre, page: 1 })
+        const page2 = await fetchCountryMovies({ apiKey, bearer, countryCode: code, yearRange, minRating, genre, page: 2 })
         results.push(...page1, ...page2)
       } catch (e) {
         // continue other countries
@@ -152,7 +160,7 @@ export async function POST(req: NextRequest) {
     while (i < selected.length) {
       const chunk = selected.slice(i, i + concurrency)
       const data = await Promise.all(chunk.map(async (m) => {
-        const actors = await fetchTopCast(apiKey, m.id).catch(() => [])
+        const actors = await fetchTopCast({ apiKey, bearer }, m.id).catch(() => [])
         return {
           id: String(m.id),
           title: m.title || m.original_title,
