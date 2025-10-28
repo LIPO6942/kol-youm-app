@@ -126,7 +126,8 @@ async function collectWikipediaSuggestions(params: {
             if (tmdbYear < yMin || tmdbYear > yMax) continue
             const actors = await fetchTopCast({ apiKey, bearer }, tmdb.id).catch(() => [])
             const detailsFR = await fetchMovieDetails({ apiKey, bearer }, tmdb.id, 'fr-FR')
-            const synopsis = (summary?.extract || detailsFR?.overview || '').trim()
+            let synopsis = (summary?.extract || detailsFR?.overview || '').trim()
+            if (!synopsis) synopsis = 'Synopsis non disponible.'
             // Country names
             let country = ''
             const frCountries = (detailsFR as any)?.production_countries
@@ -144,13 +145,16 @@ async function collectWikipediaSuggestions(params: {
             const titleKey = titleStr.toLowerCase()
             if (excludeTitles.has(titleKey)) continue
             excludeTitles.add(titleKey)
+            // Resolve Wikipedia via Wikidata (IMDb) first
+            const ext = await fetchExternalIds({ apiKey, bearer }, tmdb.id)
+            const viaWd = await findWikipediaViaWikidataByImdb(ext?.imdb_id)
             picks.push({
               id: String(tmdb.id),
               title: titleStr,
               overview: synopsis,
               vote_average: rating,
               release_date: String(tmdbYear) + '-01-01',
-              wikipediaUrl: summary?.url || (await findWikipediaUrl(titleStr, tmdbYear)),
+              wikipediaUrl: viaWd || summary?.url || (await findWikipediaUrl(titleStr, tmdbYear)),
               origin_country: Array.isArray(tmdb?.origin_country) ? tmdb.origin_country : [],
               genre_ids: tmdb?.genre_ids,
               _actors: actors,
@@ -248,6 +252,48 @@ async function fetchMovieDetails(
   }
 }
 
+// Fetch TMDB external IDs (to get imdb_id)
+async function fetchExternalIds(
+  apiKeyOrBearer: { apiKey?: string; bearer?: string },
+  tmdbId: number
+): Promise<{ imdb_id?: string } | null> {
+  try {
+    const url = new URL(`${TMDB_API_BASE}/movie/${tmdbId}/external_ids`)
+    if (apiKeyOrBearer.apiKey) url.searchParams.set('api_key', apiKeyOrBearer.apiKey)
+    const headers: Record<string, string> = {}
+    if (apiKeyOrBearer.bearer) headers['Authorization'] = `Bearer ${apiKeyOrBearer.bearer}`
+    const res = await fetch(url.toString(), { cache: 'no-store', headers })
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
+// Resolve precise Wikipedia URL via Wikidata using IMDb ID; prefer FR > EN > ES
+async function findWikipediaViaWikidataByImdb(imdbId?: string): Promise<string | ''> {
+  try {
+    if (!imdbId) return ''
+    // Search Wikidata entity by IMDb ID (P345)
+    const wdSearch = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(imdbId)}&language=en&type=item&format=json&origin=*`
+    const sRes = await fetch(wdSearch, { cache: 'no-store' })
+    if (!sRes.ok) return ''
+    const sData = await sRes.json()
+    const firstId = sData?.search?.[0]?.id
+    if (!firstId) return ''
+    const entityUrl = `https://www.wikidata.org/wiki/Special:EntityData/${firstId}.json`
+    const eRes = await fetch(entityUrl, { cache: 'no-store' })
+    if (!eRes.ok) return ''
+    const eData = await eRes.json()
+    const ent = eData?.entities?.[firstId]
+    const sitelinks = ent?.sitelinks || {}
+    const pick = (key: string) => sitelinks[key]?.url as string | undefined
+    return pick('frwiki') || pick('enwiki') || pick('eswiki') || ''
+  } catch {
+    return ''
+  }
+}
+
 function isNonLatinTitle(s: string): boolean {
   // Detect common CJK/Hangul ranges
   return /[\u3040-\u30FF\u4E00-\u9FFF\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF]/.test(s)
@@ -278,11 +324,11 @@ async function findWikipediaUrl(title: string, year: number): Promise<string> {
       return withFilm || hits[0]
     }
     const queries = [
+      `${title} film`,
+      `${title} (film)`,
+      `${title}`,
       `${title} (${year}) film`,
       `${title} (${year})`,
-      `${title} film`,
-      `${title}`,
-      `${title} (film)`,
     ]
     for (const q of queries) {
       try {
@@ -303,8 +349,8 @@ async function findWikipediaUrl(title: string, year: number): Promise<string> {
         // try next query/lang
       }
     }
-    // Fallback: open search page so it always opens something
-    return `https://${lang}.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(`${title} ${year} film`)}`
+    // Fallback: open search page prioritizing "Title film" (no year)
+    return `https://${lang}.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(`${title} film`)}`
   }
   const fr = await tryLang('fr')
   if (fr) return fr

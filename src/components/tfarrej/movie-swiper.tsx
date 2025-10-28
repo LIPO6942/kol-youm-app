@@ -205,9 +205,10 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   useEffect(() => {
     if (!userProfile) return;
     if (!initialFetchDone.current) return;
+    // Only refetch on genre change; year filtering is handled client-side for performance
     fetchMovies();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(yearRange), genre]);
+  }, [genre]);
 
 
   const handleSwipe = async (swipeDirection: 'left' | 'right') => {
