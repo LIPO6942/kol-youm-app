@@ -9,13 +9,14 @@ import { generateMovieSuggestions } from '@/ai/flows/generate-movie-suggestions-
 import type { MovieSuggestion } from '@/ai/flows/generate-movie-suggestions-flow.types';
 import type { UserProfile } from '@/lib/firebase/firestore';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { badgeVariants } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile } from '@/lib/firebase/firestore';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Client-side filtering util
 function applyFilters(list: MovieSuggestion[], opts: { minRating: number; country: string; minYear: number }) {
@@ -221,39 +222,50 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     <div className="flex justify-center">
       <div className="relative w-full max-w-sm h-[600px]">
         {/* Filters */}
-        <div className="absolute top-0 left-0 right-0 z-10 px-4 py-2 flex items-center gap-2 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 rounded-t-lg">
-          <select
-            className="h-8 rounded border px-2 text-sm"
-            value={minRating}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { const v = Number(e.target.value); setMinRating(v); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating: v, country: countryFilter, minYear })); }}
-            aria-label="Note minimale"
+        <div className="absolute top-0 left-0 right-0 z-10 px-4 py-2 flex flex-wrap items-center gap-2 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 rounded-t-lg">
+          {/* Note (bleu comme À Voir) */}
+          <Select
+            value={String(minRating)}
+            onValueChange={(v: string) => { const num = Number(v); setMinRating(num); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating: num, country: countryFilter, minYear })); }}
           >
-            <option value={0}>Note ≥ 0</option>
-            <option value={6}>Note ≥ 6</option>
-            <option value={7}>Note ≥ 7</option>
-            <option value={8}>Note ≥ 8</option>
-            <option value={9}>Note ≥ 9</option>
-          </select>
+            <SelectTrigger className={`${buttonVariants({ variant: 'ocean', size: 'sm' })} h-8 w-full sm:w-auto`} aria-label="Note minimale">
+              <SelectValue placeholder="Note" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={String(0)}>Note ≥ 0</SelectItem>
+              <SelectItem value={String(6)}>Note ≥ 6</SelectItem>
+              <SelectItem value={String(7)}>Note ≥ 7</SelectItem>
+              <SelectItem value={String(8)}>Note ≥ 8</SelectItem>
+              <SelectItem value={String(9)}>Note ≥ 9</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Pays (input) */}
           <input
-            className="h-8 rounded border px-2 text-sm flex-1"
+            className="h-8 rounded border px-2 text-sm w-full sm:w-auto flex-1"
             placeholder="Pays (ex: France)"
             value={countryFilter}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const v = e.target.value; setCountryFilter(v); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating, country: v, minYear })); }}
             aria-label="Filtrer par pays"
           />
-          <select
-            className="h-8 rounded border px-2 text-sm"
-            value={minYear}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { const v = Number(e.target.value); setMinYear(v); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating, country: countryFilter, minYear: v })); }}
-            aria-label="Année minimale"
+
+          {/* Année (mauve comme Vus) */}
+          <Select
+            value={String(minYear)}
+            onValueChange={(v: string) => { const num = Number(v); setMinYear(num); setCurrentIndex(0); setMovies(applyFilters(originalMovies, { minRating, country: countryFilter, minYear: num })); }}
           >
-            <option value={0}>Année ≥ 0</option>
-            <option value={1980}>Année ≥ 1980</option>
-            <option value={1990}>Année ≥ 1990</option>
-            <option value={2000}>Année ≥ 2000</option>
-            <option value={2010}>Année ≥ 2010</option>
-            <option value={2020}>Année ≥ 2020</option>
-          </select>
+            <SelectTrigger className={`${buttonVariants({ variant: 'default', size: 'sm' })} h-8 w-full sm:w-auto`} aria-label="Année minimale">
+              <SelectValue placeholder="Année" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={String(0)}>Année ≥ 0</SelectItem>
+              <SelectItem value={String(1980)}>Année ≥ 1980</SelectItem>
+              <SelectItem value={String(1990)}>Année ≥ 1990</SelectItem>
+              <SelectItem value={String(2000)}>Année ≥ 2000</SelectItem>
+              <SelectItem value={String(2010)}>Année ≥ 2010</SelectItem>
+              <SelectItem value={String(2020)}>Année ≥ 2020</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         {movies.length === 0 && !isSuggestionsLoading ? (
           <Card className="absolute inset-0 flex flex-col items-center justify-center text-center">
