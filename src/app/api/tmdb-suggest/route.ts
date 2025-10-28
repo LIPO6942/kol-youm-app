@@ -145,20 +145,22 @@ async function collectWikipediaSuggestions(params: {
             const titleKey = titleStr.toLowerCase()
             if (excludeTitles.has(titleKey)) continue
             excludeTitles.add(titleKey)
-            // Resolve Wikipedia via Wikidata (IMDb) first
+            // Resolve Wikipedia via Wikidata (IMDb) first, and detect awards
             const ext = await fetchExternalIds({ apiKey, bearer }, tmdb.id)
-            const viaWd = await findWikipediaViaWikidataByImdb(ext?.imdb_id)
+            const wd = await resolveWikidataByImdb(ext?.imdb_id)
             picks.push({
               id: String(tmdb.id),
               title: titleStr,
               overview: synopsis,
               vote_average: rating,
+              vote_count: Number(tmdb?.vote_count || 0),
               release_date: String(tmdbYear) + '-01-01',
-              wikipediaUrl: viaWd || summary?.url || (await findWikipediaUrl(titleStr, tmdbYear)),
+              wikipediaUrl: wd.url || summary?.url || (await findWikipediaUrl(titleStr, tmdbYear)),
               origin_country: Array.isArray(tmdb?.origin_country) ? tmdb.origin_country : [],
               genre_ids: tmdb?.genre_ids,
               _actors: actors,
               _countryName: country,
+              _hasAwards: wd.hasAwards,
             })
             if (picks.length >= count) break
           }
@@ -187,8 +189,9 @@ async function fetchCountryMovies(params: {
   if (apiKey) url.searchParams.set('api_key', apiKey)
   url.searchParams.set('with_origin_country', countryCode)
   url.searchParams.set('language', 'fr-FR')
-  url.searchParams.set('sort_by', 'vote_average.desc')
+  url.searchParams.set('vote_count.gte', '1000')
   url.searchParams.set('include_adult', 'false')
+  url.searchParams.set('include_video', 'false')
   url.searchParams.set('vote_average.gte', String(minRating || 0))
   url.searchParams.set('with_release_type', '3|2') // Theatrical | Digital
   url.searchParams.set('page', String(page))
@@ -291,6 +294,32 @@ async function findWikipediaViaWikidataByImdb(imdbId?: string): Promise<string |
     return pick('frwiki') || pick('enwiki') || pick('eswiki') || ''
   } catch {
     return ''
+  }
+}
+
+// Resolve Wikipedia via Wikidata and detect awards (P166)
+async function resolveWikidataByImdb(imdbId?: string): Promise<{ url: string; hasAwards: boolean }> {
+  try {
+    if (!imdbId) return { url: '', hasAwards: false }
+    const wdSearch = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(imdbId)}&language=en&type=item&format=json&origin=*`
+    const sRes = await fetch(wdSearch, { cache: 'no-store' })
+    if (!sRes.ok) return { url: '', hasAwards: false }
+    const sData = await sRes.json()
+    const firstId = sData?.search?.[0]?.id
+    if (!firstId) return { url: '', hasAwards: false }
+    const entityUrl = `https://www.wikidata.org/wiki/Special:EntityData/${firstId}.json`
+    const eRes = await fetch(entityUrl, { cache: 'no-store' })
+    if (!eRes.ok) return { url: '', hasAwards: false }
+    const eData = await eRes.json()
+    const ent = eData?.entities?.[firstId]
+    const sitelinks = ent?.sitelinks || {}
+    const claims = ent?.claims || {}
+    const hasAwards = Array.isArray(claims?.P166) && claims.P166.length > 0
+    const pick = (key: string) => sitelinks[key]?.url as string | undefined
+    const url = pick('frwiki') || pick('enwiki') || pick('eswiki') || ''
+    return { url: url || '', hasAwards }
+  } catch {
+    return { url: '', hasAwards: false }
   }
 }
 
