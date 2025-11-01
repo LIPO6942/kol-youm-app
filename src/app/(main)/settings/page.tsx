@@ -110,7 +110,7 @@ const PhotoUploader = ({
 
 
 export default function SettingsPage() {
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, forceProfileRefresh } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -134,7 +134,8 @@ export default function SettingsPage() {
     }
     try {
       const fieldToUpdate = type === 'fullBody' ? 'fullBodyPhotoUrl' : 'closeupPhotoUrl';
-      await updateUserProfile(user.uid, { [fieldToUpdate]: dataUri }, true); // Pass true to force local-only update for this
+      await updateUserProfile(user.uid, { [fieldToUpdate]: dataUri }, true); // local-only (IndexedDB)
+      await forceProfileRefresh(); // sync context from local store so UI reflects immediately
       toast({ title: 'Photo mise à jour !', description: 'Votre nouvelle photo a été enregistrée localement.' });
     } catch (error) {
       console.error(error);
