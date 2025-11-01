@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { Loader2, XCircle } from 'lucide-react';
-import { generateOutfitImage } from '@/ai/flows/generate-outfit-image';
+import { generateOutfitImage } from '@/ai/flows/generate-outfit-image-hf';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 

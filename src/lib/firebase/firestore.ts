@@ -92,6 +92,18 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
     }
 }
 
+export async function removeMovieFromList(uid: string, listName: 'moviesToWatch' | 'seenMovieTitles', movieTitle: string) {
+    const userRef = doc(firestoreDb, 'users', uid);
+    await setDoc(userRef, { [listName]: arrayRemove(movieTitle) }, { merge: true });
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = { ...localProfile } as any;
+        const current: string[] = Array.isArray(updatedProfile[listName]) ? updatedProfile[listName] : [];
+        updatedProfile[listName] = current.filter((t: string) => t !== movieTitle);
+        await storeUserInDb(uid, updatedProfile);
+    }
+}
+
 export async function addWardrobeItem(uid: string, item: Omit<WardrobeItem, 'id' | 'createdAt'>) {
     const newItem: WardrobeItem = {
         ...item,

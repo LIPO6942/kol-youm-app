@@ -1,11 +1,9 @@
  
-
 /**
  * Flow de génération d'images avec Hugging Face API
  * Utilise Stable Diffusion pour générer des images de vêtements réalistes
  */
 
-import { huggingFaceImageGenerator } from '@/lib/ai/huggingface-image-generator';
 import { GenerateOutfitImageInputSchema, GenerateOutfitImageOutputSchema, type GenerateOutfitImageInput, type GenerateOutfitImageOutput } from './generate-outfit-image.types';
 
 export async function generateOutfitImage(input: GenerateOutfitImageInput): Promise<GenerateOutfitImageOutput> {
@@ -29,10 +27,7 @@ export async function generateOutfitImage(input: GenerateOutfitImageInput): Prom
     return { imageDataUri };
   } catch (error) {
     console.error('Erreur lors de la génération d\'image:', error);
-    
-    // Fallback vers une image placeholder améliorée
-    return {
-      imageDataUri: huggingFaceImageGenerator.generateFallbackImage(input.itemDescription)
-    };
+    // Ne pas utiliser de placeholder; propager l'erreur pour que l'UI gère le retry/affichage alternatif
+    throw error;
   }
 }

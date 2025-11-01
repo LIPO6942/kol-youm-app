@@ -10,7 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Film, Trash2, Eye, Loader2 } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { moveMovieFromWatchlistToSeen, clearUserMovieList } from '@/lib/firebase/firestore';
+import { moveMovieFromWatchlistToSeen, clearUserMovieList, removeMovieFromList } from '@/lib/firebase/firestore';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface MovieListSheetProps {
@@ -37,6 +37,20 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
     } catch (error) {
       console.error(error);
       toast({ variant: 'destructive', title: "Erreur", description: "Impossible de mettre à jour le film." });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleRemove = async (movieTitle: string) => {
+    if (!user) return;
+    setIsUpdating(true);
+    try {
+      await removeMovieFromList(user.uid, listType, movieTitle);
+      toast({ title: `"${movieTitle}" supprimé de la liste.` });
+    } catch (error) {
+      console.error(error);
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer le film.' });
     } finally {
       setIsUpdating(false);
     }
@@ -110,21 +124,36 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
                       <Film className="h-5 w-5 mr-3 text-muted-foreground flex-shrink-0" />
                       <span className="text-sm font-medium truncate" title={movieTitle}>{movieTitle}</span>
                     </div>
-                    {listType === 'moviesToWatch' && (
+                    <div className="flex items-center gap-1">
+                      {listType === 'moviesToWatch' && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" onClick={() => handleMarkAsWatched(movieTitle)} disabled={isUpdating}>
+                                <Eye className="h-4 w-4" />
+                                <span className="sr-only">Marquer comme vu</span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Marquer comme vu</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" onClick={() => handleMarkAsWatched(movieTitle)} disabled={isUpdating}>
-                              <Eye className="h-4 w-4" />
-                              <span className="sr-only">Marquer comme vu</span>
+                            <Button variant="ghost" size="icon" onClick={() => handleRemove(movieTitle)} disabled={isUpdating}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <span className="sr-only">Supprimer</span>
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Marquer comme vu</p>
+                            <p>Supprimer</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                    )}
+                    </div>
                   </div>
                 ))
               ) : (

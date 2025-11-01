@@ -220,10 +220,11 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     try {
       // The user profile is the single source of truth.
       // We update Firestore, and the onSnapshot listener in useAuth will update the userProfile object.
-      const updatePayload: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>> = {
-        seenMovieTitles: [movie.title],
-      };
-      if (swipeDirection === 'right') {
+      const updatePayload: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>> = {};
+      // Left = mark as seen; Right = add to watchlist
+      if (swipeDirection === 'left') {
+        updatePayload.seenMovieTitles = [movie.title];
+      } else if (swipeDirection === 'right') {
         updatePayload.moviesToWatch = [movie.title];
       }
 
