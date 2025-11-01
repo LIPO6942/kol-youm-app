@@ -124,9 +124,9 @@ class RestaurantDatabase {
       !criteria.seenPlaceNames.includes(place.name)
     );
 
-    // Mélanger et prendre jusqu'à 5 suggestions
+    // Mélanger et ne proposer que 2 suggestions à la fois
     const shuffled = this.shuffleArray(filteredPlaces);
-    const selected = shuffled.slice(0, 5);
+    const selected = shuffled.slice(0, 2);
 
     return selected.map(place => ({
       placeName: place.name,
