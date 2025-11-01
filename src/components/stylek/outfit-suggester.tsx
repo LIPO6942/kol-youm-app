@@ -284,8 +284,12 @@ export default function OutfitSuggester() {
         <div className="lg:col-span-2">
           <TryOnPanel
             basePhotoUrl={userProfile?.fullBodyPhotoUrl}
+            closeupPhotoUrl={userProfile?.closeupPhotoUrl}
+            gender={userProfile?.gender}
             topImage={photoSuggestion?.haut?.imageDataUri || null}
             bottomImage={photoSuggestion?.bas?.imageDataUri || null}
+            topDescription={photoSuggestion?.haut?.description || suggestion?.haut || null}
+            bottomDescription={photoSuggestion?.bas?.description || suggestion?.bas || null}
             onClose={() => setShowTryOn(false)}
           />
         </div>
