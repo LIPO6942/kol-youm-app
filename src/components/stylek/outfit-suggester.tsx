@@ -15,6 +15,8 @@ import { regeneratePhotoOutfitPart } from '@/ai/flows/regenerate-photo-outfit-pa
 
 import { OutfitForm } from './outfit-form';
 import { OutfitDisplay } from './outfit-display';
+import TryOnPanel from './try-on-panel';
+import { Button } from '@/components/ui/button';
 
 // Extended type to include imageDataUri for each part
 export type PhotoSuggestionPart = {
@@ -61,6 +63,7 @@ export default function OutfitSuggester() {
   const [photoSuggestion, setPhotoSuggestion] = useState<PhotoSuggestion | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
+  const [showTryOn, setShowTryOn] = useState(false);
 
   const [currentPhotoConstraints, setCurrentPhotoConstraints] = useState<GenerateOutfitFromPhotoInput | null>(null);
   const [regeneratingPart, setRegeneratingPart] = useState<OutfitPart | null>(null);
@@ -270,7 +273,23 @@ export default function OutfitSuggester() {
           regeneratingPart={regeneratingPart}
           baseItemPhoto={baseItemPhoto}
         />
+        <div className="w-full px-6 pb-6 mt-4">
+          <Button className="w-full" variant="ocean" onClick={() => setShowTryOn(true)} disabled={isGenerating}>
+            Essayage virtuel
+          </Button>
+        </div>
       </Card>
+
+      {showTryOn && (
+        <div className="lg:col-span-2">
+          <TryOnPanel
+            basePhotoUrl={userProfile?.fullBodyPhotoUrl}
+            topImage={photoSuggestion?.haut?.imageDataUri || null}
+            bottomImage={photoSuggestion?.bas?.imageDataUri || null}
+            onClose={() => setShowTryOn(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }
