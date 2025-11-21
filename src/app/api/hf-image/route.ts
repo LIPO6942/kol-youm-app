@@ -62,91 +62,68 @@ export async function POST(request: Request) {
     });
 
     const enhanced = enhancePromptForFashion(prompt, gender, category);
-
-    let lastError: any = null;
     
     // Log du prompt amélioré pour le débogage
     console.log('Enhanced prompt:', enhanced);
     
-    for (const model of models) {
-      console.log(`Trying model: ${model}`);
+    // Utiliser le routeur avec le format d'API v1
+    const apiUrl = 'https://router.huggingface.co/v1/images/generations';
+    console.log('Using router API:', apiUrl);
+    
+    try {
+      const resp = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'stabilityai/stable-diffusion-xl-base-1.0',
+          prompt: enhanced,
+          n: 1,
+          size: '512x512',
+          response_format: 'b64_json',
+        }),
+      });
+
+      console.log('Response status:', resp.status);
       
-      try {
-        // Essayer d'abord avec l'API router.huggingface.co/v1/images/generations
-        const apiUrl = 'https://api-inference.huggingface.co/models/' + model;
-        console.log(`Calling: ${apiUrl}`);
-        
-        const resp = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'Accept': 'image/png',
-          },
-          body: JSON.stringify({
-            inputs: enhanced,
-            parameters: {
-              num_inference_steps: 20,
-              guidance_scale: 7.5,
-              width: 512,
-              height: 512,
-            },
-            options: { 
-              wait_for_model: true,
-              use_cache: false
-            },
-          }),
-        });
-
-        console.log(`Response status for ${model}:`, resp.status);
-        
-        if (!resp.ok) {
-          const errorText = await resp.text().catch(() => 'Failed to read error response');
-          console.error(`Error with model ${model}:`, errorText);
-          lastError = `[${model}] ${resp.status} - ${errorText.substring(0, 200)}`;
-          
-          // Si c'est une erreur 503 (modèle en cours de chargement), on attend un peu
-          if (resp.status === 503) {
-            console.log('Model is loading, waiting 5 seconds...');
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            continue;
-          }
-          
-          continue;
-        }
-
-        // Vérifier le type de contenu
-        const contentType = resp.headers.get('content-type') || '';
-        console.log('Content-Type:', contentType);
-        
-        // Si c'est du JSON, c'est probablement une erreur
-        if (contentType.includes('application/json')) {
-          const errorData = await resp.json().catch(() => ({}));
-          lastError = `[${model}] ${JSON.stringify(errorData)}`;
-          console.error('JSON error response:', errorData);
-          continue;
-        }
-        
-        // Si on arrive ici, c'est probablement une image
-        try {
-          const arrayBuffer = await resp.arrayBuffer();
-          const base64 = Buffer.from(arrayBuffer).toString('base64');
-          const dataUri = `data:image/png;base64,${base64}`;
-          console.log(`Successfully generated image with ${model}`);
-          return NextResponse.json({ imageDataUri: dataUri });
-        } catch (processError) {
-          console.error('Error processing image response:', processError);
-          lastError = `[${model}] Failed to process image: ${processError}`;
-          continue;
-        }
-      } catch (err) {
-        lastError = err;
-        continue;
+      if (!resp.ok) {
+        const errorText = await resp.text().catch(() => 'Failed to read error response');
+        console.error('Error with router API:', errorText);
+        throw new Error(`Router API error: ${resp.status} - ${errorText}`);
       }
-    }
 
-    return NextResponse.json({ error: 'All HF models failed', details: String(lastError) }, { status: 502 });
+      const data = await resp.json();
+      console.log('API Response:', JSON.stringify(data).substring(0, 200) + '...');
+      
+      if (!data?.data?.[0]?.b64_json) {
+        throw new Error('No image data in response');
+      }
+      
+      // Convertir la réponse base64 en data URI
+      const dataUri = `data:image/png;base64,${data.data[0].b64_json}`;
+      console.log('Successfully generated image');
+      return NextResponse.json({ imageDataUri: dataUri });
+      
+    } catch (error: any) {
+      console.error('Error in image generation:', error);
+      return NextResponse.json(
+        { 
+          error: 'Image generation failed', 
+          details: error?.message || String(error) 
+        }, 
+        { status: 500 }
+      );
+    }
   } catch (error: any) {
-    return NextResponse.json({ error: 'Unexpected error', details: String(error?.message || error) }, { status: 500 });
+    console.error('Unexpected error:', error);
+    return NextResponse.json(
+      { 
+        error: 'Unexpected error', 
+        details: error?.message || String(error) 
+      }, 
+      { status: 500 }
+    );
   }
 }
