@@ -66,45 +66,79 @@ export async function POST(request: Request) {
     // Log du prompt amélioré pour le débogage
     console.log('Enhanced prompt:', enhanced);
     
-    // Utiliser le routeur avec le format d'API v1
-    const apiUrl = 'https://router.huggingface.co/v1/images/generations';
-    console.log('Using router API:', apiUrl);
+    // Utiliser l'API d'inférence standard de Hugging Face
+    const model = 'stabilityai/stable-diffusion-xl-base-1.0';
+    const apiUrl = `https://api-inference.huggingface.co/models/${model}`;
+    console.log('Using model:', model);
+    console.log('API URL:', apiUrl);
     
     try {
+      const requestBody = {
+        inputs: enhanced,
+        parameters: {
+          num_inference_steps: 30,
+          guidance_scale: 7.5,
+          width: 512,
+          height: 512,
+        },
+        options: {
+          use_cache: false,
+          wait_for_model: true,
+        },
+      };
+      
+      console.log('Request body:', JSON.stringify(requestBody));
+      
       const resp = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
+          'Accept': 'image/png',
         },
-        body: JSON.stringify({
-          model: 'stabilityai/stable-diffusion-xl-base-1.0',
-          prompt: enhanced,
-          n: 1,
-          size: '512x512',
-          response_format: 'b64_json',
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       console.log('Response status:', resp.status);
+      console.log('Response headers:', JSON.stringify(Object.fromEntries(resp.headers.entries())));
       
       if (!resp.ok) {
-        const errorText = await resp.text().catch(() => 'Failed to read error response');
-        console.error('Error with router API:', errorText);
-        throw new Error(`Router API error: ${resp.status} - ${errorText}`);
+        // Essayer de lire la réponse comme JSON d'abord
+        try {
+          const errorJson = await resp.json();
+          console.error('Error response (JSON):', errorJson);
+          throw new Error(`API error: ${resp.status} - ${JSON.stringify(errorJson)}`);
+        } catch (jsonError) {
+          // Si ce n'est pas du JSON, lire comme texte
+          const errorText = await resp.text().catch(() => 'Failed to read error response');
+          console.error('Error response (text):', errorText);
+          throw new Error(`API error: ${resp.status} - ${errorText}`);
+        }
       }
-
-      const data = await resp.json();
-      console.log('API Response:', JSON.stringify(data).substring(0, 200) + '...');
       
-      if (!data?.data?.[0]?.b64_json) {
-        throw new Error('No image data in response');
+      // Vérifier si la réponse est une image
+      const contentType = resp.headers.get('content-type') || '';
+      console.log('Response content type:', contentType);
+      
+      if (contentType.includes('image/')) {
+        // Lire l'image comme un ArrayBuffer
+        const arrayBuffer = await resp.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString('base64');
+        const dataUri = `data:${contentType};base64,${base64}`;
+        console.log('Successfully generated image');
+        return NextResponse.json({ imageDataUri: dataUri });
+      } else {
+        // Si ce n'est pas une image, essayer de lire comme JSON
+        try {
+          const data = await resp.json();
+          console.log('Unexpected JSON response:', JSON.stringify(data).substring(0, 500));
+          throw new Error('Expected image but received JSON response');
+        } catch (jsonError) {
+          const textResponse = await resp.text();
+          console.error('Unexpected response format:', textResponse.substring(0, 500));
+          throw new Error(`Unexpected response format: ${textResponse.substring(0, 200)}`);
+        }
       }
-      
-      // Convertir la réponse base64 en data URI
-      const dataUri = `data:image/png;base64,${data.data[0].b64_json}`;
-      console.log('Successfully generated image');
-      return NextResponse.json({ imageDataUri: dataUri });
       
     } catch (error: any) {
       console.error('Error in image generation:', error);
