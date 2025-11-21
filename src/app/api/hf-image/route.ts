@@ -135,13 +135,23 @@ export async function POST(request: Request) {
           throw new Error(textResponse);
         }
       }
+    } catch (error: any) {
+      console.error('Error in image generation:', error);
+      return NextResponse.json(
+        { 
+          error: 'Image generation failed', 
+          details: error?.message || String(error) 
+        }, 
+        { status: 500 }
+      );
+    }
   } catch (error: any) {
-    console.error('Error in image generation:', error);
+    console.error('Error in API route:', error);
     return NextResponse.json(
       { 
-        error: 'Image generation failed', 
-        details: error?.message || String(error) 
-      }, 
+        error: 'Internal server error',
+        details: error?.message || String(error)
+      },
       { status: 500 }
     );
   }
