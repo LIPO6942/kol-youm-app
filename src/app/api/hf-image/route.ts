@@ -75,104 +75,66 @@ export async function POST(request: Request) {
     // Log du prompt amélioré pour le débogage
     console.log('Enhanced prompt:', enhanced);
     
-    // Liste des modèles à essayer en séquence
-    const models = [
-      'black-forest-labs/FLUX.1-schnell',  // Modèle principal
-      'stabilityai/stable-diffusion-xl-base-1.0',  // Modèle de haute qualité
-      'runwayml/stable-diffusion-v1-5',  // Modèle stable
-      'prompthero/openjourney',  // Bon pour les styles artistiques
-      'CompVis/stable-diffusion-v1-4'  // Version de base fiable
-    ];
+    // Utiliser l'API d'inférence standard avec un seul modèle
+    const model = 'black-forest-labs/FLUX.1-schnell';
+    const apiUrl = `https://api-inference.huggingface.co/models/${model}`;
+    console.log('Using model:', model);
     
-    let lastError: string | null = null;
-    
-    // Essayer chaque modèle jusqu'à ce qu'un fonctionne
-    for (const model of models) {
-      const apiUrl = 'https://router.huggingface.co/v1/images/generations';
-      console.log('Trying model:', model);
-      
-      try {
-        const requestBody = {
-          model: model,
-          prompt: enhanced,
+    try {
+      const requestBody = {
+        inputs: enhanced,
+        parameters: {
           negative_prompt: 'low quality, blurry, distorted, multiple items, collage, person, human, face, body, female, woman, feminine style',
-          n: 1,
-          size: '512x512',
           num_inference_steps: 20,
           guidance_scale: 7.5,
-          response_format: 'b64_json'
-        };
+          width: 512,
+          height: 512
+        },
+        options: {
+          wait_for_model: true,
+          use_cache: false
+        }
+      };
       
-        console.log('Request body:', JSON.stringify(requestBody));
-        
-        const resp = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        });
+      console.log('Request body:', JSON.stringify(requestBody));
+      
+      const resp = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
 
-        console.log('Response status for', model, ':', resp.status);
-        
-        if (!resp.ok) {
-          const errorText = await resp.text().catch(() => 'Failed to read error response');
-          console.error(`Error with model ${model}:`, errorText);
-          lastError = errorText;
-          continue; // Essayer le modèle suivant
-        }
-
-        // Le routeur renvoie toujours du JSON
-        const responseData = await resp.json() as any;
-        console.log('API Response for', model, ':', JSON.stringify(responseData).substring(0, 200) + '...');
-        
-        // Vérifier si la réponse contient une erreur
-        if (responseData.error) {
-          console.error('API Error for', model, ':', responseData.error);
-          lastError = typeof responseData.error === 'string' ? responseData.error : JSON.stringify(responseData.error);
-          continue; // Essayer le modèle suivant
-        }
-        
-        // Vérifier le format de réponse attendu
-        if (responseData.data && Array.isArray(responseData.data) && responseData.data[0]?.b64_json) {
-          // Format de réponse avec image en base64
-          const dataUri = `data:image/png;base64,${responseData.data[0].b64_json}`;
-          console.log('Successfully generated image with model:', model);
-          return NextResponse.json({ imageDataUri: dataUri });
-        } else if (responseData.url) {
-          // Si l'API renvoie une URL vers l'image
-          console.log('Image URL received, downloading...');
-          const imageResponse = await fetch(responseData.url);
-          if (!imageResponse.ok) {
-            throw new Error(`Failed to download image from ${responseData.url}`);
-          }
-          const arrayBuffer = await imageResponse.arrayBuffer();
-          const base64 = Buffer.from(arrayBuffer).toString('base64');
-          const dataUri = `data:image/png;base64,${base64}`;
-          console.log('Successfully downloaded and generated image with model:', model);
-          return NextResponse.json({ imageDataUri: dataUri });
-        } else {
-          console.error('Unexpected response format from model', model, ':', responseData);
-          lastError = 'Unexpected response format';
-          continue; // Essayer le modèle suivant
-        }
-      } catch (error: any) {
-        console.error(`Error with model ${model}:`, error);
-        lastError = error.message;
-        // Continuer avec le modèle suivant
+      console.log('Response status:', resp.status);
+      
+      if (!resp.ok) {
+        const errorText = await resp.text().catch(() => 'Failed to read error response');
+        console.error('API Error:', errorText);
+        throw new Error(`API error: ${resp.status} - ${errorText}`);
       }
-    }
-    
-    // Si on arrive ici, aucun modèle n'a fonctionné
-    return NextResponse.json(
-      { 
-        error: 'All models failed to generate image', 
-        details: lastError || 'Unknown error',
-        triedModels: models
-      }, 
-      { status: 500 }
-    );
+
+      // L'API renvoie directement l'image binaire
+      const contentType = resp.headers.get('content-type');
+      if (contentType && contentType.startsWith('image/')) {
+        const arrayBuffer = await resp.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString('base64');
+        const dataUri = `data:${contentType};base64,${base64}`;
+        console.log('Successfully generated image');
+        return NextResponse.json({ imageDataUri: dataUri });
+      } else {
+        // Essayer de lire comme JSON en cas d'erreur
+        try {
+          const errorData = await resp.json();
+          console.error('API Error (JSON):', errorData);
+          throw new Error(JSON.stringify(errorData));
+        } catch (jsonError) {
+          const textResponse = await resp.text();
+          console.error('API Error (text):', textResponse);
+          throw new Error(textResponse);
+        }
+      }
   } catch (error: any) {
     console.error('Error in image generation:', error);
     return NextResponse.json(
