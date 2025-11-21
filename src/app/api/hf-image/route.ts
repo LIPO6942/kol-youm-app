@@ -60,53 +60,71 @@ export async function POST(request: Request) {
     let lastError: any = null;
     for (const model of models) {
       try {
-        const apiUrl = `https://api-inference.huggingface.co/pipeline/text-to-image`;
+        // Essayer d'abord avec l'API router.huggingface.co/v1/images/generations
+        const apiUrl = 'https://router.huggingface.co/v1/images/generations';
         const resp = await fetch(apiUrl, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
-            'Accept': 'image/png',
-            'x-use-endpoints': 'true', // Indique d'utiliser le routeur
-            'x-model': model, // Spécifie le modèle à utiliser
           },
           body: JSON.stringify({
-            inputs: enhanced, // On utilise directement le prompt amélioré
-            parameters: {
-              num_inference_steps: 20,
-              guidance_scale: 7.5,
-              width: 512,
-              height: 512,
-            },
-            options: {
-              wait_for_model: true,
-            },
+            model: model,
+            prompt: enhanced,
+            n: 1,
+            size: '512x512',
+            response_format: 'b64_json',
           }),
         });
 
         if (!resp.ok) {
-          let errMsg = `HF_ERROR_${resp.status}`;
-          try {
-            const errJson = await resp.json();
-            if (errJson?.error) errMsg = String(errJson.error);
-          } catch (_) {}
-          lastError = errMsg;
+          // Si erreur, essayer avec l'ancienne méthode comme fallback
+          const errorData = await resp.json().catch(() => ({}));
+          lastError = errorData?.error?.message || `HF_ERROR_${resp.status}`;
+          console.warn(`Failed with router API: ${lastError}, trying fallback...`);
+          
+          // Fallback: essayer avec l'ancienne méthode
+          const fallbackResp = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+              'Accept': 'image/png',
+            },
+            body: JSON.stringify({
+              inputs: enhanced,
+              parameters: {
+                num_inference_steps: 20,
+                guidance_scale: 7.5,
+                width: 512,
+                height: 512,
+              },
+              options: { wait_for_model: true },
+            }),
+          });
+
+          if (!fallbackResp.ok) {
+            const fallbackError = await fallbackResp.text().catch(() => 'Unknown error');
+            lastError = `Router: ${lastError} | Fallback: ${fallbackError}`;
+            continue;
+          }
+
+          // Traitement de la réponse de fallback
+          const arrayBuffer = await fallbackResp.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString('base64');
+          const dataUri = `data:image/png;base64,${base64}`;
+          return NextResponse.json({ imageDataUri: dataUri });
+        }
+
+        // Traitement de la réponse du routeur
+        const data = await resp.json();
+        if (!data?.data?.[0]?.b64_json) {
+          lastError = 'No image data in response';
           continue;
         }
 
-        const contentType = resp.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          const j = await resp.json();
-          const msg = String(j?.error || 'HF returned JSON instead of image');
-          lastError = msg;
-          continue;
-        }
-
-        const arrayBuffer = await resp.arrayBuffer();
-        const base64 = Buffer.from(arrayBuffer).toString('base64');
-        const ct = contentType || 'image/png';
-        const dataUri = `data:${ct};base64,${base64}`;
-
+        // Convertir la réponse base64 en data URI
+        const dataUri = `data:image/png;base64,${data.data[0].b64_json}`;
         return NextResponse.json({ imageDataUri: dataUri });
       } catch (err) {
         lastError = err;
