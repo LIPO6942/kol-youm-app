@@ -60,14 +60,28 @@ export async function POST(request: Request) {
     let lastError: any = null;
     for (const model of models) {
       try {
-        const resp = await fetch(`https://router.huggingface.co/models/${model}`, {
+        const apiUrl = `https://api-inference.huggingface.co/pipeline/text-to-image`;
+        const resp = await fetch(apiUrl, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${apiKey}`,
+            'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
-            Accept: 'image/png',
+            'Accept': 'image/png',
+            'x-use-endpoints': 'true', // Indique d'utiliser le routeur
+            'x-model': model, // Spécifie le modèle à utiliser
           },
-          body: JSON.stringify(body(enhanced)),
+          body: JSON.stringify({
+            inputs: enhanced, // On utilise directement le prompt amélioré
+            parameters: {
+              num_inference_steps: 20,
+              guidance_scale: 7.5,
+              width: 512,
+              height: 512,
+            },
+            options: {
+              wait_for_model: true,
+            },
+          }),
         });
 
         if (!resp.ok) {
