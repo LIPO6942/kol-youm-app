@@ -75,32 +75,30 @@ export async function POST(request: Request) {
     // Log du prompt amélioré pour le débogage
     console.log('Enhanced prompt:', enhanced);
     
-    // Configuration pour Stable Diffusion XL
-    const model = 'stabilityai/stable-diffusion-xl-base-1.0';
+    // Configuration pour Stable Diffusion v1.5 (gratuit)
+    const model = 'runwayml/stable-diffusion-v1-5';
     const apiUrl = `https://api-inference.huggingface.co/models/${model}`;
-    console.log('Using Stable Diffusion XL model with optimized settings');
+    console.log('Using Stable Diffusion v1.5 (free tier) with optimized settings');
     
     try {
       const requestBody = {
         inputs: enhanced,
         parameters: {
-          // Paramètres optimisés pour SDXL
+          // Paramètres optimisés pour la version gratuite
           negative_prompt: 'low quality, blurry, distorted, multiple items, collage, person, human, face, body, text, watermark, signature, nsfw',
-          num_inference_steps: 30,      // Plus d'étapes pour de meilleurs résultats
+          num_inference_steps: 20,      // Moins d'étapes pour économiser du temps/coût
           guidance_scale: 7.5,          // Bon équilibre entre créativité et fidélité
-          width: 1024,                  // Meilleure résolution
-          height: 1024,                 // Meilleure résolution
-          num_images_per_prompt: 1,
-          seed: Math.floor(Math.random() * 1000000),
-          output_type: 'png',           // Format de sortie spécifique
-          return_dict: false            // Format de réponse plus simple
+          width: 512,                   // Résolution réduite pour économiser des ressources
+          height: 512,                  // Résolution réduite pour économiser des ressources
+          num_images_per_prompt: 1,     // Une seule image pour économiser des ressources
+          seed: Math.floor(Math.random() * 1000000)
         },
         options: {
-          wait_for_model: true,         // Attendre que le modèle soit chargé
-          use_cache: false,             // Ne pas utiliser le cache
-          timeout: 90000,               // Timeout à 90 secondes
-          use_gpu: true,                // Utiliser le GPU si disponible
-          wait_for_model_timeout: 300   // Attendre jusqu'à 5 minutes que le modèle se charge
+          wait_for_model: false,        // Ne pas attendre indéfiniment (peut échouer si le modèle n'est pas chargé)
+          use_cache: true,              // Utiliser le cache pour accélérer les requêtes
+          timeout: 30000,               // Timeout réduit à 30 secondes
+          use_gpu: false,               // Ne pas forcer l'utilisation du GPU
+          wait_for_model_timeout: 30    // Attendre seulement 30 secondes que le modèle se charge
         }
       };
       
