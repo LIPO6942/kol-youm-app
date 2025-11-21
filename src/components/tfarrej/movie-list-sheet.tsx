@@ -7,10 +7,10 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Film, Trash2, Eye, Loader2 } from "lucide-react";
+import { Film, Trash2, Eye, Loader2, X } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { moveMovieFromWatchlistToSeen, clearUserMovieList } from '@/lib/firebase/firestore';
+import { moveMovieFromWatchlistToSeen, clearUserMovieList, removeMovieFromSeenList } from '@/lib/firebase/firestore';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface MovieListSheetProps {
@@ -24,10 +24,10 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
   const { user, userProfile } = useAuth();
   const { toast } = useToast();
   const [isUpdating, setIsUpdating] = useState(false);
-  
+
   const movieTitles = userProfile?.[listType];
   const sortedMovieTitles = movieTitles ? [...movieTitles].reverse() : [];
-  
+
   const handleMarkAsWatched = async (movieTitle: string) => {
     if (!user) return;
     setIsUpdating(true);
@@ -42,6 +42,20 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
     }
   };
 
+  const handleRemoveSeenMovie = async (movieTitle: string) => {
+    if (!user) return;
+    setIsUpdating(true);
+    try {
+      await removeMovieFromSeenList(user.uid, movieTitle);
+      toast({ title: `"${movieTitle}" supprimé de votre liste.` });
+    } catch (error) {
+      console.error(error);
+      toast({ variant: 'destructive', title: "Erreur", description: "Impossible de supprimer le film." });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handleClearList = async () => {
     if (!user) return;
     setIsUpdating(true);
@@ -49,7 +63,7 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
       await clearUserMovieList(user.uid, listType);
       toast({ title: "Liste vidée avec succès." });
     } catch (error) {
-       console.error(error);
+      console.error(error);
       toast({ variant: 'destructive', title: "Erreur", description: "Impossible de vider la liste." });
     } finally {
       setIsUpdating(false);
@@ -110,28 +124,45 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
                       <Film className="h-5 w-5 mr-3 text-muted-foreground flex-shrink-0" />
                       <span className="text-sm font-medium truncate" title={movieTitle}>{movieTitle}</span>
                     </div>
-                    {listType === 'moviesToWatch' && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" onClick={() => handleMarkAsWatched(movieTitle)} disabled={isUpdating}>
-                              <Eye className="h-4 w-4" />
-                              <span className="sr-only">Marquer comme vu</span>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Marquer comme vu</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
+                    <div className="flex gap-1">
+                      {listType === 'moviesToWatch' && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" onClick={() => handleMarkAsWatched(movieTitle)} disabled={isUpdating}>
+                                <Eye className="h-4 w-4" />
+                                <span className="sr-only">Marquer comme vu</span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Marquer comme vu</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      {listType === 'seenMovieTitles' && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" onClick={() => handleRemoveSeenMovie(movieTitle)} disabled={isUpdating}>
+                                <X className="h-4 w-4 text-destructive" />
+                                <span className="sr-only">Supprimer</span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Supprimer de la liste</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
                   </div>
                 ))
               ) : (
                 <div className="flex flex-col items-center justify-center text-center text-muted-foreground h-[50vh]">
-                    <Film className="h-10 w-10 mb-4" />
-                    <p>Votre liste est vide pour le moment.</p>
-                    {listType === 'moviesToWatch' && <p className="text-xs">"Likez" des films pour la remplir !</p>}
+                  <Film className="h-10 w-10 mb-4" />
+                  <p>Votre liste est vide pour le moment.</p>
+                  {listType === 'moviesToWatch' && <p className="text-xs">"Likez" des films pour la remplir !</p>}
                 </div>
               )}
             </div>

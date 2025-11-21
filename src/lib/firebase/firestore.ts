@@ -152,6 +152,23 @@ export async function moveMovieFromWatchlistToSeen(uid: string, movieTitle: stri
     }
 }
 
+export async function removeMovieFromSeenList(uid: string, movieTitle: string) {
+    const userRef = doc(firestoreDb, "users", uid);
+    
+    await setDoc(userRef, { 
+        seenMovieTitles: arrayRemove(movieTitle)
+    }, { merge: true });
+
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = {
+            ...localProfile,
+            seenMovieTitles: (localProfile.seenMovieTitles || []).filter(t => t !== movieTitle)
+        };
+        await storeUserInDb(uid, updatedProfile);
+    }
+}
+
 export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' | 'seenMovieTitles' | 'seenKhroujSuggestions' | 'wardrobe') {
     const userRef = doc(firestoreDb, 'users', uid);
     const firestoreUpdate: any = {};
