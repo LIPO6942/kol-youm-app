@@ -75,24 +75,28 @@ export async function POST(request: Request) {
     // Log du prompt amélioré pour le débogage
     console.log('Enhanced prompt:', enhanced);
     
-    // Utiliser l'API d'inférence standard avec un seul modèle
+    // Configuration spécifique pour FLUX.1-schnell
     const model = 'black-forest-labs/FLUX.1-schnell';
     const apiUrl = `https://api-inference.huggingface.co/models/${model}`;
-    console.log('Using model:', model);
+    console.log('Using FLUX.1-schnell model with optimized settings');
     
     try {
       const requestBody = {
         inputs: enhanced,
         parameters: {
-          negative_prompt: 'low quality, blurry, distorted, multiple items, collage, person, human, face, body, female, woman, feminine style',
-          num_inference_steps: 20,
-          guidance_scale: 7.5,
+          // Paramètres optimisés pour FLUX.1-schnell
+          negative_prompt: 'low quality, blurry, distorted, multiple items, collage, person, human, face, body, female, woman, feminine style, text, watermark, signature',
+          num_inference_steps: 25,  // Un peu plus d'étapes pour de meilleurs résultats
+          guidance_scale: 8.0,      // Légèrement augmenté pour plus de fidélité au prompt
           width: 512,
-          height: 512
+          height: 512,
+          num_images_per_prompt: 1,
+          seed: Math.floor(Math.random() * 1000000)  // Seed aléatoire pour varier les résultats
         },
         options: {
-          wait_for_model: true,
-          use_cache: false
+          wait_for_model: true,     // Attendre que le modèle soit chargé
+          use_cache: false,         // Ne pas utiliser le cache pour les tests
+          timeout: 60000            // Timeout augmenté à 60 secondes
         }
       };
       
