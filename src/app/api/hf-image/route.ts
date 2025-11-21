@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     let lastError: any = null;
     for (const model of models) {
       try {
-        const resp = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
+        const resp = await fetch(`https://router.huggingface.co/models/${model}`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${apiKey}`,
