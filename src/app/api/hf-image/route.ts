@@ -66,25 +66,19 @@ export async function POST(request: Request) {
     // Log du prompt amélioré pour le débogage
     console.log('Enhanced prompt:', enhanced);
     
-    // Utiliser l'API d'inférence standard de Hugging Face
+    // Utiliser le routeur Hugging Face avec l'API v1
     const model = 'stabilityai/stable-diffusion-xl-base-1.0';
-    const apiUrl = `https://api-inference.huggingface.co/models/${model}`;
+    const apiUrl = 'https://router.huggingface.co/v1/images/generations';
     console.log('Using model:', model);
     console.log('API URL:', apiUrl);
     
     try {
       const requestBody = {
-        inputs: enhanced,
-        parameters: {
-          num_inference_steps: 30,
-          guidance_scale: 7.5,
-          width: 512,
-          height: 512,
-        },
-        options: {
-          use_cache: false,
-          wait_for_model: true,
-        },
+        model: model,
+        prompt: enhanced,
+        n: 1,
+        size: '512x512',
+        response_format: 'b64_json',
       };
       
       console.log('Request body:', JSON.stringify(requestBody));
@@ -94,7 +88,6 @@ export async function POST(request: Request) {
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'Accept': 'image/png',
         },
         body: JSON.stringify(requestBody),
       });
@@ -116,28 +109,30 @@ export async function POST(request: Request) {
         }
       }
       
-      // Vérifier si la réponse est une image
-      const contentType = resp.headers.get('content-type') || '';
-      console.log('Response content type:', contentType);
+      // Le routeur renvoie toujours du JSON avec une image en base64
+      const data = await resp.json();
+      console.log('API Response:', JSON.stringify(data).substring(0, 200) + '...');
       
-      if (contentType.includes('image/')) {
-        // Lire l'image comme un ArrayBuffer
-        const arrayBuffer = await resp.arrayBuffer();
+      if (data?.data?.[0]?.b64_json) {
+        // Format de réponse attendu avec l'image en base64
+        const dataUri = `data:image/png;base64,${data.data[0].b64_json}`;
+        console.log('Successfully generated image from b64_json');
+        return NextResponse.json({ imageDataUri: dataUri });
+      } else if (data?.url) {
+        // Si l'API renvoie une URL vers l'image
+        console.log('Image URL received, downloading...');
+        const imageResponse = await fetch(data.url);
+        if (!imageResponse.ok) {
+          throw new Error(`Failed to download image from ${data.url}`);
+        }
+        const arrayBuffer = await imageResponse.arrayBuffer();
         const base64 = Buffer.from(arrayBuffer).toString('base64');
-        const dataUri = `data:${contentType};base64,${base64}`;
-        console.log('Successfully generated image');
+        const dataUri = `data:image/png;base64,${base64}`;
+        console.log('Successfully downloaded and generated image');
         return NextResponse.json({ imageDataUri: dataUri });
       } else {
-        // Si ce n'est pas une image, essayer de lire comme JSON
-        try {
-          const data = await resp.json();
-          console.log('Unexpected JSON response:', JSON.stringify(data).substring(0, 500));
-          throw new Error('Expected image but received JSON response');
-        } catch (jsonError) {
-          const textResponse = await resp.text();
-          console.error('Unexpected response format:', textResponse.substring(0, 500));
-          throw new Error(`Unexpected response format: ${textResponse.substring(0, 200)}`);
-        }
+        console.error('Unexpected response format:', JSON.stringify(data));
+        throw new Error('Unexpected response format from API');
       }
       
     } catch (error: any) {
