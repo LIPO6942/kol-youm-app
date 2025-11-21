@@ -75,31 +75,23 @@ export async function POST(request: Request) {
     // Log du prompt amélioré pour le débogage
     console.log('Enhanced prompt:', enhanced);
     
-    // Configuration pour Stable Diffusion v1.5 (gratuit)
-    const model = 'runwayml/stable-diffusion-v1-5';
-    const apiUrl = `https://api-inference.huggingface.co/models/${model}`;
-    console.log('Using Stable Diffusion v1.5 (free tier) with optimized settings');
+    // Configuration pour le routeur Hugging Face
+    const apiUrl = 'https://router.huggingface.co/v1/images/generations';
+    console.log('Using Hugging Face Router with optimized settings');
     
     try {
+      // Modèle par défaut (gratuit)
+      const model = 'stabilityai/stable-diffusion-xl-base-1.0';
+      
       const requestBody = {
-        inputs: enhanced,
-        parameters: {
-          // Paramètres optimisés pour la version gratuite
-          negative_prompt: 'low quality, blurry, distorted, multiple items, collage, person, human, face, body, text, watermark, signature, nsfw',
-          num_inference_steps: 20,      // Moins d'étapes pour économiser du temps/coût
-          guidance_scale: 7.5,          // Bon équilibre entre créativité et fidélité
-          width: 512,                   // Résolution réduite pour économiser des ressources
-          height: 512,                  // Résolution réduite pour économiser des ressources
-          num_images_per_prompt: 1,     // Une seule image pour économiser des ressources
-          seed: Math.floor(Math.random() * 1000000)
-        },
-        options: {
-          wait_for_model: false,        // Ne pas attendre indéfiniment (peut échouer si le modèle n'est pas chargé)
-          use_cache: true,              // Utiliser le cache pour accélérer les requêtes
-          timeout: 30000,               // Timeout réduit à 30 secondes
-          use_gpu: false,               // Ne pas forcer l'utilisation du GPU
-          wait_for_model_timeout: 30    // Attendre seulement 30 secondes que le modèle se charge
-        }
+        model: model,
+        prompt: enhanced,
+        negative_prompt: 'low quality, blurry, distorted, multiple items, collage, person, human, face, body, text, watermark, signature, nsfw',
+        n: 1,                          // Une seule image
+        size: '512x512',               // Taille réduite pour économiser des crédits
+        num_inference_steps: 15,       // Moins d'étapes pour économiser des crédits
+        guidance_scale: 7.5,           // Bon équilibre créativité/fidélité
+        response_format: 'b64_json'     // Format de réponse attendu
       };
       
       console.log('Request body:', JSON.stringify(requestBody));
@@ -121,54 +113,51 @@ export async function POST(request: Request) {
         throw new Error(`API error: ${resp.status} - ${errorText}`);
       }
 
-      // Vérifier le type de contenu de la réponse
-      const contentType = resp.headers.get('content-type') || '';
+      // Le routeur renvoie toujours du JSON
+      const responseData = await resp.json();
+      console.log('API Response:', JSON.stringify(responseData).substring(0, 200) + '...');
       
-      // Si c'est une image, la convertir en base64
-      if (contentType.startsWith('image/')) {
+      // Vérifier si la réponse contient une erreur
+      if (responseData.error) {
+        console.error('API Error:', responseData.error);
+        throw new Error(typeof responseData.error === 'string' 
+          ? responseData.error 
+          : JSON.stringify(responseData.error));
+      }
+      
+      // Vérifier le format de réponse attendu (b64_json)
+      if (responseData.data && Array.isArray(responseData.data) && responseData.data[0]?.b64_json) {
+        const dataUri = `data:image/png;base64,${responseData.data[0].b64_json}`;
+        console.log('Successfully generated image');
+        return NextResponse.json({ 
+          success: true,
+          imageDataUri: dataUri 
+        });
+      }
+      // Vérifier si l'URL de l'image est retournée
+      else if (responseData.url) {
+        console.log('Image URL received, downloading...');
         try {
-          const arrayBuffer = await resp.arrayBuffer();
+          const imageResponse = await fetch(responseData.url);
+          if (!imageResponse.ok) {
+            throw new Error(`Failed to download image from ${responseData.url}`);
+          }
+          const arrayBuffer = await imageResponse.arrayBuffer();
           const base64 = Buffer.from(arrayBuffer).toString('base64');
-          const dataUri = `data:${contentType};base64,${base64}`;
-          console.log('Successfully generated image');
+          const dataUri = `data:image/png;base64,${base64}`;
           return NextResponse.json({ 
             success: true,
             imageDataUri: dataUri 
           });
-        } catch (error) {
-          console.error('Error processing image response:', error);
-          throw new Error('Failed to process the generated image');
+        } catch (downloadError) {
+          console.error('Error downloading image:', downloadError);
+          throw new Error('Failed to download the generated image');
         }
-      } 
-      // Si ce n'est pas une image, essayer de lire comme JSON
+      }
+      // Format de réponse inattendu
       else {
-        try {
-          const responseData = await resp.json();
-          console.log('API Response (JSON):', responseData);
-          
-          // Vérifier si la réponse contient une erreur
-          if (responseData.error) {
-            console.error('API Error:', responseData.error);
-            throw new Error(responseData.error);
-          }
-          
-          // Si la réponse contient une image en base64
-          if (responseData.image) {
-            return NextResponse.json({ 
-              success: true,
-              imageDataUri: `data:image/png;base64,${responseData.image}` 
-            });
-          }
-          
-          // Si la réponse est inattendue
-          throw new Error('Unexpected response format from API');
-          
-        } catch (jsonError) {
-          console.error('Error parsing JSON response:', jsonError);
-          const textResponse = await resp.text();
-          console.error('Raw API Response:', textResponse);
-          throw new Error(textResponse || 'Failed to parse API response');
-        }
+        console.error('Unexpected response format:', responseData);
+        throw new Error('Unexpected response format from API');
       }
     } catch (error: any) {
       console.error('Error in image generation:', error);
