@@ -75,28 +75,32 @@ export async function POST(request: Request) {
     // Log du prompt amélioré pour le débogage
     console.log('Enhanced prompt:', enhanced);
     
-    // Configuration spécifique pour FLUX.1-schnell
-    const model = 'black-forest-labs/FLUX.1-schnell';
+    // Configuration pour Stable Diffusion XL
+    const model = 'stabilityai/stable-diffusion-xl-base-1.0';
     const apiUrl = `https://api-inference.huggingface.co/models/${model}`;
-    console.log('Using FLUX.1-schnell model with optimized settings');
+    console.log('Using Stable Diffusion XL model with optimized settings');
     
     try {
       const requestBody = {
         inputs: enhanced,
         parameters: {
-          // Paramètres optimisés pour FLUX.1-schnell
-          negative_prompt: 'low quality, blurry, distorted, multiple items, collage, person, human, face, body, female, woman, feminine style, text, watermark, signature',
-          num_inference_steps: 25,  // Un peu plus d'étapes pour de meilleurs résultats
-          guidance_scale: 8.0,      // Légèrement augmenté pour plus de fidélité au prompt
-          width: 512,
-          height: 512,
+          // Paramètres optimisés pour SDXL
+          negative_prompt: 'low quality, blurry, distorted, multiple items, collage, person, human, face, body, text, watermark, signature, nsfw',
+          num_inference_steps: 30,      // Plus d'étapes pour de meilleurs résultats
+          guidance_scale: 7.5,          // Bon équilibre entre créativité et fidélité
+          width: 1024,                  // Meilleure résolution
+          height: 1024,                 // Meilleure résolution
           num_images_per_prompt: 1,
-          seed: Math.floor(Math.random() * 1000000)  // Seed aléatoire pour varier les résultats
+          seed: Math.floor(Math.random() * 1000000),
+          output_type: 'png',           // Format de sortie spécifique
+          return_dict: false            // Format de réponse plus simple
         },
         options: {
-          wait_for_model: true,     // Attendre que le modèle soit chargé
-          use_cache: false,         // Ne pas utiliser le cache pour les tests
-          timeout: 60000            // Timeout augmenté à 60 secondes
+          wait_for_model: true,         // Attendre que le modèle soit chargé
+          use_cache: false,             // Ne pas utiliser le cache
+          timeout: 90000,               // Timeout à 90 secondes
+          use_gpu: true,                // Utiliser le GPU si disponible
+          wait_for_model_timeout: 300   // Attendre jusqu'à 5 minutes que le modèle se charge
         }
       };
       
@@ -119,24 +123,53 @@ export async function POST(request: Request) {
         throw new Error(`API error: ${resp.status} - ${errorText}`);
       }
 
-      // L'API renvoie directement l'image binaire
-      const contentType = resp.headers.get('content-type');
-      if (contentType && contentType.startsWith('image/')) {
-        const arrayBuffer = await resp.arrayBuffer();
-        const base64 = Buffer.from(arrayBuffer).toString('base64');
-        const dataUri = `data:${contentType};base64,${base64}`;
-        console.log('Successfully generated image');
-        return NextResponse.json({ imageDataUri: dataUri });
-      } else {
-        // Essayer de lire comme JSON en cas d'erreur
+      // Vérifier le type de contenu de la réponse
+      const contentType = resp.headers.get('content-type') || '';
+      
+      // Si c'est une image, la convertir en base64
+      if (contentType.startsWith('image/')) {
         try {
-          const errorData = await resp.json();
-          console.error('API Error (JSON):', errorData);
-          throw new Error(JSON.stringify(errorData));
+          const arrayBuffer = await resp.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString('base64');
+          const dataUri = `data:${contentType};base64,${base64}`;
+          console.log('Successfully generated image');
+          return NextResponse.json({ 
+            success: true,
+            imageDataUri: dataUri 
+          });
+        } catch (error) {
+          console.error('Error processing image response:', error);
+          throw new Error('Failed to process the generated image');
+        }
+      } 
+      // Si ce n'est pas une image, essayer de lire comme JSON
+      else {
+        try {
+          const responseData = await resp.json();
+          console.log('API Response (JSON):', responseData);
+          
+          // Vérifier si la réponse contient une erreur
+          if (responseData.error) {
+            console.error('API Error:', responseData.error);
+            throw new Error(responseData.error);
+          }
+          
+          // Si la réponse contient une image en base64
+          if (responseData.image) {
+            return NextResponse.json({ 
+              success: true,
+              imageDataUri: `data:image/png;base64,${responseData.image}` 
+            });
+          }
+          
+          // Si la réponse est inattendue
+          throw new Error('Unexpected response format from API');
+          
         } catch (jsonError) {
+          console.error('Error parsing JSON response:', jsonError);
           const textResponse = await resp.text();
-          console.error('API Error (text):', textResponse);
-          throw new Error(textResponse);
+          console.error('Raw API Response:', textResponse);
+          throw new Error(textResponse || 'Failed to parse API response');
         }
       }
     } catch (error: any) {
