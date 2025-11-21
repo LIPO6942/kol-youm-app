@@ -16,9 +16,15 @@ export async function POST(request: Request) {
     }
 
     const models = [
-      'stabilityai/stable-diffusion-2-1',
-      'runwayml/stable-diffusion-v1-5',
+      'stabilityai/stable-diffusion-xl-base-1.0',  // Plus récent et performant
+      'stabilityai/stable-diffusion-2-1',          // Version 2.1
+      'runwayml/stable-diffusion-v1-5',            // Version 1.5 stable
+      'prompthero/openjourney',                     // Spécialisé dans les images artistiques
+      'CompVis/stable-diffusion-v1-4'               // Version 1.4 fiable
     ];
+    
+    // Désactiver le cache pour éviter les problèmes
+    process.env.NEXT_DISABLE_RESPONSE_CACHE = '1';
 
     const enhancePromptForFashion = (description: string, g?: 'Homme' | 'Femme', cat?: 'haut' | 'bas' | 'chaussures' | 'accessoires') => {
       const singleItemMap: Record<string, { noun: string; extras?: string }> = {
@@ -58,74 +64,81 @@ export async function POST(request: Request) {
     const enhanced = enhancePromptForFashion(prompt, gender, category);
 
     let lastError: any = null;
+    
+    // Log du prompt amélioré pour le débogage
+    console.log('Enhanced prompt:', enhanced);
+    
     for (const model of models) {
+      console.log(`Trying model: ${model}`);
+      
       try {
         // Essayer d'abord avec l'API router.huggingface.co/v1/images/generations
-        const apiUrl = 'https://router.huggingface.co/v1/images/generations';
+        const apiUrl = 'https://api-inference.huggingface.co/models/' + model;
+        console.log(`Calling: ${apiUrl}`);
+        
         const resp = await fetch(apiUrl, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
+            'Accept': 'image/png',
           },
           body: JSON.stringify({
-            model: model,
-            prompt: enhanced,
-            n: 1,
-            size: '512x512',
-            response_format: 'b64_json',
+            inputs: enhanced,
+            parameters: {
+              num_inference_steps: 20,
+              guidance_scale: 7.5,
+              width: 512,
+              height: 512,
+            },
+            options: { 
+              wait_for_model: true,
+              use_cache: false
+            },
           }),
         });
 
+        console.log(`Response status for ${model}:`, resp.status);
+        
         if (!resp.ok) {
-          // Si erreur, essayer avec l'ancienne méthode comme fallback
-          const errorData = await resp.json().catch(() => ({}));
-          lastError = errorData?.error?.message || `HF_ERROR_${resp.status}`;
-          console.warn(`Failed with router API: ${lastError}, trying fallback...`);
+          const errorText = await resp.text().catch(() => 'Failed to read error response');
+          console.error(`Error with model ${model}:`, errorText);
+          lastError = `[${model}] ${resp.status} - ${errorText.substring(0, 200)}`;
           
-          // Fallback: essayer avec l'ancienne méthode
-          const fallbackResp = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-              'Accept': 'image/png',
-            },
-            body: JSON.stringify({
-              inputs: enhanced,
-              parameters: {
-                num_inference_steps: 20,
-                guidance_scale: 7.5,
-                width: 512,
-                height: 512,
-              },
-              options: { wait_for_model: true },
-            }),
-          });
-
-          if (!fallbackResp.ok) {
-            const fallbackError = await fallbackResp.text().catch(() => 'Unknown error');
-            lastError = `Router: ${lastError} | Fallback: ${fallbackError}`;
+          // Si c'est une erreur 503 (modèle en cours de chargement), on attend un peu
+          if (resp.status === 503) {
+            console.log('Model is loading, waiting 5 seconds...');
+            await new Promise(resolve => setTimeout(resolve, 5000));
             continue;
           }
-
-          // Traitement de la réponse de fallback
-          const arrayBuffer = await fallbackResp.arrayBuffer();
-          const base64 = Buffer.from(arrayBuffer).toString('base64');
-          const dataUri = `data:image/png;base64,${base64}`;
-          return NextResponse.json({ imageDataUri: dataUri });
-        }
-
-        // Traitement de la réponse du routeur
-        const data = await resp.json();
-        if (!data?.data?.[0]?.b64_json) {
-          lastError = 'No image data in response';
+          
           continue;
         }
 
-        // Convertir la réponse base64 en data URI
-        const dataUri = `data:image/png;base64,${data.data[0].b64_json}`;
-        return NextResponse.json({ imageDataUri: dataUri });
+        // Vérifier le type de contenu
+        const contentType = resp.headers.get('content-type') || '';
+        console.log('Content-Type:', contentType);
+        
+        // Si c'est du JSON, c'est probablement une erreur
+        if (contentType.includes('application/json')) {
+          const errorData = await resp.json().catch(() => ({}));
+          lastError = `[${model}] ${JSON.stringify(errorData)}`;
+          console.error('JSON error response:', errorData);
+          continue;
+        }
+        
+        // Si on arrive ici, c'est probablement une image
+        try {
+          const arrayBuffer = await resp.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString('base64');
+          const dataUri = `data:image/png;base64,${base64}`;
+          console.log(`Successfully generated image with ${model}`);
+          return NextResponse.json({ imageDataUri: dataUri });
+        } catch (processError) {
+          console.error('Error processing image response:', processError);
+          lastError = `[${model}] Failed to process image: ${processError}`;
+          continue;
+        }
       } catch (err) {
         lastError = err;
         continue;
