@@ -226,7 +226,7 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Vos photos</CardTitle>
           <CardDescription>
-            Ces photos seront utilisées pour les futures fonctionnalités d'essayage virtuel et sont stockées **uniquement sur votre appareil**.
+            Ces photos sont utilisées pour la génération d'images dans StyleK.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-6">
