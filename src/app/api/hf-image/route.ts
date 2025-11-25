@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     try {
       // Configuration pour le Router (format OpenAI-compatible)
       const requestBody = {
-        model: 'black-forest-labs/FLUX.1-schnell', // Modèle gratuit et rapide
+        model: 'stabilityai/stable-diffusion-xl-base-1.0', // SDXL - Meilleure qualité
         prompt: enhanced,
         n: 1,
         size: '512x512',
