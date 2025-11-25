@@ -18,40 +18,40 @@ import { OutfitDisplay } from './outfit-display';
 
 // Extended type to include imageDataUri for each part
 export type PhotoSuggestionPart = {
-    description: string;
-    imageDataUri: string;
+  description: string;
+  imageDataUri: string;
 };
 export type PhotoSuggestion = {
-    haut: PhotoSuggestionPart;
-    bas: PhotoSuggestionPart;
-    chaussures: PhotoSuggestionPart;
-    accessoires: PhotoSuggestionPart;
+  haut: PhotoSuggestionPart;
+  bas: PhotoSuggestionPart;
+  chaussures: PhotoSuggestionPart;
+  accessoires: PhotoSuggestionPart;
 };
 export type OutfitPart = keyof PhotoSuggestion;
 
 
 const handleAiError = (error: any, toast: any) => {
-    const errorMessage = String(error.message || '');
-    if (errorMessage.includes('429') || errorMessage.includes('quota')) {
-        toast({
-            variant: 'destructive',
-            title: 'L\'IA est très demandée !',
-            description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez dans quelques minutes.",
-        });
-    } else if (errorMessage.includes('503') || errorMessage.includes('overloaded') || errorMessage.includes('unavailable')) {
-         toast({
-            variant: 'destructive',
-            title: 'L\'IA est en surchauffe !',
-            description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant pour reprendre son souffle et réessayez.",
-        });
-    } else {
-        toast({
-            variant: 'destructive',
-            title: 'Erreur Inattendue',
-            description: "Une erreur s'est produite. Veuillez réessayer.",
-        });
-    }
-    console.error(error);
+  const errorMessage = String(error.message || '');
+  if (errorMessage.includes('429') || errorMessage.includes('quota')) {
+    toast({
+      variant: 'destructive',
+      title: 'L\'IA est très demandée !',
+      description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez dans quelques minutes.",
+    });
+  } else if (errorMessage.includes('503') || errorMessage.includes('overloaded') || errorMessage.includes('unavailable')) {
+    toast({
+      variant: 'destructive',
+      title: 'L\'IA est en surchauffe !',
+      description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant pour reprendre son souffle et réessayez.",
+    });
+  } else {
+    toast({
+      variant: 'destructive',
+      title: 'Erreur Inattendue',
+      description: "Une erreur s'est produite. Veuillez réessayer.",
+    });
+  }
+  console.error(error);
 };
 
 
@@ -96,11 +96,11 @@ export default function OutfitSuggester() {
       const wardrobe = userProfile?.wardrobe || [];
       if (!wardrobe.length) return null;
       const targetStyle = resolveTargetStyle(input.occasion, input.scheduleKeywords);
-      const filtered = wardrobe.filter(w => w.style === targetStyle).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      const filtered = wardrobe.filter((w: any) => w.style === targetStyle).sort((a: any, b: any) => (b.createdAt || 0) - (a.createdAt || 0));
       if (!filtered.length) return null;
       // Pick one per missing category, avoiding the base type
-      const pick = (type: 'haut' | 'bas' | 'chaussures' | 'accessoires') => filtered.find(w => w.type === type);
-      const parts: Record<'haut'|'bas'|'chaussures'|'accessoires', string> = {
+      const pick = (type: 'haut' | 'bas' | 'chaussures' | 'accessoires') => filtered.find((w: any) => w.type === type);
+      const parts: Record<'haut' | 'bas' | 'chaussures' | 'accessoires', string> = {
         haut: 'N/A', bas: 'N/A', chaussures: 'N/A', accessoires: 'N/A'
       };
       const base = input.baseItemType;
@@ -149,57 +149,57 @@ export default function OutfitSuggester() {
         const descriptionResult = await generateOutfitFromPhoto(photoInput);
 
         const partsToGenerate = Object.entries(descriptionResult)
-            .map(([key, value]: [string, any]) => ({ key: key as OutfitPart, description: (value?.description as string) }))
-            .filter(p => p.description && p.description !== 'N/A');
+          .map(([key, value]: [string, any]) => ({ key: key as OutfitPart, description: (value?.description as string) }))
+          .filter(p => p.description && p.description !== 'N/A');
 
-        const imagePromises = partsToGenerate.map(part => 
-            generateOutfitImage({ itemDescription: part.description, gender: userProfile?.gender, category: part.key })
-                .then(imageResult => ({
-                    key: part.key,
-                    description: part.description,
-                    imageDataUri: imageResult.imageDataUri
-                }))
-                .catch(error => {
-                    console.error(`Failed to generate image for ${part.key}:`, error);
-                    handleAiError(error, toast);
-                    return { key: part.key, description: part.description, imageDataUri: '' };
-                })
+        const imagePromises = partsToGenerate.map(part =>
+          generateOutfitImage({ itemDescription: part.description, gender: userProfile?.gender, category: part.key })
+            .then(imageResult => ({
+              key: part.key,
+              description: part.description,
+              imageDataUri: imageResult.imageDataUri
+            }))
+            .catch(error => {
+              console.error(`Failed to generate image for ${part.key}:`, error);
+              handleAiError(error, toast);
+              return { key: part.key, description: part.description, imageDataUri: '' };
+            })
         );
-        
+
         const generatedImages = await Promise.all(imagePromises);
 
         const finalPhotoSuggestion: PhotoSuggestion = {
-            haut: { description: 'N/A', imageDataUri: '' },
-            bas: { description: 'N/A', imageDataUri: '' },
-            chaussures: { description: 'N/A', imageDataUri: '' },
-            accessoires: { description: 'N/A', imageDataUri: '' },
+          haut: { description: 'N/A', imageDataUri: '' },
+          bas: { description: 'N/A', imageDataUri: '' },
+          chaussures: { description: 'N/A', imageDataUri: '' },
+          accessoires: { description: 'N/A', imageDataUri: '' },
         };
-        
+
         generatedImages.forEach(image => {
-            if (image) {
-                finalPhotoSuggestion[image.key] = {
-                    description: image.description,
-                    imageDataUri: image.imageDataUri,
-                };
-            }
+          if (image) {
+            finalPhotoSuggestion[image.key] = {
+              description: image.description,
+              imageDataUri: image.imageDataUri,
+            };
+          }
         });
-        
+
         Object.keys(descriptionResult).forEach(keyStr => {
-            const key = keyStr as OutfitPart;
-            if(descriptionResult[key] && descriptionResult[key].description !== 'N/A' && !finalPhotoSuggestion[key].description) {
-                finalPhotoSuggestion[key].description = descriptionResult[key].description;
-            }
+          const key = keyStr as OutfitPart;
+          if (descriptionResult[key] && descriptionResult[key].description !== 'N/A' && !finalPhotoSuggestion[key].description) {
+            finalPhotoSuggestion[key].description = descriptionResult[key].description;
+          }
         });
-        
+
         setPhotoSuggestion(finalPhotoSuggestion);
         setSuggestion(null);
-        
+
       } else {
         setPhotoSuggestion(null);
         const result = await suggestOutfit({ ...commonInput, baseItem: input.baseItem });
         setSuggestion(result);
       }
-      
+
     } catch (error) {
       handleAiError(error, toast);
     } finally {
@@ -212,41 +212,41 @@ export default function OutfitSuggester() {
 
     setRegeneratingPart(part);
     try {
-        const currentOutfitDescriptions = {
-            haut: photoSuggestion.haut.description,
-            bas: photoSuggestion.bas.description,
-            chaussures: photoSuggestion.chaussures.description,
-            accessoires: photoSuggestion.accessoires.description,
+      const currentOutfitDescriptions = {
+        haut: photoSuggestion.haut.description,
+        bas: photoSuggestion.bas.description,
+        chaussures: photoSuggestion.chaussures.description,
+        accessoires: photoSuggestion.accessoires.description,
+      };
+
+      const { newDescription } = await regeneratePhotoOutfitPart({
+        originalInput: currentPhotoConstraints,
+        currentOutfitDescriptions: currentOutfitDescriptions,
+        partToChange: part,
+        currentPartDescription: photoSuggestion[part].description,
+      });
+
+      const { imageDataUri } = await generateOutfitImage({
+        itemDescription: newDescription,
+        gender: userProfile?.gender,
+        category: part
+      });
+
+      setPhotoSuggestion((prev: PhotoSuggestion | null) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          [part]: {
+            description: newDescription,
+            imageDataUri: imageDataUri
+          }
         };
-
-        const { newDescription } = await regeneratePhotoOutfitPart({
-            originalInput: currentPhotoConstraints,
-            currentOutfitDescriptions: currentOutfitDescriptions,
-            partToChange: part,
-            currentPartDescription: photoSuggestion[part].description,
-        });
-
-        const { imageDataUri } = await generateOutfitImage({
-            itemDescription: newDescription,
-            gender: userProfile?.gender,
-            category: part
-        });
-
-        setPhotoSuggestion((prev: PhotoSuggestion | null) => {
-            if (!prev) return null;
-            return {
-                ...prev,
-                [part]: {
-                    description: newDescription,
-                    imageDataUri: imageDataUri
-                }
-            };
-        });
+      });
 
     } catch (error) {
-        handleAiError(error, toast);
+      handleAiError(error, toast);
     } finally {
-        setRegeneratingPart(null);
+      setRegeneratingPart(null);
     }
   };
 
@@ -254,9 +254,9 @@ export default function OutfitSuggester() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
       <Card>
-        <OutfitForm 
-          isLoading={isGenerating} 
-          onSuggestOutfit={getSuggestion} 
+        <OutfitForm
+          isLoading={isGenerating}
+          onSuggestOutfit={getSuggestion}
         />
       </Card>
 

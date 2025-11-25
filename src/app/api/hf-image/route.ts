@@ -25,18 +25,18 @@ function enhancePromptForFashion(
 }
 
 // Liste des modèles à essayer dans l'ordre
-// Modèles communautaires basés sur SD 1.5 / SDXL
 const MODELS_TO_TRY = [
-  'Lykon/dreamshaper-7',                          // Excellent pour rendus réalistes/stylisés
-  'prompthero/openjourney',                      // Style Midjourney, bonne qualité
-  'aiyouthalliance/Free-Image-Generation',       // Licence CC0 libre
-  'stabilityai/stable-diffusion-xl-base-1.0',    // Fallback SDXL officiel
+  'Lykon/dreamshaper-7',
+  'prompthero/openjourney',
+  'aiyouthalliance/Free-Image-Generation',
+  'stabilityai/stable-diffusion-xl-base-1.0',
 ];
 
 async function tryGenerateWithModel(model: string, prompt: string, apiKey: string): Promise<ArrayBuffer | null> {
-  const apiUrl = `https://api-inference.huggingface.co/models/${model}`;
+  // Utiliser l'URL du Router Hugging Face
+  const apiUrl = `https://router.huggingface.co/models/${model}`;
 
-  console.log(`Trying model: ${model}`);
+  console.log(`Trying model: ${model} via Router URL: ${apiUrl}`);
 
   try {
     const resp = await fetch(apiUrl, {
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     const enhanced = enhancePromptForFashion(prompt, gender, category);
 
     console.log('Enhanced prompt:', enhanced);
-    console.log('Trying Hugging Face Inference API with multiple models...');
+    console.log('Trying Hugging Face Router API with multiple models...');
 
     // Essayer chaque modèle dans l'ordre
     for (const model of MODELS_TO_TRY) {
