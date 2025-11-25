@@ -5,121 +5,122 @@ export const runtime = 'nodejs';
 type Category = 'haut' | 'bas' | 'chaussures' | 'accessoires';
 type Gender = 'Homme' | 'Femme' | undefined;
 
-// Fonction pour améliorer le prompt pour la mode
+// Fonction pour améliorer le prompt (version simplifiée)
 function enhancePromptForFashion(
   description: string,
   gender?: Gender,
   category?: Category
 ): string {
-  const singleItemMap: Record<string, { noun: string; extras?: string }> = {
-    haut: { noun: 'a single top garment (shirt, t-shirt, sweater, jacket)', extras: 'single garment' },
-    bas: { noun: 'a single bottom garment (pants, jeans, skirt, shorts)', extras: 'single garment' },
-    chaussures: { noun: 'a single pair of shoes', extras: 'single pair' },
-    accessoires: { noun: 'a single fashion accessory (watch, sunglasses, belt, hat)', extras: 'single accessory' },
-  };
-
   let enhanced = description;
 
-  // Ajouter des détails en fonction du genre
   if (gender === 'Femme') {
-    enhanced += ", women's clothing, female fit, feminine style";
+    enhanced += ", women's fashion";
   } else {
-    enhanced += ", men's clothing, male fit, masculine style";
+    enhanced += ", men's fashion";
   }
 
-  // Ajouter des détails en fonction de la catégorie
-  if (category && singleItemMap[category]) {
-    const { noun, extras } = singleItemMap[category];
-    enhanced += `, ${noun}`;
-    if (extras) {
-      enhanced += `, ${extras}`;
-    }
-  }
-
-  // Ajouter des améliorations générales
-  enhanced += ', clean white background, e-commerce studio lighting, high quality, detailed, sharp focus';
-
-  // Ajouter des éléments à éviter
-  enhanced += ', no person, no model, no human, no body, mannequin invisible, disembodied apparel';
-  enhanced += ', no outfit set, no multiple items, no collage';
-
-  if (gender === 'Femme') {
-    enhanced += ', no male, no man, no masculine style';
-  } else {
-    enhanced += ', no female, no woman, no feminine style';
-  }
+  enhanced += ', white background, product photo, high quality';
 
   return enhanced;
+}
+
+// Liste des modèles à essayer dans l'ordre
+const MODELS_TO_TRY = [
+  'stabilityai/stable-diffusion-3.5-large',
+  'black-forest-labs/FLUX.1-schnell',
+  'black-forest-labs/FLUX.1-dev',
+  'eigen-ai-labs/eigen-banana-qwen-image-edit',
+];
+
+async function tryGenerateWithModel(model: string, prompt: string, apiKey: string): Promise<ArrayBuffer | null> {
+  const apiUrl = `https://api-inference.huggingface.co/models/${model}`;
+
+  console.log(`Trying model: ${model}`);
+
+  try {
+    const resp = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: {
+          num_inference_steps: 20,
+        }
+      }),
+    });
+
+    console.log(`Model ${model} response status: ${resp.status}`);
+
+    if (resp.ok) {
+      const imageBuffer = await resp.arrayBuffer();
+      if (imageBuffer && imageBuffer.byteLength > 0) {
+        console.log(`✅ Success with model: ${model}`);
+        return imageBuffer;
+      }
+    } else {
+      const errorText = await resp.text().catch(() => '');
+      console.log(`Model ${model} failed:`, errorText.substring(0, 200));
+    }
+
+    return null;
+  } catch (error) {
+    console.log(`Model ${model} error:`, error);
+    return null;
+  }
 }
 
 export async function POST(request: Request) {
   try {
     const { prompt, gender, category } = await request.json();
+    const apiKey = process.env.HUGGINGFACE_API_KEY;
+
+    if (!apiKey) {
+      return NextResponse.json({ error: 'HUGGINGFACE_API_KEY is not set' }, { status: 500 });
+    }
 
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'Invalid prompt' }, { status: 400 });
     }
 
-    // Améliorer le prompt pour la mode
     const enhanced = enhancePromptForFashion(prompt, gender, category);
 
     console.log('Enhanced prompt:', enhanced);
-    console.log('Using Pollinations.ai API (free, no API key needed)');
+    console.log('Trying Hugging Face Inference API with multiple models...');
 
-    try {
-      // Pollinations.ai - API gratuite sans clé nécessaire
-      // L'API retourne directement l'image
-      const pollinationsUrl = new URL('https://image.pollinations.ai/prompt/' + encodeURIComponent(enhanced));
+    // Essayer chaque modèle dans l'ordre
+    for (const model of MODELS_TO_TRY) {
+      const imageBuffer = await tryGenerateWithModel(model, enhanced, apiKey);
 
-      // Paramètres optionnels
-      pollinationsUrl.searchParams.set('width', '512');
-      pollinationsUrl.searchParams.set('height', '512');
-      pollinationsUrl.searchParams.set('nologo', 'true'); // Pas de watermark
-      pollinationsUrl.searchParams.set('enhance', 'true'); // Amélioration automatique
+      if (imageBuffer) {
+        // Succès ! Convertir en base64 et retourner
+        const base64 = Buffer.from(imageBuffer).toString('base64');
+        const dataUri = `data:image/png;base64,${base64}`;
 
-      console.log('Fetching image from Pollinations.ai...');
+        console.log('✅ Image generated successfully with model:', model);
+        console.log('Image size:', imageBuffer.byteLength, 'bytes');
 
-      const resp = await fetch(pollinationsUrl.toString(), {
-        method: 'GET',
-      });
-
-      console.log('Pollinations response status:', resp.status);
-
-      if (!resp.ok) {
-        throw new Error(`Pollinations API error: ${resp.status}`);
+        return NextResponse.json({
+          success: true,
+          imageDataUri: dataUri,
+          modelUsed: model
+        });
       }
-
-      // Récupérer l'image en tant que buffer
-      const imageBuffer = await resp.arrayBuffer();
-
-      if (!imageBuffer || imageBuffer.byteLength === 0) {
-        throw new Error('Empty image buffer received from Pollinations');
-      }
-
-      // Convertir en base64
-      const base64 = Buffer.from(imageBuffer).toString('base64');
-      const dataUri = `data:image/jpeg;base64,${base64}`;
-
-      console.log('✅ Successfully generated image, size:', imageBuffer.byteLength, 'bytes');
-
-      return NextResponse.json({
-        success: true,
-        imageDataUri: dataUri
-      });
-
-    } catch (error: any) {
-      console.error('❌ Error in image generation:', error);
-      console.error('Error details:', error?.message);
-
-      return NextResponse.json(
-        {
-          error: 'Image generation failed',
-          details: error?.message || String(error),
-          hint: 'Erreur avec Pollinations.ai. Vérifiez votre connexion internet.'
-        },
-        { status: 500 }
-      );
     }
+
+    // Tous les modèles ont échoué
+    console.error('❌ All models failed');
+    return NextResponse.json(
+      {
+        error: 'Image generation failed',
+        details: 'All models failed. Check the server logs for details.',
+        hint: 'Vérifiez que votre clé API Hugging Face est valide et que vous avez accepté les licences des modèles sur huggingface.co'
+      },
+      { status: 500 }
+    );
+
   } catch (error: any) {
     console.error('Error in API route:', error);
     return NextResponse.json(
