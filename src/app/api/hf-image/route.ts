@@ -24,7 +24,6 @@ function enhancePromptForFashion(
   if (gender === 'Femme') {
     enhanced += ", women's clothing, female fit, feminine style";
   } else {
-    // Par défaut, on utilise le style masculin
     enhanced += ", men's clothing, male fit, masculine style";
   }
 
@@ -75,97 +74,111 @@ export async function POST(request: Request) {
     // Log du prompt amélioré pour le débogage
     console.log('Enhanced prompt:', enhanced);
 
-    // Utiliser l'API Inference directement (plus fiable que le Router)
-    const model = 'black-forest-labs/FLUX.1-schnell'; // Modèle ultra-rapide et gratuit
-    const apiUrl = `https://api-inference.huggingface.co/models/${model}`;
-
-    console.log(`Using Hugging Face Inference API with model: ${model}`);
+    // OBLIGATOIRE : Utiliser le Router Hugging Face (l'API Inference est dépréciée depuis nov 2024)
+    const apiUrl = 'https://router.huggingface.co/v1/images/generations';
+    console.log('Using Hugging Face Router API (Inference API is deprecated)');
 
     try {
-      // Première tentative avec le modèle principal
-      let resp = await fetch(apiUrl, {
+      // Configuration pour le Router (format OpenAI-compatible)
+      const requestBody = {
+        model: 'black-forest-labs/FLUX.1-schnell', // Modèle gratuit et rapide
+        prompt: enhanced,
+        n: 1,
+        size: '512x512',
+        response_format: 'b64_json',
+      };
+
+      console.log('Request to Router:', { model: requestBody.model, size: requestBody.size });
+
+      const resp = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'x-wait-for-model': 'true', // Attendre si le modèle est en chargement
         },
-        body: JSON.stringify({
-          inputs: enhanced,
-          parameters: {
-            num_inference_steps: 4, // FLUX schnell nécessite 4 steps
-            guidance_scale: 0, // FLUX schnell ne supporte pas guidance_scale > 0
-          }
-        }),
+        body: JSON.stringify(requestBody),
       });
 
-      console.log('Response status:', resp.status);
-
-      // Si le modèle FLUX échoue, utiliser un fallback
-      if (!resp.ok) {
-        console.log('FLUX model failed, trying fallback: stabilityai/stable-diffusion-2-1');
-        const fallbackModel = 'stabilityai/stable-diffusion-2-1';
-        const fallbackUrl = `https://api-inference.huggingface.co/models/${fallbackModel}`;
-
-        resp = await fetch(fallbackUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'x-wait-for-model': 'true',
-          },
-          body: JSON.stringify({
-            inputs: enhanced,
-            parameters: {
-              num_inference_steps: 20,
-              guidance_scale: 7.5,
-            }
-          }),
-        });
-
-        console.log('Fallback response status:', resp.status);
-      }
+      console.log('Router response status:', resp.status);
 
       if (!resp.ok) {
         const errorText = await resp.text().catch(() => 'Failed to read error response');
-        console.error('API Error Response:', errorText);
+        console.error('Router API Error:', errorText);
 
         // Essayer de parser l'erreur JSON
+        let errorMessage = `API error ${resp.status}`;
         try {
           const errorJson = JSON.parse(errorText);
-          throw new Error(errorJson.error || errorText);
+          errorMessage = errorJson.error || errorJson.message || errorText;
         } catch {
-          throw new Error(`API error ${resp.status}: ${errorText}`);
+          errorMessage = errorText;
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      // Le Router renvoie du JSON
+      const responseData = await resp.json();
+      console.log('Router response received, parsing...');
+
+      // Vérifier si la réponse contient une erreur
+      if (responseData.error) {
+        console.error('Router returned error:', responseData.error);
+        throw new Error(typeof responseData.error === 'string'
+          ? responseData.error
+          : JSON.stringify(responseData.error));
+      }
+
+      // Format attendu : { data: [{ b64_json: "..." }] }
+      if (responseData.data && Array.isArray(responseData.data) && responseData.data[0]) {
+        const imageData = responseData.data[0];
+
+        // Cas 1: Format b64_json
+        if (imageData.b64_json) {
+          const dataUri = `data:image/png;base64,${imageData.b64_json}`;
+          console.log('✅ Successfully generated image (b64_json format)');
+          return NextResponse.json({
+            success: true,
+            imageDataUri: dataUri
+          });
+        }
+
+        // Cas 2: Format URL
+        if (imageData.url) {
+          console.log('Image URL received, downloading...');
+          try {
+            const imageResponse = await fetch(imageData.url);
+            if (!imageResponse.ok) {
+              throw new Error(`Failed to download image from URL`);
+            }
+            const arrayBuffer = await imageResponse.arrayBuffer();
+            const base64 = Buffer.from(arrayBuffer).toString('base64');
+            const dataUri = `data:image/png;base64,${base64}`;
+            console.log('✅ Successfully downloaded image from URL');
+            return NextResponse.json({
+              success: true,
+              imageDataUri: dataUri
+            });
+          } catch (downloadError) {
+            console.error('Error downloading image:', downloadError);
+            throw new Error('Failed to download the generated image');
+          }
         }
       }
 
-      // L'API Inference renvoie directement les bytes de l'image
-      const imageBuffer = await resp.arrayBuffer();
-
-      if (!imageBuffer || imageBuffer.byteLength === 0) {
-        throw new Error('Empty image buffer received from API');
-      }
-
-      // Convertir en base64
-      const base64 = Buffer.from(imageBuffer).toString('base64');
-      const dataUri = `data:image/png;base64,${base64}`;
-
-      console.log('Successfully generated image, size:', imageBuffer.byteLength, 'bytes');
-
-      return NextResponse.json({
-        success: true,
-        imageDataUri: dataUri
-      });
+      // Format de réponse inattendu
+      console.error('Unexpected response format:', JSON.stringify(responseData).substring(0, 500));
+      throw new Error('Unexpected response format from Router API');
 
     } catch (error: any) {
-      console.error('Error in image generation:', error);
-      console.error('Error stack:', error?.stack);
+      console.error('❌ Error in image generation:', error);
+      console.error('Error details:', error?.message);
 
       return NextResponse.json(
         {
           error: 'Image generation failed',
           details: error?.message || String(error),
-          hint: 'Vérifiez que votre clé API Hugging Face est valide et que vous avez accepté les conditions du modèle sur huggingface.co'
+          hint: 'Vérifiez les logs serveur. La clé API doit être valide et vous devez accepter les conditions du modèle sur huggingface.co/black-forest-labs/FLUX.1-schnell'
         },
         { status: 500 }
       );
