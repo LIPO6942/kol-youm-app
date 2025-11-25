@@ -55,120 +55,57 @@ function enhancePromptForFashion(
 export async function POST(request: Request) {
   try {
     const { prompt, gender, category } = await request.json();
-    const apiKey = process.env.HUGGINGFACE_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json({ error: 'HUGGINGFACE_API_KEY is not set' }, { status: 500 });
-    }
 
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'Invalid prompt' }, { status: 400 });
     }
 
-    // Désactiver le cache pour éviter les problèmes
-    process.env.NEXT_DISABLE_RESPONSE_CACHE = '1';
-
     // Améliorer le prompt pour la mode
     const enhanced = enhancePromptForFashion(prompt, gender, category);
 
-    // Log du prompt amélioré pour le débogage
     console.log('Enhanced prompt:', enhanced);
-
-    // OBLIGATOIRE : Utiliser le Router Hugging Face (l'API Inference est dépréciée depuis nov 2024)
-    const apiUrl = 'https://router.huggingface.co/v1/images/generations';
-    console.log('Using Hugging Face Router API (Inference API is deprecated)');
+    console.log('Using Pollinations.ai API (free, no API key needed)');
 
     try {
-      // Configuration pour le Router (format OpenAI-compatible)
-      const requestBody = {
-        model: 'stabilityai/stable-diffusion-xl-base-1.0', // SDXL - Meilleure qualité
-        prompt: enhanced,
-        n: 1,
-        size: '512x512',
-        response_format: 'b64_json',
-      };
+      // Pollinations.ai - API gratuite sans clé nécessaire
+      // L'API retourne directement l'image
+      const pollinationsUrl = new URL('https://image.pollinations.ai/prompt/' + encodeURIComponent(enhanced));
 
-      console.log('Request to Router:', { model: requestBody.model, size: requestBody.size });
+      // Paramètres optionnels
+      pollinationsUrl.searchParams.set('width', '512');
+      pollinationsUrl.searchParams.set('height', '512');
+      pollinationsUrl.searchParams.set('nologo', 'true'); // Pas de watermark
+      pollinationsUrl.searchParams.set('enhance', 'true'); // Amélioration automatique
 
-      const resp = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
+      console.log('Fetching image from Pollinations.ai...');
+
+      const resp = await fetch(pollinationsUrl.toString(), {
+        method: 'GET',
       });
 
-      console.log('Router response status:', resp.status);
+      console.log('Pollinations response status:', resp.status);
 
       if (!resp.ok) {
-        const errorText = await resp.text().catch(() => 'Failed to read error response');
-        console.error('Router API Error:', errorText);
-
-        // Essayer de parser l'erreur JSON
-        let errorMessage = `API error ${resp.status}`;
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.error || errorJson.message || errorText;
-        } catch {
-          errorMessage = errorText;
-        }
-
-        throw new Error(errorMessage);
+        throw new Error(`Pollinations API error: ${resp.status}`);
       }
 
-      // Le Router renvoie du JSON
-      const responseData = await resp.json();
-      console.log('Router response received, parsing...');
+      // Récupérer l'image en tant que buffer
+      const imageBuffer = await resp.arrayBuffer();
 
-      // Vérifier si la réponse contient une erreur
-      if (responseData.error) {
-        console.error('Router returned error:', responseData.error);
-        throw new Error(typeof responseData.error === 'string'
-          ? responseData.error
-          : JSON.stringify(responseData.error));
+      if (!imageBuffer || imageBuffer.byteLength === 0) {
+        throw new Error('Empty image buffer received from Pollinations');
       }
 
-      // Format attendu : { data: [{ b64_json: "..." }] }
-      if (responseData.data && Array.isArray(responseData.data) && responseData.data[0]) {
-        const imageData = responseData.data[0];
+      // Convertir en base64
+      const base64 = Buffer.from(imageBuffer).toString('base64');
+      const dataUri = `data:image/jpeg;base64,${base64}`;
 
-        // Cas 1: Format b64_json
-        if (imageData.b64_json) {
-          const dataUri = `data:image/png;base64,${imageData.b64_json}`;
-          console.log('✅ Successfully generated image (b64_json format)');
-          return NextResponse.json({
-            success: true,
-            imageDataUri: dataUri
-          });
-        }
+      console.log('✅ Successfully generated image, size:', imageBuffer.byteLength, 'bytes');
 
-        // Cas 2: Format URL
-        if (imageData.url) {
-          console.log('Image URL received, downloading...');
-          try {
-            const imageResponse = await fetch(imageData.url);
-            if (!imageResponse.ok) {
-              throw new Error(`Failed to download image from URL`);
-            }
-            const arrayBuffer = await imageResponse.arrayBuffer();
-            const base64 = Buffer.from(arrayBuffer).toString('base64');
-            const dataUri = `data:image/png;base64,${base64}`;
-            console.log('✅ Successfully downloaded image from URL');
-            return NextResponse.json({
-              success: true,
-              imageDataUri: dataUri
-            });
-          } catch (downloadError) {
-            console.error('Error downloading image:', downloadError);
-            throw new Error('Failed to download the generated image');
-          }
-        }
-      }
-
-      // Format de réponse inattendu
-      console.error('Unexpected response format:', JSON.stringify(responseData).substring(0, 500));
-      throw new Error('Unexpected response format from Router API');
+      return NextResponse.json({
+        success: true,
+        imageDataUri: dataUri
+      });
 
     } catch (error: any) {
       console.error('❌ Error in image generation:', error);
@@ -178,7 +115,7 @@ export async function POST(request: Request) {
         {
           error: 'Image generation failed',
           details: error?.message || String(error),
-          hint: 'Vérifiez les logs serveur. La clé API doit être valide et vous devez accepter les conditions du modèle sur huggingface.co/black-forest-labs/FLUX.1-schnell'
+          hint: 'Erreur avec Pollinations.ai. Vérifiez votre connexion internet.'
         },
         { status: 500 }
       );
