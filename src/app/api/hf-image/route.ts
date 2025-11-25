@@ -25,11 +25,12 @@ function enhancePromptForFashion(
 }
 
 // Liste des modèles à essayer dans l'ordre
+// Modèles communautaires basés sur SD 1.5 / SDXL
 const MODELS_TO_TRY = [
-  'stabilityai/stable-diffusion-3.5-large',
-  'black-forest-labs/FLUX.1-schnell',
-  'black-forest-labs/FLUX.1-dev',
-  'eigen-ai-labs/eigen-banana-qwen-image-edit',
+  'Lykon/dreamshaper-7',                          // Excellent pour rendus réalistes/stylisés
+  'prompthero/openjourney',                      // Style Midjourney, bonne qualité
+  'aiyouthalliance/Free-Image-Generation',       // Licence CC0 libre
+  'stabilityai/stable-diffusion-xl-base-1.0',    // Fallback SDXL officiel
 ];
 
 async function tryGenerateWithModel(model: string, prompt: string, apiKey: string): Promise<ArrayBuffer | null> {
