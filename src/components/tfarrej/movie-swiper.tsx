@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, Eye, X, RotateCcw } from 'lucide-react';
-import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast"; // Corrected import path
+// Import des hooks commentés temporairement pour le débogage
+// import { useAuth } from "@/hooks/use-auth";
+// import { useToast } from "@/hooks/use-toast";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -85,40 +86,19 @@ const LoadingState = () => (
 );
 
 export default function MovieSwiper({ genre }: { genre: string }) {
-  // État d'authentification
-  const { user, userProfile, loading: authLoading } = useAuth();
-  
   // États de base
   const [isLoading, setIsLoading] = useState(true);
   const [movies, setMovies] = useState<MovieSuggestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const { toast } = useToast();
+  const [isClient, setIsClient] = useState(false);
   const initialFetchDone = useRef(false);
   
-  // Vérification côté client uniquement
-  const [isClient, setIsClient] = useState(false);
-
   // Vérification du côté client
   useEffect(() => {
     setIsClient(true);
-  }, []);
-
-  // Chargement initial
-  useEffect(() => {
-    if (!isClient || typeof window === 'undefined') return;
     
+    // Chargement initial
     const loadData = async () => {
-      if (authLoading) {
-        setIsLoading(true);
-        return;
-      }
-      
-      // Si l'utilisateur n'est pas connecté, on ne fait rien
-      if (!user || !userProfile) {
-        setIsLoading(false);
-        return;
-      }
-      
       try {
         setIsLoading(true);
         // Simulation d'un chargement de films
@@ -135,27 +115,12 @@ export default function MovieSwiper({ genre }: { genre: string }) {
             synopsis: 'Ceci est un film de test pour le débogage.',
             actors: ['Acteur 1', 'Acteur 2'],
             country: 'France'
-          },
-          {
-            id: '2',
-            title: 'Autre film',
-            year: 2022,
-            rating: 8.0,
-            genre: genre || 'Général',
-            synopsis: 'Un autre film pour tester le composant.',
-            actors: ['Acteur 3', 'Acteur 4'],
-            country: 'États-Unis'
           }
         ];
         
         setMovies(testMovies);
       } catch (error) {
         console.error('Erreur de chargement:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Erreur',
-          description: 'Impossible de charger les films',
-        });
       } finally {
         setIsLoading(false);
         initialFetchDone.current = true;
@@ -163,74 +128,27 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     };
     
     loadData();
-  }, [isClient, authLoading, user, userProfile, toast, genre]);
+  }, [genre]);
 
-  // État de chargement ou utilisateur non connecté
-  if (!isClient || authLoading || isLoading) {
+  if (!isClient || isLoading) {
     return <LoadingState />;
   }
-  
-  // Si l'utilisateur n'est pas connecté
-  if (!user || !userProfile) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center p-6">
-          <h3 className="text-lg font-semibold mb-2">Connexion requise</h3>
-          <p className="text-muted-foreground">Veuillez vous connecter pour accéder à cette fonctionnalité.</p>
-        </div>
-      </div>
-    );
-  }
 
-  const handleSwipe = useCallback(async (direction: 'left' | 'right') => {
-    if (!user || currentIndex >= movies.length) return;
+  const handleSwipe = (direction: 'left' | 'right') => {
+    if (currentIndex >= movies.length) return;
     
     const action = direction === 'left' ? 'vu' : 'ajouté à votre liste';
     const movie = movies[currentIndex];
     
-    try {
-      // Ici, vous pourriez ajouter la logique pour enregistrer le swipe
-      // Par exemple : await recordMovieSwipe(user.uid, movie.id, direction);
-      
-      toast({
-        title: `${movie.title} ${action} !`,
-        description: direction === 'right' ? "Consultez la liste 'À Voir' pour le retrouver." : undefined
-      });
-      
-      setCurrentIndex(prev => prev + 1);
-    } catch (error) {
-      console.error('Erreur lors du swipe:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: 'Une erreur est survenue lors du traitement de votre action.'
-      });
-    }
-  }, [user, currentIndex, movies, toast]);
+    console.log(`${movie.title} ${action} !`);
+    setCurrentIndex(prev => prev + 1);
+  };
 
-  const handleSkip = useCallback(() => {
+  const handleSkip = () => {
     if (currentIndex >= movies.length) return;
-    const movie = movies[currentIndex];
-    
-    try {
-      // Ici, vous pourriez ajouter la logique pour ignorer le film
-      // Par exemple : await skipMovie(user.uid, movie.id);
-      
-      toast({
-        title: 'Film ignoré',
-        description: `Vous avez ignoré "${movie.title}"`
-      });
-      
-      setCurrentIndex(prev => prev + 1);
-    } catch (error) {
-      console.error('Erreur lors de l\'ignorance du film:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: 'Impossible d\'ignorer ce film pour le moment.'
-      });
-    }
-  }, [currentIndex, movies, toast]);
+    console.log('Film ignoré');
+    setCurrentIndex(prev => prev + 1);
+  };
 
   // Gestion des raccourcis clavier
   useEffect(() => {
@@ -251,7 +169,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isClient, handleSkip, handleSwipe]);
+  }, [isClient]);
 
   const currentMovie = currentIndex < movies.length ? movies[currentIndex] : null;
 
