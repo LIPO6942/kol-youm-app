@@ -130,26 +130,6 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     loadData();
   }, [genre]);
 
-  if (!isClient || isLoading) {
-    return <LoadingState />;
-  }
-
-  const handleSwipe = (direction: 'left' | 'right') => {
-    if (currentIndex >= movies.length) return;
-    
-    const action = direction === 'left' ? 'vu' : 'ajouté à votre liste';
-    const movie = movies[currentIndex];
-    
-    console.log(`${movie.title} ${action} !`);
-    setCurrentIndex(prev => prev + 1);
-  };
-
-  const handleSkip = () => {
-    if (currentIndex >= movies.length) return;
-    console.log('Film ignoré');
-    setCurrentIndex(prev => prev + 1);
-  };
-
   // Gestion des raccourcis clavier
   useEffect(() => {
     if (!isClient) return;
@@ -170,6 +150,26 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isClient]);
+
+  if (!isClient || isLoading) {
+    return <LoadingState />;
+  }
+
+  const handleSwipe = (direction: 'left' | 'right') => {
+    if (currentIndex >= movies.length) return;
+    
+    const action = direction === 'left' ? 'vu' : 'ajouté à votre liste';
+    const movie = movies[currentIndex];
+    
+    console.log(`${movie.title} ${action} !`);
+    setCurrentIndex(prev => prev + 1);
+  };
+
+  const handleSkip = () => {
+    if (currentIndex >= movies.length) return;
+    console.log('Film ignoré');
+    setCurrentIndex(prev => prev + 1);
+  };
 
   const currentMovie = currentIndex < movies.length ? movies[currentIndex] : null;
 
