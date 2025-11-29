@@ -200,10 +200,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
   }), [state.toasts]);
 
-  return (
-    <ToastContext.Provider value={value}>
-      {children}
-    </ToastContext.Provider>
+  return React.createElement(
+    ToastContext.Provider,
+    { value },
+    children
   )
 }
 
