@@ -62,9 +62,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [fetchAndSetProfile]);
   
   useEffect(() => {
+    let unsubscribe = () => {};
+
     if (user) {
       // Use onSnapshot to listen for real-time updates from Firestore
-      const unsub = onSnapshot(doc(firestoreDb, "users", user.uid), async (doc) => {
+      unsubscribe = onSnapshot(doc(firestoreDb, "users", user.uid), async (doc) => {
         const localProfile = await getUserFromDb(user.uid);
         let finalProfile: UserProfile | null = localProfile || null;
 
@@ -90,10 +92,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUserProfile(finalProfile);
         setLoading(false);
       });
-      return () => unsub();
     } else {
-        setLoading(false);
+      setLoading(false);
     }
+
+    return () => unsubscribe();
   }, [user]);
 
 
