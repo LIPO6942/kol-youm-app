@@ -28,6 +28,8 @@ export async function POST(req: NextRequest) {
     const userDoc = doc(firestoreDb, 'users', userId);
     const userSnapshot = await getDoc(userDoc);
 
+    console.log('User snapshot exists:', userSnapshot.exists());
+    
     if (!userSnapshot.exists()) {
       console.error('Utilisateur non trouvé:', userId);
       return NextResponse.json(
@@ -36,12 +38,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log('Utilisateur trouvé, ajout du film:', movieTitle);
+    console.log('Utilisateur trouvé, données:', userSnapshot.data());
+    console.log('Ajout du film:', movieTitle);
     
-    // Ajouter le film à la liste des films vus
-    await updateDoc(userDoc, {
-      seenMovieTitles: arrayUnion(movieTitle)
-    });
+    // Vérifier si le champ seenMovieTitles existe
+    const userData = userSnapshot.data();
+    console.log('seenMovieTitles actuel:', userData?.seenMovieTitles);
+    
+    // Si le champ n'existe pas, l'initialiser
+    if (!userData?.seenMovieTitles) {
+      console.log('Initialisation du champ seenMovieTitles');
+      await updateDoc(userDoc, {
+        seenMovieTitles: [movieTitle]
+      });
+    } else {
+      // Ajouter le film à la liste des films vus
+      await updateDoc(userDoc, {
+        seenMovieTitles: arrayUnion(movieTitle)
+      });
+    }
 
     console.log('Film ajouté avec succès');
     
@@ -52,6 +67,7 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error('Erreur lors de l\'ajout du film vu:', error);
+    console.error('Stack trace:', error.stack);
     return NextResponse.json(
       { error: error?.message || 'Erreur lors de l\'ajout du film' },
       { status: 500 }

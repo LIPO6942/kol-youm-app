@@ -36,12 +36,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log('Utilisateur trouvé, ajout du film à voir:', movieTitle);
+    console.log('Utilisateur trouvé, données:', userSnapshot.data());
+    console.log('Ajout du film à voir:', movieTitle);
     
-    // Ajouter le film à la liste à voir
-    await updateDoc(userDoc, {
-      moviesToWatch: arrayUnion(movieTitle)
-    });
+    // Vérifier si le champ moviesToWatch existe
+    const userData = userSnapshot.data();
+    console.log('moviesToWatch actuel:', userData?.moviesToWatch);
+    
+    // Si le champ n'existe pas, l'initialiser
+    if (!userData?.moviesToWatch) {
+      console.log('Initialisation du champ moviesToWatch');
+      await updateDoc(userDoc, {
+        moviesToWatch: [movieTitle]
+      });
+    } else {
+      // Ajouter le film à la liste à voir
+      await updateDoc(userDoc, {
+        moviesToWatch: arrayUnion(movieTitle)
+      });
+    }
 
     console.log('Film à voir ajouté avec succès');
     
