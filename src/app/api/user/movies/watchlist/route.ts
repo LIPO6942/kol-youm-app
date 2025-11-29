@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, arrayUnion } from 'firebase/firestore';
 import { db as firestoreDb } from '@/lib/firebase/client';
 
 export const runtime = 'nodejs';
@@ -46,14 +46,14 @@ export async function POST(req: NextRequest) {
     // Si le champ n'existe pas, l'initialiser
     if (!userData?.moviesToWatch) {
       console.log('Initialisation du champ moviesToWatch');
-      await updateDoc(userDoc, {
+      await setDoc(userDoc, {
         moviesToWatch: [movieTitle]
-      });
+      }, { merge: true });
     } else {
       // Ajouter le film à la liste à voir
-      await updateDoc(userDoc, {
+      await setDoc(userDoc, {
         moviesToWatch: arrayUnion(movieTitle)
-      });
+      }, { merge: true });
     }
 
     console.log('Film à voir ajouté avec succès');
