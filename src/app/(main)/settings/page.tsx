@@ -17,10 +17,26 @@ import { Loader2, User, UserSquare, UploadCloud } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 
 const formSchema = z.object({
   age: z.coerce.number().min(13, { message: 'Vous devez avoir au moins 13 ans.' }).max(120, { message: 'Âge invalide.' }).optional().or(z.literal('')),
 });
+
+const COUNTRIES = [
+  'France', 'États-Unis', 'Royaume-Uni', 'Allemagne', 'Italie', 'Espagne',
+  'Japon', 'Corée du Sud', 'Canada', 'Australie', 'Inde', 'Chine',
+  'Mexique', 'Brésil', 'Argentine', 'Russie', 'Suède', 'Norvège',
+  'Danemark', 'Pays-Bas', 'Belgique', 'Suisse', 'Autriche', 'Pologne'
+];
+
+interface TfarrejSettings {
+  preferredCountries: string[];
+  preferredMinRating: number;
+}
 
 const fileToDataUri = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -110,9 +126,16 @@ const PhotoUploader = ({
 
 
 export default function SettingsPage() {
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, updateUserProfile: updateProfile } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'profile' | 'tfarrej'>('profile');
+  const [tfarrejSettings, setTfarrejSettings] = useState<TfarrejSettings>({
+    preferredCountries: [],
+    preferredMinRating: 6
+  });
+  const [isTfarrejLoading, setIsTfarrejLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -124,8 +147,53 @@ export default function SettingsPage() {
   useEffect(() => {
     if (userProfile) {
       form.reset({ age: userProfile.age || '' });
+      setTfarrejSettings({
+        preferredCountries: userProfile.preferredCountries || [],
+        preferredMinRating: userProfile.preferredMinRating || 6
+      });
     }
   }, [userProfile, form]);
+
+  const handleCountryChange = (country: string, checked: boolean) => {
+    setTfarrejSettings(prev => ({
+      ...prev,
+      preferredCountries: checked
+        ? [...prev.preferredCountries, country]
+        : prev.preferredCountries.filter(c => c !== country)
+    }));
+  };
+
+  const handleRatingChange = (value: number[]) => {
+    setTfarrejSettings(prev => ({
+      ...prev,
+      preferredMinRating: value[0]
+    }));
+  };
+
+  const handleSaveTfarrejSettings = async () => {
+    if (!user) return;
+
+    setIsTfarrejLoading(true);
+    try {
+      await updateProfile({
+        preferredCountries: tfarrejSettings.preferredCountries,
+        preferredMinRating: tfarrejSettings.preferredMinRating
+      });
+
+      toast({
+        title: 'Paramètres sauvegardés',
+        description: 'Vos préférences Tfarrej ont été mises à jour'
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de sauvegarder les paramètres'
+      });
+    } finally {
+      setIsTfarrejLoading(false);
+    }
+  };
 
   const handleImageUpload = async (dataUri: string, type: 'fullBody' | 'closeup') => {
     if (!user) {
@@ -167,81 +235,190 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold font-headline tracking-tight">Paramètres du Profil</h2>
-        <p className="text-muted-foreground">
-          Gérez vos informations pour une expérience sur mesure.
-        </p>
+    <div className="container mx-auto p-4 max-w-4xl">
+      <div className="flex items-center gap-4 mb-6">
+        <Button variant="ghost" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-2xl font-bold">Paramètres</h1>
       </div>
 
-      <Card>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
+      <div className="flex gap-1 mb-6 border-b">
+        <button
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeTab === 'profile'
+              ? 'text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+          onClick={() => setActiveTab('profile')}
+        >
+          Profil
+        </button>
+        <button
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeTab === 'tfarrej'
+              ? 'text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+          onClick={() => setActiveTab('tfarrej')}
+        >
+          Tfarrej
+        </button>
+      </div>
+
+      {activeTab === 'profile' && (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold font-headline tracking-tight">Paramètres du Profil</h2>
+            <p className="text-muted-foreground">
+              Gérez vos informations pour une expérience sur mesure.
+            </p>
+          </div>
+
+          <Card>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)}>
+                <CardHeader>
+                  <CardTitle>Vos informations</CardTitle>
+                  <CardDescription>
+                    Ces informations nous aident à personnaliser les suggestions pour vous.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="flex flex-col space-y-2">
+                    <FormLabel>Sexe</FormLabel>
+                    <div className="flex items-center gap-2">
+                        {userProfile?.gender === 'Femme' ? <User className="h-5 w-5 text-primary" /> : <UserSquare className="h-5 w-5 text-primary" />}
+                        <Badge variant="outline">{userProfile?.gender || 'Non défini'}</Badge>
+                    </div>
+                     <p className="text-xs text-muted-foreground">
+                        Ce choix a été fait lors de votre première connexion.
+                    </p>
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="age"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Âge</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="Ex: 28" {...field} className="max-w-xs" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" disabled={isLoading || !form.formState.isDirty}>
+                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Enregistrer les modifications
+                  </Button>
+                </CardFooter>
+              </form>
+            </Form>
+          </Card>
+          
+          <Separator />
+
+          <Card>
             <CardHeader>
-              <CardTitle>Vos informations</CardTitle>
+              <CardTitle>Vos photos</CardTitle>
               <CardDescription>
-                Ces informations nous aident à personnaliser les suggestions pour vous.
+                Ces photos sont utilisées pour la génération d'images dans StyleK.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <PhotoUploader 
+                  title="Photo en pied" 
+                  currentImageUrl={userProfile?.fullBodyPhotoUrl}
+                  onImageUpload={(dataUri) => handleImageUpload(dataUri, 'fullBody')}
+                />
+                <PhotoUploader 
+                  title="Photo de près"
+                  currentImageUrl={userProfile?.closeupPhotoUrl}
+                  onImageUpload={(dataUri) => handleImageUpload(dataUri, 'closeup')}
+                />
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === 'tfarrej' && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Filtres de films</CardTitle>
+              <CardDescription>
+                Personnalisez vos suggestions de films selon vos préférences.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex flex-col space-y-2">
-                <FormLabel>Sexe</FormLabel>
-                <div className="flex items-center gap-2">
-                    {userProfile?.gender === 'Femme' ? <User className="h-5 w-5 text-primary" /> : <UserSquare className="h-5 w-5 text-primary" />}
-                    <Badge variant="outline">{userProfile?.gender || 'Non défini'}</Badge>
+              {/* Pays préférés */}
+              <div>
+                <Label className="text-base font-medium mb-3 block">
+                  Pays préférés
+                </Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {COUNTRIES.map((country) => (
+                    <div key={country} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={country}
+                        checked={tfarrejSettings.preferredCountries.includes(country)}
+                        onCheckedChange={(checked) =>
+                          handleCountryChange(country, checked as boolean)
+                        }
+                      />
+                      <Label
+                        htmlFor={country}
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        {country}
+                      </Label>
+                    </div>
+                  ))}
                 </div>
-                 <p className="text-xs text-muted-foreground">
-                    Ce choix a été fait lors de votre première connexion.
-                </p>
               </div>
 
-              <FormField
-                control={form.control}
-                name="age"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Âge</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="Ex: 28" {...field} className="max-w-xs" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-            <CardFooter>
-              <Button type="submit" disabled={isLoading || !form.formState.isDirty}>
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Enregistrer les modifications
-              </Button>
-            </CardFooter>
-          </form>
-        </Form>
-      </Card>
-      
-      <Separator />
+              {/* Note minimale */}
+              <div>
+                <Label className="text-base font-medium mb-3 block">
+                  Note minimale: {tfarrejSettings.preferredMinRating}/10
+                </Label>
+                <Slider
+                  value={[tfarrejSettings.preferredMinRating]}
+                  onValueChange={handleRatingChange}
+                  min={0}
+                  max={10}
+                  step={0.5}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                  <span>0</span>
+                  <span>5</span>
+                  <span>10</span>
+                </div>
+              </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Vos photos</CardTitle>
-          <CardDescription>
-            Ces photos sont utilisées pour la génération d'images dans StyleK.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <PhotoUploader 
-              title="Photo en pied" 
-              currentImageUrl={userProfile?.fullBodyPhotoUrl}
-              onImageUpload={(dataUri) => handleImageUpload(dataUri, 'fullBody')}
-            />
-            <PhotoUploader 
-              title="Photo de près"
-              currentImageUrl={userProfile?.closeupPhotoUrl}
-              onImageUpload={(dataUri) => handleImageUpload(dataUri, 'closeup')}
-            />
-        </CardContent>
-      </Card>
+              <div className="flex gap-2 pt-4">
+                <Button onClick={handleSaveTfarrejSettings} disabled={isTfarrejLoading}>
+                  {isTfarrejLoading ? 'Sauvegarde...' : 'Sauvegarder'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setTfarrejSettings({
+                    preferredCountries: [],
+                    preferredMinRating: 6
+                  })}
+                >
+                  Réinitialiser
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
