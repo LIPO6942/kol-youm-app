@@ -21,14 +21,96 @@ interface MovieListSheetProps {
 }
 
 // Composant séparé pour le contenu du Sheet
-function MovieListContent({ listType }: { listType: 'moviesToWatch' | 'seenMovieTitles' }) {
-  const { user, userProfile } = useAuth();
-  const { toast } = useToast();
-  const [isUpdating, setIsUpdating] = useState(false);
+function MovieListContent({ 
+  listType, 
+  onMarkAsWatched,
+  onRemove,
+  isUpdating 
+}: { 
+  listType: 'moviesToWatch' | 'seenMovieTitles';
+  onMarkAsWatched: (movieTitle: string) => Promise<void>;
+  onRemove: (movieTitle: string) => Promise<void>;
+  isUpdating: boolean;
+}) {
+  const { userProfile } = useAuth();
   
   const movieTitles = userProfile?.[listType];
   const sortedMovieTitles = movieTitles ? [...movieTitles].sort((a, b) => a.localeCompare(b, 'fr', {sensitivity: 'base'})) : [];
   
+  return (
+    <div className="relative flex-grow">
+      {isUpdating && <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
+      <ScrollArea className="h-full pr-4">
+        <div className="py-4 space-y-2">
+          {sortedMovieTitles && sortedMovieTitles.length > 0 ? (
+            sortedMovieTitles.map((movieTitle, index) => (
+              <div key={`${movieTitle}-${index}`} className="flex items-start justify-between p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded group">
+                <span className="text-sm flex-1 break-words pr-2 min-w-0" style={{ wordBreak: 'break-word' }}>
+                  {movieTitle}
+                </span>
+                <div className="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {listType === 'moviesToWatch' && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7"
+                            onClick={() => onMarkAsWatched(movieTitle)}
+                            disabled={isUpdating}
+                          >
+                            <Eye className="h-4 w-4" />
+                            <span className="sr-only">Marquer comme vu</span>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Marquer comme vu</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-7 w-7 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
+                          onClick={() => onRemove(movieTitle)}
+                          disabled={isUpdating}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Supprimer</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Supprimer</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="flex flex-col items-center justify-center text-center text-muted-foreground h-[50vh]">
+              <Film className="h-10 w-10 mb-4" />
+              <p>Votre liste est vide pour le moment.</p>
+              {listType === 'moviesToWatch' && <p className="text-xs">"Likez" des films pour la remplir !</p>}
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}
+
+export function MovieListSheet({ trigger, title, description, listType }: MovieListSheetProps) {
+  const { user, userProfile } = useAuth();
+  const { toast } = useToast();
+  const [isClearing, setIsClearing] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+
   const handleMarkAsWatched = async (movieTitle: string) => {
     if (!user) return;
     setIsUpdating(true);
@@ -59,7 +141,7 @@ function MovieListContent({ listType }: { listType: 'moviesToWatch' | 'seenMovie
 
   const handleClearList = async () => {
     if (!user) return;
-    setIsUpdating(true);
+    setIsClearing(true);
     try {
       await clearUserMovieList(user.uid, listType);
       toast({ title: "Liste vidée avec succès." });
@@ -67,80 +149,9 @@ function MovieListContent({ listType }: { listType: 'moviesToWatch' | 'seenMovie
       console.error(error);
       toast({ variant: 'destructive', title: "Erreur", description: "Impossible de vider la liste." });
     } finally {
-      setIsUpdating(false);
+      setIsClearing(false);
     }
   };
-
-  return (
-    <div className="relative flex-grow">
-      {isUpdating && <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
-      <ScrollArea className="h-full pr-4">
-        <div className="py-4 space-y-2">
-          {sortedMovieTitles && sortedMovieTitles.length > 0 ? (
-            sortedMovieTitles.map((movieTitle, index) => (
-              <div key={`${movieTitle}-${index}`} className="flex items-start justify-between p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded group">
-                <span className="text-sm flex-1 break-words pr-2 min-w-0" style={{ wordBreak: 'break-word' }}>
-                  {movieTitle}
-                </span>
-                <div className="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {listType === 'moviesToWatch' && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-7 w-7"
-                            onClick={() => handleMarkAsWatched(movieTitle)}
-                            disabled={isUpdating}
-                          >
-                            <Eye className="h-4 w-4" />
-                            <span className="sr-only">Marquer comme vu</span>
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Marquer comme vu</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-7 w-7 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
-                          onClick={() => handleRemove(movieTitle)}
-                          disabled={isUpdating}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Supprimer</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Supprimer</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="flex flex-col items-center justify-center text-center text-muted-foreground h-[50vh]">
-              <Film className="h-10 w-10 mb-4" />
-              <p>Votre liste est vide pour le moment.</p>
-              {listType === 'moviesToWatch' && <p className="text-xs">"Likez" des films pour la remplir !</p>}
-            </div>
-          )}
-        </div>
-      </ScrollArea>
-    </div>
-  );
-}
-
-export function MovieListSheet({ trigger, title, description, listType }: MovieListSheetProps) {
-  const [isUpdating, setIsUpdating] = useState(false);
   
   return (
     <Sheet>
@@ -154,7 +165,7 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
             </div>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" disabled={isUpdating}>
+                <Button variant="ghost" size="icon" disabled={isClearing}>
                   <Trash2 className="h-4 w-4 text-destructive" />
                   <span className="sr-only">Vider la liste</span>
                 </Button>
@@ -170,10 +181,8 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
                   <AlertDialogCancel>Annuler</AlertDialogCancel>
                   <AlertDialogAction 
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90" 
-                    onClick={() => {
-                      setIsUpdating(true);
-                      // La logique de suppression est gérée dans MovieListContent
-                    }}
+                    onClick={handleClearList}
+                    disabled={isClearing}
                   >
                     Confirmer
                   </AlertDialogAction>
@@ -182,7 +191,12 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
             </AlertDialog>
           </div>
         </SheetHeader>
-        <MovieListContent listType={listType} />
+        <MovieListContent 
+          listType={listType} 
+          onMarkAsWatched={handleMarkAsWatched}
+          onRemove={handleRemove}
+          isUpdating={isUpdating}
+        />
       </SheetContent>
     </Sheet>
   );
