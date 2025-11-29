@@ -7,12 +7,14 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db as firestoreDb } from '@/lib/firebase/client';
 import type { UserProfile, WardrobeItem } from '@/lib/firebase/firestore';
 import { getUserFromDb, storeUserInDb } from '@/lib/indexeddb';
+import { updateUserProfile as updateProfileInFirestore } from '@/lib/firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
   forceProfileRefresh: () => void;
+  updateUserProfile: (data: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -20,6 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   userProfile: null,
   loading: true,
   forceProfileRefresh: () => {},
+  updateUserProfile: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -40,6 +43,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await fetchAndSetProfile(user.uid);
     }
   }, [user, fetchAndSetProfile]);
+
+  const updateUserProfile = useCallback(async (data: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>>) => {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    await updateProfileInFirestore(user.uid, data);
+  }, [user]);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
@@ -107,7 +117,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, forceProfileRefresh }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, forceProfileRefresh, updateUserProfile }}>
       {children}
     </AuthContext.Provider>
   );
