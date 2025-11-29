@@ -1,27 +1,14 @@
 'use client';
 
-import type React from 'react'
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Eye, ListVideo, Loader2, Film, RotateCcw, Star, Link as LinkIcon, Users, Calendar, Globe, SkipForward, X, Plus } from 'lucide-react';
-
-import { recordMovieSwipe } from '@/ai/flows/movie-preference-learning';
-import { generateMovieSuggestions } from '@/ai/flows/generate-movie-suggestions-flow-fixed';
-import type { MovieSuggestion } from '@/ai/flows/generate-movie-suggestions-flow.types';
-import type { UserProfile } from '@/lib/firebase/firestore';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Slider } from "@/components/ui/slider"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Separator } from "@/components/ui/separator"
-import { Badge } from "@/components/ui/badge"
-import { useToast } from "@/hooks/use-toast"
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Loader2, Eye, X, RotateCcw } from 'lucide-react';
 import { useAuth } from "@/hooks/use-auth";
-import { updateUserProfile } from '@/lib/firebase/firestore';
-import { useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast";
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 // Client-side filtering util
-function applyFilters(list: MovieSuggestion[], opts: { minRating: number; countries: string[]; yearRange: [number, number] }) {
+function applyFilters(list: MovieSuggestion[] = [], opts: { minRating: number; countries: string[]; yearRange: [number, number] }) {
   const selected = (opts.countries || []).map(c => c.toLowerCase().trim()).filter(Boolean);
   const [yMin, yMax] = opts.yearRange || [0, new Date().getFullYear()];
   return list.filter((m: MovieSuggestion) => {
@@ -77,438 +64,229 @@ const handleAiError = (error: any, toast: any) => {
   console.error('Failed to fetch movie suggestions', error);
 };
 
-// Composant de chargement pour éviter les erreurs de rendu
+// Composant de chargement
 const LoadingState = () => (
   <div className="flex items-center justify-center h-64">
     <Loader2 className="h-8 w-8 animate-spin text-primary" />
   </div>
 );
 
+// Définition du type pour les films
+interface MovieSuggestion {
+  id: string;
+  title: string;
+  year: number;
+  rating: number;
+  genre: string;
+  synopsis?: string;
+  actors?: string[];
+  country?: string;
+  wikipediaUrl?: string;
+}
+
 export default function MovieSwiper({ genre }: { genre: string }) {
   // État d'authentification
-  const { user, userProfile, loading: authLoading } = useAuth()
+  const { userProfile, loading: authLoading } = useAuth();
   
-  // États de l'interface
-  const [originalMovies, setOriginalMovies] = useState<MovieSuggestion[]>([]);
+  // États de base
+  const [isLoading, setIsLoading] = useState(true);
   const [movies, setMovies] = useState<MovieSuggestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isSwipeLoading, setIsSwipeLoading] = useState(false);
-  const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // Références et hooks
-  const initialFetchDone = useRef(false);
   const { toast } = useToast();
-  const router = useRouter();
-  // Quick filters
-  const CURRENT_YEAR = new Date().getFullYear();
-  const [yearRange, setYearRange] = useState<[number, number]>([1990, CURRENT_YEAR]);
-  const [yearStartInput, setYearStartInput] = useState<string>('1990');
-  const [yearEndInput, setYearEndInput] = useState<string>(String(CURRENT_YEAR));
+  const initialFetchDone = useRef(false);
 
- 
-  // Country filter removed by request; we only display nationality from API
-
-  const yearBounds = useMemo(() => {
-    const years = (originalMovies as MovieSuggestion[]).map((m: MovieSuggestion) => m.year).filter(Boolean as any) as number[];
-    const min = years.length ? Math.min(...years) : 1950;
-    const max = years.length ? Math.max(...years) : CURRENT_YEAR;
-    return [min, max] as [number, number];
-  }, [originalMovies]);
- 
-  // Keep text inputs in sync when yearRange changes externally
+  // Chargement initial
   useEffect(() => {
-    setYearStartInput(String(yearRange[0]));
-    setYearEndInput(String(yearRange[1]));
-  }, [yearRange[0], yearRange[1]]);
- 
-  const applyYearStart = useCallback(() => {
-    let valNum = parseInt(yearStartInput || String(yearBounds[0]), 10);
-    if (isNaN(valNum)) valNum = yearBounds[0];
-    const next: [number, number] = [Math.min(Math.max(valNum, yearBounds[0]), yearRange[1]), yearRange[1]];
-    setYearRange(next);
-    setCurrentIndex(0);
-    const filtered = applyFilters(originalMovies, { minRating: 6, countries: [], yearRange: next });
-    setMovies(filtered);
-  }, [yearStartInput, yearBounds, yearRange[1], originalMovies]);
-
-  const applyYearEnd = useCallback(() => {
-    let valNum = parseInt(yearEndInput || String(yearBounds[1]), 10);
-    if (isNaN(valNum)) valNum = yearBounds[1];
-    const next: [number, number] = [yearRange[0], Math.max(Math.min(valNum, yearBounds[1]), yearRange[0])];
-    setYearRange(next);
-    setCurrentIndex(0);
-    const filtered = applyFilters(originalMovies, { minRating: 6, countries: [], yearRange: next });
-    setMovies(filtered);
-  }, [yearEndInput, yearBounds, yearRange[0], originalMovies]);
-  
-  
-  const fetchMovies = useCallback(async () => {
-    // Vérifications de sécurité
-    if (!userProfile || typeof window === 'undefined') {
-      return [];
-    }
+    if (typeof window === 'undefined') return;
     
-    try {
-      setIsSuggestionsLoading(true);
-      setCurrentIndex(0);
-      setMovies([]);
-      
-      // Récupération des films déjà vus ou à voir
-      const seen = Array.isArray(userProfile.seenMovieTitles) ? userProfile.seenMovieTitles : [];
-      const watchlist = Array.isArray(userProfile.moviesToWatch) ? userProfile.moviesToWatch : [];
-      const dismissed = getDismissedTitles();
-      const seenMovieTitles = Array.from(new Set([...seen, ...watchlist, ...dismissed]));
-      
-      // Appel à l'API TMDB
-      const response = await fetch('/api/tmdb-suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          countries: [],
-          yearRange,
-          minRating: 6,
-          count: 12,
-          seenMovieTitles,
-          genre,
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`tmdb-suggest failed: ${response.status}`);
+    const loadData = async () => {
+      if (authLoading || !userProfile) {
+        setIsLoading(true);
+        return;
       }
       
-      const data = await response.json();
-      const items = Array.isArray(data?.movies) ? data.movies as MovieSuggestion[] : [];
-      
-      setOriginalMovies(items);
-      const filtered = applyFilters(items, { minRating: 6, countries: [], yearRange });
-      setMovies(filtered);
-      
-      return items;
-    } catch (error) {
-      console.error('Erreur lors de la récupération des films:', error);
-      handleAiError(error, toast);
-      return [];
-    } finally {
-      setIsSuggestionsLoading(false);
-    }
-  }, [genre, yearRange, userProfile, toast]);
-
-  // Chargement des filtres persistants
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    try {
-      const y = window.localStorage.getItem('tfarrej_yearRange');
-      if (y) {
-        const parsed = JSON.parse(y) as [number, number];
-        if (Array.isArray(parsed) && parsed.length === 2) {
-          setYearRange(parsed);
-        }
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des filtres:', error);
-    }
-  }, []);
-
-  // Persistance des filtres
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    try {
-      window.localStorage.setItem('tfarrej_yearRange', JSON.stringify(yearRange));
-    } catch (error) {
-      console.error('Erreur lors de la sauvegarde des filtres:', error);
-    }
-  }, [yearRange]);
-
-  // Gestion du chargement initial
-  useEffect(() => {
-    // Ne rien faire côté serveur
-    if (typeof window === 'undefined') return;
-    
-    // Si l'authentification est en cours ou si le profil utilisateur n'est pas chargé
-    if (authLoading || !userProfile) {
-      setIsLoading(true);
-      return;
-    }
-    
-    // Si c'est le premier chargement
-    if (!initialFetchDone.current) {
-      setIsLoading(true);
-      fetchMovies()
-        .finally(() => {
-          initialFetchDone.current = true;
-          setIsLoading(false);
+      try {
+        // Simulation d'un chargement de films
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setMovies([
+          {
+            id: '1',
+            title: 'Film de test',
+            year: 2023,
+            rating: 7.5,
+            genre: genre || 'Général',
+            synopsis: 'Ceci est un film de test pour le débogage.',
+            actors: ['Acteur 1', 'Acteur 2'],
+            country: 'France'
+          }
+        ]);
+      } catch (error) {
+        console.error('Erreur de chargement:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Erreur',
+          description: 'Impossible de charger les films',
         });
-    } else {
-      setIsLoading(false);
-    }
-  }, [authLoading, userProfile]);
-
-  // Gestion du changement de genre et du chargement initial
-  useEffect(() => {
-    if (!userProfile) return;
-    
-    const fetchData = async () => {
-      if (!initialFetchDone.current || genre) {
-        setIsSuggestionsLoading(true);
-        try {
-          await fetchMovies();
-        } finally {
-          setIsSuggestionsLoading(false);
-          initialFetchDone.current = true;
-        }
+      } finally {
+        setIsLoading(false);
+        initialFetchDone.current = true;
       }
     };
     
-    fetchData();
-  }, [genre, userProfile, fetchMovies]);
+    loadData();
+  }, [authLoading, userProfile, toast, genre]);
 
   // État de chargement
   if (authLoading || isLoading || !userProfile) {
     return <LoadingState />;
   }
 
-
-  const handleSwipe = async (swipeDirection: 'left' | 'right') => {
-    if (isSwipeLoading || currentIndex >= movies.length || !user) return;
-
-    setIsSwipeLoading(true);
+  const handleSwipe = async (direction: 'left' | 'right') => {
+    if (currentIndex >= movies.length) return;
+    
+    const action = direction === 'left' ? 'vu' : 'ajouté à votre liste';
     const movie = movies[currentIndex];
     
-    try {
-      // The user profile is the single source of truth.
-      // We update Firestore, and the onSnapshot listener in useAuth will update the userProfile object.
-      const updatePayload: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>> = {};
-      // Left = mark as seen; Right = add to watchlist
-      if (swipeDirection === 'left') {
-        updatePayload.seenMovieTitles = [movie.title];
-      } else if (swipeDirection === 'right') {
-        updatePayload.moviesToWatch = [movie.title];
-      }
-
-      await Promise.all([
-        recordMovieSwipe({
-          userId: user.uid,
-          movieId: movie.id,
-          swipeDirection,
-        }),
-        updateUserProfile(user.uid, updatePayload)
-      ]);
-      
-      if (swipeDirection === 'right') {
-        toast({
-            title: `"${movie.title}" ajouté à votre liste !`,
-            description: "Consultez la liste 'À Voir' pour le retrouver."
-        });
-      }
-    } catch (error) {
-      console.error(error);
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: "Impossible d'enregistrer votre choix. Veuillez réessayer.",
-      });
-    } finally {
-      setCurrentIndex((prevIndex: number) => prevIndex + 1);
-      setIsSwipeLoading(false);
-    }
+    toast({
+      title: `${movie.title} ${action} !`,
+      description: direction === 'right' ? "Consultez la liste 'À Voir' pour le retrouver." : undefined
+    });
+    
+    setCurrentIndex(prev => prev + 1);
   };
 
   const handleSkip = () => {
-    if (isSwipeLoading || currentIndex >= movies.length) return;
+    if (currentIndex >= movies.length) return;
     const movie = movies[currentIndex];
-    if (movie?.title) addDismissedTitle(movie.title);
-    if (movie?.title) {
-      toast({ title: 'Ignoré', description: `"${movie.title}" ignoré.` });
-    }
-    setCurrentIndex((prevIndex: number) => prevIndex + 1);
+    
+    toast({
+      title: 'Film ignoré',
+      description: `Vous avez ignoré "${movie.title}"`
+    });
+    
+    setCurrentIndex(prev => prev + 1);
   };
-  
-  const currentMovie = currentIndex < movies.length ? movies[currentIndex] : null;
 
-  // Posters removed by request; no fetch here.
-
-  // Keyboard shortcuts: Left=Skip, Right=Add to Watchlist
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      // Avoid interfering with typing in inputs
       const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag && ['INPUT','TEXTAREA','SELECT'].includes(tag)) return;
-      if (isSwipeLoading) return;
+      if (tag && ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return;
+      
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
         handleSkip();
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        // Only act if there is a current movie
-        if (currentIndex < movies.length) {
-          void handleSwipe('right');
-        }
+        handleSwipe('right');
       }
     };
+    
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isSwipeLoading, currentIndex, movies.length, handleSkip]);
+  }, [currentIndex, movies.length]);
 
-  if (isSuggestionsLoading) {
+  const currentMovie = currentIndex < movies.length ? movies[currentIndex] : null;
+
+  if (!currentMovie) {
     return (
-       <div className="flex justify-center">
-            <Card className="relative w-full max-w-sm h-[550px] flex flex-col items-center justify-center text-center">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="text-muted-foreground mt-4">Recherche de films pour vous...</p>
-            </Card>
-       </div>
-    )
+      <div className="flex justify-center">
+        <Card className="w-full max-w-sm h-[300px] flex flex-col items-center justify-center text-center p-6">
+          <h3 className="text-xl font-semibold mb-2">C'est tout pour le moment !</h3>
+          <p className="text-muted-foreground mb-4">
+            Vous avez parcouru tous les films disponibles dans cette catégorie.
+          </p>
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setCurrentIndex(0);
+              // Ici, vous pourriez recharger d'autres films si nécessaire
+            }}
+          >
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Réinitialiser
+          </Button>
+        </Card>
+      </div>
+    );
   }
-
-  const handleYearRangeChange = (values: number[]) => {
-    setYearRange([values[0], values[1]]);
-  };
-
-  const currentYear = new Date().getFullYear();
 
   return (
     <div className="w-full flex justify-center">
       <div className="relative w-full max-w-sm">
-        {/* Filtres */}
-        <div className="absolute top-0 left-0 right-0 z-10 px-3 py-2 flex flex-wrap items-center gap-2 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 rounded-t-lg">
-          {/* Année (de - à) */}
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-muted-foreground">De</span>
-              <Input
-                type="number"
-                inputMode="numeric"
-                className="h-8 w-24"
-                value={yearStartInput}
-                min={yearBounds[0]}
-                max={yearRange[1]}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setYearStartInput(e.target.value);
-                }}
-                onBlur={applyYearStart}
-                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { applyYearStart(); } }}
-              />
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-muted-foreground">À</span>
-              <Input
-                type="number"
-                inputMode="numeric"
-                className="h-8 w-24"
-                value={yearEndInput}
-                min={yearRange[0]}
-                max={yearBounds[1]}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setYearEndInput(e.target.value);
-                }}
-                onBlur={applyYearEnd}
-                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { applyYearEnd(); } }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Carte du film actuel */}
-        {currentMovie ? (
-          <Card className="pt-16 h-[550px] flex flex-col">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle>{currentMovie.title} ({currentMovie.year})</CardTitle>
-                  <CardDescription className="flex items-center gap-2 mt-1">
-                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span>{currentMovie.rating?.toFixed(1)}/10</span>
-                  </CardDescription>
+        <Card className="h-[550px] flex flex-col">
+          <CardHeader>
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle>{currentMovie.title} ({currentMovie.year})</CardTitle>
+                <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                  <span className="flex items-center">
+                    <span className="text-yellow-500 mr-1">★</span>
+                    {currentMovie.rating?.toFixed(1)}/10
+                  </span>
+                  <span>•</span>
+                  <span>{currentMovie.genre}</span>
                 </div>
-                <Badge variant="outline" className="flex items-center gap-1">
-                  <Film className="h-3 w-3" />
-                  {currentMovie.genre}
-                </Badge>
               </div>
-            </CardHeader>
-            
-            <CardContent className="flex-grow flex flex-col">
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-semibold text-sm mb-1">Synopsis</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {currentMovie.synopsis || 'Aucune description disponible'}
-                  </p>
-                </div>
-                
-                <Separator className="my-2" />
-                
+            </div>
+          </CardHeader>
+          
+          <CardContent className="flex-grow flex flex-col">
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-semibold text-sm mb-1">Synopsis</h4>
+                <p className="text-sm text-muted-foreground">
+                  {currentMovie.synopsis || 'Aucune description disponible'}
+                </p>
+              </div>
+              
+              <div className="h-px bg-border my-2" />
+              
+              {currentMovie.actors?.length > 0 && (
                 <div>
                   <h4 className="font-semibold text-sm mb-1">Acteurs principaux</h4>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Users className="h-4 w-4 flex-shrink-0" />
-                    <span>{currentMovie.actors?.join(', ') || 'Non spécifié'}</span>
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {currentMovie.actors.join(', ')}
+                  </p>
                 </div>
-                
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Globe className="h-4 w-4 flex-shrink-0" />
-                  <span>{currentMovie.country || 'Pays non spécifié'}</span>
+              )}
+              
+              {currentMovie.country && (
+                <div className="text-sm text-muted-foreground">
+                  <span className="font-medium">Pays :</span> {currentMovie.country}
                 </div>
-
-                {currentMovie.wikipediaUrl && (
-                  <a href={currentMovie.wikipediaUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-2">
-                    <Button variant="link" className="p-0 h-auto text-sm">
-                      <LinkIcon className="mr-2 h-4 w-4" />
-                      En savoir plus sur Wikipédia
-                    </Button>
-                  </a>
-                )}
-              </div>
-            </CardContent>
+              )}
+            </div>
+          </CardContent>
+          
+          <CardFooter className="p-4 pt-0 grid grid-cols-3 gap-4">
+            <Button 
+              variant="outline" 
+              size="lg" 
+              className="border-destructive text-destructive hover:bg-destructive/10 h-14"
+              onClick={() => handleSwipe('left')}
+            >
+              <Eye className="h-6 w-6" />
+            </Button>
             
-            <CardFooter className="p-4 pt-0 grid grid-cols-3 gap-4">
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="border-destructive text-destructive hover:bg-destructive/10 h-14"
-                onClick={() => handleSwipe('left')}
-                disabled={isSwipeLoading}
-              >
-                {isSwipeLoading ? <Loader2 className="animate-spin" /> : <Eye className="h-6 w-6" />}
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="h-14"
-                onClick={handleSkip}
-                disabled={isSwipeLoading}
-              >
-                {isSwipeLoading ? <Loader2 className="animate-spin" /> : <X className="h-6 w-6" />}
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="border-green-500 text-green-500 hover:bg-green-500/10 h-14"
-                onClick={() => handleSwipe('right')}
-                disabled={isSwipeLoading}
-              >
-                {isSwipeLoading ? <Loader2 className="animate-spin" /> : <Plus className="h-6 w-6" />}
-              </Button>
-            </CardFooter>
-          </Card>
-        ) : (
-          <Card className="pt-16 h-[550px] flex flex-col items-center justify-center text-center">
-            <CardContent>
-              <h3 className="text-xl font-bold">C'est tout pour le moment !</h3>
-              <p className="text-muted-foreground mt-2">Vous avez vu toutes les suggestions pour ce genre.</p>
-              <Button className="mt-4" onClick={fetchMovies}>
-                <RotateCcw className="mr-2 h-4 w-4" /> M'en proposer d'autres
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+            <Button 
+              variant="outline" 
+              size="lg" 
+              className="h-14"
+              onClick={handleSkip}
+            >
+              <X className="h-6 w-6" />
+            </Button>
+            
+            <Button 
+              variant="default" 
+              size="lg" 
+              className="h-14"
+              onClick={() => handleSwipe('right')}
+            >
+              <span className="text-xl">+</span>
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   );
