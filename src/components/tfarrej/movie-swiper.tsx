@@ -121,34 +121,44 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        // Simulation d'un chargement de films
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Données de test
-        const testMovies: MovieSuggestion[] = [
-          {
-            id: '1',
-            title: 'Film de test',
-            year: 2023,
-            rating: 7.5,
-            genre: genre || 'Général',
-            synopsis: 'Ceci est un film de test pour le débogage.',
-            actors: ['Acteur 1', 'Acteur 2'],
-            country: 'France'
+        
+        // Appel à l'API TMDB pour récupérer des vrais films
+        const response = await fetch('/api/tmdb-suggest', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-          {
-            id: '2',
-            title: 'Autre film',
-            year: 2022,
-            rating: 8.0,
-            genre: genre || 'Général',
-            synopsis: 'Un autre film pour tester le composant.',
-            actors: ['Acteur 3', 'Acteur 4'],
-            country: 'États-Unis'
-          }
-        ];
+          body: JSON.stringify({
+            countries: userProfile?.preferredCountries || [],
+            yearRange: userProfile?.preferredYearRange || [1997, new Date().getFullYear()],
+            minRating: userProfile?.preferredMinRating || 6,
+            count: 10,
+            seenMovieTitles: userProfile?.seenMovieTitles || [],
+            genre: genre === 'Historique' ? undefined : genre,
+          }),
+        });
 
-        setMovies(testMovies);
+        if (!response.ok) {
+          throw new Error('Erreur lors du chargement des films');
+        }
+
+        const data = await response.json();
+        const fetchedMovies = data.movies || [];
+
+        // Transformer les données pour correspondre à l'interface MovieSuggestion
+        const movies: MovieSuggestion[] = fetchedMovies.map((movie: any) => ({
+          id: movie.id,
+          title: movie.title,
+          year: movie.year,
+          rating: movie.rating,
+          genre: genre || 'Général',
+          synopsis: movie.synopsis || 'Synopsis non disponible.',
+          actors: movie.actors || [],
+          country: movie.country || 'Inconnu',
+          wikipediaUrl: movie.wikipediaUrl,
+        }));
+
+        setMovies(movies);
       } catch (error) {
         console.error('Erreur de chargement:', error);
         toast({
@@ -172,8 +182,40 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     const movie = movies[currentIndex];
 
     try {
-      // Ici, vous pourriez ajouter la logique pour enregistrer le swipe
-      // Par exemple : await recordMovieSwipe(user.uid, movie.id, direction);
+      // Enregistrer le film comme vu
+      if (direction === 'left') {
+        // Ajouter aux films vus
+        const response = await fetch('/api/user/movies/seen', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.uid,
+            movieTitle: movie.title,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Impossible d\'enregistrer le film comme vu');
+        }
+      } else {
+        // Ajouter à la liste à voir
+        const response = await fetch('/api/user/movies/watchlist', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.uid,
+            movieTitle: movie.title,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Impossible d\'ajouter le film à la liste');
+        }
+      }
 
       toast({
         title: `${movie.title} ${action} !`,
@@ -321,6 +363,19 @@ export default function MovieSwiper({ genre }: { genre: string }) {
               {currentMovie.country && (
                 <div className="text-sm text-muted-foreground">
                   <span className="font-medium">Pays :</span> {currentMovie.country}
+                </div>
+              )}
+              
+              {currentMovie.wikipediaUrl && (
+                <div>
+                  <a
+                    href={currentMovie.wikipediaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:text-blue-800 underline"
+                  >
+                    En savoir plus sur Wikipedia
+                  </a>
                 </div>
               )}
             </div>
