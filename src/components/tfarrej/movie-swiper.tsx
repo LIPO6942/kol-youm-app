@@ -302,6 +302,23 @@ export default function MovieSwiper({ genre }: { genre: string }) {
        </div>
     )
   }
+
+  const [yearRange, setYearRange] = useState<[number, number]>([0, new Date().getFullYear()]);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [isYearPopoverOpen, setIsYearPopoverOpen] = useState(false);
+
+  const handleYearRangeChange = (values: number[]) => {
+    setYearRange([values[0], values[1]]);
+    setSelectedYear(null);
+  };
+
+  const handleSpecificYearSelect = (year: number) => {
+    setSelectedYear(year === selectedYear ? null : year);
+  };
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: currentYear - 1950 + 1 }, (_, i) => currentYear - i);
+
   return (
     <div className="w-full flex justify-center">
       <div className="relative w-full max-w-sm">
@@ -342,25 +359,16 @@ export default function MovieSwiper({ genre }: { genre: string }) {
               />
             </div>
           </div>
-        </div>
-
-        {/* Content card */}
-        <Card className="relative w-full h-[550px] overflow-hidden">
-          {currentMovie ? (
-            <>
-              <CardHeader className="p-6 pt-8">
-                <div className={`${badgeVariants({ variant: 'secondary' })} mb-2 self-start`}>{currentMovie.genre}</div>
-                <CardTitle className="font-headline text-3xl leading-tight">{currentMovie.title}</CardTitle>
-                <div className="flex items-center flex-wrap gap-x-4 gap-y-1 pt-2 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <Star className="h-4 w-4 text-amber-400" />
-                    <span className="font-bold">{currentMovie.rating.toFixed(1)}</span>/10
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="h-4 w-4" />
-                    <span className="font-bold">{currentMovie.year}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
+          
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Filtrer par année</span>
+            <Popover open={isYearPopoverOpen} onOpenChange={setIsYearPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Calendar className="h-4 w-4" />
+                  {selectedYear 
+                    ? `Année: ${selectedYear}` 
+                    : `Période: ${yearRange[0]} - ${yearRange[1]}`}
                     <Globe className="h-4 w-4" />
                     <span className="font-medium">{currentMovie.country}</span>
                   </div>
