@@ -26,7 +26,7 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
   const [isUpdating, setIsUpdating] = useState(false);
   
   const movieTitles = userProfile?.[listType];
-  const sortedMovieTitles = movieTitles ? [...movieTitles].reverse() : [];
+  const sortedMovieTitles = movieTitles ? [...movieTitles].sort((a, b) => a.localeCompare(b, 'fr', {sensitivity: 'base'})) : [];
   
   const handleMarkAsWatched = async (movieTitle: string) => {
     if (!user) return;
