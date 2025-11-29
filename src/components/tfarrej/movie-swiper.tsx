@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, Eye, X, RotateCcw } from 'lucide-react';
 import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast"; // Corrected import path
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -64,13 +64,6 @@ const handleAiError = (error: any, toast: any) => {
   console.error('Failed to fetch movie suggestions', error);
 };
 
-// Composant de chargement
-const LoadingState = () => (
-  <div className="flex items-center justify-center h-64">
-    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-  </div>
-);
-
 // Définition du type pour les films
 interface MovieSuggestion {
   id: string;
@@ -84,9 +77,16 @@ interface MovieSuggestion {
   wikipediaUrl?: string;
 }
 
+// Composant de chargement
+const LoadingState = () => (
+  <div className="flex items-center justify-center h-64">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+);
+
 export default function MovieSwiper({ genre }: { genre: string }) {
   // État d'authentification
-  const { userProfile, loading: authLoading } = useAuth();
+  const { user, userProfile, loading: authLoading } = useAuth();
   
   // États de base
   const [isLoading, setIsLoading] = useState(true);
@@ -94,21 +94,38 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const { toast } = useToast();
   const initialFetchDone = useRef(false);
+  
+  // Vérification côté client uniquement
+  const [isClient, setIsClient] = useState(false);
+
+  // Vérification du côté client
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Chargement initial
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (!isClient || typeof window === 'undefined') return;
     
     const loadData = async () => {
-      if (authLoading || !userProfile) {
+      if (authLoading) {
         setIsLoading(true);
         return;
       }
       
+      // Si l'utilisateur n'est pas connecté, on ne fait rien
+      if (!user || !userProfile) {
+        setIsLoading(false);
+        return;
+      }
+      
       try {
+        setIsLoading(true);
         // Simulation d'un chargement de films
         await new Promise(resolve => setTimeout(resolve, 1000));
-        setMovies([
+        
+        // Données de test
+        const testMovies: MovieSuggestion[] = [
           {
             id: '1',
             title: 'Film de test',
@@ -118,8 +135,20 @@ export default function MovieSwiper({ genre }: { genre: string }) {
             synopsis: 'Ceci est un film de test pour le débogage.',
             actors: ['Acteur 1', 'Acteur 2'],
             country: 'France'
+          },
+          {
+            id: '2',
+            title: 'Autre film',
+            year: 2022,
+            rating: 8.0,
+            genre: genre || 'Général',
+            synopsis: 'Un autre film pour tester le composant.',
+            actors: ['Acteur 3', 'Acteur 4'],
+            country: 'États-Unis'
           }
-        ]);
+        ];
+        
+        setMovies(testMovies);
       } catch (error) {
         console.error('Erreur de chargement:', error);
         toast({
@@ -134,40 +163,79 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     };
     
     loadData();
-  }, [authLoading, userProfile, toast, genre]);
+  }, [isClient, authLoading, user, userProfile, toast, genre]);
 
-  // État de chargement
-  if (authLoading || isLoading || !userProfile) {
+  // État de chargement ou utilisateur non connecté
+  if (!isClient || authLoading || isLoading) {
     return <LoadingState />;
   }
+  
+  // Si l'utilisateur n'est pas connecté
+  if (!user || !userProfile) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center p-6">
+          <h3 className="text-lg font-semibold mb-2">Connexion requise</h3>
+          <p className="text-muted-foreground">Veuillez vous connecter pour accéder à cette fonctionnalité.</p>
+        </div>
+      </div>
+    );
+  }
 
-  const handleSwipe = async (direction: 'left' | 'right') => {
-    if (currentIndex >= movies.length) return;
+  const handleSwipe = useCallback(async (direction: 'left' | 'right') => {
+    if (!user || currentIndex >= movies.length) return;
     
     const action = direction === 'left' ? 'vu' : 'ajouté à votre liste';
     const movie = movies[currentIndex];
     
-    toast({
-      title: `${movie.title} ${action} !`,
-      description: direction === 'right' ? "Consultez la liste 'À Voir' pour le retrouver." : undefined
-    });
-    
-    setCurrentIndex(prev => prev + 1);
-  };
+    try {
+      // Ici, vous pourriez ajouter la logique pour enregistrer le swipe
+      // Par exemple : await recordMovieSwipe(user.uid, movie.id, direction);
+      
+      toast({
+        title: `${movie.title} ${action} !`,
+        description: direction === 'right' ? "Consultez la liste 'À Voir' pour le retrouver." : undefined
+      });
+      
+      setCurrentIndex(prev => prev + 1);
+    } catch (error) {
+      console.error('Erreur lors du swipe:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Une erreur est survenue lors du traitement de votre action.'
+      });
+    }
+  }, [user, currentIndex, movies, toast]);
 
-  const handleSkip = () => {
+  const handleSkip = useCallback(() => {
     if (currentIndex >= movies.length) return;
     const movie = movies[currentIndex];
     
-    toast({
-      title: 'Film ignoré',
-      description: `Vous avez ignoré "${movie.title}"`
-    });
-    
-    setCurrentIndex(prev => prev + 1);
-  };
+    try {
+      // Ici, vous pourriez ajouter la logique pour ignorer le film
+      // Par exemple : await skipMovie(user.uid, movie.id);
+      
+      toast({
+        title: 'Film ignoré',
+        description: `Vous avez ignoré "${movie.title}"`
+      });
+      
+      setCurrentIndex(prev => prev + 1);
+    } catch (error) {
+      console.error('Erreur lors de l\'ignorance du film:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible d\'ignorer ce film pour le moment.'
+      });
+    }
+  }, [currentIndex, movies, toast]);
 
+  // Gestion des raccourcis clavier
   useEffect(() => {
+    if (!isClient) return;
+    
     const onKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag && ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return;
@@ -183,7 +251,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [currentIndex, movies.length]);
+  }, [isClient, handleSkip, handleSwipe]);
 
   const currentMovie = currentIndex < movies.length ? movies[currentIndex] : null;
 
@@ -241,7 +309,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
               
               <div className="h-px bg-border my-2" />
               
-              {currentMovie.actors?.length > 0 && (
+              {currentMovie.actors && currentMovie.actors.length > 0 && (
                 <div>
                   <h4 className="font-semibold text-sm mb-1">Acteurs principaux</h4>
                   <p className="text-sm text-muted-foreground">
