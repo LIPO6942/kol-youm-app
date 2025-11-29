@@ -46,8 +46,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(true);
       if (user) {
         setUser(user);
-        await fetchAndSetProfile(user.uid);
+        const profile = await fetchAndSetProfile(user.uid);
         // The Firestore listener will provide real-time updates and merge data
+        if (!profile) {
+          setLoading(false);
+        }
       } else {
         setUser(null);
         setUserProfile(null);
