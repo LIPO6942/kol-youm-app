@@ -129,9 +129,9 @@ export default function MovieSwiper({ genre }: { genre: string }) {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            countries: userProfile?.preferredCountries || [],
-            yearRange: userProfile?.preferredYearRange || [1997, new Date().getFullYear()],
-            minRating: userProfile?.preferredMinRating || 6,
+            countries: [], // Pas de préférences pays pour le moment
+            yearRange: [1997, new Date().getFullYear()], // Plage par défaut
+            minRating: 6, // Note minimale par défaut
             count: 10,
             seenMovieTitles: userProfile?.seenMovieTitles || [],
             genre: genre === 'Historique' ? undefined : genre,
