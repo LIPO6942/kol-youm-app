@@ -89,14 +89,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           await storeUserInDb(user.uid, finalProfile);
         }
         
-        setUserProfile(finalProfile);
+        setUserProfile(finalProfile ?? null);
         setLoading(false);
       });
     } else {
       setLoading(false);
     }
 
-    return () => unsubscribe();
+    return () => {
+      try {
+        unsubscribe();
+      } catch (e) {
+        console.warn("Failed unsubscribe", e);
+      }
+    };
   }, [user]);
 
 
