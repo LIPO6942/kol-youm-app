@@ -181,8 +181,11 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     const movie = movies[currentIndex];
 
     try {
+      console.log('handleSwipe appelé avec:', { direction, user: !!user, currentIndex, movieTitle: movies[currentIndex]?.title });
+      
       // Enregistrer le film comme vu
       if (direction === 'left') {
+        console.log('Ajout aux films vus...');
         // Ajouter aux films vus
         const response = await fetch('/api/user/movies/seen', {
           method: 'POST',
@@ -195,10 +198,18 @@ export default function MovieSwiper({ genre }: { genre: string }) {
           }),
         });
 
+        console.log('Response seen:', response.status, response.statusText);
+        
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Erreur response:', errorText);
           throw new Error('Impossible d\'enregistrer le film comme vu');
         }
+        
+        const result = await response.json();
+        console.log('Result seen:', result);
       } else {
+        console.log('Ajout à la liste à voir...');
         // Ajouter à la liste à voir
         const response = await fetch('/api/user/movies/watchlist', {
           method: 'POST',
@@ -211,9 +222,16 @@ export default function MovieSwiper({ genre }: { genre: string }) {
           }),
         });
 
+        console.log('Response watchlist:', response.status, response.statusText);
+        
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Erreur response:', errorText);
           throw new Error('Impossible d\'ajouter le film à la liste');
         }
+        
+        const result = await response.json();
+        console.log('Result watchlist:', result);
       }
 
       toast({
