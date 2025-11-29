@@ -202,9 +202,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   return React.createElement(
     ToastContext.Provider,
-    { value },
+    { value: value },
     children
-  )
+  );
 }
 
 function useToast() {
@@ -230,4 +230,4 @@ function useToast() {
   return context;
 }
 
-export { useToast, toast }
+export { useToast, toast };
