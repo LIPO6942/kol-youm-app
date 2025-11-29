@@ -2,30 +2,23 @@
 
 import type React from 'react'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Eye, ListVideo, Loader2, Film, RotateCcw, Star, Link as LinkIcon, Users, Calendar, Globe, SkipForward, X } from 'lucide-react';
+import { Eye, ListVideo, Loader2, Film, RotateCcw, Star, Link as LinkIcon, Users, Calendar, Globe, SkipForward, X, Plus } from 'lucide-react';
 
 import { recordMovieSwipe } from '@/ai/flows/movie-preference-learning';
 import { generateMovieSuggestions } from '@/ai/flows/generate-movie-suggestions-flow-fixed';
 import type { MovieSuggestion } from '@/ai/flows/generate-movie-suggestions-flow.types';
 import type { UserProfile } from '@/lib/firebase/firestore';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { badgeVariants } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { Separator } from '@/components/ui/separator';
-import { useAuth } from '@/hooks/use-auth';
-import { updateUserProfile } from '@/lib/firebase/firestore';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
-import { Input } from '@/components/ui/input';
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Slider } from "@/components/ui/slider"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { useDebounceCallback } from "@/lib/hooks/use-debounce"
-import { Movie } from "@/lib/types"
-import { Check, Plus, Search } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth";
+import { updateUserProfile } from '@/lib/firebase/firestore';
 import { useRouter } from "next/navigation"
-import { toast } from "sonner"
 
 // Client-side filtering util
 function applyFilters(list: MovieSuggestion[], opts: { minRating: number; countries: string[]; yearRange: [number, number] }) {
@@ -327,7 +320,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   return (
     <div className="w-full flex justify-center">
       <div className="relative w-full max-w-sm">
-        {/* Filters */}
+        {/* Filtres */}
         <div className="absolute top-0 left-0 right-0 z-10 px-3 py-2 flex flex-wrap items-center gap-2 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 rounded-t-lg">
           {/* Année (de - à) */}
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -364,118 +357,105 @@ export default function MovieSwiper({ genre }: { genre: string }) {
               />
             </div>
           </div>
-          
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <div>
-                <span className="text-sm font-medium">Filtrer par année</span>
-                <Popover open={isYearPopoverOpen} onOpenChange={setIsYearPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-2 ml-2">
-                      <Calendar className="h-4 w-4" />
-                      {selectedYear 
-                        ? `Année: ${selectedYear}` 
-                        : `Période: ${yearRange[0]} - ${yearRange[1]}`}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 p-4">
-                    <div className="space-y-4">
-                      <h4 className="font-medium">Sélectionner une année spécifique</h4>
-                      <div className="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto p-2 border rounded">
-                        {years.map(year => (
-                          <Button
-                            key={year}
-                            variant={selectedYear === year ? 'default' : 'outline'}
-                            size="sm"
-                            className="h-8"
-                            onClick={() => {
-                              handleSpecificYearSelect(year);
-                              setIsYearPopoverOpen(false);
-                            }}
-                          >
-                            {year}
-                          </Button>
-                        ))}
-                      </div>
-                      <div className="pt-4 border-t">
-                        <h4 className="font-medium mb-2">Ou choisir une plage d'années</h4>
-                        <div className="px-2">
-                          <Slider
-                            min={1950}
-                            max={currentYear}
-                            step={1}
-                            value={[yearRange[0], yearRange[1]]}
-                            onValueChange={handleYearRangeChange}
-                            minStepsBetweenThumbs={1}
-                            className="mb-2"
-                          />
-                          <div className="flex justify-between text-sm text-muted-foreground">
-                            <span>{yearRange[0]}</span>
-                            <span>{yearRange[1]}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              {currentMovie && (
-                <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">{currentMovie.country}</span>
+        </div>
+
+        {/* Carte du film actuel */}
+        {currentMovie ? (
+          <Card className="pt-16 h-[550px] flex flex-col">
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div>
+                  <CardTitle>{currentMovie.title} ({currentMovie.year})</CardTitle>
+                  <CardDescription className="flex items-center gap-2 mt-1">
+                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                    <span>{currentMovie.rating?.toFixed(1)}/10</span>
+                  </CardDescription>
                 </div>
-              )}
-            </div>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <h4 className="font-semibold text-sm mb-1">Synopsis</h4>
-              <p className="text-sm text-muted-foreground max-h-24 overflow-y-auto">
-                {currentMovie?.synopsis || 'Aucune description disponible'}
-              </p>
-            </div>
-                <Separator className="my-4" />
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="font-semibold text-sm mb-1">Acteurs principaux</h4>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Users className="h-4 w-4 flex-shrink-0" />
-                      <span>{currentMovie.actors.join(', ')}</span>
-                    </div>
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Film className="h-3 w-3" />
+                  {currentMovie.genre}
+                </Badge>
+              </div>
+            </CardHeader>
+            
+            <CardContent className="flex-grow flex flex-col">
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-semibold text-sm mb-1">Synopsis</h4>
+                  <p className="text-sm text-muted-foreground">
+                    {currentMovie.synopsis || 'Aucune description disponible'}
+                  </p>
+                </div>
+                
+                <Separator className="my-2" />
+                
+                <div>
+                  <h4 className="font-semibold text-sm mb-1">Acteurs principaux</h4>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Users className="h-4 w-4 flex-shrink-0" />
+                    <span>{currentMovie.actors?.join(', ') || 'Non spécifié'}</span>
                   </div>
-                  <a href={currentMovie.wikipediaUrl} target="_blank" rel="noopener noreferrer">
+                </div>
+                
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Globe className="h-4 w-4 flex-shrink-0" />
+                  <span>{currentMovie.country || 'Pays non spécifié'}</span>
+                </div>
+
+                {currentMovie.wikipediaUrl && (
+                  <a href={currentMovie.wikipediaUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-2">
                     <Button variant="link" className="p-0 h-auto text-sm">
                       <LinkIcon className="mr-2 h-4 w-4" />
                       En savoir plus sur Wikipédia
                     </Button>
                   </a>
-                </div>
-              </CardContent>
-              <CardFooter className="p-4 pt-0 grid grid-cols-3 gap-4">
-                <Button variant="outline" size="lg" className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive h-14" onClick={() => handleSwipe('left')} disabled={isSwipeLoading}>
-                  {isSwipeLoading ? <Loader2 className="animate-spin" /> : <Eye className="h-8 w-8" />}
-                </Button>
-                <Button variant="outline" size="lg" className="h-14" onClick={handleSkip} disabled={isSwipeLoading}>
-                  {isSwipeLoading ? <Loader2 className="animate-spin" /> : <SkipForward className="h-8 w-8" />}
-                </Button>
-                <Button variant="outline" size="lg" className="border-green-500 text-green-500 hover:bg-green-500/10 hover:text-green-500 h-14" onClick={() => handleSwipe('right')} disabled={isSwipeLoading}>
-                  {isSwipeLoading ? <Loader2 className="animate-spin" /> : <ListVideo className="h-8 w-8" />}
-                </Button>
-              </CardFooter>
-            </>
-          ) : (
-            <Card className="absolute inset-0 flex flex-col items-center justify-center text-center">
-              <CardContent className="p-6">
-                <h3 className="text-xl font-bold font-headline">C'est tout pour le moment !</h3>
-                <p className="text-muted-foreground mt-2">Vous avez vu toutes les suggestions pour ce genre.</p>
-                <Button className="mt-4" onClick={fetchMovies}>
-                  <RotateCcw className="mr-2 h-4 w-4" /> M'en proposer d'autres
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </Card>
+                )}
+              </div>
+            </CardContent>
+            
+            <CardFooter className="p-4 pt-0 grid grid-cols-3 gap-4">
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="border-destructive text-destructive hover:bg-destructive/10 h-14"
+                onClick={() => handleSwipe('left')}
+                disabled={isSwipeLoading}
+              >
+                {isSwipeLoading ? <Loader2 className="animate-spin" /> : <Eye className="h-6 w-6" />}
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="h-14"
+                onClick={handleSkip}
+                disabled={isSwipeLoading}
+              >
+                {isSwipeLoading ? <Loader2 className="animate-spin" /> : <X className="h-6 w-6" />}
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="border-green-500 text-green-500 hover:bg-green-500/10 h-14"
+                onClick={() => handleSwipe('right')}
+                disabled={isSwipeLoading}
+              >
+                {isSwipeLoading ? <Loader2 className="animate-spin" /> : <Plus className="h-6 w-6" />}
+              </Button>
+            </CardFooter>
+          </Card>
+        ) : (
+          <Card className="pt-16 h-[550px] flex flex-col items-center justify-center text-center">
+            <CardContent>
+              <h3 className="text-xl font-bold">C'est tout pour le moment !</h3>
+              <p className="text-muted-foreground mt-2">Vous avez vu toutes les suggestions pour ce genre.</p>
+              <Button className="mt-4" onClick={fetchMovies}>
+                <RotateCcw className="mr-2 h-4 w-4" /> M'en proposer d'autres
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
