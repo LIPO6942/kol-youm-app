@@ -40,17 +40,17 @@ function MovieListContent({
   return (
     <div className="relative flex-grow">
       {isUpdating && <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
-      <ScrollArea className="h-full pr-4">
-        <div className="py-4 space-y-2">
-          {sortedMovieTitles && sortedMovieTitles.length > 0 ? (
-            sortedMovieTitles.map((movieTitle, index) => (
-              <div key={`${movieTitle}-${index}`} className="flex items-start justify-between p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded group">
-                <span className="text-sm flex-1 break-words pr-2 min-w-0" style={{ wordBreak: 'break-word' }}>
-                  {movieTitle}
-                </span>
-                <div className="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {listType === 'moviesToWatch' && (
-                    <TooltipProvider>
+      <TooltipProvider>
+        <ScrollArea className="h-full pr-4">
+          <div className="py-4 space-y-2">
+            {sortedMovieTitles && sortedMovieTitles.length > 0 ? (
+              sortedMovieTitles.map((movieTitle, index) => (
+                <div key={`${movieTitle}-${index}`} className="flex items-start justify-between p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded group">
+                  <span className="text-sm flex-1 break-words pr-2 min-w-0" style={{ wordBreak: 'break-word' }}>
+                    {movieTitle}
+                  </span>
+                  <div className="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {listType === 'moviesToWatch' && (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button 
@@ -68,9 +68,7 @@ function MovieListContent({
                           <p>Marquer comme vu</p>
                         </TooltipContent>
                       </Tooltip>
-                    </TooltipProvider>
-                  )}
-                  <TooltipProvider>
+                    )}
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button 
@@ -88,19 +86,19 @@ function MovieListContent({
                         <p>Supprimer</p>
                       </TooltipContent>
                     </Tooltip>
-                  </TooltipProvider>
+                  </div>
                 </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center text-muted-foreground h-[50vh]">
+                <Film className="h-10 w-10 mb-4" />
+                <p>Votre liste est vide pour le moment.</p>
+                {listType === 'moviesToWatch' && <p className="text-xs">"Likez" des films pour la remplir !</p>}
               </div>
-            ))
-          ) : (
-            <div className="flex flex-col items-center justify-center text-center text-muted-foreground h-[50vh]">
-              <Film className="h-10 w-10 mb-4" />
-              <p>Votre liste est vide pour le moment.</p>
-              {listType === 'moviesToWatch' && <p className="text-xs">"Likez" des films pour la remplir !</p>}
-            </div>
-          )}
-        </div>
-      </ScrollArea>
+            )}
+          </div>
+        </ScrollArea>
+      </TooltipProvider>
     </div>
   );
 }
