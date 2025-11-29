@@ -171,20 +171,30 @@ interface ToastContextType {
   dismiss: (toastId?: string) => void;
 }
 
-const ToastContext = React.createContext<ToastContextType | undefined>(undefined);
+const ToastContext = React.createContext<ToastContextType | null>(null);
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = React.useState<State>({ toasts: [] });
 
   React.useEffect(() => {
+    let isActive = true;
+    
     // Set initial state
-    setState(memoryState);
+    if (isActive) {
+      setState(memoryState);
+    }
     
     // Subscribe to changes
-    const listener = (newState: State) => setState(newState);
+    const listener = (newState: State) => {
+      if (isActive) {
+        setState(newState);
+      }
+    };
+    
     listeners.push(listener);
     
     return () => {
+      isActive = false;
       const index = listeners.indexOf(listener);
       if (index > -1) {
         listeners.splice(index, 1);
@@ -208,7 +218,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 function useToast() {
   const context = React.useContext(ToastContext);
   
-  if (!context) {
+  if (context === null) {
     // Fallback to the global state if context is not available
     return {
       toasts: memoryState.toasts,
