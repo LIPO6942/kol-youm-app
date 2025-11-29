@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import MovieSwiper from '@/components/tfarrej/movie-swiper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo } from 'lucide-react';
+import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo, Settings } from 'lucide-react';
 import { MovieListSheet } from '@/components/tfarrej/movie-list-sheet';
 
 const genres = [
@@ -76,6 +76,9 @@ function TfarrejContent() {
                 </p>
             </div>
             <div className="flex gap-2 self-end sm:self-center">
+                <Button variant="outline" onClick={() => window.location.href = '/settings'}>
+                    <Settings className="mr-2 h-4 w-4" /> Paramètres
+                </Button>
                 <MovieListSheet
                     trigger={<Button variant="ocean"><ListVideo className="mr-2 h-4 w-4" /> À Voir</Button>}
                     title="Ma Liste 'À Voir'"

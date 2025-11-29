@@ -23,6 +23,9 @@ export type UserProfile = {
     moviesToWatch?: string[];
     seenKhroujSuggestions?: string[];
     wardrobe?: WardrobeItem[];
+    // Tfarrej preferences
+    preferredCountries?: string[];
+    preferredMinRating?: number;
     // These are stored ONLY in IndexedDB for privacy
     fullBodyPhotoUrl?: string; // This will also be a Cloudinary URL
     closeupPhotoUrl?: string; // This will also be a Cloudinary URL
@@ -38,6 +41,8 @@ export async function createUserProfile(uid: string, data: { email: string | nul
     moviesToWatch: [],
     seenKhroujSuggestions: [],
     wardrobe: [],
+    preferredCountries: [],
+    preferredMinRating: 6,
     fullBodyPhotoUrl: '',
     closeupPhotoUrl: '',
   };
