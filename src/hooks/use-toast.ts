@@ -209,7 +209,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
     </ToastContext.Provider>
-  );
+  )
 }
 
 function useToast() {
