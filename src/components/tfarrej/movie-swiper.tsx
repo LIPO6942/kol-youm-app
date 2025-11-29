@@ -6,6 +6,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
 
 // Client-side filtering util
 function applyFilters(list: MovieSuggestion[] = [], opts: { minRating: number; countries: string[]; yearRange: [number, number] }) {
@@ -92,6 +94,9 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   const [isClient, setIsClient] = useState(false);
   const initialFetchDone = useRef(false);
   
+  // État pour le filtre d'année
+  const [yearRange, setYearRange] = useState<[number, number]>([1997, new Date().getFullYear()]);
+  
   // Hooks d'authentification et toast
   const { user, userProfile, loading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -101,7 +106,6 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     setIsClient(true);
   }, []);
   
-  // Chargement des films
   useEffect(() => {
     if (!isClient || authLoading) {
       setIsLoading(false);
@@ -109,11 +113,6 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     }
 
     if (!user || !userProfile) {
-      setIsLoading(false);
-      return;
-    }
-
-    if (initialFetchDone.current) {
       setIsLoading(false);
       return;
     }
@@ -130,7 +129,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
           },
           body: JSON.stringify({
             countries: [], // Pas de préférences pays pour le moment
-            yearRange: [1997, new Date().getFullYear()], // Plage par défaut
+            yearRange: yearRange, // Utiliser le filtre d'année
             minRating: 6, // Note minimale par défaut
             count: 10,
             seenMovieTitles: userProfile?.seenMovieTitles || [],
@@ -159,6 +158,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         }));
 
         setMovies(movies);
+        setCurrentIndex(0); // Réinitialiser l'index quand on recharge
       } catch (error) {
         console.error('Erreur de chargement:', error);
         toast({
@@ -168,12 +168,11 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         });
       } finally {
         setIsLoading(false);
-        initialFetchDone.current = true;
       }
     };
 
     loadData();
-  }, [isClient, authLoading, user, userProfile, toast, genre]);
+  }, [isClient, authLoading, user, userProfile, toast, genre, yearRange]);
 
   const handleSwipe = useCallback(async (direction: 'left' | 'right') => {
     if (!user || currentIndex >= movies.length) return;
@@ -323,6 +322,25 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   return (
     <div className="w-full flex justify-center">
       <div className="relative w-full max-w-sm">
+        {/* Filtre d'année */}
+        <div className="mb-4 p-4 bg-card rounded-lg border">
+          <Label className="text-sm font-medium mb-2 block">
+            Période : {yearRange[0]} - {yearRange[1]}
+          </Label>
+          <Slider
+            value={yearRange}
+            onValueChange={(value) => setYearRange(value as [number, number])}
+            min={1970}
+            max={new Date().getFullYear()}
+            step={1}
+            className="w-full"
+          />
+          <div className="flex justify-between text-xs text-muted-foreground mt-1">
+            <span>1970</span>
+            <span>{new Date().getFullYear()}</span>
+          </div>
+        </div>
+        
         <Card className="h-[550px] flex flex-col">
           <CardHeader>
             <div className="flex items-start justify-between">
