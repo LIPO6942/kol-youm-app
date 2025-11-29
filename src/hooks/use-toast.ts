@@ -171,24 +171,60 @@ function toast({ ...props }: Toast) {
   }
 }
 
-function useToast() {
-  const [state, setState] = React.useState<State>(memoryState)
+// Create a context for the toast state
+interface ToastContextType {
+  toasts: ToasterToast[];
+  toast: typeof toast;
+  dismiss: (toastId?: string) => void;
+}
+
+const ToastContext = React.createContext<ToastContextType | undefined>(undefined);
+
+export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = React.useState<State>({ toasts: [] });
 
   React.useEffect(() => {
-    listeners.push(setState)
+    // Set initial state
+    setState(memoryState);
+    
+    // Subscribe to changes
+    const listener = (newState: State) => setState(newState);
+    listeners.push(listener);
+    
     return () => {
-      const index = listeners.indexOf(setState)
+      const index = listeners.indexOf(listener);
       if (index > -1) {
-        listeners.splice(index, 1)
+        listeners.splice(index, 1);
       }
-    }
-  }, [state])
+    };
+  }, []);
 
-  return {
-    ...state,
+  const value: ToastContextType = React.useMemo(() => ({
+    toasts: state.toasts,
     toast,
     dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+  }), [state.toasts]);
+
+  return (
+    <ToastContext.Provider value={value}>
+      {children}
+    </ToastContext.Provider>
+  );
+}
+
+function useToast() {
+  const context = React.useContext(ToastContext);
+  
+  if (context === undefined) {
+    // Fallback to the global state if context is not available
+    return {
+      toasts: memoryState.toasts,
+      toast,
+      dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+    };
   }
+  
+  return context;
 }
 
 export { useToast, toast }
