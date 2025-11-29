@@ -88,8 +88,6 @@ export const reducer = (state: State, action: Action): State => {
     case "DISMISS_TOAST": {
       const { toastId } = action
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
       if (toastId) {
         addToRemoveQueue(toastId)
       } else {
@@ -212,14 +210,6 @@ function useToast() {
   
   if (!context) {
     // Fallback to the global state if context is not available
-    return {
-      toasts: memoryState.toasts,
-      toast,
-      dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
-    };
-  }
-  
-  return context;
     return {
       toasts: memoryState.toasts,
       toast,
