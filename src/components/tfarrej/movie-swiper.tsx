@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, Eye, X, RotateCcw } from 'lucide-react';
-// Import des hooks commentés temporairement pour le débogage
-// import { useAuth } from "@/hooks/use-auth";
-// import { useToast } from "@/hooks/use-toast";
+import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -93,17 +92,38 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   const [isClient, setIsClient] = useState(false);
   const initialFetchDone = useRef(false);
   
+  // Hooks d'authentification et toast
+  const { user, userProfile, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+  
   // Vérification du côté client
   useEffect(() => {
     setIsClient(true);
-    
-    // Chargement initial
+  }, []);
+  
+  // Chargement des films
+  useEffect(() => {
+    if (!isClient || authLoading) {
+      setIsLoading(false);
+      return;
+    }
+
+    if (!user || !userProfile) {
+      setIsLoading(false);
+      return;
+    }
+
+    if (initialFetchDone.current) {
+      setIsLoading(false);
+      return;
+    }
+
     const loadData = async () => {
       try {
         setIsLoading(true);
         // Simulation d'un chargement de films
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         // Données de test
         const testMovies: MovieSuggestion[] = [
           {
@@ -115,29 +135,94 @@ export default function MovieSwiper({ genre }: { genre: string }) {
             synopsis: 'Ceci est un film de test pour le débogage.',
             actors: ['Acteur 1', 'Acteur 2'],
             country: 'France'
+          },
+          {
+            id: '2',
+            title: 'Autre film',
+            year: 2022,
+            rating: 8.0,
+            genre: genre || 'Général',
+            synopsis: 'Un autre film pour tester le composant.',
+            actors: ['Acteur 3', 'Acteur 4'],
+            country: 'États-Unis'
           }
         ];
-        
+
         setMovies(testMovies);
       } catch (error) {
         console.error('Erreur de chargement:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Erreur',
+          description: 'Impossible de charger les films',
+        });
       } finally {
         setIsLoading(false);
         initialFetchDone.current = true;
       }
     };
-    
+
     loadData();
-  }, [genre]);
+  }, [isClient, authLoading, user, userProfile, toast, genre]);
+
+  const handleSwipe = useCallback(async (direction: 'left' | 'right') => {
+    if (!user || currentIndex >= movies.length) return;
+
+    const action = direction === 'left' ? 'vu' : 'ajouté à votre liste';
+    const movie = movies[currentIndex];
+
+    try {
+      // Ici, vous pourriez ajouter la logique pour enregistrer le swipe
+      // Par exemple : await recordMovieSwipe(user.uid, movie.id, direction);
+
+      toast({
+        title: `${movie.title} ${action} !`,
+        description: direction === 'right' ? "Consultez la liste 'À Voir' pour le retrouver." : undefined
+      });
+
+      setCurrentIndex(prev => prev + 1);
+    } catch (error) {
+      console.error('Erreur lors du swipe:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Une erreur est survenue lors du traitement de votre action.'
+      });
+    }
+  }, [user, currentIndex, movies, toast]);
+
+  const handleSkip = useCallback(() => {
+    if (currentIndex >= movies.length) return;
+    const movie = movies[currentIndex];
+
+    try {
+      // Ici, vous pourriez ajouter la logique pour ignorer le film
+      // Par exemple : await skipMovie(user.uid, movie.id);
+
+      toast({
+        title: 'Film ignoré',
+        description: `Vous avez ignoré "${movie.title}"`
+      });
+
+      setCurrentIndex(prev => prev + 1);
+    } catch (error) {
+      console.error('Erreur lors de l\'ignorance du film:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible d\'ignorer ce film pour le moment.'
+      });
+    }
+  }, [currentIndex, movies, toast]);
 
   // Gestion des raccourcis clavier
   useEffect(() => {
     if (!isClient) return;
-    
+
     const onKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag && ['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return;
-      
+
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
         handleSkip();
@@ -146,30 +231,27 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         handleSwipe('right');
       }
     };
-    
+
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isClient]);
+  }, [isClient, handleSkip, handleSwipe]);
 
-  if (!isClient || isLoading) {
+  // État de chargement ou utilisateur non connecté
+  if (!isClient || authLoading || isLoading) {
     return <LoadingState />;
   }
 
-  const handleSwipe = (direction: 'left' | 'right') => {
-    if (currentIndex >= movies.length) return;
-    
-    const action = direction === 'left' ? 'vu' : 'ajouté à votre liste';
-    const movie = movies[currentIndex];
-    
-    console.log(`${movie.title} ${action} !`);
-    setCurrentIndex(prev => prev + 1);
-  };
-
-  const handleSkip = () => {
-    if (currentIndex >= movies.length) return;
-    console.log('Film ignoré');
-    setCurrentIndex(prev => prev + 1);
-  };
+  // Si l'utilisateur n'est pas connecté
+  if (!user || !userProfile) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center p-6">
+          <h3 className="text-lg font-semibold mb-2">Connexion requise</h3>
+          <p className="text-muted-foreground">Veuillez vous connecter pour accéder à cette fonctionnalité.</p>
+        </div>
+      </div>
+    );
+  }
 
   const currentMovie = currentIndex < movies.length ? movies[currentIndex] : null;
 
