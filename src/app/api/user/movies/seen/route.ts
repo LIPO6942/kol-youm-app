@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { doc, setDoc, getDoc, arrayUnion } from 'firebase/firestore';
 import { db as firestoreDb } from '@/lib/firebase/client';
-import { getAuth } from 'firebase/auth';
-import { auth } from '@/lib/firebase/client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
