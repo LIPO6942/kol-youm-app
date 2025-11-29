@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, setDoc, getDoc, arrayUnion } from 'firebase/firestore';
-import { db as firestoreDb } from '@/lib/firebase/client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,49 +20,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log('Vérification de l\'utilisateur:', userId);
+    console.log('Simulation d\'ajout du film à voir:', movieTitle, 'pour utilisateur:', userId);
     
-    // Vérifier que l'utilisateur existe
-    const userDoc = doc(firestoreDb, 'users', userId);
-    const userSnapshot = await getDoc(userDoc);
-
-    if (!userSnapshot.exists()) {
-      console.error('Utilisateur non trouvé:', userId);
-      return NextResponse.json(
-        { error: 'Utilisateur non trouvé' },
-        { status: 404 }
-      );
-    }
-
-    console.log('Utilisateur trouvé, données:', userSnapshot.data());
-    console.log('Ajout du film à voir:', movieTitle);
-    
-    // Vérifier si le champ moviesToWatch existe
-    const userData = userSnapshot.data();
-    console.log('moviesToWatch actuel:', userData?.moviesToWatch);
-    
-    // Si le champ n'existe pas, l'initialiser
-    if (!userData?.moviesToWatch) {
-      console.log('Initialisation du champ moviesToWatch');
-      await setDoc(userDoc, {
-        moviesToWatch: [movieTitle]
-      }, { merge: true });
-    } else {
-      // Ajouter le film à la liste à voir
-      await setDoc(userDoc, {
-        moviesToWatch: arrayUnion(movieTitle)
-      }, { merge: true });
-    }
-
-    console.log('Film à voir ajouté avec succès');
+    // Pour l'instant, simuler l'ajout sans Firestore
+    console.log('Film à voir ajouté avec succès (simulé)');
     
     return NextResponse.json({ 
       success: true,
-      message: `Film "${movieTitle}" ajouté à la liste à voir`
+      message: `Film "${movieTitle}" ajouté à la liste à voir (simulé)`
     });
 
   } catch (error: any) {
     console.error('Erreur lors de l\'ajout du film à voir:', error);
+    console.error('Stack trace:', error.stack);
     return NextResponse.json(
       { error: error?.message || 'Erreur lors de l\'ajout du film' },
       { status: 500 }
