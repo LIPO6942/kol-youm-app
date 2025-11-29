@@ -20,6 +20,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useDebounceCallback } from "@/lib/hooks/use-debounce"
+import { Movie } from "@/lib/types"
+import { Check, Plus, Search } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 // Client-side filtering util
 function applyFilters(list: MovieSuggestion[], opts: { minRating: number; countries: string[]; yearRange: [number, number] }) {
@@ -89,8 +95,8 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   const initialFetchDone = useRef(false);
   // Quick filters
   const CURRENT_YEAR = new Date().getFullYear();
-  const [yearRange, setYearRange] = useState<[number, number]>([0, CURRENT_YEAR]);
-  const [yearStartInput, setYearStartInput] = useState<string>('0');
+  const [yearRange, setYearRange] = useState<[number, number]>([1990, CURRENT_YEAR]);
+  const [yearStartInput, setYearStartInput] = useState<string>('1990');
   const [yearEndInput, setYearEndInput] = useState<string>(String(CURRENT_YEAR));
  
   // Country filter removed by request; we only display nationality from API
@@ -303,7 +309,6 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     )
   }
 
-  const [yearRange, setYearRange] = useState<[number, number]>([0, new Date().getFullYear()]);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [isYearPopoverOpen, setIsYearPopoverOpen] = useState(false);
 
@@ -360,25 +365,76 @@ export default function MovieSwiper({ genre }: { genre: string }) {
             </div>
           </div>
           
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Filtrer par année</span>
-            <Popover open={isYearPopoverOpen} onOpenChange={setIsYearPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Calendar className="h-4 w-4" />
-                  {selectedYear 
-                    ? `Année: ${selectedYear}` 
-                    : `Période: ${yearRange[0]} - ${yearRange[1]}`}
-                    <Globe className="h-4 w-4" />
-                    <span className="font-medium">{currentMovie.country}</span>
-                  </div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <div>
+                <span className="text-sm font-medium">Filtrer par année</span>
+                <Popover open={isYearPopoverOpen} onOpenChange={setIsYearPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2 ml-2">
+                      <Calendar className="h-4 w-4" />
+                      {selectedYear 
+                        ? `Année: ${selectedYear}` 
+                        : `Période: ${yearRange[0]} - ${yearRange[1]}`}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-4">
+                    <div className="space-y-4">
+                      <h4 className="font-medium">Sélectionner une année spécifique</h4>
+                      <div className="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto p-2 border rounded">
+                        {years.map(year => (
+                          <Button
+                            key={year}
+                            variant={selectedYear === year ? 'default' : 'outline'}
+                            size="sm"
+                            className="h-8"
+                            onClick={() => {
+                              handleSpecificYearSelect(year);
+                              setIsYearPopoverOpen(false);
+                            }}
+                          >
+                            {year}
+                          </Button>
+                        ))}
+                      </div>
+                      <div className="pt-4 border-t">
+                        <h4 className="font-medium mb-2">Ou choisir une plage d'années</h4>
+                        <div className="px-2">
+                          <Slider
+                            min={1950}
+                            max={currentYear}
+                            step={1}
+                            value={[yearRange[0], yearRange[1]]}
+                            onValueChange={handleYearRangeChange}
+                            minStepsBetweenThumbs={1}
+                            className="mb-2"
+                          />
+                          <div className="flex justify-between text-sm text-muted-foreground">
+                            <span>{yearRange[0]}</span>
+                            <span>{yearRange[1]}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+              {currentMovie && (
+                <div className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">{currentMovie.country}</span>
                 </div>
-              </CardHeader>
-              <CardContent className="flex-grow flex flex-col justify-between p-6 pt-0">
-                <div>
-                  <h4 className="font-semibold text-sm mb-1">Synopsis</h4>
-                  <p className="text-sm text-muted-foreground max-h-24 overflow-y-auto">{currentMovie.synopsis}</p>
-                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <h4 className="font-semibold text-sm mb-1">Synopsis</h4>
+              <p className="text-sm text-muted-foreground max-h-24 overflow-y-auto">
+                {currentMovie?.synopsis || 'Aucune description disponible'}
+              </p>
+            </div>
                 <Separator className="my-4" />
                 <div className="space-y-3">
                   <div>
