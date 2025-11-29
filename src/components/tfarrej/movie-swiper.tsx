@@ -77,21 +77,35 @@ const handleAiError = (error: any, toast: any) => {
   console.error('Failed to fetch movie suggestions', error);
 };
 
+// Composant de chargement pour éviter les erreurs de rendu
+const LoadingState = () => (
+  <div className="flex items-center justify-center h-64">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+);
+
 export default function MovieSwiper({ genre }: { genre: string }) {
-  const { user, userProfile, loading: authLoading } = useAuth();
+  // État d'authentification
+  const { user, userProfile, loading: authLoading } = useAuth()
+  
+  // États de l'interface
   const [originalMovies, setOriginalMovies] = useState<MovieSuggestion[]>([]);
   const [movies, setMovies] = useState<MovieSuggestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSwipeLoading, setIsSwipeLoading] = useState(false);
   const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(true);
-  const { toast } = useToast();
-  const initialFetchDone = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Références et hooks
+  const initialFetchDone = useRef(false);
+  const { toast } = useToast();
+  const router = useRouter();
   // Quick filters
   const CURRENT_YEAR = new Date().getFullYear();
   const [yearRange, setYearRange] = useState<[number, number]>([1990, CURRENT_YEAR]);
   const [yearStartInput, setYearStartInput] = useState<string>('1990');
   const [yearEndInput, setYearEndInput] = useState<string>(String(CURRENT_YEAR));
+
  
   // Country filter removed by request; we only display nationality from API
 
@@ -129,95 +143,133 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   }, [yearEndInput, yearBounds, yearRange[0], originalMovies]);
   
   
-  const fetchMovies = useCallback(() => {
-    // We need userProfile to get the list of seen movies.
-    if (!userProfile) {
-      return;
+  const fetchMovies = useCallback(async () => {
+    // Vérifications de sécurité
+    if (!userProfile || typeof window === 'undefined') {
+      return [];
     }
-    setIsSuggestionsLoading(true);
-    setCurrentIndex(0);
-    setMovies([]);
     
-    // Always use the up-to-date list of seen movies from the user's profile.
-    // Exclude also movies in the watchlist so they don't get suggested again.
-    const seen = userProfile.seenMovieTitles || [];
-    const watchlist = userProfile.moviesToWatch || [] as string[];
-    const dismissed = getDismissedTitles();
-    const seenMovieTitles = Array.from(new Set([...(seen as string[]), ...watchlist, ...dismissed]));
-    
-    // Fetch from TMDB-backed API with active filters
-    fetch('/api/tmdb-suggest', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        countries: [],
-        yearRange,
-        minRating: 6,
-        count: 12,
-        seenMovieTitles,
-        genre,
-      })
-    })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`tmdb-suggest failed: ${res.status}`);
-        const data = await res.json();
-        const items = Array.isArray(data?.movies) ? data.movies as MovieSuggestion[] : [];
-        setOriginalMovies(items);
-        const filtered = applyFilters(items, { minRating: 6, countries: [], yearRange });
-        setMovies(filtered);
-      })
-      .catch((error) => {
-        handleAiError(error, toast);
-      })
-      .finally(() => {
-        setIsSuggestionsLoading(false);
+    try {
+      setIsSuggestionsLoading(true);
+      setCurrentIndex(0);
+      setMovies([]);
+      
+      // Récupération des films déjà vus ou à voir
+      const seen = Array.isArray(userProfile.seenMovieTitles) ? userProfile.seenMovieTitles : [];
+      const watchlist = Array.isArray(userProfile.moviesToWatch) ? userProfile.moviesToWatch : [];
+      const dismissed = getDismissedTitles();
+      const seenMovieTitles = Array.from(new Set([...seen, ...watchlist, ...dismissed]));
+      
+      // Appel à l'API TMDB
+      const response = await fetch('/api/tmdb-suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          countries: [],
+          yearRange,
+          minRating: 6,
+          count: 12,
+          seenMovieTitles,
+          genre,
+        })
       });
-  }, [genre, toast, userProfile, yearRange]);
+      
+      if (!response.ok) {
+        throw new Error(`tmdb-suggest failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const items = Array.isArray(data?.movies) ? data.movies as MovieSuggestion[] : [];
+      
+      setOriginalMovies(items);
+      const filtered = applyFilters(items, { minRating: 6, countries: [], yearRange });
+      setMovies(filtered);
+      
+      return items;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des films:', error);
+      handleAiError(error, toast);
+      return [];
+    } finally {
+      setIsSuggestionsLoading(false);
+    }
+  }, [genre, yearRange, userProfile, toast]);
 
-  // Load persisted filters on mount
+  // Chargement des filtres persistants
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     try {
       const y = window.localStorage.getItem('tfarrej_yearRange');
       if (y) {
         const parsed = JSON.parse(y) as [number, number];
-        if (Array.isArray(parsed) && parsed.length === 2) setYearRange(parsed);
+        if (Array.isArray(parsed) && parsed.length === 2) {
+          setYearRange(parsed);
+        }
       }
-    } catch {}
+    } catch (error) {
+      console.error('Erreur lors du chargement des filtres:', error);
+    }
   }, []);
 
-  // Persist filters
+  // Persistance des filtres
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     try {
       window.localStorage.setItem('tfarrej_yearRange', JSON.stringify(yearRange));
-    } catch {}
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde des filtres:', error);
+    }
   }, [yearRange]);
 
+  // Gestion du chargement initial
   useEffect(() => {
-    if (!authLoading && userProfile) {
-      if (!initialFetchDone.current) {
-        fetchMovies();
-        initialFetchDone.current = true;
-      }
+    // Ne rien faire côté serveur
+    if (typeof window === 'undefined') return;
+    
+    // Si l'authentification est en cours ou si le profil utilisateur n'est pas chargé
+    if (authLoading || !userProfile) {
+      setIsLoading(true);
+      return;
+    }
+    
+    // Si c'est le premier chargement
+    if (!initialFetchDone.current) {
+      setIsLoading(true);
+      fetchMovies()
+        .finally(() => {
+          initialFetchDone.current = true;
+          setIsLoading(false);
+        });
+    } else {
       setIsLoading(false);
     }
-  }, [authLoading, userProfile, fetchMovies]);
+  }, [authLoading, userProfile]);
 
-  if (authLoading || isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  // Refetch suggestions when filters change (after initial load)
+  // Gestion du changement de genre et du chargement initial
   useEffect(() => {
     if (!userProfile) return;
-    if (!initialFetchDone.current) return;
-    // Only refetch on genre change; year filtering is handled client-side for performance
-    fetchMovies();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [genre]);
+    
+    const fetchData = async () => {
+      if (!initialFetchDone.current || genre) {
+        setIsSuggestionsLoading(true);
+        try {
+          await fetchMovies();
+        } finally {
+          setIsSuggestionsLoading(false);
+          initialFetchDone.current = true;
+        }
+      }
+    };
+    
+    fetchData();
+  }, [genre, userProfile, fetchMovies]);
+
+  // État de chargement
+  if (authLoading || isLoading || !userProfile) {
+    return <LoadingState />;
+  }
 
 
   const handleSwipe = async (swipeDirection: 'left' | 'right') => {
@@ -312,20 +364,11 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     )
   }
 
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
-  const [isYearPopoverOpen, setIsYearPopoverOpen] = useState(false);
-
   const handleYearRangeChange = (values: number[]) => {
     setYearRange([values[0], values[1]]);
-    setSelectedYear(null);
-  };
-
-  const handleSpecificYearSelect = (year: number) => {
-    setSelectedYear(year === selectedYear ? null : year);
   };
 
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: currentYear - 1950 + 1 }, (_, i) => currentYear - i);
 
   return (
     <div className="w-full flex justify-center">
