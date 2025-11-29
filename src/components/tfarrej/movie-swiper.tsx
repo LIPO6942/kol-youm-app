@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
+import { auth } from '@/lib/firebase/client';
 
 // Client-side filtering util
 function applyFilters(list: MovieSuggestion[] = [], opts: { minRating: number; countries: string[]; yearRange: [number, number] }) {
@@ -186,11 +187,21 @@ export default function MovieSwiper({ genre }: { genre: string }) {
       // Enregistrer le film comme vu
       if (direction === 'left') {
         console.log('Ajout aux films vus...');
+        // Récupérer le token Firebase
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          throw new Error('Utilisateur non connecté');
+        }
+        
+        const token = await currentUser.getIdToken();
+        console.log('Token obtenu:', token.substring(0, 20) + '...');
+        
         // Ajouter aux films vus
         const response = await fetch('/api/user/movies/seen', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
             userId: user.uid,
@@ -210,11 +221,21 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         console.log('Result seen:', result);
       } else {
         console.log('Ajout à la liste à voir...');
+        // Récupérer le token Firebase
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          throw new Error('Utilisateur non connecté');
+        }
+        
+        const token = await currentUser.getIdToken();
+        console.log('Token obtenu:', token.substring(0, 20) + '...');
+        
         // Ajouter à la liste à voir
         const response = await fetch('/api/user/movies/watchlist', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({
             userId: user.uid,

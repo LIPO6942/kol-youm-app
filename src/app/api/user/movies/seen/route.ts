@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { doc, setDoc, getDoc, arrayUnion } from 'firebase/firestore';
 import { db as firestoreDb } from '@/lib/firebase/client';
+import { getAuth } from 'firebase/auth';
+import { auth } from '@/lib/firebase/client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,15 +11,38 @@ export async function POST(req: NextRequest) {
   try {
     console.log('API seen appelée');
     
+    // Récupérer le token d'authentification depuis les headers
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('Token d\'authentification manquant');
+      return NextResponse.json(
+        { error: 'Authentification requise' },
+        { status: 401 }
+      );
+    }
+    
+    const token = authHeader.substring(7);
+    console.log('Token reçu:', token.substring(0, 20) + '...');
+    
     const body = await req.json();
     console.log('Body reçu:', body);
     
-    const { userId, movieTitle } = body;
+    const { movieTitle } = body;
 
-    if (!userId || !movieTitle) {
-      console.error('Paramètres manquants:', { userId, movieTitle });
+    if (!movieTitle) {
+      console.error('movieTitle manquant');
       return NextResponse.json(
-        { error: 'userId et movieTitle sont requis' },
+        { error: 'movieTitle est requis' },
+        { status: 400 }
+      );
+    }
+
+    // Pour l'instant, on utilise le userId du body (à améliorer avec la vérification du token)
+    const userId = body.userId;
+    if (!userId) {
+      console.error('userId manquant');
+      return NextResponse.json(
+        { error: 'userId est requis' },
         { status: 400 }
       );
     }
