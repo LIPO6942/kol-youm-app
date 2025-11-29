@@ -1,12 +1,7 @@
 "use client"
 
-// Inspired by react-hot-toast library
 import * as React from "react"
-
-import type {
-  ToastActionElement,
-  ToastProps,
-} from "@/components/ui/toast"
+import type { ToastActionElement, ToastProps } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
@@ -215,8 +210,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 function useToast() {
   const context = React.useContext(ToastContext);
   
-  if (context === undefined) {
+  if (!context) {
     // Fallback to the global state if context is not available
+    return {
+      toasts: memoryState.toasts,
+      toast,
+      dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+    };
+  }
+  
+  return context;
     return {
       toasts: memoryState.toasts,
       toast,
