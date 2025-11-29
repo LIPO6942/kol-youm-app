@@ -78,7 +78,7 @@ const handleAiError = (error: any, toast: any) => {
 };
 
 export default function MovieSwiper({ genre }: { genre: string }) {
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, loading: authLoading } = useAuth();
   const [originalMovies, setOriginalMovies] = useState<MovieSuggestion[]>([]);
   const [movies, setMovies] = useState<MovieSuggestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -86,6 +86,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   const [isSuggestionsLoading, setIsSuggestionsLoading] = useState(true);
   const { toast } = useToast();
   const initialFetchDone = useRef(false);
+  const [isLoading, setIsLoading] = useState(true);
   // Quick filters
   const CURRENT_YEAR = new Date().getFullYear();
   const [yearRange, setYearRange] = useState<[number, number]>([1990, CURRENT_YEAR]);
@@ -192,13 +193,22 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   }, [yearRange]);
 
   useEffect(() => {
-    // This effect ensures we only fetch movies once when the component is ready.
-    if (userProfile && !initialFetchDone.current) {
+    if (!authLoading && userProfile) {
+      if (!initialFetchDone.current) {
         fetchMovies();
         initialFetchDone.current = true;
+      }
+      setIsLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userProfile]);
+  }, [authLoading, userProfile, fetchMovies]);
+
+  if (authLoading || isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   // Refetch suggestions when filters change (after initial load)
   useEffect(() => {
