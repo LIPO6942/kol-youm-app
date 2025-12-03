@@ -101,6 +101,11 @@ export async function POST(req: NextRequest) {
           }
         }
       }
+
+      // Fallback: utiliser le lien de recherche Wikipedia si rien trouvé
+      if (!wikipediaUrl) {
+        wikipediaUrl = `https://fr.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(details.title + ' film')}`;
+      }
     } catch (error) {
       console.log('Erreur lors de la recherche Wikipedia:', error);
       // Fallback: utiliser le lien de recherche Wikipedia

@@ -8,18 +8,21 @@ import { z } from 'zod';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile } from '@/lib/firebase/firestore';
+import { addPlace, deletePlace, PlaceItem } from '@/lib/firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, User, UserSquare, UploadCloud } from 'lucide-react';
+import { Loader2, User, UserSquare, UploadCloud, MapPin, Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 
 const formSchema = z.object({
@@ -37,6 +40,25 @@ interface TfarrejSettings {
   preferredCountries: string[];
   preferredMinRating: number;
 }
+
+interface PlaceFormData {
+  name: string;
+  category: 'café' | 'restaurant' | 'fast-food' | 'bar' | 'parc' | 'musée' | 'cinéma' | 'théâtre' | 'autre';
+  address?: string;
+  description?: string;
+}
+
+const PLACE_CATEGORIES = [
+  { value: 'café', label: 'Café' },
+  { value: 'restaurant', label: 'Restaurant' },
+  { value: 'fast-food', label: 'Fast Food' },
+  { value: 'bar', label: 'Bar' },
+  { value: 'parc', label: 'Parc' },
+  { value: 'musée', label: 'Musée' },
+  { value: 'cinéma', label: 'Cinéma' },
+  { value: 'théâtre', label: 'Théâtre' },
+  { value: 'autre', label: 'Autre' },
+];
 
 const fileToDataUri = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -129,13 +151,29 @@ export default function SettingsPage() {
   const { user, userProfile, updateUserProfile: updateProfile } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'tfarrej'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'tfarrej' | 'khrouj'>('profile');
   const [tfarrejSettings, setTfarrejSettings] = useState<TfarrejSettings>({
     preferredCountries: [],
     preferredMinRating: 6
   });
   const [isTfarrejLoading, setIsTfarrejLoading] = useState(false);
+  const [newPlace, setNewPlace] = useState<PlaceFormData>({
+    name: '',
+    category: 'café',
+    address: '',
+    description: ''
+  });
+  const [isAddingPlace, setIsAddingPlace] = useState(false);
+
+  // Gérer le paramètre d'URL pour l'onglet Tfarrej
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'tfarrej') {
+      setActiveTab('tfarrej');
+    }
+  }, [searchParams]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -192,6 +230,58 @@ export default function SettingsPage() {
       });
     } finally {
       setIsTfarrejLoading(false);
+    }
+  };
+
+  const handleAddPlace = async () => {
+    if (!user || !newPlace.name.trim()) return;
+
+    setIsAddingPlace(true);
+    try {
+      await addPlace(user.uid, {
+        name: newPlace.name.trim(),
+        category: newPlace.category,
+        address: newPlace.address?.trim(),
+        description: newPlace.description?.trim()
+      });
+
+      setNewPlace({
+        name: '',
+        category: 'café',
+        address: '',
+        description: ''
+      });
+
+      toast({
+        title: 'Lieu ajouté',
+        description: `${newPlace.name} a été ajouté à vos lieux`
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible d\'ajouter le lieu'
+      });
+    } finally {
+      setIsAddingPlace(false);
+    }
+  };
+
+  const handleDeletePlace = async (place: PlaceItem) => {
+    if (!user) return;
+
+    try {
+      await deletePlace(user.uid, place);
+      toast({
+        title: 'Lieu supprimé',
+        description: `${place.name} a été supprimé`
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de supprimer le lieu'
+      });
     }
   };
 
@@ -263,6 +353,16 @@ export default function SettingsPage() {
           onClick={() => setActiveTab('tfarrej')}
         >
           Tfarrej
+        </button>
+        <button
+          className={`px-4 py-2 font-medium transition-colors ${
+            activeTab === 'khrouj'
+              ? 'text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+          onClick={() => setActiveTab('khrouj')}
+        >
+          Khrouj
         </button>
       </div>
 
@@ -414,6 +514,138 @@ export default function SettingsPage() {
                 >
                   Réinitialiser
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === 'khrouj' && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Mes Lieux Khrouj
+              </CardTitle>
+              <CardDescription>
+                Gérez vos lieux préférés pour vos sorties (cafés, restaurants, etc.)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Formulaire d'ajout */}
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+                <h3 className="text-sm font-medium">Ajouter un nouveau lieu</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="place-name" className="text-sm">Nom du lieu *</Label>
+                    <Input
+                      id="place-name"
+                      placeholder="Ex: Café de la Paix"
+                      value={newPlace.name}
+                      onChange={(e) => setNewPlace(prev => ({ ...prev, name: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="place-category" className="text-sm">Catégorie</Label>
+                    <Select
+                      value={newPlace.category}
+                      onValueChange={(value: any) => setNewPlace(prev => ({ ...prev, category: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choisir une catégorie" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PLACE_CATEGORIES.map((cat) => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="place-address" className="text-sm">Adresse</Label>
+                    <Input
+                      id="place-address"
+                      placeholder="Ex: 123 Rue de la Paix, 75001 Paris"
+                      value={newPlace.address}
+                      onChange={(e) => setNewPlace(prev => ({ ...prev, address: e.target.value }))}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label htmlFor="place-description" className="text-sm">Description</Label>
+                    <Textarea
+                      id="place-description"
+                      placeholder="Description optionnelle du lieu..."
+                      value={newPlace.description}
+                      onChange={(e) => setNewPlace(prev => ({ ...prev, description: e.target.value }))}
+                      rows={3}
+                    />
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleAddPlace} 
+                  disabled={!newPlace.name.trim() || isAddingPlace}
+                  className="w-full md:w-auto"
+                >
+                  {isAddingPlace ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Ajout...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Ajouter le lieu
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Liste des lieux */}
+              <div>
+                <h3 className="text-sm font-medium mb-3">Mes lieux ({userProfile?.places?.length || 0})</h3>
+                {userProfile?.places && userProfile.places.length > 0 ? (
+                  <div className="space-y-2">
+                    {userProfile.places
+                      .sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' }))
+                      .map((place) => (
+                        <div key={place.id} className="flex items-start justify-between p-3 border rounded-lg hover:bg-muted/50">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-medium">{place.name}</h4>
+                              <Badge variant="secondary" className="text-xs">
+                                {PLACE_CATEGORIES.find(cat => cat.value === place.category)?.label || place.category}
+                              </Badge>
+                            </div>
+                            {place.address && (
+                              <p className="text-sm text-muted-foreground mb-1">
+                                📍 {place.address}
+                              </p>
+                            )}
+                            {place.description && (
+                              <p className="text-sm text-muted-foreground">{place.description}</p>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeletePlace(place)}
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MapPin className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p>Vous n'avez pas encore ajouté de lieux.</p>
+                    <p className="text-sm">Ajoutez vos cafés, restaurants et autres lieux préférés !</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

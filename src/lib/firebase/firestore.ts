@@ -11,6 +11,15 @@ export type WardrobeItem = {
     createdAt: number; // Timestamp for sorting
 };
 
+export type PlaceItem = {
+  id: string;
+  name: string;
+  category: 'café' | 'restaurant' | 'fast-food' | 'bar' | 'parc' | 'musée' | 'cinéma' | 'théâtre' | 'autre';
+  address?: string;
+  description?: string;
+  createdAt: any;
+};
+
 export type UserProfile = {
     uid: string;
     email: string | null;
@@ -23,6 +32,7 @@ export type UserProfile = {
     moviesToWatch?: string[];
     seenKhroujSuggestions?: string[];
     wardrobe?: WardrobeItem[];
+    places?: PlaceItem[];
     // Tfarrej preferences
     preferredCountries?: string[];
     preferredMinRating?: number;
@@ -41,6 +51,7 @@ export async function createUserProfile(uid: string, data: { email: string | nul
     moviesToWatch: [],
     seenKhroujSuggestions: [],
     wardrobe: [],
+    places: [],
     preferredCountries: [],
     preferredMinRating: 6,
     fullBodyPhotoUrl: '',
@@ -147,6 +158,46 @@ export async function deleteWardrobeItem(uid: string, itemToDelete: WardrobeItem
     await setDoc(userRef, {
         wardrobe: arrayRemove(itemToDelete)
     }, { merge: true });
+}
+
+export async function addPlace(uid: string, place: Omit<PlaceItem, 'id' | 'createdAt'>) {
+    const newPlace: PlaceItem = {
+        ...place,
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        createdAt: serverTimestamp(),
+    };
+
+    const userRef = doc(firestoreDb, 'users', uid);
+    await setDoc(userRef, {
+        places: arrayUnion(newPlace)
+    }, { merge: true });
+
+    // Update local state
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = {
+            ...localProfile,
+            places: [...(localProfile.places || []), newPlace]
+        };
+        await storeUserInDb(uid, updatedProfile);
+    }
+}
+
+export async function deletePlace(uid: string, placeToDelete: PlaceItem) {
+    const userRef = doc(firestoreDb, 'users', uid);
+    await setDoc(userRef, {
+        places: arrayRemove(placeToDelete)
+    }, { merge: true });
+
+    // Update local state
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = {
+            ...localProfile,
+            places: (localProfile.places || []).filter(p => p.id !== placeToDelete.id)
+        };
+        await storeUserInDb(uid, updatedProfile);
+    }
 }
 
 

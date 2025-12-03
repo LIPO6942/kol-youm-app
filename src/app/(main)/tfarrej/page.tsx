@@ -77,7 +77,7 @@ function TfarrejContent() {
                 </p>
             </div>
             <div className="flex gap-2 self-end sm:self-center">
-                <Button variant="outline" onClick={() => router.push('/settings')}>
+                <Button variant="outline" onClick={() => router.push('/settings?tab=tfarrej')}>
                     <Settings className="mr-2 h-4 w-4" /> Paramètres
                 </Button>
                 <MovieListSheet
