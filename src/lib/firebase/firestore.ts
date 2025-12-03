@@ -72,7 +72,7 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
         if (key === 'fullBodyPhotoUrl' || key === 'closeupPhotoUrl') {
             localData[key] = (data as any)[key];
         } else {
-             if (key === 'seenMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions' || key === 'wardrobe') {
+             if (key === 'seenMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions' || key === 'wardrobe' || key === 'places') {
                 firestoreData[key] = arrayUnion(...(data as any)[key]);
             } else {
                 firestoreData[key] = (data as any)[key];
@@ -103,6 +103,11 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
             const allItems = [...(localProfile.wardrobe || []), ...data.wardrobe];
             const uniqueItems = Array.from(new Map(allItems.map(item => [item.id, item])).values());
             updatedProfile.wardrobe = uniqueItems;
+        }
+        if (data.places) {
+            const allPlaces = [...(localProfile.places || []), ...data.places];
+            const uniquePlaces = Array.from(new Map(allPlaces.map(place => [place.id, place])).values());
+            updatedProfile.places = uniquePlaces;
         }
 
         await storeUserInDb(uid, updatedProfile);
