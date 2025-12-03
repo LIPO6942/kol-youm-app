@@ -138,11 +138,10 @@ function MovieListContent({
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-6 px-2 text-xs"
+                                    className="h-6 w-6 p-0"
                                     onClick={() => window.open(details.wikipediaUrl, '_blank')}
                                   >
-                                    <ExternalLink className="h-3 w-3 mr-1" />
-                                    Wikipedia
+                                    <ExternalLink className="h-3 w-3" />
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>

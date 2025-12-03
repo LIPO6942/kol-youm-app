@@ -61,6 +61,52 @@ export async function POST(req: NextRequest) {
 
     const details = await detailsResponse.json();
 
+    // Rechercher le lien Wikipedia correct
+    let wikipediaUrl = '';
+    try {
+      // Utiliser l'API Wikipedia pour trouver la page correcte
+      const wikiSearchResponse = await fetch(
+        `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(details.title)}_${new Date(details.release_date).getFullYear()}`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+        }
+      );
+
+      if (wikiSearchResponse.ok) {
+        const wikiData = await wikiSearchResponse.json();
+        wikipediaUrl = wikiData.content_urls?.desktop?.page || '';
+      }
+
+      // Si la recherche avec année ne fonctionne pas, essayer sans année
+      if (!wikipediaUrl) {
+        const wikiSearchResponse2 = await fetch(
+          `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(details.title)}`,
+          {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+            },
+          }
+        );
+
+        if (wikiSearchResponse2.ok) {
+          const wikiData2 = await wikiSearchResponse2.json();
+          // Vérifier si c'est bien un film (contient "film" dans la description ou le titre)
+          if (wikiData2.description?.toLowerCase().includes('film') || 
+              wikiData2.title?.toLowerCase().includes('film')) {
+            wikipediaUrl = wikiData2.content_urls?.desktop?.page || '';
+          }
+        }
+      }
+    } catch (error) {
+      console.log('Erreur lors de la recherche Wikipedia:', error);
+      // Fallback: utiliser le lien de recherche Wikipedia
+      wikipediaUrl = `https://fr.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(details.title + ' film')}`;
+    }
+
     // Formater les données pour le retour
     const formattedMovie = {
       id: details.id,
@@ -69,7 +115,7 @@ export async function POST(req: NextRequest) {
       rating: details.vote_average ? Math.round(details.vote_average * 10) / 10 : undefined,
       synopsis: details.overview || 'Synopsis non disponible.',
       country: details.production_countries?.[0]?.name || 'Inconnu',
-      wikipediaUrl: `https://fr.wikipedia.org/wiki/${encodeURIComponent(details.title.replace(/\s+/g, '_'))}`,
+      wikipediaUrl: wikipediaUrl,
       actors: [], // Pourrait être ajouté avec un autre appel API
     };
 
