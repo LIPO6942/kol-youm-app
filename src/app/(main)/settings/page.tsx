@@ -46,6 +46,7 @@ interface PlaceFormData {
   category: 'café' | 'restaurant' | 'fast-food' | 'bar' | 'parc' | 'musée' | 'cinéma' | 'théâtre' | 'autre';
   address?: string;
   description?: string;
+  predefinedArea?: string;
 }
 
 const PLACE_CATEGORIES = [
@@ -58,6 +59,34 @@ const PLACE_CATEGORIES = [
   { value: 'cinéma', label: 'Cinéma' },
   { value: 'théâtre', label: 'Théâtre' },
   { value: 'autre', label: 'Autre' },
+];
+
+const PREDEFINED_AREAS = [
+  'Ain Zaghouan Nord',
+  'Boumhal',
+  'Carthage',
+  'Centre-ville de Tunis',
+  'El Aouina',
+  'El Manar',
+  'Ennasr',
+  'Ezzahra',
+  'Gammarth',
+  'Hammamet',
+  'Jardins de Carthage',
+  'La Goulette/Kram',
+  'La Marsa',
+  'La Soukra',
+  'Le Bardo',
+  'Les Berges du Lac 1',
+  'Les Berges du Lac 2',
+  'Menzah 1',
+  'Menzah 5',
+  'Menzah 6',
+  'Menzah 8',
+  'Menzah 9',
+  'Mutuelleville / Alain Savary',
+  'Mégrine',
+  'Nabeul'
 ];
 
 const fileToDataUri = (file: File): Promise<string> => {
@@ -163,7 +192,8 @@ export default function SettingsPage() {
     name: '',
     category: 'café',
     address: '',
-    description: ''
+    description: '',
+    predefinedArea: ''
   });
   const [isAddingPlace, setIsAddingPlace] = useState(false);
 
@@ -242,14 +272,16 @@ export default function SettingsPage() {
         name: newPlace.name.trim(),
         category: newPlace.category,
         address: newPlace.address?.trim(),
-        description: newPlace.description?.trim()
+        description: newPlace.description?.trim(),
+        predefinedArea: newPlace.predefinedArea
       });
 
       setNewPlace({
         name: '',
         category: 'café',
         address: '',
-        description: ''
+        description: '',
+        predefinedArea: ''
       });
 
       toast({
@@ -564,11 +596,29 @@ export default function SettingsPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div>
+                    <Label htmlFor="place-area" className="text-sm">Zone géographique</Label>
+                    <Select
+                      value={newPlace.predefinedArea}
+                      onValueChange={(value) => setNewPlace(prev => ({ ...prev, predefinedArea: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choisir une zone" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PREDEFINED_AREAS.map((area) => (
+                          <SelectItem key={area} value={area}>
+                            {area}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="md:col-span-2">
                     <Label htmlFor="place-address" className="text-sm">Adresse</Label>
                     <Input
                       id="place-address"
-                      placeholder="Ex: 123 Rue de la Paix, 75001 Paris"
+                      placeholder="123 Avenue Habib Bourguiba, Rades"
                       value={newPlace.address}
                       onChange={(e) => setNewPlace(prev => ({ ...prev, address: e.target.value }))}
                     />
@@ -618,6 +668,11 @@ export default function SettingsPage() {
                               <Badge variant="secondary" className="text-xs">
                                 {PLACE_CATEGORIES.find(cat => cat.value === place.category)?.label || place.category}
                               </Badge>
+                              {place.predefinedArea && (
+                                <Badge variant="outline" className="text-xs">
+                                  📍 {place.predefinedArea}
+                                </Badge>
+                              )}
                             </div>
                             {place.address && (
                               <p className="text-sm text-muted-foreground mb-1">

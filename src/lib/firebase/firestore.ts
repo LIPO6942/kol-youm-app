@@ -17,6 +17,7 @@ export type PlaceItem = {
   category: 'café' | 'restaurant' | 'fast-food' | 'bar' | 'parc' | 'musée' | 'cinéma' | 'théâtre' | 'autre';
   address?: string;
   description?: string;
+  predefinedArea?: string;
   createdAt: any;
 };
 
