@@ -1,17 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger,
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Film, Trash2, Eye, Loader2 } from "lucide-react";
+import { Film, Trash2, Eye, Loader2, Star, ExternalLink } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { moveMovieFromWatchlistToSeen, clearUserMovieList, removeMovieFromList } from '@/lib/firebase/firestore';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
+
+interface MovieDetails {
+  title: string;
+  rating?: number;
+  wikipediaUrl?: string;
+  year?: number;
+  country?: string;
+}
 
 interface MovieListSheetProps {
   trigger: React.ReactNode;
@@ -33,9 +42,56 @@ function MovieListContent({
   isUpdating: boolean;
 }) {
   const { userProfile } = useAuth();
+  const [movieDetails, setMovieDetails] = useState<Record<string, MovieDetails>>({});
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   
   const movieTitles = userProfile?.[listType];
   const sortedMovieTitles = movieTitles ? [...movieTitles].sort((a, b) => a.localeCompare(b, 'fr', {sensitivity: 'base'})) : [];
+
+  // Fonction pour récupérer les détails d'un film
+  const fetchMovieDetails = async (movieTitle: string) => {
+    if (movieDetails[movieTitle]) return; // Déjà chargé
+
+    setIsLoadingDetails(true);
+    try {
+      const response = await fetch('/api/tmdb-movie-details', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: movieTitle }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.movie) {
+          setMovieDetails(prev => ({
+            ...prev,
+            [movieTitle]: {
+              title: movieTitle,
+              rating: data.movie.rating,
+              wikipediaUrl: data.movie.wikipediaUrl,
+              year: data.movie.year,
+              country: data.movie.country,
+            }
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors de la récupération des détails du film:', error);
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
+
+  // Charger les détails pour les films dans la liste "À Voir"
+  useEffect(() => {
+    if (listType === 'moviesToWatch' && sortedMovieTitles.length > 0) {
+      sortedMovieTitles.forEach(movieTitle => {
+        fetchMovieDetails(movieTitle);
+      });
+    }
+  }, [listType, sortedMovieTitles]);
   
   return (
     <div className="relative flex-grow">
@@ -44,51 +100,110 @@ function MovieListContent({
         <ScrollArea className="h-full pr-4">
           <div className="py-4 space-y-2">
             {sortedMovieTitles && sortedMovieTitles.length > 0 ? (
-              sortedMovieTitles.map((movieTitle, index) => (
-                <div key={`${movieTitle}-${index}`} className="flex items-start justify-between p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded group">
-                  <span className="text-sm flex-1 break-words pr-2 min-w-0" style={{ wordBreak: 'break-word' }}>
-                    {movieTitle}
-                  </span>
-                  <div className="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {listType === 'moviesToWatch' && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-7 w-7"
-                            onClick={() => onMarkAsWatched(movieTitle)}
-                            disabled={isUpdating}
-                          >
-                            <Eye className="h-4 w-4" />
-                            <span className="sr-only">Marquer comme vu</span>
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Marquer comme vu</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-7 w-7 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
-                          onClick={() => onRemove(movieTitle)}
-                          disabled={isUpdating}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Supprimer</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Supprimer</p>
-                      </TooltipContent>
-                    </Tooltip>
+              sortedMovieTitles.map((movieTitle, index) => {
+                const details = movieDetails[movieTitle];
+                return (
+                  <div key={`${movieTitle}-${index}`} className="flex flex-col p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded group">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium break-words" style={{ wordBreak: 'break-word' }}>
+                          {movieTitle}
+                        </h4>
+                        
+                        {/* Afficher les détails pour la liste "À Voir" */}
+                        {listType === 'moviesToWatch' && details && (
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            {details.rating && (
+                              <div className="flex items-center gap-1">
+                                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                <span className="text-xs font-medium">{details.rating}/10</span>
+                              </div>
+                            )}
+                            
+                            {details.year && (
+                              <Badge variant="secondary" className="text-xs">
+                                {details.year}
+                              </Badge>
+                            )}
+                            
+                            {details.country && (
+                              <Badge variant="outline" className="text-xs">
+                                {details.country}
+                              </Badge>
+                            )}
+                            
+                            {details.wikipediaUrl && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 text-xs"
+                                    onClick={() => window.open(details.wikipediaUrl, '_blank')}
+                                  >
+                                    <ExternalLink className="h-3 w-3 mr-1" />
+                                    Wikipedia
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Voir sur Wikipedia</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Afficher un loader si les détails sont en cours de chargement */}
+                        {listType === 'moviesToWatch' && !details && isLoadingDetails && (
+                          <div className="flex items-center gap-1 mt-2">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <span className="text-xs text-muted-foreground">Chargement...</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                        {listType === 'moviesToWatch' && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-7 w-7"
+                                onClick={() => onMarkAsWatched(movieTitle)}
+                                disabled={isUpdating}
+                              >
+                                <Eye className="h-4 w-4" />
+                                <span className="sr-only">Marquer comme vu</span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Marquer comme vu</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-7 w-7 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
+                              onClick={() => onRemove(movieTitle)}
+                              disabled={isUpdating}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">Supprimer</span>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Supprimer</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="flex flex-col items-center justify-center text-center text-muted-foreground h-[50vh]">
                 <Film className="h-10 w-10 mb-4" />
