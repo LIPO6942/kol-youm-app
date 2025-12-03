@@ -95,22 +95,28 @@ export async function POST(request: NextRequest) {
       // Échapper les caractères spéciaux dans le nom de la zone
       const escapedZone = zone.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       
-      // Créer le pattern pour trouver la zone spécifique
-      const zonePattern = new RegExp(`- \\*\\*Zone ${escapedZone} :\\*\\*[^-\\n]+(?:\\n[^-\\n]+)*`, 'g');
+      // Créer un pattern plus flexible qui gère les espaces et caractères spéciaux
+      const zonePattern = new RegExp(`- \\*\\*Zone ${escapedZone} :\\*\\*[^-]*`, 'g');
       
       // Créer le nouveau contenu
       const newZoneContent = `- **Zone ${zone} :** ${places.join(', ')}.`;
       
-      console.log('Replacing zone:', zone);
+      console.log('Looking for zone:', zone);
+      console.log('Pattern:', zonePattern);
       console.log('New content:', newZoneContent);
+      
+      // Chercher toutes les occurrences pour le debugging
+      const allMatches = fileContent.match(/- \*\*Zone [^:]* :\*\*/g);
+      console.log('All zones found:', allMatches);
       
       // Vérifier si le pattern existe
       const match = fileContent.match(zonePattern);
       if (!match) {
         console.error('Zone not found in file:', zone);
+        console.error('Available zones:', allMatches);
         return NextResponse.json({ 
           success: false, 
-          error: `Zone "${zone}" non trouvée dans le fichier pour la catégorie "${category}"` 
+          error: `Zone "${zone}" non trouvée. Zones disponibles: ${allMatches?.map(m => m.replace('- **Zone ', '').replace(' :**', '')).join(', ') || 'Aucune'}` 
         }, { status: 404 });
       }
       
