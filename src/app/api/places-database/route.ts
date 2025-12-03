@@ -86,23 +86,51 @@ export async function POST(request: NextRequest) {
   try {
     const { action, zone, places, category } = await request.json();
 
+    console.log('API Request:', { action, zone, places: places?.length, category });
+
     const filePath = join(process.cwd(), 'src', 'ai', 'flows', 'decision-maker-flow.ts');
     let fileContent = await readFile(filePath, 'utf-8');
 
     if (action === 'update') {
-      // Mettre à jour les lieux pour une zone spécifique dans la catégorie donnée
+      // Échapper les caractères spéciaux dans le nom de la zone
       const escapedZone = zone.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      // Créer le pattern pour trouver la zone spécifique
       const zonePattern = new RegExp(`- \\*\\*Zone ${escapedZone} :\\*\\*[^-\\n]+(?:\\n[^-\\n]+)*`, 'g');
+      
+      // Créer le nouveau contenu
       const newZoneContent = `- **Zone ${zone} :** ${places.join(', ')}.`;
       
+      console.log('Replacing zone:', zone);
+      console.log('New content:', newZoneContent);
+      
+      // Vérifier si le pattern existe
+      const match = fileContent.match(zonePattern);
+      if (!match) {
+        console.error('Zone not found in file:', zone);
+        return NextResponse.json({ 
+          success: false, 
+          error: `Zone "${zone}" non trouvée dans le fichier pour la catégorie "${category}"` 
+        }, { status: 404 });
+      }
+      
+      console.log('Found match:', match[0]);
+      
+      // Remplacer le contenu
       fileContent = fileContent.replace(zonePattern, newZoneContent);
+      
+      // Écrire le fichier
+      await writeFile(filePath, fileContent, 'utf-8');
+      
+      console.log('File updated successfully');
     }
-
-    await writeFile(filePath, fileContent, 'utf-8');
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error updating places database:', error);
-    return NextResponse.json({ success: false, error: 'Failed to update places database' }, { status: 500 });
+    return NextResponse.json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to update places database' 
+    }, { status: 500 });
   }
 }
