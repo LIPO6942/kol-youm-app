@@ -9,11 +9,10 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { MakeDecisionInputSchema, MakeDecisionOutputSchema, type MakeDecisionInput, type MakeDecisionOutput } from './decision-maker-flow.types';
-import type { AIPrompt } from 'genkit';
 
 // By defining the prompt inside the flow and caching it, we avoid making the Next.js server action bundle too large,
 // which can cause deployment failures on platforms like Vercel.
-let makeDecisionPrompt: AIPrompt | null = null;
+let makeDecisionPrompt: any = null;
 
 const makeDecisionFlow = ai.defineFlow(
   {
