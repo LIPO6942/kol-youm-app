@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, User, UserSquare, UploadCloud, MapPin, Plus, Trash2, Edit2, Save, X } from 'lucide-react';
+import { Loader2, User, UserSquare, UploadCloud, MapPin, Plus, Trash2, Edit2, Save, X, Database, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
@@ -24,8 +24,6 @@ import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db as firestoreDb } from '@/lib/firebase/client';
 
 const formSchema = z.object({
   age: z.coerce.number().min(13, { message: 'Vous devez avoir au moins 13 ans.' }).max(120, { message: 'Âge invalide.' }).optional().or(z.literal('')),
@@ -51,22 +49,15 @@ interface PlaceFormData {
   predefinedArea?: string;
 }
 
-interface Category {
-  id: string;
-  name: string;
-  value: string;
-  createdAt: any;
+interface DatabasePlace {
+  zone: string;
+  places: string[];
 }
 
-interface AdminPlace {
-  id: string;
-  name: string;
-  category: string;
-  address?: string;
-  description?: string;
-  predefinedArea?: string;
-  createdAt: any;
-  userId?: string;
+interface PlacesDatabase {
+  cafes: DatabasePlace[];
+  restaurants?: DatabasePlace[];
+  fastFoods?: DatabasePlace[];
 }
 
 const PLACE_CATEGORIES = [
@@ -216,71 +207,124 @@ export default function SettingsPage() {
     predefinedArea: ''
   });
   const [isAddingPlace, setIsAddingPlace] = useState(false);
-  const [adminMode, setAdminMode] = useState(false);
-  const [allPlaces, setAllPlaces] = useState<AdminPlace[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [editingCategory, setEditingCategory] = useState<string | null>(null);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [editingPlace, setEditingPlace] = useState<string | null>(null);
-  const [editedPlace, setEditedPlace] = useState<AdminPlace | null>(null);
-  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [databaseMode, setDatabaseMode] = useState(false);
+  const [placesDatabase, setPlacesDatabase] = useState<PlacesDatabase | null>(null);
+  const [isLoadingDatabase, setIsLoadingDatabase] = useState(false);
+  const [editingZone, setEditingZone] = useState<string | null>(null);
+  const [editedPlaces, setEditedPlaces] = useState<string[]>([]);
+  const [newPlaceName, setNewPlaceName] = useState('');
+  const [selectedZone, setSelectedZone] = useState('');
 
-  // Charger toutes les données admin
-  const loadAdminData = async () => {
-    setIsLoadingData(true);
+  // Charger la base de données des lieux
+  const loadPlacesDatabase = async () => {
+    setIsLoadingDatabase(true);
     try {
-      // Charger tous les lieux de tous les utilisateurs
-      const usersSnapshot = await getDocs(collection(firestoreDb, 'users'));
-      const places: AdminPlace[] = [];
+      const response = await fetch('/api/places-database');
+      const data = await response.json();
       
-      usersSnapshot.forEach(userDoc => {
-        const userData = userDoc.data();
-        if (userData.places && Array.isArray(userData.places)) {
-          userData.places.forEach((place: any) => {
-            places.push({
-              ...place,
-              userId: userDoc.id
-            });
-          });
-        }
-      });
-      
-      setAllPlaces(places.sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' })));
-      
-      // Charger les catégories personnalisées (si collection existe)
-      try {
-        const categoriesSnapshot = await getDocs(collection(firestoreDb, 'categories'));
-        const categoriesData: Category[] = [];
-        categoriesSnapshot.forEach(catDoc => {
-          const catData = catDoc.data();
-          categoriesData.push({
-            id: catDoc.id,
-            name: catData.name,
-            value: catData.value,
-            createdAt: catData.createdAt
-          });
+      if (data.success) {
+        setPlacesDatabase(data.data);
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Erreur',
+          description: 'Impossible de charger la base de données des lieux'
         });
-        setCategories(categoriesData);
-      } catch (error) {
-        console.log('Collection categories non existante ou vide');
       }
     } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Erreur',
-        description: 'Impossible de charger les données admin'
+        description: 'Erreur lors du chargement de la base de données'
       });
     } finally {
-      setIsLoadingData(false);
+      setIsLoadingDatabase(false);
     }
   };
 
-  // Charger les données admin quand on active le mode admin
+  // Charger la base de données quand on active le mode base de données
   useEffect(() => {
-    if (adminMode && activeTab === 'khrouj') {
-      loadAdminData();
+    if (databaseMode && activeTab === 'khrouj') {
+      loadPlacesDatabase();
     }
-  }, [adminMode, activeTab]);
+  }, [databaseMode, activeTab]);
+
+  // Handlers pour la gestion de la base de données
+  const handleUpdateZone = async (zone: string, places: string[]) => {
+    try {
+      const response = await fetch('/api/places-database', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update',
+          zone,
+          places,
+          category: 'cafés'
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setEditingZone(null);
+        setEditedPlaces([]);
+        loadPlacesDatabase();
+        toast({
+          title: 'Zone mise à jour',
+          description: `Les lieux de ${zone} ont été mis à jour`
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Erreur',
+          description: 'Impossible de mettre à jour la zone'
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Erreur lors de la mise à jour'
+      });
+    }
+  };
+
+  const handleAddPlaceToZone = (zone: string) => {
+    if (!newPlaceName.trim()) return;
+    
+    const currentZone = placesDatabase?.cafes.find(z => z.zone === zone);
+    const updatedPlaces = [...(currentZone?.places || []), newPlaceName.trim()];
+    
+    handleUpdateZone(zone, updatedPlaces);
+    setNewPlaceName('');
+  };
+
+  const handleRemovePlaceFromZone = (zone: string, placeToRemove: string) => {
+    const currentZone = placesDatabase?.cafes.find(z => z.zone === zone);
+    const updatedPlaces = (currentZone?.places || []).filter(p => p !== placeToRemove);
+    
+    handleUpdateZone(zone, updatedPlaces);
+  };
+
+  const handleStartEditingZone = (zone: string) => {
+    const currentZone = placesDatabase?.cafes.find(z => z.zone === zone);
+    setEditingZone(zone);
+    setEditedPlaces(currentZone?.places || []);
+  };
+
+  const handleSaveZone = (zone: string) => {
+    handleUpdateZone(zone, editedPlaces);
+  };
+
+  const handleAddPlaceToEditing = () => {
+    if (!newPlaceName.trim()) return;
+    setEditedPlaces([...editedPlaces, newPlaceName.trim()]);
+    setNewPlaceName('');
+  };
+
+  const handleRemovePlaceFromEditing = (placeToRemove: string) => {
+    setEditedPlaces(editedPlaces.filter(p => p !== placeToRemove));
+  };
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -384,128 +428,6 @@ export default function SettingsPage() {
       toast({
         title: 'Lieu supprimé',
         description: `${place.name} a été supprimé`
-      });
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: 'Impossible de supprimer le lieu'
-      });
-    }
-  };
-
-  // Handlers admin pour les catégories
-  const handleAddCategory = async () => {
-    if (!newCategoryName.trim()) return;
-
-    try {
-      const categoryValue = newCategoryName.toLowerCase().replace(/[^a-z0-9]/g, '-');
-      const categoryRef = doc(collection(firestoreDb, 'categories'));
-      await setDoc(categoryRef, {
-        name: newCategoryName.trim(),
-        value: categoryValue,
-        createdAt: serverTimestamp()
-      });
-
-      setNewCategoryName('');
-      loadAdminData();
-      toast({
-        title: 'Catégorie ajoutée',
-        description: `${newCategoryName} a été ajoutée`
-      });
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: 'Impossible d\'ajouter la catégorie'
-      });
-    }
-  };
-
-  const handleUpdateCategory = async (categoryId: string, newName: string) => {
-    try {
-      const categoryRef = doc(firestoreDb, 'categories', categoryId);
-      await updateDoc(categoryRef, {
-        name: newName.trim()
-      });
-
-      setEditingCategory(null);
-      loadAdminData();
-      toast({
-        title: 'Catégorie modifiée',
-        description: `La catégorie a été mise à jour`
-      });
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: 'Impossible de modifier la catégorie'
-      });
-    }
-  };
-
-  const handleDeleteCategory = async (categoryId: string) => {
-    try {
-      await deleteDoc(doc(firestoreDb, 'categories', categoryId));
-      loadAdminData();
-      toast({
-        title: 'Catégorie supprimée',
-        description: 'La catégorie a été supprimée'
-      });
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: 'Impossible de supprimer la catégorie'
-      });
-    }
-  };
-
-  // Handlers admin pour les lieux
-  const handleUpdatePlace = async () => {
-    if (!editedPlace || !editingPlace) return;
-
-    try {
-      const userRef = doc(firestoreDb, 'users', editedPlace.userId!);
-      const userData = (await getDoc(userRef)).data();
-      const places = userData.places || [];
-      
-      const updatedPlaces = places.map((place: any) => 
-        place.id === editingPlace ? editedPlace : place
-      );
-      
-      await updateDoc(userRef, { places: updatedPlaces });
-      
-      setEditingPlace(null);
-      setEditedPlace(null);
-      loadAdminData();
-      toast({
-        title: 'Lieu modifié',
-        description: 'Le lieu a été mis à jour'
-      });
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: 'Impossible de modifier le lieu'
-      });
-    }
-  };
-
-  const handleDeleteAdminPlace = async (place: AdminPlace) => {
-    try {
-      const userRef = doc(firestoreDb, 'users', place.userId!);
-      const userData = (await getDoc(userRef)).data();
-      const places = userData.places || [];
-      
-      const updatedPlaces = places.filter((p: any) => p.id !== place.id);
-      
-      await updateDoc(userRef, { places: updatedPlaces });
-      
-      loadAdminData();
-      toast({
-        title: 'Lieu supprimé',
-        description: `${place.name} a été supprimé de la base de données`
       });
     } catch (error) {
       toast({
@@ -902,195 +824,249 @@ export default function SettingsPage() {
                 )}
               </div>
 
-              {/* Section Admin */}
+              {/* Section Base de Données */}
               <div className="mt-8 pt-8 border-t">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h3 className="text-lg font-medium">Gestion des catégories et lieux</h3>
-                    <p className="text-sm text-muted-foreground">Administrez toutes les catégories et lieux de la base de données</p>
+                    <h3 className="text-lg font-medium flex items-center gap-2">
+                      <Database className="h-5 w-5" />
+                      Base de données des lieux
+                    </h3>
+                    <p className="text-sm text-muted-foreground">Gérez les cafés et restaurants du système IA</p>
                   </div>
-                  <Button
-                    variant={adminMode ? "destructive" : "default"}
-                    onClick={() => setAdminMode(!adminMode)}
-                  >
-                    {adminMode ? (
-                      <>
-                        <X className="mr-2 h-4 w-4" />
-                        Quitter le mode admin
-                      </>
-                    ) : (
-                      <>
-                        <Edit2 className="mr-2 h-4 w-4" />
-                        Mode admin
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadPlacesDatabase}
+                      disabled={isLoadingDatabase}
+                    >
+                      <RefreshCw className={`mr-2 h-4 w-4 ${isLoadingDatabase ? 'animate-spin' : ''}`} />
+                      Actualiser
+                    </Button>
+                    <Button
+                      variant={databaseMode ? "destructive" : "default"}
+                      onClick={() => setDatabaseMode(!databaseMode)}
+                    >
+                      {databaseMode ? (
+                        <>
+                          <X className="mr-2 h-4 w-4" />
+                          Quitter le mode BD
+                        </>
+                      ) : (
+                        <>
+                          <Database className="mr-2 h-4 w-4" />
+                          Mode base de données
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
-                {adminMode && (
+                {databaseMode && (
                   <div className="space-y-6">
-                    {isLoadingData && (
+                    {isLoadingDatabase && (
                       <div className="flex items-center justify-center py-8">
                         <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                        <span>Chargement des données...</span>
+                        <span>Chargement de la base de données...</span>
                       </div>
                     )}
 
-                    {/* Gestion des catégories */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-base">Catégories ({categories.length})</CardTitle>
-                        <CardDescription>Gérez les catégories disponibles pour les lieux</CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        {/* Ajouter une catégorie */}
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="Nouvelle catégorie..."
-                            value={newCategoryName}
-                            onChange={(e) => setNewCategoryName(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
-                          />
-                          <Button onClick={handleAddCategory} disabled={!newCategoryName.trim()}>
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-
-                        {/* Liste des catégories */}
-                        <div className="space-y-2">
-                          {/* Catégories par défaut */}
-                          {PLACE_CATEGORIES.map((cat) => (
-                            <div key={cat.value} className="flex items-center justify-between p-2 border rounded bg-muted/30">
-                              <span className="text-sm">{cat.label}</span>
-                              <Badge variant="outline" className="text-xs">Par défaut</Badge>
-                            </div>
-                          ))}
-                          
-                          {/* Catégories personnalisées */}
-                          {categories.map((category) => (
-                            <div key={category.id} className="flex items-center justify-between p-2 border rounded">
-                              {editingCategory === category.id ? (
-                                <div className="flex gap-2 flex-1">
-                                  <Input
-                                    defaultValue={category.name}
-                                    onKeyPress={(e) => {
-                                      if (e.key === 'Enter') {
-                                        handleUpdateCategory(category.id, (e.target as HTMLInputElement).value);
-                                      }
-                                    }}
-                                    className="flex-1"
-                                  />
-                                  <Button size="sm" onClick={() => handleUpdateCategory(category.id, (document.querySelector('input') as HTMLInputElement).value)}>
-                                    <Save className="h-3 w-3" />
-                                  </Button>
-                                  <Button size="sm" variant="outline" onClick={() => setEditingCategory(null)}>
-                                    <X className="h-3 w-3" />
-                                  </Button>
+                    {placesDatabase && (
+                      <>
+                        {/* Statistiques */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm text-blue-600 font-medium">Total Cafés</p>
+                                  <p className="text-2xl font-bold text-blue-900">
+                                    {placesDatabase.cafes.reduce((acc, zone) => acc + zone.places.length, 0)}
+                                  </p>
                                 </div>
-                              ) : (
-                                <>
-                                  <span className="text-sm">{category.name}</span>
-                                  <div className="flex gap-1">
-                                    <Button size="sm" variant="ghost" onClick={() => setEditingCategory(category.id)}>
-                                      <Edit2 className="h-3 w-3" />
-                                    </Button>
-                                    <Button size="sm" variant="ghost" onClick={() => handleDeleteCategory(category.id)} className="text-red-500">
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          ))}
+                                <MapPin className="h-8 w-8 text-blue-500" />
+                              </div>
+                            </CardContent>
+                          </Card>
+                          <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm text-green-600 font-medium">Zones couvertes</p>
+                                  <p className="text-2xl font-bold text-green-900">
+                                    {placesDatabase.cafes.length}
+                                  </p>
+                                </div>
+                                <Database className="h-8 w-8 text-green-500" />
+                              </div>
+                            </CardContent>
+                          </Card>
+                          <Card className="bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200">
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm text-purple-600 font-medium">Moyenne/Zone</p>
+                                  <p className="text-2xl font-bold text-purple-900">
+                                    {Math.round(placesDatabase.cafes.reduce((acc, zone) => acc + zone.places.length, 0) / placesDatabase.cafes.length)}
+                                  </p>
+                                </div>
+                                <Plus className="h-8 w-8 text-purple-500" />
+                              </div>
+                            </CardContent>
+                          </Card>
                         </div>
-                      </CardContent>
-                    </Card>
 
-                    {/* Gestion des lieux */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-base">Tous les lieux ({allPlaces.length})</CardTitle>
-                        <CardDescription>Tous les lieux ajoutés par les utilisateurs</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {allPlaces.length > 0 ? (
-                          <div className="space-y-2">
-                            {allPlaces.map((place) => (
-                              <div key={place.id} className="flex items-start justify-between p-3 border rounded-lg">
-                                {editingPlace === place.id ? (
-                                  <div className="flex-1 space-y-2">
-                                    <Input
-                                      defaultValue={place.name}
-                                      onChange={(e) => setEditedPlace(prev => prev ? {...prev, name: e.target.value} : null)}
-                                      placeholder="Nom du lieu"
-                                    />
-                                    <Select
-                                      defaultValue={place.category}
-                                      onValueChange={(value) => setEditedPlace(prev => prev ? {...prev, category: value} : null)}
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {[...PLACE_CATEGORIES, ...categories.map(cat => ({value: cat.value, label: cat.name}))].map((cat) => (
-                                          <SelectItem key={cat.value} value={cat.value}>
-                                            {cat.label}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    <Input
-                                      defaultValue={place.address || ''}
-                                      onChange={(e) => setEditedPlace(prev => prev ? {...prev, address: e.target.value} : null)}
-                                      placeholder="Adresse"
-                                    />
+                        {/* Gestion par zone */}
+                        <div className="space-y-4">
+                          <h4 className="text-base font-medium">Gestion des lieux par zone</h4>
+                          
+                          {placesDatabase.cafes.map((zoneData) => (
+                            <Card key={zoneData.zone} className="overflow-hidden">
+                              <CardHeader className="pb-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <h5 className="font-medium">{zoneData.zone}</h5>
+                                    <Badge variant="secondary" className="text-xs">
+                                      {zoneData.places.length} lieux
+                                    </Badge>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    {editingZone === zoneData.zone ? (
+                                      <>
+                                        <Button size="sm" onClick={() => handleSaveZone(zoneData.zone)}>
+                                          <Save className="h-3 w-3 mr-1" />
+                                          Sauver
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => setEditingZone(null)}>
+                                          <X className="h-3 w-3 mr-1" />
+                                          Annuler
+                                        </Button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Button size="sm" variant="ghost" onClick={() => handleStartEditingZone(zoneData.zone)}>
+                                          <Edit2 className="h-3 w-3 mr-1" />
+                                          Modifier
+                                        </Button>
+                                        <Button 
+                                          size="sm" 
+                                          variant="ghost" 
+                                          onClick={() => {
+                                            setSelectedZone(zoneData.zone);
+                                            setNewPlaceName('');
+                                          }}
+                                        >
+                                          <Plus className="h-3 w-3 mr-1" />
+                                          Ajouter
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="pt-0">
+                                {editingZone === zoneData.zone ? (
+                                  <div className="space-y-3">
+                                    {/* Ajouter un lieu en mode édition */}
                                     <div className="flex gap-2">
-                                      <Button size="sm" onClick={handleUpdatePlace}>
-                                        <Save className="h-3 w-3 mr-1" />
-                                        Sauvegarder
+                                      <Input
+                                        placeholder="Nouveau lieu..."
+                                        value={newPlaceName}
+                                        onChange={(e) => setNewPlaceName(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && handleAddPlaceToEditing()}
+                                        className="flex-1"
+                                      />
+                                      <Button size="sm" onClick={handleAddPlaceToEditing} disabled={!newPlaceName.trim()}>
+                                        <Plus className="h-3 w-3" />
                                       </Button>
-                                      <Button size="sm" variant="outline" onClick={() => {setEditingPlace(null); setEditedPlace(null);}}>
-                                        Annuler
-                                      </Button>
+                                    </div>
+                                    
+                                    {/* Liste des lieux en édition */}
+                                    <div className="space-y-1">
+                                      {editedPlaces.map((place, index) => (
+                                        <div key={index} className="flex items-center justify-between p-2 border rounded bg-muted/30">
+                                          <span className="text-sm">{place}</span>
+                                          <Button 
+                                            size="sm" 
+                                            variant="ghost" 
+                                            onClick={() => handleRemovePlaceFromEditing(place)}
+                                            className="text-red-500 h-6 w-6 p-0"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      ))}
+                                      {editedPlaces.length === 0 && (
+                                        <p className="text-sm text-muted-foreground text-center py-2">
+                                          Aucun lieu dans cette zone
+                                        </p>
+                                      )}
                                     </div>
                                   </div>
                                 ) : (
-                                  <>
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <h4 className="font-medium text-sm">{place.name}</h4>
-                                        <Badge variant="secondary" className="text-xs">
-                                          {[...PLACE_CATEGORIES, ...categories].find(cat => cat.value === place.category)?.label || place.category}
-                                        </Badge>
+                                  <div className="space-y-1">
+                                    {/* Ajout rapide de lieu */}
+                                    {selectedZone === zoneData.zone && (
+                                      <div className="flex gap-2 p-2 border rounded bg-blue-50">
+                                        <Input
+                                          placeholder="Nom du nouveau lieu..."
+                                          value={newPlaceName}
+                                          onChange={(e) => setNewPlaceName(e.target.value)}
+                                          onKeyPress={(e) => {
+                                            if (e.key === 'Enter') {
+                                              handleAddPlaceToZone(zoneData.zone);
+                                              setSelectedZone('');
+                                            }
+                                          }}
+                                          className="flex-1"
+                                        />
+                                        <Button 
+                                          size="sm" 
+                                          onClick={() => {
+                                            handleAddPlaceToZone(zoneData.zone);
+                                            setSelectedZone('');
+                                          }}
+                                          disabled={!newPlaceName.trim()}
+                                        >
+                                          <Plus className="h-3 w-3 mr-1" />
+                                          Ajouter
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => setSelectedZone('')}>
+                                          <X className="h-3 w-3" />
+                                        </Button>
                                       </div>
-                                      {place.address && (
-                                        <p className="text-xs text-muted-foreground">📍 {place.address}</p>
-                                      )}
-                                      {place.predefinedArea && (
-                                        <p className="text-xs text-muted-foreground">🌍 {place.predefinedArea}</p>
-                                      )}
+                                    )}
+                                    
+                                    {/* Liste des lieux */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+                                      {zoneData.places.map((place, index) => (
+                                        <div key={index} className="flex items-center justify-between p-2 border rounded hover:bg-muted/50 group">
+                                          <span className="text-sm truncate">{place}</span>
+                                          <Button 
+                                            size="sm" 
+                                            variant="ghost" 
+                                            onClick={() => handleRemovePlaceFromZone(zoneData.zone, place)}
+                                            className="text-red-500 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      ))}
                                     </div>
-                                    <div className="flex gap-1">
-                                      <Button size="sm" variant="ghost" onClick={() => {setEditingPlace(place.id); setEditedPlace(place);}}>
-                                        <Edit2 className="h-3 w-3" />
-                                      </Button>
-                                      <Button size="sm" variant="ghost" onClick={() => handleDeleteAdminPlace(place)} className="text-red-500">
-                                        <Trash2 className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                  </>
+                                    {zoneData.places.length === 0 && (
+                                      <p className="text-sm text-muted-foreground text-center py-4">
+                                        Aucun lieu dans cette zone
+                                      </p>
+                                    )}
+                                  </div>
                                 )}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <MapPin className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                            <p>Aucun lieu trouvé dans la base de données</p>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
