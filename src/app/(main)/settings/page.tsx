@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, User, UserSquare, UploadCloud, MapPin, Plus, Trash2 } from 'lucide-react';
+import { Loader2, User, UserSquare, UploadCloud, MapPin, Plus, Trash2, Edit2, Save, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
@@ -24,6 +24,8 @@ import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db as firestoreDb } from '@/lib/firebase/client';
 
 const formSchema = z.object({
   age: z.coerce.number().min(13, { message: 'Vous devez avoir au moins 13 ans.' }).max(120, { message: 'Âge invalide.' }).optional().or(z.literal('')),
@@ -47,6 +49,24 @@ interface PlaceFormData {
   address?: string;
   description?: string;
   predefinedArea?: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  value: string;
+  createdAt: any;
+}
+
+interface AdminPlace {
+  id: string;
+  name: string;
+  category: string;
+  address?: string;
+  description?: string;
+  predefinedArea?: string;
+  createdAt: any;
+  userId?: string;
 }
 
 const PLACE_CATEGORIES = [
@@ -196,14 +216,71 @@ export default function SettingsPage() {
     predefinedArea: ''
   });
   const [isAddingPlace, setIsAddingPlace] = useState(false);
+  const [adminMode, setAdminMode] = useState(false);
+  const [allPlaces, setAllPlaces] = useState<AdminPlace[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingPlace, setEditingPlace] = useState<string | null>(null);
+  const [editedPlace, setEditedPlace] = useState<AdminPlace | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(false);
 
-  // Gérer le paramètre d'URL pour l'onglet Tfarrej
-  useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab === 'tfarrej') {
-      setActiveTab('tfarrej');
+  // Charger toutes les données admin
+  const loadAdminData = async () => {
+    setIsLoadingData(true);
+    try {
+      // Charger tous les lieux de tous les utilisateurs
+      const usersSnapshot = await getDocs(collection(firestoreDb, 'users'));
+      const places: AdminPlace[] = [];
+      
+      usersSnapshot.forEach(userDoc => {
+        const userData = userDoc.data();
+        if (userData.places && Array.isArray(userData.places)) {
+          userData.places.forEach((place: any) => {
+            places.push({
+              ...place,
+              userId: userDoc.id
+            });
+          });
+        }
+      });
+      
+      setAllPlaces(places.sort((a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' })));
+      
+      // Charger les catégories personnalisées (si collection existe)
+      try {
+        const categoriesSnapshot = await getDocs(collection(firestoreDb, 'categories'));
+        const categoriesData: Category[] = [];
+        categoriesSnapshot.forEach(catDoc => {
+          const catData = catDoc.data();
+          categoriesData.push({
+            id: catDoc.id,
+            name: catData.name,
+            value: catData.value,
+            createdAt: catData.createdAt
+          });
+        });
+        setCategories(categoriesData);
+      } catch (error) {
+        console.log('Collection categories non existante ou vide');
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de charger les données admin'
+      });
+    } finally {
+      setIsLoadingData(false);
     }
-  }, [searchParams]);
+  };
+
+  // Charger les données admin quand on active le mode admin
+  useEffect(() => {
+    if (adminMode && activeTab === 'khrouj') {
+      loadAdminData();
+    }
+  }, [adminMode, activeTab]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -307,6 +384,128 @@ export default function SettingsPage() {
       toast({
         title: 'Lieu supprimé',
         description: `${place.name} a été supprimé`
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de supprimer le lieu'
+      });
+    }
+  };
+
+  // Handlers admin pour les catégories
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) return;
+
+    try {
+      const categoryValue = newCategoryName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+      const categoryRef = doc(collection(firestoreDb, 'categories'));
+      await setDoc(categoryRef, {
+        name: newCategoryName.trim(),
+        value: categoryValue,
+        createdAt: serverTimestamp()
+      });
+
+      setNewCategoryName('');
+      loadAdminData();
+      toast({
+        title: 'Catégorie ajoutée',
+        description: `${newCategoryName} a été ajoutée`
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible d\'ajouter la catégorie'
+      });
+    }
+  };
+
+  const handleUpdateCategory = async (categoryId: string, newName: string) => {
+    try {
+      const categoryRef = doc(firestoreDb, 'categories', categoryId);
+      await updateDoc(categoryRef, {
+        name: newName.trim()
+      });
+
+      setEditingCategory(null);
+      loadAdminData();
+      toast({
+        title: 'Catégorie modifiée',
+        description: `La catégorie a été mise à jour`
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de modifier la catégorie'
+      });
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    try {
+      await deleteDoc(doc(firestoreDb, 'categories', categoryId));
+      loadAdminData();
+      toast({
+        title: 'Catégorie supprimée',
+        description: 'La catégorie a été supprimée'
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de supprimer la catégorie'
+      });
+    }
+  };
+
+  // Handlers admin pour les lieux
+  const handleUpdatePlace = async () => {
+    if (!editedPlace || !editingPlace) return;
+
+    try {
+      const userRef = doc(firestoreDb, 'users', editedPlace.userId!);
+      const userData = (await getDoc(userRef)).data();
+      const places = userData.places || [];
+      
+      const updatedPlaces = places.map((place: any) => 
+        place.id === editingPlace ? editedPlace : place
+      );
+      
+      await updateDoc(userRef, { places: updatedPlaces });
+      
+      setEditingPlace(null);
+      setEditedPlace(null);
+      loadAdminData();
+      toast({
+        title: 'Lieu modifié',
+        description: 'Le lieu a été mis à jour'
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de modifier le lieu'
+      });
+    }
+  };
+
+  const handleDeleteAdminPlace = async (place: AdminPlace) => {
+    try {
+      const userRef = doc(firestoreDb, 'users', place.userId!);
+      const userData = (await getDoc(userRef)).data();
+      const places = userData.places || [];
+      
+      const updatedPlaces = places.filter((p: any) => p.id !== place.id);
+      
+      await updateDoc(userRef, { places: updatedPlaces });
+      
+      loadAdminData();
+      toast({
+        title: 'Lieu supprimé',
+        description: `${place.name} a été supprimé de la base de données`
       });
     } catch (error) {
       toast({
@@ -699,6 +898,199 @@ export default function SettingsPage() {
                     <MapPin className="h-12 w-12 mx-auto mb-3 opacity-50" />
                     <p>Vous n'avez pas encore ajouté de lieux.</p>
                     <p className="text-sm">Ajoutez vos cafés, restaurants et autres lieux préférés !</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Section Admin */}
+              <div className="mt-8 pt-8 border-t">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-medium">Gestion des catégories et lieux</h3>
+                    <p className="text-sm text-muted-foreground">Administrez toutes les catégories et lieux de la base de données</p>
+                  </div>
+                  <Button
+                    variant={adminMode ? "destructive" : "default"}
+                    onClick={() => setAdminMode(!adminMode)}
+                  >
+                    {adminMode ? (
+                      <>
+                        <X className="mr-2 h-4 w-4" />
+                        Quitter le mode admin
+                      </>
+                    ) : (
+                      <>
+                        <Edit2 className="mr-2 h-4 w-4" />
+                        Mode admin
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {adminMode && (
+                  <div className="space-y-6">
+                    {isLoadingData && (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                        <span>Chargement des données...</span>
+                      </div>
+                    )}
+
+                    {/* Gestion des catégories */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Catégories ({categories.length})</CardTitle>
+                        <CardDescription>Gérez les catégories disponibles pour les lieux</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {/* Ajouter une catégorie */}
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Nouvelle catégorie..."
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleAddCategory()}
+                          />
+                          <Button onClick={handleAddCategory} disabled={!newCategoryName.trim()}>
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        {/* Liste des catégories */}
+                        <div className="space-y-2">
+                          {/* Catégories par défaut */}
+                          {PLACE_CATEGORIES.map((cat) => (
+                            <div key={cat.value} className="flex items-center justify-between p-2 border rounded bg-muted/30">
+                              <span className="text-sm">{cat.label}</span>
+                              <Badge variant="outline" className="text-xs">Par défaut</Badge>
+                            </div>
+                          ))}
+                          
+                          {/* Catégories personnalisées */}
+                          {categories.map((category) => (
+                            <div key={category.id} className="flex items-center justify-between p-2 border rounded">
+                              {editingCategory === category.id ? (
+                                <div className="flex gap-2 flex-1">
+                                  <Input
+                                    defaultValue={category.name}
+                                    onKeyPress={(e) => {
+                                      if (e.key === 'Enter') {
+                                        handleUpdateCategory(category.id, (e.target as HTMLInputElement).value);
+                                      }
+                                    }}
+                                    className="flex-1"
+                                  />
+                                  <Button size="sm" onClick={() => handleUpdateCategory(category.id, (document.querySelector('input') as HTMLInputElement).value)}>
+                                    <Save className="h-3 w-3" />
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={() => setEditingCategory(null)}>
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <>
+                                  <span className="text-sm">{category.name}</span>
+                                  <div className="flex gap-1">
+                                    <Button size="sm" variant="ghost" onClick={() => setEditingCategory(category.id)}>
+                                      <Edit2 className="h-3 w-3" />
+                                    </Button>
+                                    <Button size="sm" variant="ghost" onClick={() => handleDeleteCategory(category.id)} className="text-red-500">
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Gestion des lieux */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Tous les lieux ({allPlaces.length})</CardTitle>
+                        <CardDescription>Tous les lieux ajoutés par les utilisateurs</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {allPlaces.length > 0 ? (
+                          <div className="space-y-2">
+                            {allPlaces.map((place) => (
+                              <div key={place.id} className="flex items-start justify-between p-3 border rounded-lg">
+                                {editingPlace === place.id ? (
+                                  <div className="flex-1 space-y-2">
+                                    <Input
+                                      defaultValue={place.name}
+                                      onChange={(e) => setEditedPlace(prev => prev ? {...prev, name: e.target.value} : null)}
+                                      placeholder="Nom du lieu"
+                                    />
+                                    <Select
+                                      defaultValue={place.category}
+                                      onValueChange={(value) => setEditedPlace(prev => prev ? {...prev, category: value} : null)}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {[...PLACE_CATEGORIES, ...categories.map(cat => ({value: cat.value, label: cat.name}))].map((cat) => (
+                                          <SelectItem key={cat.value} value={cat.value}>
+                                            {cat.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <Input
+                                      defaultValue={place.address || ''}
+                                      onChange={(e) => setEditedPlace(prev => prev ? {...prev, address: e.target.value} : null)}
+                                      placeholder="Adresse"
+                                    />
+                                    <div className="flex gap-2">
+                                      <Button size="sm" onClick={handleUpdatePlace}>
+                                        <Save className="h-3 w-3 mr-1" />
+                                        Sauvegarder
+                                      </Button>
+                                      <Button size="sm" variant="outline" onClick={() => {setEditingPlace(null); setEditedPlace(null);}}>
+                                        Annuler
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <h4 className="font-medium text-sm">{place.name}</h4>
+                                        <Badge variant="secondary" className="text-xs">
+                                          {[...PLACE_CATEGORIES, ...categories].find(cat => cat.value === place.category)?.label || place.category}
+                                        </Badge>
+                                      </div>
+                                      {place.address && (
+                                        <p className="text-xs text-muted-foreground">📍 {place.address}</p>
+                                      )}
+                                      {place.predefinedArea && (
+                                        <p className="text-xs text-muted-foreground">🌍 {place.predefinedArea}</p>
+                                      )}
+                                    </div>
+                                    <div className="flex gap-1">
+                                      <Button size="sm" variant="ghost" onClick={() => {setEditingPlace(place.id); setEditedPlace(place);}}>
+                                        <Edit2 className="h-3 w-3" />
+                                      </Button>
+                                      <Button size="sm" variant="ghost" onClick={() => handleDeleteAdminPlace(place)} className="text-red-500">
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <MapPin className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                            <p>Aucun lieu trouvé dans la base de données</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
                   </div>
                 )}
               </div>
