@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import MovieSwiper from '@/components/tfarrej/movie-swiper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -34,6 +34,7 @@ const GenreIcon = ({ iconName, className }: { iconName: string, className?: stri
 
 function TfarrejContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const genreFromUrl = searchParams.get('genre');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
 
@@ -76,7 +77,7 @@ function TfarrejContent() {
                 </p>
             </div>
             <div className="flex gap-2 self-end sm:self-center">
-                <Button variant="outline" onClick={() => window.location.href = '/settings'}>
+                <Button variant="outline" onClick={() => router.push('/settings')}>
                     <Settings className="mr-2 h-4 w-4" /> Paramètres
                 </Button>
                 <MovieListSheet

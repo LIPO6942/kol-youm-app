@@ -64,6 +64,7 @@ function MovieListContent({
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Détails du film reçus:', data);
         if (data.movie) {
           setMovieDetails(prev => ({
             ...prev,
@@ -75,7 +76,11 @@ function MovieListContent({
               country: data.movie.country,
             }
           }));
+        } else {
+          console.log('Aucun film trouvé dans la réponse:', data);
         }
+      } else {
+        console.error('Erreur API:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Erreur lors de la récupération des détails du film:', error);
