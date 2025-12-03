@@ -11,6 +11,8 @@ interface PlacesDatabase {
   cafes: PlaceData[];
   restaurants?: PlaceData[];
   fastFoods?: PlaceData[];
+  brunch?: PlaceData[];
+  bars?: PlaceData[];
 }
 
 export async function GET() {
@@ -18,36 +20,58 @@ export async function GET() {
     const filePath = join(process.cwd(), 'src', 'ai', 'flows', 'decision-maker-flow.ts');
     const fileContent = await readFile(filePath, 'utf-8');
     
-    // Parser le contenu pour extraire les lieux
+    // Parser le contenu pour extraire toutes les catégories
     const placesData: PlacesDatabase = {
-      cafes: []
+      cafes: [],
+      restaurants: [],
+      fastFoods: [],
+      brunch: [],
+      bars: []
     };
 
-    // Extraire les cafés par zone
-    const cafeSection = fileContent.match(/- \*\*Zone La Soukra :\*\*([^-\n]+(?:\n[^-\n]+)*)/);
-    if (cafeSection) {
-      const places = cafeSection[1].split(',').map(p => p.trim()).filter(p => p);
-      placesData.cafes.push({ zone: 'La Soukra', places });
-    }
+    // Fonction helper pour extraire les lieux d'une catégorie
+    const extractCategoryPlaces = (categoryName: string, pattern: RegExp) => {
+      const categoryMatch = fileContent.match(pattern);
+      if (categoryMatch) {
+        const zonePattern = /- \*\*Zone ([^:]+) :\*\*([^\n]+(?:\n[^\n-]+)*)/g;
+        const zones: PlaceData[] = [];
+        let match;
+        
+        while ((match = zonePattern.exec(categoryMatch[1])) !== null) {
+          const zoneName = match[1].trim();
+          const placesText = match[2].replace(/\.\s*$/, ''); // Remove trailing dot
+          const places = placesText.split(',').map(p => p.trim()).filter(p => p);
+          zones.push({ zone: zoneName, places });
+        }
+        
+        return zones;
+      }
+      return [];
+    };
 
-    const otherZones = [
-      { name: 'El Aouina', pattern: /- \*\*Zone El Aouina :\*\*([^-\n]+(?:\n[^-\n]+)*)/ },
-      { name: 'Ain Zaghouan Nord', pattern: /- \*\*Zone Ain Zaghouan Nord :\*\*([^-\n]+(?:\n[^-\n]+)*)/ },
-      { name: 'Lac 1', pattern: /- \*\*Zone Lac 1 :\*\*([^-\n]+(?:\n[^-\n]+)*)/ },
-      { name: 'Lac 2', pattern: /- \*\*Zone Lac 2 :\*\*([^-\n]+(?:\n[^-\n]+)*)/ },
-      { name: 'La Marsa', pattern: /- \*\*Zone La Marsa :\*\*([^-\n]+(?:\n[^-\n]+)*)/ },
-      { name: 'Jardins de Carthage', pattern: /- \*\*Zone Jardins de Carthage :\*\*([^-\n]+(?:\n[^-\n]+)*)/ },
-      { name: 'Carthage', pattern: /- \*\*Zone Carthage :\*\*([^-\n]+(?:\n[^-\n]+)*)/ },
-      { name: 'La Goulette/Kram', pattern: /- \*\*Zone La Goulette\/Kram :\*\*([^-\n]+(?:\n[^-\n]+)*)/ },
-      { name: 'Mégrine/ Sidi Rzig', pattern: /- \*\*Zone Mégrine\/ Sidi Rzig :\*\*([^-\n]+(?:\n[^-\n]+)*)/ },
-      { name: 'Boumhal', pattern: /- \*\*Zone Boumhal :\*\*([^-\n]+(?:\n[^-\n]+)*)/ }
+    // Extraire les cafés
+    placesData.cafes = extractCategoryPlaces(
+      'cafés',
+      /{{#if isCafeCategory}}([\s\S]*?){{\/if}}/
+    );
+
+    // Extraire les fast foods
+    placesData.fastFoods = extractCategoryPlaces(
+      'fast foods',
+      /{{#if isFastFoodCategory}}([\s\S]*?){{\/if}}/
+    );
+
+    // Rechercher d'autres catégories (restaurants, brunch, etc.)
+    const otherCategories = [
+      { name: 'restaurants', pattern: /{{#if isRestaurantCategory}}([\s\S]*?){{\/if}}/ },
+      { name: 'brunch', pattern: /{{#if isBrunchCategory}}([\s\S]*?){{\/if}}/ },
+      { name: 'bars', pattern: /{{#if isBarCategory}}([\s\S]*?){{\/if}}/ }
     ];
 
-    otherZones.forEach(zone => {
-      const match = fileContent.match(zone.pattern);
+    otherCategories.forEach(cat => {
+      const match = fileContent.match(cat.pattern);
       if (match) {
-        const places = match[1].split(',').map(p => p.trim()).filter(p => p);
-        placesData.cafes.push({ zone: zone.name, places });
+        placesData[cat.name as keyof PlacesDatabase] = extractCategoryPlaces(cat.name, cat.pattern);
       }
     });
 
@@ -66,8 +90,9 @@ export async function POST(request: NextRequest) {
     let fileContent = await readFile(filePath, 'utf-8');
 
     if (action === 'update') {
-      // Mettre à jour les lieux pour une zone spécifique
-      const zonePattern = new RegExp(`- \\*\\*Zone ${zone.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} :\\*\\*[^-\\n]+(?:\\n[^-\\n]+)*`, 'g');
+      // Mettre à jour les lieux pour une zone spécifique dans la catégorie donnée
+      const escapedZone = zone.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const zonePattern = new RegExp(`- \\*\\*Zone ${escapedZone} :\\*\\*[^-\\n]+(?:\\n[^-\\n]+)*`, 'g');
       const newZoneContent = `- **Zone ${zone} :** ${places.join(', ')}.`;
       
       fileContent = fileContent.replace(zonePattern, newZoneContent);

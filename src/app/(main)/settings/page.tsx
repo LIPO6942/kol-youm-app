@@ -214,6 +214,7 @@ export default function SettingsPage() {
   const [editedPlaces, setEditedPlaces] = useState<string[]>([]);
   const [newPlaceName, setNewPlaceName] = useState('');
   const [selectedZone, setSelectedZone] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('cafés');
 
   // Charger la base de données des lieux
   const loadPlacesDatabase = async () => {
@@ -250,7 +251,7 @@ export default function SettingsPage() {
   }, [databaseMode, activeTab]);
 
   // Handlers pour la gestion de la base de données
-  const handleUpdateZone = async (zone: string, places: string[]) => {
+  const handleUpdateZone = async (zone: string, places: string[], category: string) => {
     try {
       const response = await fetch('/api/places-database', {
         method: 'POST',
@@ -259,7 +260,7 @@ export default function SettingsPage() {
           action: 'update',
           zone,
           places,
-          category: 'cafés'
+          category
         })
       });
 
@@ -271,7 +272,7 @@ export default function SettingsPage() {
         loadPlacesDatabase();
         toast({
           title: 'Zone mise à jour',
-          description: `Les lieux de ${zone} ont été mis à jour`
+          description: `Les lieux de ${zone} (${category}) ont été mis à jour`
         });
       } else {
         toast({
@@ -289,31 +290,31 @@ export default function SettingsPage() {
     }
   };
 
-  const handleAddPlaceToZone = (zone: string) => {
+  const handleAddPlaceToZone = (zone: string, category: string) => {
     if (!newPlaceName.trim()) return;
     
-    const currentZone = placesDatabase?.cafes.find(z => z.zone === zone);
+    const currentZone = placesDatabase?.[category as keyof PlacesDatabase]?.find((z: any) => z.zone === zone);
     const updatedPlaces = [...(currentZone?.places || []), newPlaceName.trim()];
     
-    handleUpdateZone(zone, updatedPlaces);
+    handleUpdateZone(zone, updatedPlaces, category);
     setNewPlaceName('');
   };
 
-  const handleRemovePlaceFromZone = (zone: string, placeToRemove: string) => {
-    const currentZone = placesDatabase?.cafes.find(z => z.zone === zone);
-    const updatedPlaces = (currentZone?.places || []).filter(p => p !== placeToRemove);
+  const handleRemovePlaceFromZone = (zone: string, placeToRemove: string, category: string) => {
+    const currentZone = placesDatabase?.[category as keyof PlacesDatabase]?.find((z: any) => z.zone === zone);
+    const updatedPlaces = (currentZone?.places || []).filter((p: string) => p !== placeToRemove);
     
-    handleUpdateZone(zone, updatedPlaces);
+    handleUpdateZone(zone, updatedPlaces, category);
   };
 
-  const handleStartEditingZone = (zone: string) => {
-    const currentZone = placesDatabase?.cafes.find(z => z.zone === zone);
-    setEditingZone(zone);
+  const handleStartEditingZone = (zone: string, category: string) => {
+    const currentZone = placesDatabase?.[category as keyof PlacesDatabase]?.find((z: any) => z.zone === zone);
+    setEditingZone(`${zone}-${category}`);
     setEditedPlaces(currentZone?.places || []);
   };
 
-  const handleSaveZone = (zone: string) => {
-    handleUpdateZone(zone, editedPlaces);
+  const handleSaveZone = (zone: string, category: string) => {
+    handleUpdateZone(zone, editedPlaces, category);
   };
 
   const handleAddPlaceToEditing = () => {
@@ -324,6 +325,21 @@ export default function SettingsPage() {
 
   const handleRemovePlaceFromEditing = (placeToRemove: string) => {
     setEditedPlaces(editedPlaces.filter(p => p !== placeToRemove));
+  };
+
+  // Obtenir les zones pour la catégorie sélectionnée
+  const getCurrentCategoryZones = () => {
+    if (!placesDatabase) return [];
+    return placesDatabase[selectedCategory as keyof PlacesDatabase] || [];
+  };
+
+  // Obtenir les statistiques pour la catégorie sélectionnée
+  const getCurrentCategoryStats = () => {
+    const zones = getCurrentCategoryZones();
+    const totalPlaces = zones.reduce((acc, zone) => acc + zone.places.length, 0);
+    const averagePerZone = zones.length > 0 ? Math.round(totalPlaces / zones.length) : 0;
+    
+    return { totalPlaces, zonesCount: zones.length, averagePerZone };
   };
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -874,15 +890,38 @@ export default function SettingsPage() {
 
                     {placesDatabase && (
                       <>
+                        {/* Sélecteur de catégorie */}
+                        <div className="mb-6">
+                          <h4 className="text-base font-medium mb-3">Sélectionner une catégorie</h4>
+                          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                            <SelectTrigger className="w-full md:w-64">
+                              <SelectValue placeholder="Choisir une catégorie" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {placesDatabase && Object.keys(placesDatabase).map((category) => {
+                                const zones = placesDatabase[category as keyof PlacesDatabase] || [];
+                                if (zones.length === 0) return null;
+                                return (
+                                  <SelectItem key={category} value={category}>
+                                    {category.charAt(0).toUpperCase() + category.slice(1)} ({zones.length} zones)
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
                         {/* Statistiques */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
                             <CardContent className="p-4">
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <p className="text-sm text-blue-600 font-medium">Total Cafés</p>
+                                  <p className="text-sm text-blue-600 font-medium">
+                                    Total {selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)}
+                                  </p>
                                   <p className="text-2xl font-bold text-blue-900">
-                                    {placesDatabase.cafes.reduce((acc, zone) => acc + zone.places.length, 0)}
+                                    {getCurrentCategoryStats().totalPlaces}
                                   </p>
                                 </div>
                                 <MapPin className="h-8 w-8 text-blue-500" />
@@ -895,7 +934,7 @@ export default function SettingsPage() {
                                 <div>
                                   <p className="text-sm text-green-600 font-medium">Zones couvertes</p>
                                   <p className="text-2xl font-bold text-green-900">
-                                    {placesDatabase.cafes.length}
+                                    {getCurrentCategoryStats().zonesCount}
                                   </p>
                                 </div>
                                 <Database className="h-8 w-8 text-green-500" />
@@ -908,7 +947,7 @@ export default function SettingsPage() {
                                 <div>
                                   <p className="text-sm text-purple-600 font-medium">Moyenne/Zone</p>
                                   <p className="text-2xl font-bold text-purple-900">
-                                    {Math.round(placesDatabase.cafes.reduce((acc, zone) => acc + zone.places.length, 0) / placesDatabase.cafes.length)}
+                                    {getCurrentCategoryStats().averagePerZone}
                                   </p>
                                 </div>
                                 <Plus className="h-8 w-8 text-purple-500" />
@@ -919,9 +958,9 @@ export default function SettingsPage() {
 
                         {/* Gestion par zone */}
                         <div className="space-y-4">
-                          <h4 className="text-base font-medium">Gestion des lieux par zone</h4>
+                          <h4 className="text-base font-medium">Gestion des lieux par zone - {selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)}</h4>
                           
-                          {placesDatabase.cafes.map((zoneData) => (
+                          {getCurrentCategoryZones().map((zoneData) => (
                             <Card key={zoneData.zone} className="overflow-hidden">
                               <CardHeader className="pb-3">
                                 <div className="flex items-center justify-between">
@@ -932,9 +971,9 @@ export default function SettingsPage() {
                                     </Badge>
                                   </div>
                                   <div className="flex gap-1">
-                                    {editingZone === zoneData.zone ? (
+                                    {editingZone === `${zoneData.zone}-${selectedCategory}` ? (
                                       <>
-                                        <Button size="sm" onClick={() => handleSaveZone(zoneData.zone)}>
+                                        <Button size="sm" onClick={() => handleSaveZone(zoneData.zone, selectedCategory)}>
                                           <Save className="h-3 w-3 mr-1" />
                                           Sauver
                                         </Button>
@@ -945,7 +984,7 @@ export default function SettingsPage() {
                                       </>
                                     ) : (
                                       <>
-                                        <Button size="sm" variant="ghost" onClick={() => handleStartEditingZone(zoneData.zone)}>
+                                        <Button size="sm" variant="ghost" onClick={() => handleStartEditingZone(zoneData.zone, selectedCategory)}>
                                           <Edit2 className="h-3 w-3 mr-1" />
                                           Modifier
                                         </Button>
@@ -966,7 +1005,7 @@ export default function SettingsPage() {
                                 </div>
                               </CardHeader>
                               <CardContent className="pt-0">
-                                {editingZone === zoneData.zone ? (
+                                {editingZone === `${zoneData.zone}-${selectedCategory}` ? (
                                   <div className="space-y-3">
                                     {/* Ajouter un lieu en mode édition */}
                                     <div className="flex gap-2">
@@ -1015,7 +1054,7 @@ export default function SettingsPage() {
                                           onChange={(e) => setNewPlaceName(e.target.value)}
                                           onKeyPress={(e) => {
                                             if (e.key === 'Enter') {
-                                              handleAddPlaceToZone(zoneData.zone);
+                                              handleAddPlaceToZone(zoneData.zone, selectedCategory);
                                               setSelectedZone('');
                                             }
                                           }}
@@ -1024,7 +1063,7 @@ export default function SettingsPage() {
                                         <Button 
                                           size="sm" 
                                           onClick={() => {
-                                            handleAddPlaceToZone(zoneData.zone);
+                                            handleAddPlaceToZone(zoneData.zone, selectedCategory);
                                             setSelectedZone('');
                                           }}
                                           disabled={!newPlaceName.trim()}
@@ -1046,7 +1085,7 @@ export default function SettingsPage() {
                                           <Button 
                                             size="sm" 
                                             variant="ghost" 
-                                            onClick={() => handleRemovePlaceFromZone(zoneData.zone, place)}
+                                            onClick={() => handleRemovePlaceFromZone(zoneData.zone, place, selectedCategory)}
                                             className="text-red-500 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                           >
                                             <Trash2 className="h-3 w-3" />
