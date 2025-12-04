@@ -310,6 +310,7 @@ export default function SettingsPage() {
           description: `Les lieux de ${zone} (${getCategoryDisplayName(category)}) ont été mis à jour`
         });
       } else {
+        console.error('API Error:', data.error);
         toast({
           variant: 'destructive',
           title: 'Erreur',
@@ -325,13 +326,25 @@ export default function SettingsPage() {
     }
   };
 
+  // Normaliser le nom de la catégorie pour l'API
+  const normalizeCategoryForAPI = (category: string) => {
+    return category === 'cafés' || category === 'Café' ? 'cafes' :
+           category === 'restaurant' || category === 'Restaurant' ? 'restaurants' :
+           category === 'fast-food' || category === 'Fast Food' || category === 'fastFoods' ? 'fastfoods' :
+           category === 'Brunch' ? 'brunch' :
+           category === 'Balade' ? 'balade' :
+           category === 'Shopping' ? 'shopping' :
+           category === 'bars' ? 'bars' :
+           category.toLowerCase();
+  };
+
   const handleAddPlaceToZoneCategory = (zone: string, category: string) => {
     if (!newPlaceName.trim()) return;
     
     const currentPlaces = getPlacesForZoneAndCategory(zone, category);
     const updatedPlaces = [...currentPlaces, newPlaceName.trim()];
     
-    handleUpdateZoneCategory(zone, updatedPlaces, category);
+    handleUpdateZoneCategory(zone, updatedPlaces, normalizeCategoryForAPI(category));
     setNewPlaceName('');
   };
 
@@ -339,7 +352,7 @@ export default function SettingsPage() {
     const currentPlaces = getPlacesForZoneAndCategory(zone, category);
     const updatedPlaces = currentPlaces.filter((p: string) => p !== placeToRemove);
     
-    handleUpdateZoneCategory(zone, updatedPlaces, category);
+    handleUpdateZoneCategory(zone, updatedPlaces, normalizeCategoryForAPI(category));
   };
 
   const handleStartEditingZoneCategory = (zone: string, category: string) => {
@@ -349,7 +362,7 @@ export default function SettingsPage() {
   };
 
   const handleSaveZoneCategory = (zone: string, category: string) => {
-    handleUpdateZoneCategory(zone, editedPlaces, category);
+    handleUpdateZoneCategory(zone, editedPlaces, normalizeCategoryForAPI(category));
   };
 
   const handleAddPlaceToEditing = () => {
