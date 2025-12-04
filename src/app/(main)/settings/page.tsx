@@ -911,7 +911,7 @@ export default function SettingsPage() {
                                   </SelectItem>
                                 </>
                               ) : (
-                                <SelectItem value="" disabled>Sélectionnez d'abord une zone</SelectItem>
+                                <SelectItem value="placeholder" disabled>Sélectionnez d'abord une zone</SelectItem>
                               )}
                             </SelectContent>
                           </Select>
