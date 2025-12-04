@@ -49,18 +49,22 @@ interface PlaceFormData {
   predefinedArea?: string;
 }
 
-interface PlaceData {
+interface CategoryPlaces {
+  cafes?: string[];
+  restaurants?: string[];
+  fastFoods?: string[];
+  brunch?: string[];
+  balade?: string[];
+  shopping?: string[];
+}
+
+interface ZoneData {
   zone: string;
-  places: string[];
+  categories: CategoryPlaces;
 }
 
 interface PlacesDatabase {
-  cafes: PlaceData[];
-  restaurants?: PlaceData[];
-  fastFoods?: PlaceData[];
-  brunch?: PlaceData[];
-  bars?: PlaceData[];
-  shopping?: PlaceData[];
+  zones: ZoneData[];
 }
 
 const PLACE_CATEGORIES = [
@@ -223,7 +227,7 @@ export default function SettingsPage() {
   const loadPlacesDatabase = async () => {
     setIsLoadingDatabase(true);
     try {
-      const response = await fetch('/api/places-database');
+      const response = await fetch('/api/places-database-firestore');
       const data = await response.json();
       
       if (data.success) {
@@ -260,26 +264,27 @@ export default function SettingsPage() {
 
   // Sélectionner automatiquement la première zone et catégorie disponibles quand la base de données est chargée
   useEffect(() => {
-    if (placesDatabase && databaseMode) {
-      const allZones = getAllZones();
-      if (allZones.length > 0) {
-        // Si aucune zone n'est sélectionnée, sélectionner la première zone avec des catégories
-        if (!selectedZone) {
-          const firstZoneWithCategories = allZones.find(zone => 
-            getCategoriesForZone(zone).length > 0
+    if (placesDatabase && databaseMode && placesDatabase.zones.length > 0) {
+      // Si aucune zone n'est sélectionnée, sélectionner la première zone avec des catégories
+      if (!selectedZone) {
+        const firstZoneWithCategories = placesDatabase.zones.find(zone => 
+          Object.keys(zone.categories).some(cat => 
+            (zone.categories[cat as keyof CategoryPlaces]?.length || 0) > 0
+          )
+        );
+        
+        if (firstZoneWithCategories) {
+          setSelectedZone(firstZoneWithCategories.zone);
+          // Sélectionner la première catégorie disponible dans cette zone
+          const firstCategory = Object.keys(firstZoneWithCategories.categories).find(cat =>
+            (firstZoneWithCategories.categories[cat as keyof CategoryPlaces]?.length || 0) > 0
           );
-          
-          if (firstZoneWithCategories) {
-            setSelectedZone(firstZoneWithCategories);
-            // Sélectionner la première catégorie disponible dans cette zone
-            const availableCategories = getCategoriesForZone(firstZoneWithCategories);
-            if (availableCategories.length > 0) {
-              setSelectedCategory(availableCategories[0]);
-            }
-          } else if (allZones.length > 0) {
-            // Au moins sélectionner la première zone même si elle est vide
-            setSelectedZone(allZones[0]);
+          if (firstCategory) {
+            setSelectedCategory(firstCategory);
           }
+        } else if (placesDatabase.zones.length > 0) {
+          // Au moins sélectionner la première zone même si elle est vide
+          setSelectedZone(placesDatabase.zones[0].zone);
         }
       }
     }
@@ -288,7 +293,7 @@ export default function SettingsPage() {
   // Handlers pour la gestion de la base de données
   const handleUpdateZoneCategory = async (zone: string, places: string[], category: string) => {
     try {
-      const response = await fetch('/api/places-database', {
+      const response = await fetch('/api/places-database-firestore', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -378,57 +383,27 @@ export default function SettingsPage() {
   // Obtenir toutes les zones disponibles
   const getAllZones = () => {
     if (!placesDatabase) return [];
-    const allZones = new Set<string>();
-    
-    // Parcourir toutes les catégories pour extraire les zones
-    Object.values(placesDatabase).forEach((categoryPlaces: PlaceData[]) => {
-      if (categoryPlaces) {
-        categoryPlaces.forEach((placeData: PlaceData) => {
-          allZones.add(placeData.zone);
-        });
-      }
-    });
-    
-    return Array.from(allZones).sort();
+    return placesDatabase.zones || [];
   };
 
   // Obtenir les catégories disponibles pour une zone spécifique
   const getCategoriesForZone = (zone: string) => {
-    if (!placesDatabase) return [];
-    
-    const availableCategories: string[] = [];
-    
-    Object.entries(placesDatabase).forEach(([categoryName, categoryData]) => {
-      if (categoryData) {
-        const zoneData = categoryData.find((placeData: PlaceData) => placeData.zone === zone);
-        if (zoneData && zoneData.places.length > 0) {
-          availableCategories.push(categoryName);
-        }
-      }
-    });
-    
-    return availableCategories;
+    if (!placesDatabase) return {};
+    const zoneData = placesDatabase.zones.find(z => z.zone === zone);
+    return zoneData?.categories || {};
   };
 
   // Obtenir les lieux pour une zone et catégorie spécifiques
   const getPlacesForZoneAndCategory = (zone: string, category: string) => {
-    if (!placesDatabase) return [];
-    
-    // Normaliser le nom de la catégorie
+    const categories = getCategoriesForZone(zone);
     const categoryKey = category === 'cafés' || category === 'Café' ? 'cafes' :
                         category === 'restaurant' || category === 'Restaurant' ? 'restaurants' :
                         category === 'fast-food' || category === 'Fast Food' ? 'fastFoods' :
                         category === 'Brunch' ? 'brunch' :
                         category === 'Balade' ? 'balade' :
                         category === 'Shopping' ? 'shopping' :
-                        category === 'bars' ? 'bars' :
                         category.toLowerCase();
-    
-    const categoryData = placesDatabase[categoryKey as keyof PlacesDatabase] as PlaceData[];
-    if (!categoryData) return [];
-    
-    const zoneData = categoryData.find((placeData: PlaceData) => placeData.zone === zone);
-    return zoneData?.places || [];
+    return categories[categoryKey as keyof CategoryPlaces] || [];
   };
 
   // Obtenir le nom d'affichage de la catégorie
@@ -447,10 +422,15 @@ export default function SettingsPage() {
   // Obtenir toutes les catégories disponibles (toutes les zones confondues)
   const getAllAvailableCategories = () => {
     if (!placesDatabase) return [];
-    return Object.keys(placesDatabase).filter(key => {
-      const categoryData = placesDatabase[key as keyof PlacesDatabase] as PlaceData[];
-      return categoryData && categoryData.length > 0;
+    const categoriesSet = new Set<string>();
+    placesDatabase.zones.forEach(zone => {
+      Object.keys(zone.categories).forEach(cat => {
+        if (zone.categories[cat as keyof CategoryPlaces]?.length) {
+          categoriesSet.add(cat);
+        }
+      });
     });
+    return Array.from(categoriesSet);
   };
 
   // Obtenir les statistiques globales
@@ -458,22 +438,21 @@ export default function SettingsPage() {
     if (!placesDatabase) return { totalPlaces: 0, zonesCount: 0, categoriesCount: 0 };
     
     let totalPlaces = 0;
-    const zonesSet = new Set<string>();
     const categoriesSet = new Set<string>();
     
-    Object.entries(placesDatabase).forEach(([categoryName, categoryData]) => {
-      if (categoryData && categoryData.length > 0) {
-        categoriesSet.add(categoryName);
-        categoryData.forEach((placeData: PlaceData) => {
-          zonesSet.add(placeData.zone);
-          totalPlaces += placeData.places.length;
-        });
-      }
+    placesDatabase.zones.forEach(zone => {
+      Object.keys(zone.categories).forEach(cat => {
+        const places = zone.categories[cat as keyof CategoryPlaces] || [];
+        if (places.length > 0) {
+          categoriesSet.add(cat);
+          totalPlaces += places.length;
+        }
+      });
     });
     
     return {
       totalPlaces,
-      zonesCount: zonesSet.size,
+      zonesCount: placesDatabase.zones.length,
       categoriesCount: categoriesSet.size
     };
   };
@@ -890,18 +869,23 @@ export default function SettingsPage() {
                           <Select value={selectedZone} onValueChange={(value) => {
                             setSelectedZone(value);
                             // Sélectionner automatiquement la première catégorie disponible dans cette zone
-                            const availableCategories = getCategoriesForZone(value);
-                            if (availableCategories.length > 0) {
-                              setSelectedCategory(availableCategories[0]);
+                            const zoneData = placesDatabase.zones.find(z => z.zone === value);
+                            if (zoneData) {
+                              const firstCategory = Object.keys(zoneData.categories).find(cat =>
+                                (zoneData.categories[cat as keyof CategoryPlaces]?.length || 0) > 0
+                              );
+                              if (firstCategory) {
+                                setSelectedCategory(firstCategory);
+                              }
                             }
                           }}>
                             <SelectTrigger className="w-full">
                               <SelectValue placeholder="Choisir une zone" />
                             </SelectTrigger>
                             <SelectContent>
-                              {getAllZones().map((zone) => (
-                                <SelectItem key={zone} value={zone}>
-                                  {zone}
+                              {placesDatabase.zones.map((zone) => (
+                                <SelectItem key={zone.zone} value={zone.zone}>
+                                  {zone.zone}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -919,11 +903,26 @@ export default function SettingsPage() {
                             </SelectTrigger>
                             <SelectContent>
                               {selectedZone ? (
-                                getCategoriesForZone(selectedZone).map((category) => (
-                                  <SelectItem key={category} value={category}>
-                                    {getCategoryDisplayName(category)} ({getPlacesForZoneAndCategory(selectedZone, category).length} lieux)
+                                <>
+                                  <SelectItem value="cafes">
+                                    Cafés ({getPlacesForZoneAndCategory(selectedZone, 'cafes').length} lieux)
                                   </SelectItem>
-                                ))
+                                  <SelectItem value="restaurants">
+                                    Restaurants ({getPlacesForZoneAndCategory(selectedZone, 'restaurants').length} lieux)
+                                  </SelectItem>
+                                  <SelectItem value="fastFoods">
+                                    Fast Food ({getPlacesForZoneAndCategory(selectedZone, 'fastFoods').length} lieux)
+                                  </SelectItem>
+                                  <SelectItem value="brunch">
+                                    Brunch ({getPlacesForZoneAndCategory(selectedZone, 'brunch').length} lieux)
+                                  </SelectItem>
+                                  <SelectItem value="balade">
+                                    Balade ({getPlacesForZoneAndCategory(selectedZone, 'balade').length} lieux)
+                                  </SelectItem>
+                                  <SelectItem value="shopping">
+                                    Shopping ({getPlacesForZoneAndCategory(selectedZone, 'shopping').length} lieux)
+                                  </SelectItem>
+                                </>
                               ) : (
                                 <SelectItem value="placeholder" disabled>Sélectionnez d'abord une zone</SelectItem>
                               )}
