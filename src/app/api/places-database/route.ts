@@ -88,14 +88,48 @@ export async function POST(request: NextRequest) {
 
     console.log('API Request:', { action, zone, places: places?.length, category });
 
-    const filePath = join(process.cwd(), 'src', 'ai', 'flows', 'decision-maker-flow.ts');
-    let fileContent = await readFile(filePath, 'utf-8');
-
     if (action === 'update') {
+      const filePath = join(process.cwd(), 'src', 'ai', 'flows', 'decision-maker-flow.ts');
+      let fileContent = await readFile(filePath, 'utf-8');
+      
+      // Déterminer la section appropriée selon la catégorie
+      let sectionPattern: RegExp;
+      switch (category.toLowerCase()) {
+        case 'cafes':
+          sectionPattern = /{{#if isCafeCategory}}([\s\S]*?){{\/if}}/;
+          break;
+        case 'fastfoods':
+          sectionPattern = /{{#if isFastFoodCategory}}([\s\S]*?){{\/if}}/;
+          break;
+        case 'restaurants':
+          sectionPattern = /{{#if isRestaurantCategory}}([\s\S]*?){{\/if}}/;
+          break;
+        case 'brunch':
+          sectionPattern = /{{#if isBrunchCategory}}([\s\S]*?){{\/if}}/;
+          break;
+        default:
+          return NextResponse.json({ 
+            success: false, 
+            error: `Catégorie "${category}" non supportée. Catégories supportées: cafes, fastFoods, restaurants, brunch` 
+          }, { status: 400 });
+      }
+      
+      const sectionMatch = fileContent.match(sectionPattern);
+      if (!sectionMatch) {
+        console.error('Section non trouvée pour la catégorie:', category);
+        return NextResponse.json({ 
+          success: false, 
+          error: `Section non trouvée pour la catégorie "${category}"` 
+        }, { status: 404 });
+      }
+      
+      const sectionContent = sectionMatch[1];
+      console.log('Section trouvée, longueur:', sectionContent.length);
+      
       // Échapper les caractères spéciaux dans le nom de la zone
       const escapedZone = zone.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       
-      // Créer un pattern plus flexible qui gère les espaces et caractères spéciaux
+      // Créer un pattern pour trouver la zone dans cette section
       const zonePattern = new RegExp(`- \\*\\*Zone ${escapedZone} :\\*\\*[^-]*`, 'g');
       
       // Créer le nouveau contenu
@@ -105,25 +139,28 @@ export async function POST(request: NextRequest) {
       console.log('Pattern:', zonePattern);
       console.log('New content:', newZoneContent);
       
-      // Chercher toutes les occurrences pour le debugging
-      const allMatches = fileContent.match(/- \*\*Zone [^:]* :\*\*/g);
-      console.log('All zones found:', allMatches);
+      // Chercher toutes les occurrences dans la section
+      const allMatches = sectionContent.match(/- \*\*Zone [^:]* :\*\*/g);
+      console.log('All zones found in section:', allMatches);
       
-      // Vérifier si le pattern existe
-      const match = fileContent.match(zonePattern);
+      // Vérifier si le pattern existe dans la section
+      const match = sectionContent.match(zonePattern);
       if (!match) {
-        console.error('Zone not found in file:', zone);
-        console.error('Available zones:', allMatches);
+        console.error('Zone not found in section:', zone);
+        console.error('Available zones in section:', allMatches);
         return NextResponse.json({ 
           success: false, 
-          error: `Zone "${zone}" non trouvée. Zones disponibles: ${allMatches?.map(m => m.replace('- **Zone ', '').replace(' :**', '')).join(', ') || 'Aucune'}` 
+          error: `Zone "${zone}" non trouvée dans la catégorie "${category}". Zones disponibles: ${allMatches?.map(m => m.replace('- **Zone ', '').replace(' :**', '')).join(', ') || 'Aucune'}` 
         }, { status: 404 });
       }
       
       console.log('Found match:', match[0]);
       
-      // Remplacer le contenu
-      fileContent = fileContent.replace(zonePattern, newZoneContent);
+      // Remplacer le contenu dans la section
+      const newSectionContent = sectionContent.replace(zonePattern, newZoneContent);
+      
+      // Remplacer la section dans le fichier complet
+      fileContent = fileContent.replace(sectionPattern, `{{#if ${category === 'cafes' ? 'isCafeCategory' : category === 'fastfoods' ? 'isFastFoodCategory' : category === 'restaurants' ? 'isRestaurantCategory' : 'isBrunchCategory'}}}${newSectionContent}{{/if}}`);
       
       // Écrire le fichier
       await writeFile(filePath, fileContent, 'utf-8');
