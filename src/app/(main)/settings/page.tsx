@@ -58,6 +58,8 @@ interface PlacesDatabase {
   cafes: DatabasePlace[];
   restaurants?: DatabasePlace[];
   fastFoods?: DatabasePlace[];
+  brunch?: DatabasePlace[];
+  bars?: DatabasePlace[];
 }
 
 const PLACE_CATEGORIES = [
@@ -214,7 +216,7 @@ export default function SettingsPage() {
   const [editedPlaces, setEditedPlaces] = useState<string[]>([]);
   const [newPlaceName, setNewPlaceName] = useState('');
   const [selectedZone, setSelectedZone] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('cafés');
+  const [selectedCategory, setSelectedCategory] = useState<string>('cafes');
 
   // Charger la base de données des lieux
   const loadPlacesDatabase = async () => {
@@ -254,6 +256,28 @@ export default function SettingsPage() {
       loadPlacesDatabase();
     }
   }, [databaseMode, activeTab]);
+
+  // Sélectionner automatiquement la première catégorie disponible quand la base de données est chargée
+  useEffect(() => {
+    if (placesDatabase && databaseMode) {
+      // Vérifier si la catégorie actuelle existe et a des zones
+      const currentCategoryData = placesDatabase[selectedCategory as keyof PlacesDatabase];
+      const hasZones = Array.isArray(currentCategoryData) && currentCategoryData.length > 0;
+      
+      // Si la catégorie actuelle n'a pas de zones, sélectionner la première catégorie disponible
+      if (!hasZones) {
+        const availableCategories = ['cafes', 'restaurants', 'fastFoods', 'brunch', 'bars'];
+        const firstAvailable = availableCategories.find(cat => {
+          const data = placesDatabase[cat as keyof PlacesDatabase];
+          return Array.isArray(data) && data.length > 0;
+        });
+        
+        if (firstAvailable) {
+          setSelectedCategory(firstAvailable);
+        }
+      }
+    }
+  }, [placesDatabase, databaseMode]);
 
   // Handlers pour la gestion de la base de données
   const handleUpdateZone = async (zone: string, places: string[], category: string) => {
@@ -335,7 +359,20 @@ export default function SettingsPage() {
   // Obtenir les zones pour la catégorie sélectionnée
   const getCurrentCategoryZones = () => {
     if (!placesDatabase) return [];
-    return placesDatabase[selectedCategory as keyof PlacesDatabase] || [];
+    const categoryData = placesDatabase[selectedCategory as keyof PlacesDatabase];
+    return Array.isArray(categoryData) ? categoryData : [];
+  };
+
+  // Obtenir le nom d'affichage de la catégorie
+  const getCategoryDisplayName = (category: string) => {
+    const names: { [key: string]: string } = {
+      'cafes': 'Cafés',
+      'restaurants': 'Restaurants',
+      'fastFoods': 'Fast Food',
+      'brunch': 'Brunch',
+      'bars': 'Bars'
+    };
+    return names[category] || category.charAt(0).toUpperCase() + category.slice(1);
   };
 
   // Obtenir les statistiques pour la catégorie sélectionnée
@@ -760,15 +797,33 @@ export default function SettingsPage() {
                             <SelectValue placeholder="Choisir une catégorie" />
                           </SelectTrigger>
                           <SelectContent>
-                            {placesDatabase && Object.keys(placesDatabase).map((category) => {
-                              const zones = placesDatabase[category as keyof PlacesDatabase] || [];
-                              if (zones.length === 0) return null;
-                              return (
-                                <SelectItem key={category} value={category}>
-                                  {category.charAt(0).toUpperCase() + category.slice(1)} ({zones.length} zones)
+                            {placesDatabase ? (
+                              <>
+                                <SelectItem value="cafes">
+                                  Cafés ({placesDatabase.cafes?.length || 0} zones)
                                 </SelectItem>
-                              );
-                            })}
+                                <SelectItem value="restaurants">
+                                  Restaurants ({placesDatabase.restaurants?.length || 0} zones)
+                                </SelectItem>
+                                <SelectItem value="fastFoods">
+                                  Fast Food ({placesDatabase.fastFoods?.length || 0} zones)
+                                </SelectItem>
+                                {placesDatabase.brunch && (
+                                  <SelectItem value="brunch">
+                                    Brunch ({placesDatabase.brunch.length} zones)
+                                  </SelectItem>
+                                )}
+                                {placesDatabase.bars && (
+                                  <SelectItem value="bars">
+                                    Bars ({placesDatabase.bars.length} zones)
+                                  </SelectItem>
+                                )}
+                              </>
+                            ) : (
+                              <SelectItem value="cafes" disabled>
+                                Chargement...
+                              </SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                       </div>
@@ -780,7 +835,7 @@ export default function SettingsPage() {
                             <div className="flex items-center justify-between">
                               <div>
                                 <p className="text-sm text-blue-600 font-medium">
-                                  Total {selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)}
+                                  Total {getCategoryDisplayName(selectedCategory)}
                                 </p>
                                 <p className="text-2xl font-bold text-blue-900">
                                   {getCurrentCategoryStats().totalPlaces}
@@ -820,9 +875,21 @@ export default function SettingsPage() {
 
                       {/* Gestion par zone */}
                       <div className="space-y-4">
-                        <h4 className="text-base font-medium">Gestion des lieux par zone - {selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)}</h4>
+                        <h4 className="text-base font-medium">Gestion des lieux par zone - {getCategoryDisplayName(selectedCategory)}</h4>
                         
-                        {getCurrentCategoryZones().map((zoneData) => (
+                        {getCurrentCategoryZones().length === 0 ? (
+                          <Card>
+                            <CardContent className="p-6 text-center">
+                              <p className="text-muted-foreground">
+                                Aucune zone trouvée pour la catégorie "{getCategoryDisplayName(selectedCategory)}".
+                              </p>
+                              <p className="text-sm text-muted-foreground mt-2">
+                                Les zones seront affichées ici une fois qu'elles seront ajoutées à la base de données.
+                              </p>
+                            </CardContent>
+                          </Card>
+                        ) : (
+                          getCurrentCategoryZones().map((zoneData) => (
                           <Card key={zoneData.zone} className="overflow-hidden">
                             <CardHeader className="pb-3">
                               <div className="flex items-center justify-between">
@@ -964,7 +1031,8 @@ export default function SettingsPage() {
                               )}
                             </CardContent>
                           </Card>
-                        ))}
+                          ))
+                        )}
                       </div>
                     </>
                   )}

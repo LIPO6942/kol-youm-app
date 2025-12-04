@@ -2,14 +2,33 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Règles complètement ouvertes temporairement pour debug
+    // Règles pour la collection users
+    // Les utilisateurs doivent être authentifiés et ne peuvent accéder qu'à leurs propres données
     match /users/{userId} {
-      allow read, write: if true; // Complètement ouvert temporairement
+      // Lire : uniquement si l'utilisateur est authentifié et accède à son propre document
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // Créer : uniquement si l'utilisateur est authentifié et crée son propre document
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      // Mettre à jour : uniquement si l'utilisateur est authentifié et modifie son propre document
+      allow update: if request.auth != null && request.auth.uid == userId;
+      
+      // Supprimer : uniquement si l'utilisateur est authentifié et supprime son propre document
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Autoriser l'accès au document system/places pour la gestion des lieux
+    // Règles pour system/places
+    // Lecture publique autorisée pour la base de données des lieux
+    // Écriture restreinte aux utilisateurs authentifiés (ou via backend uniquement)
     match /system/places {
-      allow read, write: if true; // Autoriser l'accès pour la base de données des lieux
+      // Lecture publique autorisée pour permettre l'accès aux suggestions de lieux
+      allow read: if true;
+      
+      // Écriture uniquement pour les utilisateurs authentifiés
+      // Note: En production, vous pourriez vouloir restreindre l'écriture à des rôles admin uniquement
+      // Pour l'instant, on permet aux utilisateurs authentifiés de modifier (peut être restreint plus tard)
+      allow write: if request.auth != null;
     }
     
     // Refuser tout autre accès par défaut
