@@ -1101,9 +1101,21 @@ export default function SettingsPage() {
                                     ))}
                                   </div>
                                   {getPlacesForZoneAndCategory(selectedZone, selectedCategory).length === 0 && (
-                                    <p className="text-sm text-muted-foreground text-center py-4">
-                                      Aucun lieu dans cette catégorie pour cette zone
-                                    </p>
+                                    <div className="text-center py-4">
+                                      <p className="text-sm text-muted-foreground mb-3">
+                                        Aucun lieu dans cette catégorie pour cette zone
+                                      </p>
+                                      <Button 
+                                        size="sm" 
+                                        onClick={() => {
+                                          setNewPlaceName(''); // Active le champ d'ajout rapide
+                                        }}
+                                        className="mx-auto"
+                                      >
+                                        <Plus className="h-3 w-3 mr-1" />
+                                        Ajouter le premier lieu
+                                      </Button>
+                                    </div>
                                   )}
                                 </div>
                               )}
