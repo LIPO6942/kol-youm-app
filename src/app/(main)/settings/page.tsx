@@ -397,7 +397,7 @@ export default function SettingsPage() {
     console.log('Mise à jour des lieux:', { currentPlaces: currentPlaces.length, updatedPlaces: updatedPlaces.length });
     
     handleUpdateZoneCategory(zone, updatedPlaces, normalizeCategoryForAPI(category));
-    setNewPlaceName('');
+    setNewPlaceName(null); // Fermer le champ d'ajout rapide
   };
 
   const handleRemovePlaceFromZoneCategory = (zone: string, placeToRemove: string, category: string) => {
@@ -1083,7 +1083,7 @@ export default function SettingsPage() {
                                         variant="ghost" 
                                         onClick={() => {
                                           console.log('Bouton Ajouter cliqué!');
-                                          setNewPlaceName(' '); // Active le champ d'ajout rapide avec un espace
+                                          setNewPlaceName(''); // Active le champ d'ajout rapide
                                         }}
                                       >
                                         <Plus className="h-3 w-3 mr-1" />
@@ -1192,7 +1192,7 @@ export default function SettingsPage() {
                                         size="sm" 
                                         onClick={() => {
                                           console.log('Bouton Ajouter cliqué!');
-                                          setNewPlaceName(' '); // Active le champ d'ajout rapide avec un espace
+                                          setNewPlaceName(''); // Active le champ d'ajout rapide
                                         }}
                                         className="mx-auto"
                                       >
