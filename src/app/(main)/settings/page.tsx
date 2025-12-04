@@ -1001,8 +1001,7 @@ export default function SettingsPage() {
                                         variant="ghost" 
                                         onClick={() => {
                                           console.log('Bouton Ajouter cliqué!');
-                                          setNewPlaceName(''); // Active le champ d'ajout rapide
-                                          setTimeout(() => console.log('newPlaceName après set:', newPlaceName), 100);
+                                          setNewPlaceName(' '); // Active le champ d'ajout rapide avec un espace
                                         }}
                                       >
                                         <Plus className="h-3 w-3 mr-1" />
@@ -1055,7 +1054,7 @@ export default function SettingsPage() {
                               ) : (
                                 <div className="space-y-1">
                                   {/* Ajout rapide de lieu */}
-                                  {console.log('Condition champ ajout:', newPlaceName !== null && newPlaceName !== '', 'newPlaceName:', newPlaceName) || (newPlaceName !== null && newPlaceName !== '') && (
+                                  {console.log('Condition champ ajout:', newPlaceName !== null, 'newPlaceName:', newPlaceName) || (newPlaceName !== null) && (
                                     <div className="flex gap-2 p-2 border rounded bg-blue-50">
                                       <Input
                                         placeholder="Nom du nouveau lieu..."
@@ -1111,8 +1110,7 @@ export default function SettingsPage() {
                                         size="sm" 
                                         onClick={() => {
                                           console.log('Bouton Ajouter cliqué!');
-                                          setNewPlaceName(''); // Active le champ d'ajout rapide
-                                          setTimeout(() => console.log('newPlaceName après set:', newPlaceName), 100);
+                                          setNewPlaceName(' '); // Active le champ d'ajout rapide avec un espace
                                         }}
                                         className="mx-auto"
                                       >
