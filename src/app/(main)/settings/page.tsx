@@ -49,17 +49,22 @@ interface PlaceFormData {
   predefinedArea?: string;
 }
 
-interface DatabasePlace {
+interface CategoryPlaces {
+  cafes?: string[];
+  restaurants?: string[];
+  fastFoods?: string[];
+  brunch?: string[];
+  balade?: string[];
+  shopping?: string[];
+}
+
+interface ZoneData {
   zone: string;
-  places: string[];
+  categories: CategoryPlaces;
 }
 
 interface PlacesDatabase {
-  cafes: DatabasePlace[];
-  restaurants?: DatabasePlace[];
-  fastFoods?: DatabasePlace[];
-  brunch?: DatabasePlace[];
-  bars?: DatabasePlace[];
+  zones: ZoneData[];
 }
 
 const PLACE_CATEGORIES = [
@@ -215,7 +220,7 @@ export default function SettingsPage() {
   const [editingZone, setEditingZone] = useState<string | null>(null);
   const [editedPlaces, setEditedPlaces] = useState<string[]>([]);
   const [newPlaceName, setNewPlaceName] = useState('');
-  const [selectedZone, setSelectedZone] = useState('');
+  const [selectedZone, setSelectedZone] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('cafes');
 
   // Charger la base de données des lieux
@@ -257,30 +262,36 @@ export default function SettingsPage() {
     }
   }, [databaseMode, activeTab]);
 
-  // Sélectionner automatiquement la première catégorie disponible quand la base de données est chargée
+  // Sélectionner automatiquement la première zone et catégorie disponibles quand la base de données est chargée
   useEffect(() => {
-    if (placesDatabase && databaseMode) {
-      // Vérifier si la catégorie actuelle existe et a des zones
-      const currentCategoryData = placesDatabase[selectedCategory as keyof PlacesDatabase];
-      const hasZones = Array.isArray(currentCategoryData) && currentCategoryData.length > 0;
-      
-      // Si la catégorie actuelle n'a pas de zones, sélectionner la première catégorie disponible
-      if (!hasZones) {
-        const availableCategories = ['cafes', 'restaurants', 'fastFoods', 'brunch', 'bars'];
-        const firstAvailable = availableCategories.find(cat => {
-          const data = placesDatabase[cat as keyof PlacesDatabase];
-          return Array.isArray(data) && data.length > 0;
-        });
+    if (placesDatabase && databaseMode && placesDatabase.zones.length > 0) {
+      // Si aucune zone n'est sélectionnée, sélectionner la première zone avec des catégories
+      if (!selectedZone) {
+        const firstZoneWithCategories = placesDatabase.zones.find(zone => 
+          Object.keys(zone.categories).some(cat => 
+            (zone.categories[cat as keyof CategoryPlaces]?.length || 0) > 0
+          )
+        );
         
-        if (firstAvailable) {
-          setSelectedCategory(firstAvailable);
+        if (firstZoneWithCategories) {
+          setSelectedZone(firstZoneWithCategories.zone);
+          // Sélectionner la première catégorie disponible dans cette zone
+          const firstCategory = Object.keys(firstZoneWithCategories.categories).find(cat =>
+            (firstZoneWithCategories.categories[cat as keyof CategoryPlaces]?.length || 0) > 0
+          );
+          if (firstCategory) {
+            setSelectedCategory(firstCategory);
+          }
+        } else if (placesDatabase.zones.length > 0) {
+          // Au moins sélectionner la première zone même si elle est vide
+          setSelectedZone(placesDatabase.zones[0].zone);
         }
       }
     }
-  }, [placesDatabase, databaseMode]);
+  }, [placesDatabase, databaseMode, selectedZone]);
 
   // Handlers pour la gestion de la base de données
-  const handleUpdateZone = async (zone: string, places: string[], category: string) => {
+  const handleUpdateZoneCategory = async (zone: string, places: string[], category: string) => {
     try {
       const response = await fetch('/api/places-database-firestore', {
         method: 'POST',
@@ -301,7 +312,7 @@ export default function SettingsPage() {
         loadPlacesDatabase();
         toast({
           title: 'Zone mise à jour',
-          description: `Les lieux de ${zone} (${category}) ont été mis à jour`
+          description: `Les lieux de ${zone} (${getCategoryDisplayName(category)}) ont été mis à jour`
         });
       } else {
         toast({
@@ -319,31 +330,31 @@ export default function SettingsPage() {
     }
   };
 
-  const handleAddPlaceToZone = (zone: string, category: string) => {
+  const handleAddPlaceToZoneCategory = (zone: string, category: string) => {
     if (!newPlaceName.trim()) return;
     
-    const currentZone = placesDatabase?.[category as keyof PlacesDatabase]?.find((z: any) => z.zone === zone);
-    const updatedPlaces = [...(currentZone?.places || []), newPlaceName.trim()];
+    const currentPlaces = getPlacesForZoneAndCategory(zone, category);
+    const updatedPlaces = [...currentPlaces, newPlaceName.trim()];
     
-    handleUpdateZone(zone, updatedPlaces, category);
+    handleUpdateZoneCategory(zone, updatedPlaces, category);
     setNewPlaceName('');
   };
 
-  const handleRemovePlaceFromZone = (zone: string, placeToRemove: string, category: string) => {
-    const currentZone = placesDatabase?.[category as keyof PlacesDatabase]?.find((z: any) => z.zone === zone);
-    const updatedPlaces = (currentZone?.places || []).filter((p: string) => p !== placeToRemove);
+  const handleRemovePlaceFromZoneCategory = (zone: string, placeToRemove: string, category: string) => {
+    const currentPlaces = getPlacesForZoneAndCategory(zone, category);
+    const updatedPlaces = currentPlaces.filter((p: string) => p !== placeToRemove);
     
-    handleUpdateZone(zone, updatedPlaces, category);
+    handleUpdateZoneCategory(zone, updatedPlaces, category);
   };
 
-  const handleStartEditingZone = (zone: string, category: string) => {
-    const currentZone = placesDatabase?.[category as keyof PlacesDatabase]?.find((z: any) => z.zone === zone);
+  const handleStartEditingZoneCategory = (zone: string, category: string) => {
+    const currentPlaces = getPlacesForZoneAndCategory(zone, category);
     setEditingZone(`${zone}-${category}`);
-    setEditedPlaces(currentZone?.places || []);
+    setEditedPlaces(currentPlaces);
   };
 
-  const handleSaveZone = (zone: string, category: string) => {
-    handleUpdateZone(zone, editedPlaces, category);
+  const handleSaveZoneCategory = (zone: string, category: string) => {
+    handleUpdateZoneCategory(zone, editedPlaces, category);
   };
 
   const handleAddPlaceToEditing = () => {
@@ -356,11 +367,30 @@ export default function SettingsPage() {
     setEditedPlaces(editedPlaces.filter(p => p !== placeToRemove));
   };
 
-  // Obtenir les zones pour la catégorie sélectionnée
-  const getCurrentCategoryZones = () => {
+  // Obtenir toutes les zones disponibles
+  const getAllZones = () => {
     if (!placesDatabase) return [];
-    const categoryData = placesDatabase[selectedCategory as keyof PlacesDatabase];
-    return Array.isArray(categoryData) ? categoryData : [];
+    return placesDatabase.zones || [];
+  };
+
+  // Obtenir les catégories pour une zone spécifique
+  const getCategoriesForZone = (zone: string) => {
+    if (!placesDatabase) return {};
+    const zoneData = placesDatabase.zones.find(z => z.zone === zone);
+    return zoneData?.categories || {};
+  };
+
+  // Obtenir les lieux pour une zone et catégorie spécifiques
+  const getPlacesForZoneAndCategory = (zone: string, category: string) => {
+    const categories = getCategoriesForZone(zone);
+    const categoryKey = category === 'cafés' || category === 'Café' ? 'cafes' :
+                        category === 'restaurant' || category === 'Restaurant' ? 'restaurants' :
+                        category === 'fast-food' || category === 'Fast Food' ? 'fastFoods' :
+                        category === 'Brunch' ? 'brunch' :
+                        category === 'Balade' ? 'balade' :
+                        category === 'Shopping' ? 'shopping' :
+                        category.toLowerCase();
+    return categories[categoryKey as keyof CategoryPlaces] || [];
   };
 
   // Obtenir le nom d'affichage de la catégorie
@@ -370,18 +400,48 @@ export default function SettingsPage() {
       'restaurants': 'Restaurants',
       'fastFoods': 'Fast Food',
       'brunch': 'Brunch',
-      'bars': 'Bars'
+      'balade': 'Balade',
+      'shopping': 'Shopping'
     };
     return names[category] || category.charAt(0).toUpperCase() + category.slice(1);
   };
 
-  // Obtenir les statistiques pour la catégorie sélectionnée
-  const getCurrentCategoryStats = () => {
-    const zones = getCurrentCategoryZones();
-    const totalPlaces = zones.reduce((acc, zone) => acc + zone.places.length, 0);
-    const averagePerZone = zones.length > 0 ? Math.round(totalPlaces / zones.length) : 0;
+  // Obtenir toutes les catégories disponibles (toutes les zones confondues)
+  const getAllAvailableCategories = () => {
+    if (!placesDatabase) return [];
+    const categoriesSet = new Set<string>();
+    placesDatabase.zones.forEach(zone => {
+      Object.keys(zone.categories).forEach(cat => {
+        if (zone.categories[cat as keyof CategoryPlaces]?.length) {
+          categoriesSet.add(cat);
+        }
+      });
+    });
+    return Array.from(categoriesSet);
+  };
+
+  // Obtenir les statistiques globales
+  const getGlobalStats = () => {
+    if (!placesDatabase) return { totalPlaces: 0, zonesCount: 0, categoriesCount: 0 };
     
-    return { totalPlaces, zonesCount: zones.length, averagePerZone };
+    let totalPlaces = 0;
+    const categoriesSet = new Set<string>();
+    
+    placesDatabase.zones.forEach(zone => {
+      Object.keys(zone.categories).forEach(cat => {
+        const places = zone.categories[cat as keyof CategoryPlaces] || [];
+        if (places.length > 0) {
+          categoriesSet.add(cat);
+          totalPlaces += places.length;
+        }
+      });
+    });
+    
+    return {
+      totalPlaces,
+      zonesCount: placesDatabase.zones.length,
+      categoriesCount: categoriesSet.size
+    };
   };
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -789,56 +849,84 @@ export default function SettingsPage() {
 
                   {placesDatabase && (
                     <>
-                      {/* Sélecteur de catégorie */}
-                      <div className="mb-6">
-                        <h4 className="text-base font-medium mb-3">Sélectionner une catégorie</h4>
-                        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                          <SelectTrigger className="w-full md:w-64">
-                            <SelectValue placeholder="Choisir une catégorie" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {placesDatabase ? (
-                              <>
-                                <SelectItem value="cafes">
-                                  Cafés ({placesDatabase.cafes?.length || 0} zones)
+                      {/* Sélecteurs Zone et Catégorie */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div>
+                          <h4 className="text-base font-medium mb-3">Sélectionner une zone</h4>
+                          <Select value={selectedZone} onValueChange={(value) => {
+                            setSelectedZone(value);
+                            // Sélectionner automatiquement la première catégorie disponible dans cette zone
+                            const zoneData = placesDatabase.zones.find(z => z.zone === value);
+                            if (zoneData) {
+                              const firstCategory = Object.keys(zoneData.categories).find(cat =>
+                                (zoneData.categories[cat as keyof CategoryPlaces]?.length || 0) > 0
+                              );
+                              if (firstCategory) {
+                                setSelectedCategory(firstCategory);
+                              }
+                            }
+                          }}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Choisir une zone" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {placesDatabase.zones.map((zone) => (
+                                <SelectItem key={zone.zone} value={zone.zone}>
+                                  {zone.zone}
                                 </SelectItem>
-                                <SelectItem value="restaurants">
-                                  Restaurants ({placesDatabase.restaurants?.length || 0} zones)
-                                </SelectItem>
-                                <SelectItem value="fastFoods">
-                                  Fast Food ({placesDatabase.fastFoods?.length || 0} zones)
-                                </SelectItem>
-                                {placesDatabase.brunch && (
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <h4 className="text-base font-medium mb-3">Sélectionner une catégorie</h4>
+                          <Select 
+                            value={selectedCategory} 
+                            onValueChange={setSelectedCategory}
+                            disabled={!selectedZone}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder={selectedZone ? "Choisir une catégorie" : "Sélectionnez d'abord une zone"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {selectedZone ? (
+                                <>
+                                  <SelectItem value="cafes">
+                                    Cafés ({getPlacesForZoneAndCategory(selectedZone, 'cafes').length} lieux)
+                                  </SelectItem>
+                                  <SelectItem value="restaurants">
+                                    Restaurants ({getPlacesForZoneAndCategory(selectedZone, 'restaurants').length} lieux)
+                                  </SelectItem>
+                                  <SelectItem value="fastFoods">
+                                    Fast Food ({getPlacesForZoneAndCategory(selectedZone, 'fastFoods').length} lieux)
+                                  </SelectItem>
                                   <SelectItem value="brunch">
-                                    Brunch ({placesDatabase.brunch.length} zones)
+                                    Brunch ({getPlacesForZoneAndCategory(selectedZone, 'brunch').length} lieux)
                                   </SelectItem>
-                                )}
-                                {placesDatabase.bars && (
-                                  <SelectItem value="bars">
-                                    Bars ({placesDatabase.bars.length} zones)
+                                  <SelectItem value="balade">
+                                    Balade ({getPlacesForZoneAndCategory(selectedZone, 'balade').length} lieux)
                                   </SelectItem>
-                                )}
-                              </>
-                            ) : (
-                              <SelectItem value="cafes" disabled>
-                                Chargement...
-                              </SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
+                                  <SelectItem value="shopping">
+                                    Shopping ({getPlacesForZoneAndCategory(selectedZone, 'shopping').length} lieux)
+                                  </SelectItem>
+                                </>
+                              ) : (
+                                <SelectItem value="" disabled>Sélectionnez d'abord une zone</SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
 
                       {/* Statistiques */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
                           <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                               <div>
-                                <p className="text-sm text-blue-600 font-medium">
-                                  Total {getCategoryDisplayName(selectedCategory)}
-                                </p>
+                                <p className="text-sm text-blue-600 font-medium">Total lieux</p>
                                 <p className="text-2xl font-bold text-blue-900">
-                                  {getCurrentCategoryStats().totalPlaces}
+                                  {getGlobalStats().totalPlaces}
                                 </p>
                               </div>
                               <MapPin className="h-8 w-8 text-blue-500" />
@@ -851,7 +939,7 @@ export default function SettingsPage() {
                               <div>
                                 <p className="text-sm text-green-600 font-medium">Zones couvertes</p>
                                 <p className="text-2xl font-bold text-green-900">
-                                  {getCurrentCategoryStats().zonesCount}
+                                  {getGlobalStats().zonesCount}
                                 </p>
                               </div>
                               <Database className="h-8 w-8 text-green-500" />
@@ -862,9 +950,9 @@ export default function SettingsPage() {
                           <CardContent className="p-4">
                             <div className="flex items-center justify-between">
                               <div>
-                                <p className="text-sm text-purple-600 font-medium">Moyenne/Zone</p>
+                                <p className="text-sm text-purple-600 font-medium">Catégories</p>
                                 <p className="text-2xl font-bold text-purple-900">
-                                  {getCurrentCategoryStats().averagePerZone}
+                                  {getGlobalStats().categoriesCount}
                                 </p>
                               </div>
                               <Plus className="h-8 w-8 text-purple-500" />
@@ -873,36 +961,26 @@ export default function SettingsPage() {
                         </Card>
                       </div>
 
-                      {/* Gestion par zone */}
-                      <div className="space-y-4">
-                        <h4 className="text-base font-medium">Gestion des lieux par zone - {getCategoryDisplayName(selectedCategory)}</h4>
-                        
-                        {getCurrentCategoryZones().length === 0 ? (
+                      {/* Gestion des lieux pour la zone et catégorie sélectionnées */}
+                      {selectedZone && selectedCategory && (
+                        <div className="space-y-4">
+                          <h4 className="text-base font-medium">
+                            {selectedZone} - {getCategoryDisplayName(selectedCategory)}
+                          </h4>
+                          
                           <Card>
-                            <CardContent className="p-6 text-center">
-                              <p className="text-muted-foreground">
-                                Aucune zone trouvée pour la catégorie "{getCategoryDisplayName(selectedCategory)}".
-                              </p>
-                              <p className="text-sm text-muted-foreground mt-2">
-                                Les zones seront affichées ici une fois qu'elles seront ajoutées à la base de données.
-                              </p>
-                            </CardContent>
-                          </Card>
-                        ) : (
-                          getCurrentCategoryZones().map((zoneData) => (
-                          <Card key={zoneData.zone} className="overflow-hidden">
                             <CardHeader className="pb-3">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <h5 className="font-medium">{zoneData.zone}</h5>
+                                  <h5 className="font-medium">{selectedZone}</h5>
                                   <Badge variant="secondary" className="text-xs">
-                                    {zoneData.places.length} lieux
+                                    {getPlacesForZoneAndCategory(selectedZone, selectedCategory).length} lieux
                                   </Badge>
                                 </div>
                                 <div className="flex gap-1">
-                                  {editingZone === `${zoneData.zone}-${selectedCategory}` ? (
+                                  {editingZone === `${selectedZone}-${selectedCategory}` ? (
                                     <>
-                                      <Button size="sm" onClick={() => handleSaveZone(zoneData.zone, selectedCategory)}>
+                                      <Button size="sm" onClick={() => handleSaveZoneCategory(selectedZone, selectedCategory)}>
                                         <Save className="h-3 w-3 mr-1" />
                                         Sauver
                                       </Button>
@@ -913,7 +991,7 @@ export default function SettingsPage() {
                                     </>
                                   ) : (
                                     <>
-                                      <Button size="sm" variant="ghost" onClick={() => handleStartEditingZone(zoneData.zone, selectedCategory)}>
+                                      <Button size="sm" variant="ghost" onClick={() => handleStartEditingZoneCategory(selectedZone, selectedCategory)}>
                                         <Edit2 className="h-3 w-3 mr-1" />
                                         Modifier
                                       </Button>
@@ -921,7 +999,6 @@ export default function SettingsPage() {
                                         size="sm" 
                                         variant="ghost" 
                                         onClick={() => {
-                                          setSelectedZone(zoneData.zone);
                                           setNewPlaceName('');
                                         }}
                                       >
@@ -934,7 +1011,7 @@ export default function SettingsPage() {
                               </div>
                             </CardHeader>
                             <CardContent className="pt-0">
-                              {editingZone === `${zoneData.zone}-${selectedCategory}` ? (
+                              {editingZone === `${selectedZone}-${selectedCategory}` ? (
                                 <div className="space-y-3">
                                   {/* Ajouter un lieu en mode édition */}
                                   <div className="flex gap-2">
@@ -967,7 +1044,7 @@ export default function SettingsPage() {
                                     ))}
                                     {editedPlaces.length === 0 && (
                                       <p className="text-sm text-muted-foreground text-center py-2">
-                                        Aucun lieu dans cette zone
+                                        Aucun lieu dans cette catégorie
                                       </p>
                                     )}
                                   </div>
@@ -975,7 +1052,7 @@ export default function SettingsPage() {
                               ) : (
                                 <div className="space-y-1">
                                   {/* Ajout rapide de lieu */}
-                                  {selectedZone === zoneData.zone && (
+                                  {newPlaceName !== '' && (
                                     <div className="flex gap-2 p-2 border rounded bg-blue-50">
                                       <Input
                                         placeholder="Nom du nouveau lieu..."
@@ -983,8 +1060,8 @@ export default function SettingsPage() {
                                         onChange={(e) => setNewPlaceName(e.target.value)}
                                         onKeyPress={(e) => {
                                           if (e.key === 'Enter') {
-                                            handleAddPlaceToZone(zoneData.zone, selectedCategory);
-                                            setSelectedZone('');
+                                            handleAddPlaceToZoneCategory(selectedZone, selectedCategory);
+                                            setNewPlaceName('');
                                           }
                                         }}
                                         className="flex-1"
@@ -992,15 +1069,15 @@ export default function SettingsPage() {
                                       <Button 
                                         size="sm" 
                                         onClick={() => {
-                                          handleAddPlaceToZone(zoneData.zone, selectedCategory);
-                                          setSelectedZone('');
+                                          handleAddPlaceToZoneCategory(selectedZone, selectedCategory);
+                                          setNewPlaceName('');
                                         }}
                                         disabled={!newPlaceName.trim()}
                                       >
                                         <Plus className="h-3 w-3 mr-1" />
                                         Ajouter
                                       </Button>
-                                      <Button size="sm" variant="outline" onClick={() => setSelectedZone('')}>
+                                      <Button size="sm" variant="outline" onClick={() => setNewPlaceName('')}>
                                         <X className="h-3 w-3" />
                                       </Button>
                                     </div>
@@ -1008,13 +1085,13 @@ export default function SettingsPage() {
                                   
                                   {/* Liste des lieux */}
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
-                                    {zoneData.places.map((place, index) => (
+                                    {getPlacesForZoneAndCategory(selectedZone, selectedCategory).map((place, index) => (
                                       <div key={index} className="flex items-center justify-between p-2 border rounded hover:bg-muted/50 group">
                                         <span className="text-sm truncate">{place}</span>
                                         <Button 
                                           size="sm" 
                                           variant="ghost" 
-                                          onClick={() => handleRemovePlaceFromZone(zoneData.zone, place, selectedCategory)}
+                                          onClick={() => handleRemovePlaceFromZoneCategory(selectedZone, place, selectedCategory)}
                                           className="text-red-500 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                         >
                                           <Trash2 className="h-3 w-3" />
@@ -1022,18 +1099,27 @@ export default function SettingsPage() {
                                       </div>
                                     ))}
                                   </div>
-                                  {zoneData.places.length === 0 && (
+                                  {getPlacesForZoneAndCategory(selectedZone, selectedCategory).length === 0 && (
                                     <p className="text-sm text-muted-foreground text-center py-4">
-                                      Aucun lieu dans cette zone
+                                      Aucun lieu dans cette catégorie pour cette zone
                                     </p>
                                   )}
                                 </div>
                               )}
                             </CardContent>
                           </Card>
-                          ))
-                        )}
-                      </div>
+                        </div>
+                      )}
+
+                      {(!selectedZone || !selectedCategory) && (
+                        <Card>
+                          <CardContent className="p-6 text-center">
+                            <p className="text-muted-foreground">
+                              Sélectionnez une zone et une catégorie pour commencer à gérer les lieux.
+                            </p>
+                          </CardContent>
+                        </Card>
+                      )}
                     </>
                   )}
                 </div>

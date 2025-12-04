@@ -32,17 +32,22 @@ try {
 
 const db = getFirestore(app as any);
 
-interface PlaceData {
+interface CategoryPlaces {
+  cafes?: string[];
+  restaurants?: string[];
+  fastFoods?: string[];
+  brunch?: string[];
+  balade?: string[];
+  shopping?: string[];
+}
+
+interface ZoneData {
   zone: string;
-  places: string[];
+  categories: CategoryPlaces;
 }
 
 interface PlacesDatabase {
-  cafes: PlaceData[];
-  restaurants?: PlaceData[];
-  fastFoods?: PlaceData[];
-  brunch?: PlaceData[];
-  bars?: PlaceData[];
+  zones: ZoneData[];
 }
 
 export async function GET() {
@@ -63,24 +68,32 @@ export async function GET() {
       console.log('No zones found, returning empty database');
       return NextResponse.json({ 
         success: true, 
-        data: { cafes: [], restaurants: [], fastFoods: [], brunch: [], bars: [] } 
+        data: { zones: [] } 
       });
     }
     
-    // Convertir en structure par catégorie
-    const zonesData = zonesSnapshot.docs.map(doc => doc.data());
-    const placesDatabase = {
-      cafes: zonesData.filter(z => z.cafes && z.cafes.length > 0).map(z => ({ zone: z.zone, places: z.cafes })),
-      restaurants: zonesData.filter(z => z.restaurants && z.restaurants.length > 0).map(z => ({ zone: z.zone, places: z.restaurants })),
-      fastFoods: zonesData.filter(z => z.fastFoods && z.fastFoods.length > 0).map(z => ({ zone: z.zone, places: z.fastFoods })),
-      brunch: zonesData.filter(z => z.brunch && z.brunch.length > 0).map(z => ({ zone: z.zone, places: z.brunch })),
-      bars: zonesData.filter(z => z.bars && z.bars.length > 0).map(z => ({ zone: z.zone, places: z.bars }))
+    // Convertir en structure par zone → catégories → lieux
+    const zonesData = zonesSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        zone: data.zone || '',
+        categories: {
+          cafes: data.cafes || [],
+          restaurants: data.restaurants || [],
+          fastFoods: data.fastFoods || [],
+          brunch: data.brunch || [],
+          balade: data.balade || [],
+          shopping: data.shopping || []
+        }
+      } as ZoneData;
+    });
+    
+    const placesDatabase: PlacesDatabase = {
+      zones: zonesData
     };
     
     console.log('Zones data loaded successfully:', {
-      cafes: placesDatabase.cafes.length,
-      restaurants: placesDatabase.restaurants.length,
-      fastFoods: placesDatabase.fastFoods.length
+      totalZones: placesDatabase.zones.length
     });
     
     return NextResponse.json({ success: true, data: placesDatabase });
@@ -116,15 +129,32 @@ export async function POST(request: NextRequest) {
         restaurants: [],
         fastFoods: [],
         brunch: [],
-        bars: []
+        balade: [],
+        shopping: []
       };
       
       if (zoneDoc.exists()) {
         zoneData = zoneDoc.data();
+        // S'assurer que toutes les catégories existent
+        if (!zoneData.cafes) zoneData.cafes = [];
+        if (!zoneData.restaurants) zoneData.restaurants = [];
+        if (!zoneData.fastFoods) zoneData.fastFoods = [];
+        if (!zoneData.brunch) zoneData.brunch = [];
+        if (!zoneData.balade) zoneData.balade = [];
+        if (!zoneData.shopping) zoneData.shopping = [];
       }
       
       // Mettre à jour la catégorie spécifique
-      zoneData[category] = places;
+      // Normaliser le nom de la catégorie
+      const categoryKey = category === 'cafés' || category === 'Café' ? 'cafes' :
+                          category === 'restaurant' || category === 'Restaurant' ? 'restaurants' :
+                          category === 'fast-food' || category === 'Fast Food' ? 'fastFoods' :
+                          category === 'Brunch' ? 'brunch' :
+                          category === 'Balade' ? 'balade' :
+                          category === 'Shopping' ? 'shopping' :
+                          category.toLowerCase();
+      
+      zoneData[categoryKey] = places;
       
       // Sauvegarder dans Firestore
       await setDoc(doc(db, 'zones', zoneId), zoneData);
