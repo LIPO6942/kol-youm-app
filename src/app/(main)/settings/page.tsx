@@ -1000,7 +1000,9 @@ export default function SettingsPage() {
                                         size="sm" 
                                         variant="ghost" 
                                         onClick={() => {
+                                          console.log('Bouton Ajouter cliqué!');
                                           setNewPlaceName(''); // Active le champ d'ajout rapide
+                                          setTimeout(() => console.log('newPlaceName après set:', newPlaceName), 100);
                                         }}
                                       >
                                         <Plus className="h-3 w-3 mr-1" />
@@ -1053,7 +1055,7 @@ export default function SettingsPage() {
                               ) : (
                                 <div className="space-y-1">
                                   {/* Ajout rapide de lieu */}
-                                  {newPlaceName !== null && newPlaceName !== '' && (
+                                  {console.log('Condition champ ajout:', newPlaceName !== null && newPlaceName !== '', 'newPlaceName:', newPlaceName) || (newPlaceName !== null && newPlaceName !== '') && (
                                     <div className="flex gap-2 p-2 border rounded bg-blue-50">
                                       <Input
                                         placeholder="Nom du nouveau lieu..."
@@ -1108,7 +1110,9 @@ export default function SettingsPage() {
                                       <Button 
                                         size="sm" 
                                         onClick={() => {
+                                          console.log('Bouton Ajouter cliqué!');
                                           setNewPlaceName(''); // Active le champ d'ajout rapide
+                                          setTimeout(() => console.log('newPlaceName après set:', newPlaceName), 100);
                                         }}
                                         className="mx-auto"
                                       >
