@@ -329,6 +329,7 @@ export default function SettingsPage() {
 
   // Handlers pour la gestion de la base de données
   const handleUpdateZoneCategory = async (zone: string, places: string[], category: string) => {
+    console.log('handleUpdateZoneCategory appelé:', { zone, placesCount: places.length, category });
     try {
       const response = await fetch('/api/places-database-firestore', {
         method: 'POST',
@@ -341,7 +342,9 @@ export default function SettingsPage() {
         })
       });
 
+      console.log('Response status:', response.status);
       const data = await response.json();
+      console.log('Response data:', data);
       
       if (data.success) {
         setEditingZone(null);
@@ -360,6 +363,7 @@ export default function SettingsPage() {
         });
       }
     } catch (error) {
+      console.error('Network Error:', error);
       toast({
         variant: 'destructive',
         title: 'Erreur',
@@ -381,10 +385,16 @@ export default function SettingsPage() {
   };
 
   const handleAddPlaceToZoneCategory = (zone: string, category: string) => {
-    if (!newPlaceName.trim()) return;
+    console.log('handleAddPlaceToZoneCategory appelé avec:', { zone, category, newPlaceName });
+    if (!newPlaceName || !newPlaceName.trim()) {
+      console.log('newPlaceName est vide, annulation');
+      return;
+    }
     
     const currentPlaces = getPlacesForZoneAndCategory(zone, category);
     const updatedPlaces = [...currentPlaces, newPlaceName.trim()];
+    
+    console.log('Mise à jour des lieux:', { currentPlaces: currentPlaces.length, updatedPlaces: updatedPlaces.length });
     
     handleUpdateZoneCategory(zone, updatedPlaces, normalizeCategoryForAPI(category));
     setNewPlaceName('');
