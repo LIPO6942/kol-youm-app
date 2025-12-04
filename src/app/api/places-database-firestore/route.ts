@@ -27,9 +27,10 @@ try {
   app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 } catch (error) {
   console.error('Firebase initialization error:', error);
+  throw new Error('Failed to initialize Firebase');
 }
 
-const db = getFirestore(app);
+const db = getFirestore(app as any);
 
 interface PlaceData {
   zone: string;
