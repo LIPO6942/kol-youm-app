@@ -1140,28 +1140,28 @@ export default function SettingsPage() {
                                     <div className="flex gap-2 p-2 border rounded bg-blue-50">
                                       <Input
                                         placeholder="Nom du nouveau lieu..."
-                                        value={newPlaceName}
+                                        value={newPlaceName || ''}
                                         onChange={(e) => setNewPlaceName(e.target.value)}
                                         onKeyPress={(e) => {
                                           if (e.key === 'Enter') {
                                             handleAddPlaceToZoneCategory(selectedZone, selectedCategory);
-                                            setNewPlaceName('');
                                           }
                                         }}
                                         className="flex-1"
                                       />
                                       <Button 
                                         size="sm" 
-                                        onClick={() => {
-                                          handleAddPlaceToZoneCategory(selectedZone, selectedCategory);
-                                          setNewPlaceName('');
-                                        }}
+                                        onClick={() => handleAddPlaceToZoneCategory(selectedZone, selectedCategory)}
                                         disabled={!newPlaceName || !newPlaceName.trim()}
                                       >
                                         <Plus className="h-3 w-3 mr-1" />
                                         Ajouter
                                       </Button>
-                                      <Button size="sm" variant="outline" onClick={() => setNewPlaceName('')}>
+                                      <Button 
+                                        size="sm" 
+                                        variant="ghost"
+                                        onClick={() => setNewPlaceName(null)}
+                                      >
                                         <X className="h-3 w-3" />
                                       </Button>
                                     </div>
