@@ -108,9 +108,159 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { action, zone, places, category } = await request.json();
+    const { action, zone, places, category, initFromLocal } = await request.json();
 
-    console.log('Firestore API Request:', { action, zone, places: places?.length, category });
+    console.log('Firestore API Request:', { action, zone, places: places?.length, category, initFromLocal });
+
+    if (action === 'init' && initFromLocal) {
+      // Initialiser Firestore avec les données du fichier local
+      const fs = require('fs');
+      const path = require('path');
+      
+      const filePath = path.join(process.cwd(), 'src', 'ai', 'flows', 'decision-maker-flow.ts');
+      const fileContent = fs.readFileSync(filePath, 'utf-8');
+      
+      // Parser le contenu pour extraire les zones et catégories
+      const zonesData: any[] = [];
+      
+      // Parser les cafés
+      const cafesSection = fileContent.match(/{{#if isCafeCategory}}([\s\S]*?){{\/if}}/);
+      if (cafesSection) {
+        const zones = cafesSection[1].match(/- \*\*Zone ([^:]+) :\*\* (.+)\./g);
+        if (zones) {
+          zones.forEach((zoneLine: string) => {
+            const match = zoneLine.match(/- \*\*Zone ([^:]+) :\*\* (.+)\./);
+            if (match) {
+              const zoneName = match[1].trim();
+              const places = match[2].split(',').map((p: string) => p.trim()).filter((p: string) => p);
+              
+              let existingZone = zonesData.find(z => z.zone === zoneName);
+              if (!existingZone) {
+                existingZone = {
+                  zone: zoneName,
+                  cafes: [],
+                  restaurants: [],
+                  fastFoods: [],
+                  brunch: [],
+                  balade: [],
+                  shopping: []
+                };
+                zonesData.push(existingZone);
+              }
+              existingZone.cafes = places;
+            }
+          });
+        }
+      }
+      
+      // Parser les fast foods
+      const fastFoodsSection = fileContent.match(/{{#if isFastFoodCategory}}([\s\S]*?){{\/if}}/);
+      if (fastFoodsSection) {
+        const zones = fastFoodsSection[1].match(/- \*\*Zone ([^:]+) :\*\* (.+)\./g);
+        if (zones) {
+          zones.forEach((zoneLine: string) => {
+            const match = zoneLine.match(/- \*\*Zone ([^:]+) :\*\* (.+)\./);
+            if (match) {
+              const zoneName = match[1].trim();
+              const places = match[2].split(',').map((p: string) => p.trim()).filter((p: string) => p);
+              
+              let existingZone = zonesData.find(z => z.zone === zoneName);
+              if (!existingZone) {
+                existingZone = {
+                  zone: zoneName,
+                  cafes: [],
+                  restaurants: [],
+                  fastFoods: [],
+                  brunch: [],
+                  balade: [],
+                  shopping: []
+                };
+                zonesData.push(existingZone);
+              }
+              existingZone.fastFoods = places;
+            }
+          });
+        }
+      }
+      
+      // Parser les restaurants
+      const restaurantsSection = fileContent.match(/{{#if isRestaurantCategory}}([\s\S]*?){{\/if}}/);
+      if (restaurantsSection) {
+        const zones = restaurantsSection[1].match(/- \*\*Zone ([^:]+) :\*\* (.+)\./g);
+        if (zones) {
+          zones.forEach((zoneLine: string) => {
+            const match = zoneLine.match(/- \*\*Zone ([^:]+) :\*\* (.+)\./);
+            if (match) {
+              const zoneName = match[1].trim();
+              const places = match[2].split(',').map((p: string) => p.trim()).filter((p: string) => p);
+              
+              let existingZone = zonesData.find(z => z.zone === zoneName);
+              if (!existingZone) {
+                existingZone = {
+                  zone: zoneName,
+                  cafes: [],
+                  restaurants: [],
+                  fastFoods: [],
+                  brunch: [],
+                  balade: [],
+                  shopping: []
+                };
+                zonesData.push(existingZone);
+              }
+              existingZone.restaurants = places;
+            }
+          });
+        }
+      }
+      
+      // Parser les brunch
+      const brunchSection = fileContent.match(/{{#if isBrunchCategory}}([\s\S]*?){{\/if}}/);
+      if (brunchSection) {
+        const zones = brunchSection[1].match(/- \*\*Zone ([^:]+) :\*\* (.+)\./g);
+        if (zones) {
+          zones.forEach((zoneLine: string) => {
+            const match = zoneLine.match(/- \*\*Zone ([^:]+) :\*\* (.+)\./);
+            if (match) {
+              const zoneName = match[1].trim();
+              const places = match[2].split(',').map((p: string) => p.trim()).filter((p: string) => p);
+              
+              let existingZone = zonesData.find(z => z.zone === zoneName);
+              if (!existingZone) {
+                existingZone = {
+                  zone: zoneName,
+                  cafes: [],
+                  restaurants: [],
+                  fastFoods: [],
+                  brunch: [],
+                  balade: [],
+                  shopping: []
+                };
+                zonesData.push(existingZone);
+              }
+              existingZone.brunch = places;
+            }
+          });
+        }
+      }
+      
+      // Importer toutes les zones dans Firestore
+      for (const zoneData of zonesData) {
+        const zoneId = zoneData.zone
+          .replace(/\//g, '-')
+          .replace(/[^\w\s-]/g, '')
+          .replace(/\s+/g, '_')
+          .toLowerCase();
+        
+        await setDoc(doc(db, 'zones', zoneId), zoneData);
+        console.log(`Imported zone: ${zoneData.zone}`);
+      }
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: `Importé ${zonesData.length} zones dans Firestore`,
+        zones: zonesData.map(z => z.zone)
+      });
+    }
 
     if (action === 'update') {
       // Créer un ID safe pour la zone

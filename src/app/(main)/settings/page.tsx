@@ -290,6 +290,43 @@ export default function SettingsPage() {
     }
   }, [placesDatabase, databaseMode, selectedZone]);
 
+  // Initialiser Firestore avec les données locales
+  const initializeFirestore = async () => {
+    try {
+      const response = await fetch('/api/places-database-firestore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'init',
+          initFromLocal: true
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        toast({
+          title: 'Initialisation réussie',
+          description: data.message || 'Firestore a été initialisé avec les données locales'
+        });
+        // Recharger les données
+        loadPlacesDatabase();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Erreur d\'initialisation',
+          description: data.error || 'Impossible d\'initialiser Firestore'
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Erreur lors de l\'initialisation de Firestore'
+      });
+    }
+  };
+
   // Handlers pour la gestion de la base de données
   const handleUpdateZoneCategory = async (zone: string, places: string[], category: string) => {
     try {
@@ -860,7 +897,30 @@ export default function SettingsPage() {
                     </div>
                   )}
 
-                  {placesDatabase && (
+                  {placesDatabase && placesDatabase.zones.length === 0 && (
+                    <Card className="border-dashed border-2">
+                      <CardContent className="p-6 text-center">
+                        <div className="space-y-4">
+                          <div className="text-muted-foreground">
+                            <Database className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                            <p className="text-lg font-medium">Base de données vide</p>
+                            <p className="text-sm">
+                              Firestore ne contient aucune donnée. Initialisez-la avec les données du fichier local.
+                            </p>
+                          </div>
+                          <Button 
+                            onClick={initializeFirestore}
+                            className="mx-auto"
+                          >
+                            <Database className="h-4 w-4 mr-2" />
+                            Initialiser Firestore
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {placesDatabase && placesDatabase.zones.length > 0 && (
                     <>
                       {/* Sélecteurs Zone et Catégorie */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
