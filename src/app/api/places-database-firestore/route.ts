@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirestore, collection, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-
+import { getDocs } from 'firebase/firestore';
 // Configuration Firebase
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -55,27 +55,37 @@ export async function GET() {
       }, { status: 500 });
     }
 
-    const placesDoc = await getDoc(doc(db, 'system', 'places'));
+    // Lire tous les documents de la collection zones
+    const zonesCollection = collection(db, 'zones');
+    const zonesSnapshot = await getDocs(zonesCollection);
     
-    if (!placesDoc.exists()) {
-      // Si le document n'existe pas, retourner une base vide
-      console.log('No places document found, returning empty database');
+    if (zonesSnapshot.empty) {
+      console.log('No zones found, returning empty database');
       return NextResponse.json({ 
         success: true, 
         data: { cafes: [], restaurants: [], fastFoods: [], brunch: [], bars: [] } 
       });
     }
     
-    const data = placesDoc.data() as PlacesDatabase;
-    console.log('Places data loaded successfully:', {
-      cafes: data.cafes?.length || 0,
-      restaurants: data.restaurants?.length || 0,
-      fastFoods: data.fastFoods?.length || 0
+    // Convertir en structure par catégorie
+    const zonesData = zonesSnapshot.docs.map(doc => doc.data());
+    const placesDatabase = {
+      cafes: zonesData.filter(z => z.cafes && z.cafes.length > 0).map(z => ({ zone: z.zone, places: z.cafes })),
+      restaurants: zonesData.filter(z => z.restaurants && z.restaurants.length > 0).map(z => ({ zone: z.zone, places: z.restaurants })),
+      fastFoods: zonesData.filter(z => z.fastFoods && z.fastFoods.length > 0).map(z => ({ zone: z.zone, places: z.fastFoods })),
+      brunch: zonesData.filter(z => z.brunch && z.brunch.length > 0).map(z => ({ zone: z.zone, places: z.brunch })),
+      bars: zonesData.filter(z => z.bars && z.bars.length > 0).map(z => ({ zone: z.zone, places: z.bars }))
+    };
+    
+    console.log('Zones data loaded successfully:', {
+      cafes: placesDatabase.cafes.length,
+      restaurants: placesDatabase.restaurants.length,
+      fastFoods: placesDatabase.fastFoods.length
     });
     
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({ success: true, data: placesDatabase });
   } catch (error) {
-    console.error('Error reading places from Firestore:', error);
+    console.error('Error reading zones from Firestore:', error);
     return NextResponse.json({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Failed to read places database' 
@@ -90,39 +100,41 @@ export async function POST(request: NextRequest) {
     console.log('Firestore API Request:', { action, zone, places: places?.length, category });
 
     if (action === 'update') {
-      const placesDoc = await getDoc(doc(db, 'system', 'places'));
+      // Créer un ID safe pour la zone
+      const zoneId = zone
+        .replace(/\//g, '-')          // pas de slash FIRESTORE DANGER
+        .replace(/[^\w\s-]/g, '')     // enlève caractères spéciaux
+        .replace(/\s+/g, '_')         // remplace espaces par underscores
+        .toLowerCase();
+
+      // Lire le document de la zone
+      const zoneDoc = await getDoc(doc(db, 'zones', zoneId));
       
-      let currentData: PlacesDatabase = { cafes: [], restaurants: [], fastFoods: [], brunch: [], bars: [] };
+      let zoneData: any = {
+        zone: zone,
+        cafes: [],
+        restaurants: [],
+        fastFoods: [],
+        brunch: [],
+        bars: []
+      };
       
-      if (placesDoc.exists()) {
-        currentData = placesDoc.data() as PlacesDatabase;
+      if (zoneDoc.exists()) {
+        zoneData = zoneDoc.data();
       }
       
-      // Mettre à jour la catégorie et la zone spécifiques
-      if (!currentData[category as keyof PlacesDatabase]) {
-        currentData[category as keyof PlacesDatabase] = [];
-      }
-      
-      const categoryZones = currentData[category as keyof PlacesDatabase] as PlaceData[];
-      const existingZoneIndex = categoryZones.findIndex(z => z.zone === zone);
-      
-      if (existingZoneIndex >= 0) {
-        // Mettre à jour la zone existante
-        categoryZones[existingZoneIndex].places = places;
-      } else {
-        // Ajouter une nouvelle zone
-        categoryZones.push({ zone, places });
-      }
+      // Mettre à jour la catégorie spécifique
+      zoneData[category] = places;
       
       // Sauvegarder dans Firestore
-      await setDoc(doc(db, 'system', 'places'), currentData);
+      await setDoc(doc(db, 'zones', zoneId), zoneData);
       
-      console.log('Firestore updated successfully');
+      console.log('Zone updated successfully:', zoneId);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error updating places in Firestore:', error);
+    console.error('Error updating zone in Firestore:', error);
     return NextResponse.json({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Failed to update places database' 
