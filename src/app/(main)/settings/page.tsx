@@ -220,23 +220,28 @@ export default function SettingsPage() {
   const loadPlacesDatabase = async () => {
     setIsLoadingDatabase(true);
     try {
-      const response = await fetch('/api/places-database');
+      const response = await fetch('/api/places-database-firestore');
       const data = await response.json();
       
       if (data.success) {
         setPlacesDatabase(data.data);
+        toast({
+          title: 'Base de données chargée',
+          description: 'Les lieux ont été chargés avec succès'
+        });
       } else {
         toast({
           variant: 'destructive',
           title: 'Erreur',
-          description: 'Impossible de charger la base de données des lieux'
+          description: 'Impossible de charger la base de données'
         });
       }
     } catch (error) {
+      console.error('Error loading places database:', error);
       toast({
         variant: 'destructive',
         title: 'Erreur',
-        description: 'Erreur lors du chargement de la base de données'
+        description: 'Erreur lors du chargement'
       });
     } finally {
       setIsLoadingDatabase(false);
@@ -253,7 +258,7 @@ export default function SettingsPage() {
   // Handlers pour la gestion de la base de données
   const handleUpdateZone = async (zone: string, places: string[], category: string) => {
     try {
-      const response = await fetch('/api/places-database', {
+      const response = await fetch('/api/places-database-firestore', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -278,7 +283,7 @@ export default function SettingsPage() {
         toast({
           variant: 'destructive',
           title: 'Erreur',
-          description: 'Impossible de mettre à jour la zone'
+          description: data.error || 'Impossible de mettre à jour la zone'
         });
       }
     } catch (error) {
