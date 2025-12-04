@@ -215,7 +215,7 @@ export default function SettingsPage() {
   const [isLoadingDatabase, setIsLoadingDatabase] = useState(false);
   const [editingZone, setEditingZone] = useState<string | null>(null);
   const [editedPlaces, setEditedPlaces] = useState<string[]>([]);
-  const [newPlaceName, setNewPlaceName] = useState('');
+  const [newPlaceName, setNewPlaceName] = useState<string | null>(null);
   const [selectedZone, setSelectedZone] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('cafes');
 
@@ -1000,7 +1000,7 @@ export default function SettingsPage() {
                                         size="sm" 
                                         variant="ghost" 
                                         onClick={() => {
-                                          setNewPlaceName(' '); // Met un espace pour activer le champ
+                                          setNewPlaceName(''); // Active le champ d'ajout rapide
                                         }}
                                       >
                                         <Plus className="h-3 w-3 mr-1" />
@@ -1053,7 +1053,7 @@ export default function SettingsPage() {
                               ) : (
                                 <div className="space-y-1">
                                   {/* Ajout rapide de lieu */}
-                                  {(newPlaceName !== '' && newPlaceName.trim() !== '') && (
+                                  {newPlaceName !== null && newPlaceName !== '' && (
                                     <div className="flex gap-2 p-2 border rounded bg-blue-50">
                                       <Input
                                         placeholder="Nom du nouveau lieu..."
@@ -1073,7 +1073,7 @@ export default function SettingsPage() {
                                           handleAddPlaceToZoneCategory(selectedZone, selectedCategory);
                                           setNewPlaceName('');
                                         }}
-                                        disabled={!newPlaceName.trim()}
+                                        disabled={!newPlaceName || !newPlaceName.trim()}
                                       >
                                         <Plus className="h-3 w-3 mr-1" />
                                         Ajouter
