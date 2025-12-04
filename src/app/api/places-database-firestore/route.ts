@@ -1,18 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirestore, collection, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 
 // Configuration Firebase
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+  apiKey: process.env.FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN || process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID || process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-const app = initializeApp(firebaseConfig);
+// Vérifier la configuration
+if (!firebaseConfig.projectId) {
+  console.error('Firebase configuration missing:', {
+    hasApiKey: !!firebaseConfig.apiKey,
+    hasProjectId: !!firebaseConfig.projectId,
+    hasAppId: !!firebaseConfig.appId
+  });
+}
+
+// Initialiser Firebase
+let app;
+try {
+  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+} catch (error) {
+  console.error('Firebase initialization error:', error);
+}
+
 const db = getFirestore(app);
 
 interface PlaceData {
@@ -30,10 +46,19 @@ interface PlacesDatabase {
 
 export async function GET() {
   try {
+    // Vérifier si Firebase est configuré
+    if (!firebaseConfig.projectId) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Firebase configuration missing. Please check environment variables.' 
+      }, { status: 500 });
+    }
+
     const placesDoc = await getDoc(doc(db, 'system', 'places'));
     
     if (!placesDoc.exists()) {
       // Si le document n'existe pas, retourner une base vide
+      console.log('No places document found, returning empty database');
       return NextResponse.json({ 
         success: true, 
         data: { cafes: [], restaurants: [], fastFoods: [], brunch: [], bars: [] } 
@@ -41,13 +66,18 @@ export async function GET() {
     }
     
     const data = placesDoc.data() as PlacesDatabase;
+    console.log('Places data loaded successfully:', {
+      cafes: data.cafes?.length || 0,
+      restaurants: data.restaurants?.length || 0,
+      fastFoods: data.fastFoods?.length || 0
+    });
     
     return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error('Error reading places from Firestore:', error);
     return NextResponse.json({ 
       success: false, 
-      error: 'Failed to read places database' 
+      error: error instanceof Error ? error.message : 'Failed to read places database' 
     }, { status: 500 });
   }
 }
