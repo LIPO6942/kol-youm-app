@@ -7,6 +7,11 @@ service cloud.firestore {
       allow read, write: if true; // Complètement ouvert temporairement
     }
     
+    // Autoriser l'accès au document system/places pour la gestion des lieux
+    match /system/places {
+      allow read, write: if true; // Autoriser l'accès pour la base de données des lieux
+    }
+    
     // Refuser tout autre accès par défaut
     match /{document=**} {
       allow read, write: if false;
