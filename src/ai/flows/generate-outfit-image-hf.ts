@@ -1,35 +1,33 @@
-'use server';
-
+ 
 /**
  * Flow de génération d'images avec Hugging Face API
  * Utilise Stable Diffusion pour générer des images de vêtements réalistes
  */
 
-import { huggingFaceImageGenerator } from '@/lib/ai/huggingface-image-generator';
 import { GenerateOutfitImageInputSchema, GenerateOutfitImageOutputSchema, type GenerateOutfitImageInput, type GenerateOutfitImageOutput } from './generate-outfit-image.types';
 
 export async function generateOutfitImage(input: GenerateOutfitImageInput): Promise<GenerateOutfitImageOutput> {
   try {
-    // Vérifier si l'API Hugging Face est disponible
-    if (!huggingFaceImageGenerator.isAvailable()) {
-      console.warn('Clé API Hugging Face manquante, utilisation du fallback');
-      return {
-        imageDataUri: huggingFaceImageGenerator.generateFallbackImage(input.itemDescription)
-      };
+    // Appel côté client vers la route API Next (côté serveur) qui utilise HUGGINGFACE_API_KEY
+    const resp = await fetch('/api/hf-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: input.itemDescription, gender: input.gender, category: input.category })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err?.error || `HF API route error ${resp.status}`);
     }
 
-    // Générer l'image avec Hugging Face
-    const imageDataUri = await huggingFaceImageGenerator.generateClothingImage(input.itemDescription);
-    
-    return {
-      imageDataUri
-    };
+    const data = await resp.json();
+    const imageDataUri = data?.imageDataUri as string | undefined;
+    if (!imageDataUri) throw new Error('No imageDataUri in response');
+
+    return { imageDataUri };
   } catch (error) {
     console.error('Erreur lors de la génération d\'image:', error);
-    
-    // Fallback vers une image placeholder améliorée
-    return {
-      imageDataUri: huggingFaceImageGenerator.generateFallbackImage(input.itemDescription)
-    };
+    // Ne pas utiliser de placeholder; propager l'erreur pour que l'UI gère le retry/affichage alternatif
+    throw error;
   }
 }

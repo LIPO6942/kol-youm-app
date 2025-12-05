@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Check, ChevronsUpDown, Trophy, RotateCcw, Loader2, ServerCrash, Timer } from 'lucide-react';
-import { generateTalla3Challenges } from '@/ai/flows/generate-talla3-challenge-flow';
+import { generateTalla3Challenges } from '@/ai/flows/generate-talla3-challenge-flow-fixed';
 import type { Talla3Challenge } from '@/ai/flows/generate-talla3-challenge-flow.types';
 
 const TIMER_DURATION = 15;

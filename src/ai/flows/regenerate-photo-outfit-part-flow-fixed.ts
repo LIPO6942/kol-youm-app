@@ -1,4 +1,4 @@
-'use server';
+ 
 
 /**
  * Flow de fallback pour la régénération de parties d'outfit

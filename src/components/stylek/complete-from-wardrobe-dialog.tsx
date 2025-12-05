@@ -68,6 +68,7 @@ export function CompleteFromWardrobeDialog({ mainForm, onCompleteOutfit, isGener
       ...mainFormValues,
       baseItemPhotoDataUri: selectedItem.photoDataUri,
       baseItemType: selectedItem.type,
+      source: 'wardrobe',
     };
     onCompleteOutfit(completeOutfitInput);
     setIsDialogOpen(false);

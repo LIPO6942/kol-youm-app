@@ -1,4 +1,4 @@
-'use server';
+ 
 
 /**
  * Flow de fallback simple pour les suggestions de tenues
@@ -45,6 +45,9 @@ export async function suggestOutfit(input: SuggestOutfitInput): Promise<SuggestO
     
     const occasion = input.occasion?.toLowerCase() || '';
     const keywords = input.scheduleKeywords?.toLowerCase() || '';
+    const gender = (input.gender || '').toLowerCase();
+    const preferredColorsRaw = (input.preferredColors || '').split(',').map((c: string) => c.trim()).filter(Boolean);
+    const preferredColor = preferredColorsRaw[0] || '';
     
     if (occasion.includes('travail') || occasion.includes('professionnel') || keywords.includes('bureau')) {
       outfitType = 'business';
@@ -68,16 +71,25 @@ export async function suggestOutfit(input: SuggestOutfitInput): Promise<SuggestO
     }
 
     // Adapter selon le genre
-    if (input.gender?.toLowerCase() === 'femme') {
+    if (gender === 'femme') {
       if (outfitType === 'casual') {
         adaptedSuggestion.bas = 'Jeans skinny ou pantalon chino féminin';
         adaptedSuggestion.chaussures = 'Baskets ou chaussures plates confortables';
       }
-    } else if (input.gender?.toLowerCase() === 'homme') {
+    } else if (gender === 'homme') {
       if (outfitType === 'casual') {
         adaptedSuggestion.bas = 'Jeans droit ou pantalon chino masculin';
         adaptedSuggestion.chaussures = 'Baskets ou chaussures de toile';
       }
+    }
+
+    // Appliquer les couleurs préférées si présentes
+    if (preferredColor) {
+      const colorTag = ` (${preferredColor.toLowerCase()})`;
+      adaptedSuggestion.haut = adaptedSuggestion.haut.includes(preferredColor) ? adaptedSuggestion.haut : adaptedSuggestion.haut + colorTag;
+      adaptedSuggestion.bas = adaptedSuggestion.bas.includes(preferredColor) ? adaptedSuggestion.bas : adaptedSuggestion.bas + colorTag;
+      adaptedSuggestion.chaussures = adaptedSuggestion.chaussures.includes(preferredColor) ? adaptedSuggestion.chaussures : adaptedSuggestion.chaussures + colorTag;
+      adaptedSuggestion.accessoires = adaptedSuggestion.accessoires.includes(preferredColor) ? adaptedSuggestion.accessoires : adaptedSuggestion.accessoires + colorTag;
     }
 
     return {

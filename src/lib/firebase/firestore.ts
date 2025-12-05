@@ -11,6 +11,16 @@ export type WardrobeItem = {
     createdAt: number; // Timestamp for sorting
 };
 
+export type PlaceItem = {
+  id: string;
+  name: string;
+  category: 'café' | 'restaurant' | 'fast-food' | 'bar' | 'parc' | 'musée' | 'cinéma' | 'théâtre' | 'autre';
+  address?: string;
+  description?: string;
+  predefinedArea?: string;
+  createdAt: any;
+};
+
 export type UserProfile = {
     uid: string;
     email: string | null;
@@ -23,6 +33,10 @@ export type UserProfile = {
     moviesToWatch?: string[];
     seenKhroujSuggestions?: string[];
     wardrobe?: WardrobeItem[];
+    places?: PlaceItem[];
+    // Tfarrej preferences
+    preferredCountries?: string[];
+    preferredMinRating?: number;
     // These are stored ONLY in IndexedDB for privacy
     fullBodyPhotoUrl?: string; // This will also be a Cloudinary URL
     closeupPhotoUrl?: string; // This will also be a Cloudinary URL
@@ -38,6 +52,9 @@ export async function createUserProfile(uid: string, data: { email: string | nul
     moviesToWatch: [],
     seenKhroujSuggestions: [],
     wardrobe: [],
+    places: [],
+    preferredCountries: [],
+    preferredMinRating: 6,
     fullBodyPhotoUrl: '',
     closeupPhotoUrl: '',
   };
@@ -55,7 +72,7 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
         if (key === 'fullBodyPhotoUrl' || key === 'closeupPhotoUrl') {
             localData[key] = (data as any)[key];
         } else {
-             if (key === 'seenMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions' || key === 'wardrobe') {
+             if (key === 'seenMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions' || key === 'wardrobe' || key === 'places') {
                 firestoreData[key] = arrayUnion(...(data as any)[key]);
             } else {
                 firestoreData[key] = (data as any)[key];
@@ -87,7 +104,24 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
             const uniqueItems = Array.from(new Map(allItems.map(item => [item.id, item])).values());
             updatedProfile.wardrobe = uniqueItems;
         }
+        if (data.places) {
+            const allPlaces = [...(localProfile.places || []), ...data.places];
+            const uniquePlaces = Array.from(new Map(allPlaces.map(place => [place.id, place])).values());
+            updatedProfile.places = uniquePlaces;
+        }
 
+        await storeUserInDb(uid, updatedProfile);
+    }
+}
+
+export async function removeMovieFromList(uid: string, listName: 'moviesToWatch' | 'seenMovieTitles', movieTitle: string) {
+    const userRef = doc(firestoreDb, 'users', uid);
+    await setDoc(userRef, { [listName]: arrayRemove(movieTitle) }, { merge: true });
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = { ...localProfile } as any;
+        const current: string[] = Array.isArray(updatedProfile[listName]) ? updatedProfile[listName] : [];
+        updatedProfile[listName] = current.filter((t: string) => t !== movieTitle);
         await storeUserInDb(uid, updatedProfile);
     }
 }
@@ -130,6 +164,46 @@ export async function deleteWardrobeItem(uid: string, itemToDelete: WardrobeItem
     await setDoc(userRef, {
         wardrobe: arrayRemove(itemToDelete)
     }, { merge: true });
+}
+
+export async function addPlace(uid: string, place: Omit<PlaceItem, 'id' | 'createdAt'>) {
+    const newPlace: PlaceItem = {
+        ...place,
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        createdAt: serverTimestamp(),
+    };
+
+    const userRef = doc(firestoreDb, 'users', uid);
+    await setDoc(userRef, {
+        places: arrayUnion(newPlace)
+    }, { merge: true });
+
+    // Update local state
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = {
+            ...localProfile,
+            places: [...(localProfile.places || []), newPlace]
+        };
+        await storeUserInDb(uid, updatedProfile);
+    }
+}
+
+export async function deletePlace(uid: string, placeToDelete: PlaceItem) {
+    const userRef = doc(firestoreDb, 'users', uid);
+    await setDoc(userRef, {
+        places: arrayRemove(placeToDelete)
+    }, { merge: true });
+
+    // Update local state
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = {
+            ...localProfile,
+            places: (localProfile.places || []).filter(p => p.id !== placeToDelete.id)
+        };
+        await storeUserInDb(uid, updatedProfile);
+    }
 }
 
 

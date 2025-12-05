@@ -3,6 +3,7 @@ import {z} from 'genkit';
 export const GenerateOutfitImageInputSchema = z.object({
   itemDescription: z.string().describe('A detailed description of the complete outfit to be generated.'),
   gender: z.enum(['Homme', 'Femme']).optional().describe("The user's gender, to tailor the outfit model."),
+  category: z.enum(['haut', 'bas', 'chaussures', 'accessoires']).optional().describe('The outfit part category for single-item enforcement.'),
 });
 export type GenerateOutfitImageInput = z.infer<typeof GenerateOutfitImageInputSchema>;
 

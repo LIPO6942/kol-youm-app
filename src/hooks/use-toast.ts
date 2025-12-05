@@ -1,12 +1,7 @@
 "use client"
 
-// Inspired by react-hot-toast library
 import * as React from "react"
-
-import type {
-  ToastActionElement,
-  ToastProps,
-} from "@/components/ui/toast"
+import type { ToastActionElement, ToastProps } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
@@ -93,8 +88,6 @@ export const reducer = (state: State, action: Action): State => {
     case "DISMISS_TOAST": {
       const { toastId } = action
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
       if (toastId) {
         addToRemoveQueue(toastId)
       } else {
@@ -171,24 +164,70 @@ function toast({ ...props }: Toast) {
   }
 }
 
-function useToast() {
-  const [state, setState] = React.useState<State>(memoryState)
-
-  React.useEffect(() => {
-    listeners.push(setState)
-    return () => {
-      const index = listeners.indexOf(setState)
-      if (index > -1) {
-        listeners.splice(index, 1)
-      }
-    }
-  }, [state])
-
-  return {
-    ...state,
-    toast,
-    dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
-  }
+// Create a context for the toast state
+interface ToastContextType {
+  toasts: ToasterToast[];
+  toast: typeof toast;
+  dismiss: (toastId?: string) => void;
 }
 
-export { useToast, toast }
+const ToastContext = React.createContext<ToastContextType | null>(null);
+
+export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = React.useState<State>({ toasts: [] });
+
+  React.useEffect(() => {
+    let isActive = true;
+    
+    // Set initial state
+    if (isActive) {
+      setState(memoryState);
+    }
+    
+    // Subscribe to changes
+    const listener = (newState: State) => {
+      if (isActive) {
+        setState(newState);
+      }
+    };
+    
+    listeners.push(listener);
+    
+    return () => {
+      isActive = false;
+      const index = listeners.indexOf(listener);
+      if (index > -1) {
+        listeners.splice(index, 1);
+      }
+    };
+  }, []);
+
+  const value: ToastContextType = React.useMemo(() => ({
+    toasts: state.toasts,
+    toast,
+    dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+  }), [state.toasts]);
+
+  return React.createElement(
+    ToastContext.Provider,
+    { value: value },
+    children
+  );
+}
+
+function useToast() {
+  const context = React.useContext(ToastContext);
+  
+  if (context === null) {
+    // Fallback to the global state if context is not available
+    return {
+      toasts: memoryState.toasts,
+      toast,
+      dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+    };
+  }
+  
+  return context;
+}
+
+export { useToast, toast };

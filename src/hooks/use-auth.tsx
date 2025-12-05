@@ -7,12 +7,14 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db as firestoreDb } from '@/lib/firebase/client';
 import type { UserProfile, WardrobeItem } from '@/lib/firebase/firestore';
 import { getUserFromDb, storeUserInDb } from '@/lib/indexeddb';
+import { updateUserProfile as updateProfileInFirestore } from '@/lib/firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
   forceProfileRefresh: () => void;
+  updateUserProfile: (data: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -20,6 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   userProfile: null,
   loading: true,
   forceProfileRefresh: () => {},
+  updateUserProfile: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -41,13 +44,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [user, fetchAndSetProfile]);
 
+  const updateUserProfile = useCallback(async (data: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>>) => {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    await updateProfileInFirestore(user.uid, data);
+  }, [user]);
+
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setLoading(true);
       if (user) {
         setUser(user);
-        await fetchAndSetProfile(user.uid);
+        const profile = await fetchAndSetProfile(user.uid);
         // The Firestore listener will provide real-time updates and merge data
+        if (!profile) {
+          setLoading(false);
+        }
       } else {
         setUser(null);
         setUserProfile(null);
@@ -59,9 +72,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [fetchAndSetProfile]);
   
   useEffect(() => {
+    let unsubscribe = () => {};
+
     if (user) {
       // Use onSnapshot to listen for real-time updates from Firestore
-      const unsub = onSnapshot(doc(firestoreDb, "users", user.uid), async (doc) => {
+      unsubscribe = onSnapshot(doc(firestoreDb, "users", user.uid), async (doc) => {
         const localProfile = await getUserFromDb(user.uid);
         let finalProfile: UserProfile | null = localProfile || null;
 
@@ -84,18 +99,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           await storeUserInDb(user.uid, finalProfile);
         }
         
-        setUserProfile(finalProfile);
+        setUserProfile(finalProfile ?? null);
         setLoading(false);
       });
-      return () => unsub();
     } else {
-        setLoading(false);
+      setLoading(false);
     }
+
+    return () => {
+      try {
+        unsubscribe();
+      } catch (e) {
+        console.warn("Failed unsubscribe", e);
+      }
+    };
   }, [user]);
 
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, forceProfileRefresh }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, forceProfileRefresh, updateUserProfile }}>
       {children}
     </AuthContext.Provider>
   );
