@@ -418,7 +418,7 @@ export default function SettingsPage() {
   };
 
   const handleAddPlaceToEditing = () => {
-    if (!newPlaceName.trim()) return;
+    if (!newPlaceName || !newPlaceName.trim()) return;
     setEditedPlaces([...editedPlaces, newPlaceName.trim()]);
     setNewPlaceName('');
   };
@@ -1098,12 +1098,12 @@ export default function SettingsPage() {
                                   <div className="flex gap-2">
                                     <Input
                                       placeholder="Nouveau lieu..."
-                                      value={newPlaceName}
+                                      value={newPlaceName || ''}
                                       onChange={(e) => setNewPlaceName(e.target.value)}
                                       onKeyPress={(e) => e.key === 'Enter' && handleAddPlaceToEditing()}
                                       className="flex-1"
                                     />
-                                    <Button size="sm" onClick={handleAddPlaceToEditing} disabled={!newPlaceName.trim()}>
+                                    <Button size="sm" onClick={handleAddPlaceToEditing} disabled={!newPlaceName || !newPlaceName.trim()}>
                                       <Plus className="h-3 w-3" />
                                     </Button>
                                   </div>
