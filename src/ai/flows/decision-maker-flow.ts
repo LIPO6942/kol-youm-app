@@ -100,7 +100,7 @@ const makeDecisionFlow = ai.defineFlow(
           }),
           outputSchema: MakeDecisionOutputSchema,
         },
-        `Tu es un expert local de Tunis. Ta mission est de suggérer 2 lieux pour une sortie "${category}".
+        `Tu es un expert local de Tunis. Ta mission est de suggérer 2 lieux pour une sortie "{{category}}".
         
 DONNÉES DE RÉFÉRENCE (Utilise UNIQUEMENT ces lieux) :
 {{placesContext}}
