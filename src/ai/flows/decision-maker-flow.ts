@@ -69,33 +69,7 @@ const makeDecisionFlow = ai.defineFlow(
             totalPlacesFound += places.length;
             debugZoneCount++;
           }
-        });
-
-        const debugInfo = `[DEBUG: Found ${totalPlacesFound} places in ${debugZoneCount} zones for category '${category}']`;
-        console.log(`[AI Flow] ${debugInfo}`); // Server log
-
-        if (!hasPlaces) {
-          console.log('[AI Flow] No places found.');
-          return `Aucun lieu trouvé dans la base de données pour la catégorie ${category}.`;
-        }
-
-        // Append debug info to context so LLM can potentially use it or we know it received it
-        return `${context}\n\n(Info système: ${debugInfo})`;
-
-      } catch (error) {
-        console.error("Error fetching places from Firestore:", error);
-        return `Erreur lors de la récupération des lieux : ${error instanceof Error ? error.message : String(error)}`;
-      }
-    }
-
-    const placesContext = await getPlacesContext(input.category);
-
-    if (!makeDecisionPrompt) {
-      makeDecisionPrompt = ai.definePrompt({
-        name: 'makeDecisionPrompt',
-        input: { schema: MakeDecisionInputSchema.extend({ placesContext: z.string(), randomNumber: z.number().optional() }) },
-        output: { schema: MakeDecisionOutputSchema },
-        prompt: `Tu es un générateur de suggestions purement aléatoires. Ta seule source de connaissances est la liste de lieux fournie ci-dessous. Tu ne dois JAMAIS suggérer un lieu qui n'est pas dans ces listes.
+          prompt: `Tu es un générateur de suggestions purement aléatoires. Ta seule source de connaissances est la liste de lieux fournie ci-dessous. Tu ne dois JAMAIS suggérer un lieu qui n'est pas dans ces listes.
 
 L'utilisateur a choisi la catégorie de sortie : "{{category}}".
 
@@ -133,16 +107,16 @@ Ta tâche est la suivante :
 
 Assure-toi que toutes les informations sont exactes. Les suggestions doivent être **différentes les unes des autres**. Réponds uniquement en respectant le format de sortie JSON demandé. Si aucune suggestion n'est possible, retourne un tableau 'suggestions' vide.`,
       });
-    }
+      }
 
     // We pass the fetched context to the prompt
     const { output } = await makeDecisionPrompt({
-      ...input,
-      placesContext: placesContext,
-      randomNumber: Math.random(),
-    });
-    return output!;
-  }
+        ...input,
+        placesContext: placesContext,
+        randomNumber: Math.random(),
+      });
+      return output!;
+    }
 );
 
 
