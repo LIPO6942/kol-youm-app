@@ -8,7 +8,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { MakeDecisionInputSchema, MakeDecisionOutputSchema, type MakeDecisionInput, type MakeDecisionOutput } from './decision-maker-flow.types';
+import { MakeDecisionInputSchema, MakeDecisionOutputSchema, type MakeDecisionInput, type MakeDecisionOutput, type Suggestion } from './decision-maker-flow.types';
 
 // By defining the prompt inside the flow and caching it, we avoid making the Next.js server action bundle too large,
 // which can cause deployment failures on platforms like Vercel.
@@ -64,7 +64,7 @@ const makeDecisionFlow = ai.defineFlow(
 
           if (Array.isArray(places) && places.length > 0) {
             const zoneName = data.zone || doc.id;
-            // Simplified format for better AI parsing
+            // Simplified format for better AI parsing, used by fallback too
             context += `ZONE: ${zoneName}\nLIEUX: ${places.join(', ')}\n---\n`;
             hasPlaces = true;
             totalPlacesFound += places.length;
@@ -85,6 +85,7 @@ const makeDecisionFlow = ai.defineFlow(
     }
 
     const placesContext = await getPlacesContext(input.category);
+
 
     if (!makeDecisionPrompt) {
       makeDecisionPrompt = ai.definePrompt(
@@ -125,9 +126,11 @@ Règles d'or :
 
     // Pass context to prompt
     // If we have a debug error, skip the AI generation to avoid waste/confusion
-    if (placesContext.startsWith('DEBUG_ERROR:')) {
+    if (placesContext.startsWith('DEBUG_ERROR:') || placesContext.startsWith('Aucun lieu')) {
       return { suggestions: [] };
     }
+
+    let combinedSuggestions: Suggestion[] = [];
 
     try {
       const result = await makeDecisionPrompt({
@@ -135,11 +138,66 @@ Règles d'or :
         placesContext: placesContext,
         randomNumber: Math.random(),
       });
-      return result.output!;
+      combinedSuggestions = result.output?.suggestions || [];
     } catch (e) {
       console.error("AI Prompt Error", e);
-      return { suggestions: [] };
     }
+
+    // --- MANUAL FALLBACK MECHANISM ---
+    // If AI returns nothing but we have data, picking manually.
+    if (combinedSuggestions.length === 0) {
+      console.log("[AI Flow] AI returned 0 suggestions. Attempting manual fallback.");
+
+      function fallbackSelection(context: string, zones?: string[]): Suggestion[] {
+        const zoneBlocks = context.split('---');
+        let allPlaces: { name: string, zone: string }[] = [];
+
+        for (const block of zoneBlocks) {
+          const zoneMatch = block.match(/ZONE: (.*)\n/);
+          const placesMatch = block.match(/LIEUX: (.*)\n/);
+          if (zoneMatch && placesMatch) {
+            const zone = zoneMatch[1].trim();
+            const places = placesMatch[1].split(',').map(p => p.trim()).filter(p => p);
+
+            // Filter by requested zones (fuzzy)
+            let isMatch = true;
+            if (zones && zones.length > 0) {
+              isMatch = zones.some(z => {
+                const z1 = z.toLowerCase().replace(/nord|sud|est|ouest/g, '').trim();
+                const z2 = zone.toLowerCase().replace(/nord|sud|est|ouest/g, '').trim();
+                return zone.toLowerCase().includes(z.toLowerCase()) || z.toLowerCase().includes(zone.toLowerCase()) || z1.includes(z2) || z2.includes(z1);
+              });
+            }
+
+            if (isMatch) {
+              places.forEach(p => allPlaces.push({ name: p, zone: zone }));
+            }
+          }
+        }
+
+        // Filter seen places
+        if (input.seenPlaceNames && input.seenPlaceNames.length > 0) {
+          allPlaces = allPlaces.filter(p => !input.seenPlaceNames!.includes(p.name));
+        }
+
+        if (allPlaces.length === 0) return [];
+
+        // Randomly select 2
+        const shuffled = allPlaces.sort(() => 0.5 - Math.random());
+        const selected = shuffled.slice(0, 2);
+
+        return selected.map(p => ({
+          placeName: p.name,
+          description: `Un super endroit à découvrir à ${p.zone} ! (Suggestion Automatique)`,
+          location: p.zone,
+          googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ' ' + p.zone + ' Tunis')}`
+        }));
+      }
+
+      combinedSuggestions = fallbackSelection(placesContext, input.zones);
+    }
+
+    return { suggestions: combinedSuggestions };
   }
 );
 
