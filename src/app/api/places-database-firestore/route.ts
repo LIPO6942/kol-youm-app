@@ -54,24 +54,24 @@ export async function GET() {
   try {
     // Vérifier si Firebase est configuré
     if (!firebaseConfig.projectId) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Firebase configuration missing. Please check environment variables.' 
+      return NextResponse.json({
+        success: false,
+        error: 'Firebase configuration missing. Please check environment variables.'
       }, { status: 500 });
     }
 
     // Lire tous les documents de la collection zones
     const zonesCollection = collection(db, 'zones');
     const zonesSnapshot = await getDocs(zonesCollection);
-    
+
     if (zonesSnapshot.empty) {
       console.log('No zones found, returning empty database');
-      return NextResponse.json({ 
-        success: true, 
-        data: { zones: [] } 
+      return NextResponse.json({
+        success: true,
+        data: { zones: [] }
       });
     }
-    
+
     // Convertir en structure par zone → catégories → lieux
     const zonesData = zonesSnapshot.docs.map(doc => {
       const data = doc.data();
@@ -87,21 +87,21 @@ export async function GET() {
         }
       } as ZoneData;
     });
-    
+
     const placesDatabase: PlacesDatabase = {
       zones: zonesData
     };
-    
+
     console.log('Zones data loaded successfully:', {
       totalZones: placesDatabase.zones.length
     });
-    
+
     return NextResponse.json({ success: true, data: placesDatabase });
   } catch (error) {
     console.error('Error reading zones from Firestore:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to read places database' 
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to read places database'
     }, { status: 500 });
   }
 }
@@ -116,13 +116,13 @@ export async function POST(request: NextRequest) {
       // Initialiser Firestore avec les données du fichier local
       const fs = require('fs');
       const path = require('path');
-      
+
       const filePath = path.join(process.cwd(), 'src', 'ai', 'flows', 'decision-maker-flow.ts');
       const fileContent = fs.readFileSync(filePath, 'utf-8');
-      
+
       // Parser le contenu pour extraire les zones et catégories
       const zonesData: any[] = [];
-      
+
       // Parser les cafés
       const cafesSection = fileContent.match(/{{#if isCafeCategory}}([\s\S]*?){{\/if}}/);
       if (cafesSection) {
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
             if (match) {
               const zoneName = match[1].trim();
               const places = match[2].split(',').map((p: string) => p.trim()).filter((p: string) => p);
-              
+
               let existingZone = zonesData.find(z => z.zone === zoneName);
               if (!existingZone) {
                 existingZone = {
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
           });
         }
       }
-      
+
       // Parser les fast foods
       const fastFoodsSection = fileContent.match(/{{#if isFastFoodCategory}}([\s\S]*?){{\/if}}/);
       if (fastFoodsSection) {
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
             if (match) {
               const zoneName = match[1].trim();
               const places = match[2].split(',').map((p: string) => p.trim()).filter((p: string) => p);
-              
+
               let existingZone = zonesData.find(z => z.zone === zoneName);
               if (!existingZone) {
                 existingZone = {
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
           });
         }
       }
-      
+
       // Parser les restaurants
       const restaurantsSection = fileContent.match(/{{#if isRestaurantCategory}}([\s\S]*?){{\/if}}/);
       if (restaurantsSection) {
@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
             if (match) {
               const zoneName = match[1].trim();
               const places = match[2].split(',').map((p: string) => p.trim()).filter((p: string) => p);
-              
+
               let existingZone = zonesData.find(z => z.zone === zoneName);
               if (!existingZone) {
                 existingZone = {
@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
           });
         }
       }
-      
+
       // Parser les brunch
       const brunchSection = fileContent.match(/{{#if isBrunchCategory}}([\s\S]*?){{\/if}}/);
       if (brunchSection) {
@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
             if (match) {
               const zoneName = match[1].trim();
               const places = match[2].split(',').map((p: string) => p.trim()).filter((p: string) => p);
-              
+
               let existingZone = zonesData.find(z => z.zone === zoneName);
               if (!existingZone) {
                 existingZone = {
@@ -242,7 +242,7 @@ export async function POST(request: NextRequest) {
           });
         }
       }
-      
+
       // Importer toutes les zones dans Firestore
       for (const zoneData of zonesData) {
         const zoneId = zoneData.zone
@@ -250,13 +250,13 @@ export async function POST(request: NextRequest) {
           .replace(/[^\w\s-]/g, '')
           .replace(/\s+/g, '_')
           .toLowerCase();
-        
+
         await setDoc(doc(db, 'zones', zoneId), zoneData);
         console.log(`Imported zone: ${zoneData.zone}`);
       }
-      
-      return NextResponse.json({ 
-        success: true, 
+
+      return NextResponse.json({
+        success: true,
         message: `Importé ${zonesData.length} zones dans Firestore`,
         zones: zonesData.map(z => z.zone)
       });
@@ -272,7 +272,7 @@ export async function POST(request: NextRequest) {
 
       // Lire le document de la zone
       const zoneDoc = await getDoc(doc(db, 'zones', zoneId));
-      
+
       let zoneData: any = {
         zone: zone,
         cafes: [],
@@ -282,7 +282,7 @@ export async function POST(request: NextRequest) {
         balade: [],
         shopping: []
       };
-      
+
       if (zoneDoc.exists()) {
         zoneData = zoneDoc.data();
         // S'assurer que toutes les catégories existent
@@ -293,31 +293,31 @@ export async function POST(request: NextRequest) {
         if (!zoneData.balade) zoneData.balade = [];
         if (!zoneData.shopping) zoneData.shopping = [];
       }
-      
+
       // Mettre à jour la catégorie spécifique
       // Normaliser le nom de la catégorie
-      const categoryKey = category === 'cafés' || category === 'Café' ? 'cafes' :
-                          category === 'restaurant' || category === 'Restaurant' ? 'restaurants' :
-                          category === 'fast-food' || category === 'Fast Food' ? 'fastFoods' :
-                          category === 'Brunch' ? 'brunch' :
-                          category === 'Balade' ? 'balade' :
-                          category === 'Shopping' ? 'shopping' :
-                          category.toLowerCase();
-      
+      const categoryKey = category === 'cafés' || category === 'Café' || category === 'cafes' ? 'cafes' :
+        category === 'restaurant' || category === 'Restaurant' || category === 'restaurants' ? 'restaurants' :
+          category === 'fast-food' || category === 'Fast Food' || category === 'fastFoods' || category === 'fastfoods' ? 'fastFoods' :
+            category === 'Brunch' || category === 'brunch' ? 'brunch' :
+              category === 'Balade' || category === 'balade' ? 'balade' :
+                category === 'Shopping' || category === 'shopping' ? 'shopping' :
+                  category.toLowerCase();
+
       zoneData[categoryKey] = places;
-      
+
       // Sauvegarder dans Firestore
       await setDoc(doc(db, 'zones', zoneId), zoneData);
-      
+
       console.log('Zone updated successfully:', zoneId);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error updating zone in Firestore:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to update places database' 
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to update places database'
     }, { status: 500 });
   }
 }

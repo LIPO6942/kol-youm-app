@@ -108,12 +108,12 @@ const PREDEFINED_AREAS = [
 ];
 
 const fileToDataUri = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 };
 
 const PhotoUploader = ({
@@ -139,9 +139,9 @@ const PhotoUploader = ({
     if (file) {
       if (file.size > 5 * 1024 * 1024) { // 5MB limit for base64
         toast({
-            variant: 'destructive',
-            title: 'Fichier trop volumineux',
-            description: 'Veuillez choisir une image de moins de 5 Mo.',
+          variant: 'destructive',
+          title: 'Fichier trop volumineux',
+          description: 'Veuillez choisir une image de moins de 5 Mo.',
         });
         return;
       }
@@ -151,9 +151,9 @@ const PhotoUploader = ({
         setPreviewUrl(dataUri); // Show local preview immediately
         await onImageUpload(dataUri);
       } catch (error) {
-         console.error(error);
-         toast({ variant: 'destructive', title: 'Erreur de lecture', description: 'Impossible de traiter le fichier image.' });
-         setPreviewUrl(currentImageUrl || null); // Revert preview on error
+        console.error(error);
+        toast({ variant: 'destructive', title: 'Erreur de lecture', description: 'Impossible de traiter le fichier image.' });
+        setPreviewUrl(currentImageUrl || null); // Revert preview on error
       } finally {
         setIsUploading(false);
       }
@@ -229,7 +229,7 @@ export default function SettingsPage() {
     try {
       const response = await fetch('/api/places-database-firestore');
       const data = await response.json();
-      
+
       if (data.success) {
         setPlacesDatabase(data.data);
         toast({
@@ -267,12 +267,12 @@ export default function SettingsPage() {
     if (placesDatabase && databaseMode && placesDatabase.zones.length > 0) {
       // Si aucune zone n'est sélectionnée, sélectionner la première zone avec des catégories
       if (!selectedZone) {
-        const firstZoneWithCategories = placesDatabase.zones.find(zone => 
-          Object.keys(zone.categories).some(cat => 
+        const firstZoneWithCategories = placesDatabase.zones.find(zone =>
+          Object.keys(zone.categories).some(cat =>
             (zone.categories[cat as keyof CategoryPlaces]?.length || 0) > 0
           )
         );
-        
+
         if (firstZoneWithCategories) {
           setSelectedZone(firstZoneWithCategories.zone);
           // Sélectionner la première catégorie disponible dans cette zone
@@ -303,7 +303,7 @@ export default function SettingsPage() {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         toast({
           title: 'Initialisation réussie',
@@ -345,7 +345,7 @@ export default function SettingsPage() {
       console.log('Response status:', response.status);
       const data = await response.json();
       console.log('Response data:', data);
-      
+
       if (data.success) {
         setEditingZone(null);
         setEditedPlaces([]);
@@ -375,13 +375,13 @@ export default function SettingsPage() {
   // Normaliser le nom de la catégorie pour l'API
   const normalizeCategoryForAPI = (category: string) => {
     return category === 'cafés' || category === 'Café' ? 'cafes' :
-           category === 'restaurant' || category === 'Restaurant' ? 'restaurants' :
-           category === 'fast-food' || category === 'Fast Food' || category === 'fastFoods' ? 'fastfoods' :
-           category === 'Brunch' ? 'brunch' :
-           category === 'Balade' ? 'balade' :
-           category === 'Shopping' ? 'shopping' :
-           category === 'bars' ? 'bars' :
-           category.toLowerCase();
+      category === 'restaurant' || category === 'Restaurant' ? 'restaurants' :
+        category === 'fast-food' || category === 'Fast Food' || category === 'fastFoods' ? 'fastFoods' :
+          category === 'Brunch' ? 'brunch' :
+            category === 'Balade' ? 'balade' :
+              category === 'Shopping' ? 'shopping' :
+                category === 'bars' ? 'bars' :
+                  category.toLowerCase();
   };
 
   const handleAddPlaceToZoneCategory = (zone: string, category: string) => {
@@ -390,12 +390,12 @@ export default function SettingsPage() {
       console.log('newPlaceName est vide, annulation');
       return;
     }
-    
+
     const currentPlaces = getPlacesForZoneAndCategory(zone, category);
     const updatedPlaces = [...currentPlaces, newPlaceName.trim()];
-    
+
     console.log('Mise à jour des lieux:', { currentPlaces: currentPlaces.length, updatedPlaces: updatedPlaces.length });
-    
+
     handleUpdateZoneCategory(zone, updatedPlaces, normalizeCategoryForAPI(category));
     setNewPlaceName(null); // Fermer le champ d'ajout rapide
   };
@@ -403,7 +403,7 @@ export default function SettingsPage() {
   const handleRemovePlaceFromZoneCategory = (zone: string, placeToRemove: string, category: string) => {
     const currentPlaces = getPlacesForZoneAndCategory(zone, category);
     const updatedPlaces = currentPlaces.filter((p: string) => p !== placeToRemove);
-    
+
     handleUpdateZoneCategory(zone, updatedPlaces, normalizeCategoryForAPI(category));
   };
 
@@ -444,12 +444,12 @@ export default function SettingsPage() {
   const getPlacesForZoneAndCategory = (zone: string, category: string) => {
     const categories = getCategoriesForZone(zone);
     const categoryKey = category === 'cafés' || category === 'Café' ? 'cafes' :
-                        category === 'restaurant' || category === 'Restaurant' ? 'restaurants' :
-                        category === 'fast-food' || category === 'Fast Food' ? 'fastFoods' :
-                        category === 'Brunch' ? 'brunch' :
-                        category === 'Balade' ? 'balade' :
-                        category === 'Shopping' ? 'shopping' :
-                        category.toLowerCase();
+      category === 'restaurant' || category === 'Restaurant' ? 'restaurants' :
+        category === 'fast-food' || category === 'Fast Food' ? 'fastFoods' :
+          category === 'Brunch' ? 'brunch' :
+            category === 'Balade' ? 'balade' :
+              category === 'Shopping' ? 'shopping' :
+                category.toLowerCase();
     return categories[categoryKey as keyof CategoryPlaces] || [];
   };
 
@@ -483,10 +483,10 @@ export default function SettingsPage() {
   // Obtenir les statistiques globales
   const getGlobalStats = () => {
     if (!placesDatabase) return { totalPlaces: 0, zonesCount: 0, categoriesCount: 0 };
-    
+
     let totalPlaces = 0;
     const categoriesSet = new Set<string>();
-    
+
     placesDatabase.zones.forEach(zone => {
       Object.keys(zone.categories).forEach(cat => {
         const places = zone.categories[cat as keyof CategoryPlaces] || [];
@@ -496,7 +496,7 @@ export default function SettingsPage() {
         }
       });
     });
-    
+
     return {
       totalPlaces,
       zonesCount: placesDatabase.zones.length,
@@ -633,10 +633,10 @@ export default function SettingsPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) {
-        toast({ variant: 'destructive', title: 'Erreur', description: 'Utilisateur non connecté.' });
-        return;
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Utilisateur non connecté.' });
+      return;
     }
-    
+
     setIsLoading(true);
     try {
       const ageValue = values.age === '' ? undefined : Number(values.age);
@@ -646,7 +646,7 @@ export default function SettingsPage() {
         title: 'Profil mis à jour !',
         description: 'Vos informations ont été enregistrées avec succès.',
       });
-      form.reset({age: ageValue}, { keepValues: true }); // Reset dirty state
+      form.reset({ age: ageValue }, { keepValues: true }); // Reset dirty state
     } catch (error) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de sauvegarder vos informations.' });
       console.error(error);
@@ -666,31 +666,28 @@ export default function SettingsPage() {
 
       <div className="flex gap-1 mb-6 border-b">
         <button
-          className={`px-4 py-2 font-medium transition-colors ${
-            activeTab === 'profile'
+          className={`px-4 py-2 font-medium transition-colors ${activeTab === 'profile'
               ? 'text-primary border-b-2 border-primary'
               : 'text-muted-foreground hover:text-foreground'
-          }`}
+            }`}
           onClick={() => setActiveTab('profile')}
         >
           Profil
         </button>
         <button
-          className={`px-4 py-2 font-medium transition-colors ${
-            activeTab === 'tfarrej'
+          className={`px-4 py-2 font-medium transition-colors ${activeTab === 'tfarrej'
               ? 'text-primary border-b-2 border-primary'
               : 'text-muted-foreground hover:text-foreground'
-          }`}
+            }`}
           onClick={() => setActiveTab('tfarrej')}
         >
           Tfarrej
         </button>
         <button
-          className={`px-4 py-2 font-medium transition-colors ${
-            activeTab === 'khrouj'
+          className={`px-4 py-2 font-medium transition-colors ${activeTab === 'khrouj'
               ? 'text-primary border-b-2 border-primary'
               : 'text-muted-foreground hover:text-foreground'
-          }`}
+            }`}
           onClick={() => setActiveTab('khrouj')}
         >
           Khrouj
@@ -719,11 +716,11 @@ export default function SettingsPage() {
                   <div className="flex flex-col space-y-2">
                     <FormLabel>Sexe</FormLabel>
                     <div className="flex items-center gap-2">
-                        {userProfile?.gender === 'Femme' ? <User className="h-5 w-5 text-primary" /> : <UserSquare className="h-5 w-5 text-primary" />}
-                        <Badge variant="outline">{userProfile?.gender || 'Non défini'}</Badge>
+                      {userProfile?.gender === 'Femme' ? <User className="h-5 w-5 text-primary" /> : <UserSquare className="h-5 w-5 text-primary" />}
+                      <Badge variant="outline">{userProfile?.gender || 'Non défini'}</Badge>
                     </div>
-                     <p className="text-xs text-muted-foreground">
-                        Ce choix a été fait lors de votre première connexion.
+                    <p className="text-xs text-muted-foreground">
+                      Ce choix a été fait lors de votre première connexion.
                     </p>
                   </div>
 
@@ -750,7 +747,7 @@ export default function SettingsPage() {
               </form>
             </Form>
           </Card>
-          
+
           <Separator />
 
           <Card>
@@ -761,16 +758,16 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <PhotoUploader 
-                  title="Photo en pied" 
-                  currentImageUrl={userProfile?.fullBodyPhotoUrl}
-                  onImageUpload={(dataUri) => handleImageUpload(dataUri, 'fullBody')}
-                />
-                <PhotoUploader 
-                  title="Photo de près"
-                  currentImageUrl={userProfile?.closeupPhotoUrl}
-                  onImageUpload={(dataUri) => handleImageUpload(dataUri, 'closeup')}
-                />
+              <PhotoUploader
+                title="Photo en pied"
+                currentImageUrl={userProfile?.fullBodyPhotoUrl}
+                onImageUpload={(dataUri) => handleImageUpload(dataUri, 'fullBody')}
+              />
+              <PhotoUploader
+                title="Photo de près"
+                currentImageUrl={userProfile?.closeupPhotoUrl}
+                onImageUpload={(dataUri) => handleImageUpload(dataUri, 'closeup')}
+              />
             </CardContent>
           </Card>
         </div>
@@ -918,7 +915,7 @@ export default function SettingsPage() {
                               Firestore ne contient aucune donnée. Initialisez-la avec les données du fichier local.
                             </p>
                           </div>
-                          <Button 
+                          <Button
                             onClick={initializeFirestore}
                             className="mx-auto"
                           >
@@ -963,8 +960,8 @@ export default function SettingsPage() {
                         </div>
                         <div>
                           <h4 className="text-base font-medium mb-3">Sélectionner une catégorie</h4>
-                          <Select 
-                            value={selectedCategory} 
+                          <Select
+                            value={selectedCategory}
                             onValueChange={setSelectedCategory}
                             disabled={!selectedZone}
                           >
@@ -1050,7 +1047,7 @@ export default function SettingsPage() {
                           <h4 className="text-base font-medium">
                             {selectedZone} - {getCategoryDisplayName(selectedCategory)}
                           </h4>
-                          
+
                           <Card>
                             <CardHeader className="pb-3">
                               <div className="flex items-center justify-between">
@@ -1078,9 +1075,9 @@ export default function SettingsPage() {
                                         <Edit2 className="h-3 w-3 mr-1" />
                                         Modifier
                                       </Button>
-                                      <Button 
-                                        size="sm" 
-                                        variant="ghost" 
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
                                         onClick={() => {
                                           console.log('Bouton Ajouter cliqué!');
                                           setNewPlaceName(''); // Active le champ d'ajout rapide
@@ -1110,15 +1107,15 @@ export default function SettingsPage() {
                                       <Plus className="h-3 w-3" />
                                     </Button>
                                   </div>
-                                  
+
                                   {/* Liste des lieux en édition */}
                                   <div className="space-y-1">
                                     {editedPlaces.map((place, index) => (
                                       <div key={index} className="flex items-center justify-between p-2 border rounded bg-muted/30">
                                         <span className="text-sm">{place}</span>
-                                        <Button 
-                                          size="sm" 
-                                          variant="ghost" 
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
                                           onClick={() => handleRemovePlaceFromEditing(place)}
                                           className="text-red-500 h-6 w-6 p-0"
                                         >
@@ -1149,16 +1146,16 @@ export default function SettingsPage() {
                                         }}
                                         className="flex-1"
                                       />
-                                      <Button 
-                                        size="sm" 
+                                      <Button
+                                        size="sm"
                                         onClick={() => handleAddPlaceToZoneCategory(selectedZone, selectedCategory)}
                                         disabled={!newPlaceName || !newPlaceName.trim()}
                                       >
                                         <Plus className="h-3 w-3 mr-1" />
                                         Ajouter
                                       </Button>
-                                      <Button 
-                                        size="sm" 
+                                      <Button
+                                        size="sm"
                                         variant="ghost"
                                         onClick={() => setNewPlaceName(null)}
                                       >
@@ -1166,15 +1163,15 @@ export default function SettingsPage() {
                                       </Button>
                                     </div>
                                   )}
-                                  
+
                                   {/* Liste des lieux */}
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
                                     {getPlacesForZoneAndCategory(selectedZone, selectedCategory).map((place, index) => (
                                       <div key={index} className="flex items-center justify-between p-2 border rounded hover:bg-muted/50 group">
                                         <span className="text-sm truncate">{place}</span>
-                                        <Button 
-                                          size="sm" 
-                                          variant="ghost" 
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
                                           onClick={() => handleRemovePlaceFromZoneCategory(selectedZone, place, selectedCategory)}
                                           className="text-red-500 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                         >
@@ -1188,8 +1185,8 @@ export default function SettingsPage() {
                                       <p className="text-sm text-muted-foreground mb-3">
                                         Aucun lieu dans cette catégorie pour cette zone
                                       </p>
-                                      <Button 
-                                        size="sm" 
+                                      <Button
+                                        size="sm"
                                         onClick={() => {
                                           console.log('Bouton Ajouter cliqué!');
                                           setNewPlaceName(''); // Active le champ d'ajout rapide
