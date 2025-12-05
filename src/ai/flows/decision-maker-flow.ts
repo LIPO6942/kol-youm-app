@@ -1,5 +1,5 @@
-
 'use server';
+
 /**
  * @fileOverview A Genkit flow for making a decision on where to go out.
  *
@@ -14,10 +14,114 @@ import { MakeDecisionInputSchema, MakeDecisionOutputSchema, type MakeDecisionInp
 // which can cause deployment failures on platforms like Vercel.
 let makeDecisionPrompt: any = null;
 
-isBrunchCategory: isBrunchCategory,
-  randomNumber: Math.random(),
+const makeDecisionFlow = ai.defineFlow(
+  {
+    name: 'makeDecisionFlow',
+    inputSchema: MakeDecisionInputSchema,
+    outputSchema: MakeDecisionOutputSchema,
+  },
+  async input => {
+
+    // Dynamic Fetching Logic
+    async function getPlacesContext(category: string): Promise<string> {
+      try {
+        // Dynamic import to ensure basic server-side safety if needed, 
+        // essentially replicating the logic but preventing module-level side-effects if any.
+        const { db } = await import('@/lib/firebase/client');
+        const { collection, getDocs } = await import('firebase/firestore');
+
+        const zonesSnapshot = await getDocs(collection(db, 'zones'));
+
+        let categoryKey = '';
+        const lowerCat = category.toLowerCase();
+
+        if (lowerCat.includes('café') || lowerCat.includes('cafe')) categoryKey = 'cafes';
+        else if (lowerCat.includes('restaurant')) categoryKey = 'restaurants';
+        else if (lowerCat.includes('fast') || lowerCat.includes('food')) categoryKey = 'fastFoods'; // Correct camelCase key
+        else if (lowerCat.includes('brunch')) categoryKey = 'brunch';
+        else if (lowerCat.includes('balade')) categoryKey = 'balade';
+        else if (lowerCat.includes('shopping')) categoryKey = 'shopping';
+        else categoryKey = lowerCat; // fallback
+
+        if (!categoryKey) return "Aucune liste de lieux disponible pour cette catégorie.";
+
+        let context = `- **Source exclusive pour "${category}" :** Tes suggestions pour la catégorie "${category}" doivent provenir **EXCLUSIVEMENT** de la liste suivante. Si aucun lieu ne correspond au filtre de zone de l'utilisateur, ne suggère rien.\n`;
+        let hasPlaces = false;
+
+        zonesSnapshot.forEach(doc => {
+          const data = doc.data();
+          // Access the category key directly. Ensure we handle cases where the field might be missing.
+          const places = data[categoryKey];
+          if (Array.isArray(places) && places.length > 0) {
+            const zoneName = data.zone || doc.id;
+            context += `  - **Zone ${zoneName} :** ${places.join(', ')}.\n`;
+            hasPlaces = true;
+          }
+        });
+
+        if (!hasPlaces) return `Aucun lieu trouvé dans la base de données pour la catégorie ${category}.`;
+
+        return context;
+      } catch (error) {
+        console.error("Error fetching places from Firestore:", error);
+        return "Erreur lors de la récupération des lieux depuis la base de données.";
+      }
+    }
+
+    const placesContext = await getPlacesContext(input.category);
+
+    if (!makeDecisionPrompt) {
+      makeDecisionPrompt = ai.definePrompt({
+        name: 'makeDecisionPrompt',
+        input: { schema: MakeDecisionInputSchema.extend({ placesContext: z.string(), randomNumber: z.number().optional() }) },
+        output: { schema: MakeDecisionOutputSchema },
+        prompt: `Tu es un générateur de suggestions purement aléatoires. Ta seule source de connaissances est la liste de lieux fournie ci-dessous. Tu ne dois JAMAIS suggérer un lieu qui n'est pas dans ces listes.
+
+L'utilisateur a choisi la catégorie de sortie : "{{category}}".
+
+Pour garantir que tes suggestions sont uniques et imprévisibles, utilise ce nombre aléatoire comme source d'inspiration pour ta sélection : {{randomNumber}}.
+
+Ta tâche est la suivante :
+
+1.  **Filtrer la liste :** D'abord, identifie la bonne liste de lieux en fonction de la catégorie "{{category}}". Si l'utilisateur a spécifié des zones ({{zones}}), filtre cette liste pour ne garder que les lieux qui se trouvent dans ces zones.
+2.  **Sélection Aléatoire :** Dans la liste filtrée, choisis **DEUX** lieux de manière **COMPLÈTEMENT ALÉATOIRE**. La sélection doit être différente à chaque fois.
+3.  **Éviter les répétitions :** Si l'utilisateur a déjà vu certains lieux ({{seenPlaceNames}}), exclus-les de ta sélection.
+4.  **Formatage de la sortie :** Pour les deux lieux que tu as choisis au hasard, retourne les informations suivantes :
+    - Le **nom exact** du lieu.
+    - Une **description courte et engageante** (une ou deux phrases).
+    - Son **quartier ou sa ville**.
+    - Une **URL Google Maps valide**.
+
+**Instructions Cruciales :**
+- L'aspect le plus important est que la sélection soit **purement aléatoire**. Ne choisis pas les premiers de la liste ou les plus populaires.
+- Si, après filtrage, il y a moins de deux lieux disponibles, n'en retourne qu'un seul, ou retourne une liste vide si aucun ne correspond.
+- Si l'utilisateur clique sur "Actualiser", tes nouvelles suggestions DOIVENT être différentes des précédentes. L'utilisation du 'randomNumber' doit garantir cela.
+
+**Instructions importantes :**
+{{#if zones.length}}
+- **Filtre de zone :** L'utilisateur a demandé à voir des suggestions spécifiquement dans les zones suivantes : **{{#each zones}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}**. Toutes tes suggestions doivent impérativement se trouver dans cette ou ces zones ET dans les listes ci-dessous.
+{{/if}}
+
+{{#if seenPlaceNames}}
+- **Éviter les répétitions :** Exclus impérativement les lieux suivants de tes suggestions, car l'utilisateur les a déjà vus :
+{{#each seenPlaceNames}}
+  - {{this}}
+{{/each}}
+{{/if}}
+
+{{placesContext}}
+
+Assure-toi que toutes les informations sont exactes. Les suggestions doivent être **différentes les unes des autres**. Réponds uniquement en respectant le format de sortie JSON demandé. Si aucune suggestion n'est possible, retourne un tableau 'suggestions' vide.`,
+      });
+    }
+
+    // We pass the fetched context to the prompt
+    const { output } = await makeDecisionPrompt({
+      ...input,
+      placesContext: placesContext,
+      randomNumber: Math.random(),
     });
-return output!;
+    return output!;
   }
 );
 
