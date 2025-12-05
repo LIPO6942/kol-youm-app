@@ -90,17 +90,7 @@ const makeDecisionFlow = ai.defineFlow(
 
     const placesContext = await getPlacesContext(input.category);
 
-    // Initial output container
-    let aiOutput: MakeDecisionOutput | undefined;
-    let debugInfoFromContext = "Info indisponible";
 
-    // Extract debug info if present
-    if (placesContext.includes('(Info système:')) {
-      const parts = placesContext.split('(Info système:');
-      debugInfoFromContext = parts[1].replace(')', '').trim();
-    } else if (placesContext.includes('DEBUG_ERROR:')) {
-      debugInfoFromContext = placesContext.replace('DEBUG_ERROR: ', '');
-    }
 
     if (!makeDecisionPrompt) {
       makeDecisionPrompt = ai.definePrompt(
@@ -159,32 +149,20 @@ Assure-toi que toutes les informations sont exactes. Les suggestions doivent êt
     // Pass context to prompt
     // If we have a debug error, skip the AI generation to avoid waste/confusion
     if (placesContext.startsWith('DEBUG_ERROR:')) {
-      aiOutput = { suggestions: [] };
-    } else {
-      try {
-        const result = await makeDecisionPrompt({
-          ...input,
-          placesContext: placesContext,
-          randomNumber: Math.random(),
-        });
-        aiOutput = result.output;
-      } catch (e) {
-        console.error("AI Prompt Error", e);
-        aiOutput = { suggestions: [] };
-      }
+      return { suggestions: [] };
     }
 
-    // Force inject debug suggestion
-    const debugSuggestion = {
-      placeName: "🔧 Info Système (Debug)",
-      description: debugInfoFromContext || "Aucune info debug",
-      location: "Système",
-      googleMapsUrl: "https://google.com"
-    };
-
-    return {
-      suggestions: [debugSuggestion, ...(aiOutput?.suggestions || [])]
-    };
+    try {
+      const result = await makeDecisionPrompt({
+        ...input,
+        placesContext: placesContext,
+        randomNumber: Math.random(),
+      });
+      return result.output!;
+    } catch (e) {
+      console.error("AI Prompt Error", e);
+      return { suggestions: [] };
+    }
   }
 );
 
