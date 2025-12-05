@@ -47,7 +47,7 @@ const makeDecisionFlow = ai.defineFlow(
         if (!primaryKey) return "Aucune liste de lieux disponible pour cette catégorie.";
 
         // Begin context with a summary header for debugging
-        let context = `- **Source exclusive pour "${category}" :** Tes suggestions pour la catégorie "${category}" doivent provenir **EXCLUSIVEMENT** de la liste suivante. Si aucun lieu ne correspond au filtre de zone de l'utilisateur, ne suggère rien.\n`;
+        let context = `LISTE DES LIEUX DISPONIBLES (Classés par zone) :\n`;
         let hasPlaces = false;
         let totalPlacesFound = 0;
         let debugZoneCount = 0;
@@ -64,7 +64,8 @@ const makeDecisionFlow = ai.defineFlow(
 
           if (Array.isArray(places) && places.length > 0) {
             const zoneName = data.zone || doc.id;
-            context += `  - **Zone ${zoneName} :** ${places.join(', ')}.\n`;
+            // Simplified format for better AI parsing
+            context += `ZONE: ${zoneName}\nLIEUX: ${places.join(', ')}\n---\n`;
             hasPlaces = true;
             totalPlacesFound += places.length;
             debugZoneCount++;
@@ -72,25 +73,18 @@ const makeDecisionFlow = ai.defineFlow(
         });
 
         if (!hasPlaces) {
-          const debugMsg = `(Debug: 0 lieux trouvés, Project: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ? 'Set' : 'Unset'})`;
-          return `DEBUG_ERROR: ${debugMsg}`;
+          return `Aucun lieu trouvé pour la catégorie "${category}".`;
         }
 
-        // Prepare debug info for the system suggestion
-        const debugInfo = `(Debug: ${debugZoneCount} zones, ${totalPlacesFound} lieux, Key: ${primaryKey})`;
-        console.log(`[AI Flow] ${debugInfo}`);
-
-        return `${context}\n\n(Info système: ${debugInfo})`;
+        return context;
 
       } catch (error) {
         console.error(`Error fetching places context for category ${category}:`, error);
-        return `Erreur lors de la récupération des lieux : ${error instanceof Error ? error.message : String(error)}`;
+        return "";
       }
     }
 
     const placesContext = await getPlacesContext(input.category);
-
-
 
     if (!makeDecisionPrompt) {
       makeDecisionPrompt = ai.definePrompt(
@@ -106,43 +100,26 @@ const makeDecisionFlow = ai.defineFlow(
           }),
           outputSchema: MakeDecisionOutputSchema,
         },
-        `Tu es un générateur de suggestions purement aléatoires. Ta seule source de connaissances est la liste de lieux fournie ci-dessous. Tu ne dois JAMAIS suggérer un lieu qui n'est pas dans ces listes.
-
-L'utilisateur a choisi la catégorie de sortie : "{{category}}".
-
-Pour garantir que tes suggestions sont uniques et imprévisibles, utilise ce nombre aléatoire comme source d'inspiration pour ta sélection : {{randomNumber}}.
-
-Ta tâche est la suivante :
-
-1.  **Filtrer la liste :** D'abord, identifie la bonne liste de lieux en fonction de la catégorie "{{category}}". Si l'utilisateur a spécifié des zones ({{zones}}), filtre cette liste pour ne garder que les lieux qui se trouvent dans ces zones.
-2.  **Sélection Aléatoire :** Dans la liste filtrée, choisis **DEUX** lieux de manière **COMPLÈTEMENT ALÉATOIRE**. La sélection doit être différente à chaque fois.
-3.  **Éviter les répétitions :** Si l'utilisateur a déjà vu certains lieux ({{seenPlaceNames}}), exclus-les de ta sélection.
-4.  **Formatage de la sortie :** Pour les deux lieux que tu as choisis au hasard, retourne les informations suivantes :
-    - Le **nom exact** du lieu.
-    - Une **description courte et engageante** (une ou deux phrases).
-    - Son **quartier ou sa ville**.
-    - Une **URL Google Maps valide**.
-
-**Instructions Cruciales :**
-- L'aspect le plus important est que la sélection soit **purement aléatoire**. Ne choisis pas les premiers de la liste ou les plus populaires.
-- Si, après filtrage, il y a moins de deux lieux disponibles, n'en retourne qu'un seul, ou retourne une liste vide si aucun ne correspond.
-- Si l'utilisateur clique sur "Actualiser", tes nouvelles suggestions DOIVENT être différentes des précédentes. L'utilisation du 'randomNumber' doit garantir cela.
-
-**Instructions importantes :**
-{{#if zones.length}}
-- **Filtre de zone :** L'utilisateur a demandé à voir des suggestions spécifiquement dans les zones suivantes : **{{#each zones}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}**. Toutes tes suggestions doivent impérativement se trouver dans cette ou ces zones ET dans les listes ci-dessous.
-{{/if}}
-
-{{#if seenPlaceNames}}
-- **Éviter les répétitions :** Exclus impérativement les lieux suivants de tes suggestions, car l'utilisateur les a déjà vus :
-{{#each seenPlaceNames}}
-  - {{this}}
-{{/each}}
-{{/if}}
-
+        `Tu es un expert local de Tunis. Ta mission est de suggérer 2 lieux pour une sortie "${category}".
+        
+DONNÉES DE RÉFÉRENCE (Utilise UNIQUEMENT ces lieux) :
 {{placesContext}}
 
-Assure-toi que toutes les informations sont exactes. Les suggestions doivent être **différentes les unes des autres**. Réponds uniquement en respectant le format de sortie JSON demandé. Si aucune suggestion n'est possible, retourne un tableau 'suggestions' vide.`,
+CONTRAINTES UTILISATEUR :
+- Catégorie : "{{category}}"
+- Zones souhaitées : {{#if zones.length}}{{#each zones}}{{this}}, {{/each}}{{else}}Toutes zones acceptées{{/if}}
+- À éviter (déjà vus) : {{#if seenPlaceNames}}{{#each seenPlaceNames}}{{this}}, {{/each}}{{else}}Aucun{{/if}}
+
+TES INSTRUCTIONS :
+1. ANALYSE : Trouve tous les lieux listés sous les zones demandées. Si une zone demandée n'est pas écrite exactement pareil (ex: "Ain Zaghouan" vs "Ain Zaghouan Nord"), accepte la correspondance si c'est pertinent.
+2. SÉLECTION : Choisis 2 lieux au hasard parmi les correspondances. Utilise le nombre {{randomNumber}} pour varier ton choix.
+3. RETOUR : Retourne UNIQUEMENT le JSON avec les 2 suggestions.
+
+Règles d'or :
+- Si tu trouves des lieux dans la zone demandée, tu DOIS en suggérer (ne renvoie pas vide).
+- Si tu ne trouves RIEN dans la zone demandée, cherche dans les zones voisines ou retourne une liste vide.
+- Invente une description courte pour chaque lieu si tu n'en as pas, mais le nom du lieu et la zone doivent être exacts.
+`
       );
     }
 
