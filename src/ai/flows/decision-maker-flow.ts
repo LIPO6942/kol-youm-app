@@ -26,22 +26,9 @@ const makeDecisionFlow = ai.defineFlow(
     async function getPlacesContext(category: string): Promise<string> {
       console.log(`[AI Flow] Fetching places for category: ${category}`);
       try {
-        // Robust initialization similar to API route
-        const { initializeApp, getApps, getApp } = await import('firebase/app');
-        const { getFirestore, collection, getDocs } = await import('firebase/firestore');
-
-        const firebaseConfig = {
-          apiKey: process.env.FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-          authDomain: process.env.FIREBASE_AUTH_DOMAIN || process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-          projectId: process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-          storageBucket: process.env.FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-          messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-          appId: process.env.FIREBASE_APP_ID || process.env.NEXT_PUBLIC_FIREBASE_APP_ID
-        };
-
-        // Ensure app is initialized
-        const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        // Use the shared client to ensure same DB instance/config as the frontend
+        const { db } = await import('@/lib/firebase/client');
+        const { collection, getDocs } = await import('firebase/firestore');
 
         const zonesSnapshot = await getDocs(collection(db, 'zones'));
 
@@ -59,9 +46,11 @@ const makeDecisionFlow = ai.defineFlow(
 
         if (!primaryKey) return "Aucune liste de lieux disponible pour cette catégorie.";
 
+        // Begin context with a summary header for debugging
         let context = `- **Source exclusive pour "${category}" :** Tes suggestions pour la catégorie "${category}" doivent provenir **EXCLUSIVEMENT** de la liste suivante. Si aucun lieu ne correspond au filtre de zone de l'utilisateur, ne suggère rien.\n`;
         let hasPlaces = false;
         let totalPlacesFound = 0;
+        let debugZoneCount = 0;
 
         zonesSnapshot.forEach(doc => {
           const data = doc.data();
@@ -70,7 +59,6 @@ const makeDecisionFlow = ai.defineFlow(
           if (fallbackKey && data[fallbackKey]) {
             places = [...places, ...data[fallbackKey]];
           }
-
           // Deduplicate
           places = Array.from(new Set(places));
 
@@ -79,17 +67,21 @@ const makeDecisionFlow = ai.defineFlow(
             context += `  - **Zone ${zoneName} :** ${places.join(', ')}.\n`;
             hasPlaces = true;
             totalPlacesFound += places.length;
+            debugZoneCount++;
           }
         });
 
-        console.log(`[AI Flow] Found ${totalPlacesFound} places in total for keys [${primaryKey}, ${fallbackKey}]`);
+        const debugInfo = `[DEBUG: Found ${totalPlacesFound} places in ${debugZoneCount} zones for category '${category}']`;
+        console.log(`[AI Flow] ${debugInfo}`); // Server log
 
         if (!hasPlaces) {
           console.log('[AI Flow] No places found.');
           return `Aucun lieu trouvé dans la base de données pour la catégorie ${category}.`;
         }
 
-        return context;
+        // Append debug info to context so LLM can potentially use it or we know it received it
+        return `${context}\n\n(Info système: ${debugInfo})`;
+
       } catch (error) {
         console.error("Error fetching places from Firestore:", error);
         return `Erreur lors de la récupération des lieux : ${error instanceof Error ? error.message : String(error)}`;
@@ -116,7 +108,7 @@ Ta tâche est la suivante :
 3.  **Éviter les répétitions :** Si l'utilisateur a déjà vu certains lieux ({{seenPlaceNames}}), exclus-les de ta sélection.
 4.  **Formatage de la sortie :** Pour les deux lieux que tu as choisis au hasard, retourne les informations suivantes :
     - Le **nom exact** du lieu.
-    - Une **description courte et engageante** (une ou deux phrases).
+    - Une **description courte et engageante** (une ou deux phrases). Ajoute à la fin de la première description le texte suivant entre parenthèses : "({{placesContext}})" mais tronqué pour ne garder que le nombre de lieux trouvés, par exemple "(Debug: 12 lieux trouvés)".
     - Son **quartier ou sa ville**.
     - Une **URL Google Maps valide**.
 
