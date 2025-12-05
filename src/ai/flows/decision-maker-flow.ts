@@ -18,10 +18,87 @@ const makeDecisionFlow = ai.defineFlow(
   {
     name: 'makeDecisionFlow',
     inputSchema: MakeDecisionInputSchema,
+    outputSchema: MakeDecisionOutputSchema,
+  },
+  async input => {
+
+    // Dynamic Fetching Logic
+    async function getPlacesContext(category: string): Promise<string> {
+      console.log(`[AI Flow] Fetching places for category: ${category}`);
+      try {
+        // Robust initialization similar to API route
+        const { initializeApp, getApps, getApp } = await import('firebase/app');
+        const { getFirestore, collection, getDocs } = await import('firebase/firestore');
+
+        const firebaseConfig = {
+          apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+          authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+          messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+          appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+        };
+
+        // Ensure app is initialized
+        const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const zonesSnapshot = await getDocs(collection(db, 'zones'));
+
+        const lowerCat = category.toLowerCase();
+        let primaryKey = '';
+        let fallbackKey = '';
+
+        if (lowerCat.includes('café') || lowerCat.includes('cafe')) { primaryKey = 'cafes'; }
+        else if (lowerCat.includes('restaurant')) { primaryKey = 'restaurants'; }
+        else if (lowerCat.includes('fast') || lowerCat.includes('food')) { primaryKey = 'fastFoods'; fallbackKey = 'fastfoods'; }
+        else if (lowerCat.includes('brunch')) { primaryKey = 'brunch'; }
+        else if (lowerCat.includes('balade')) { primaryKey = 'balade'; }
+        else if (lowerCat.includes('shopping')) { primaryKey = 'shopping'; }
+        else { primaryKey = lowerCat; }
+
+        if (!primaryKey) return "Aucune liste de lieux disponible pour cette catégorie.";
+
+        let context = `- **Source exclusive pour "${category}" :** Tes suggestions pour la catégorie "${category}" doivent provenir **EXCLUSIVEMENT** de la liste suivante. Si aucun lieu ne correspond au filtre de zone de l'utilisateur, ne suggère rien.\n`;
+        let hasPlaces = false;
+        let totalPlacesFound = 0;
+
+        zonesSnapshot.forEach(doc => {
+          const data = doc.data();
+          // Merge primary and fallback keys if they exist
+          let places = data[primaryKey] || [];
+          if (fallbackKey && data[fallbackKey]) {
+            places = [...places, ...data[fallbackKey]];
+          }
+
+          // Deduplicate
+          places = Array.from(new Set(places));
+
+          if (Array.isArray(places) && places.length > 0) {
+            const zoneName = data.zone || doc.id;
+            context += `  - **Zone ${zoneName} :** ${places.join(', ')}.\n`;
+            hasPlaces = true;
+            totalPlacesFound += places.length;
+          }
+        });
+
+        console.log(`[AI Flow] Found ${totalPlacesFound} places in total for keys [${primaryKey}, ${fallbackKey}]`);
+
+        if (!hasPlaces) {
+          console.log('[AI Flow] No places found.');
+          return `Aucun lieu trouvé dans la base de données pour la catégorie ${category}.`;
+        }
+
+        return context;
+      } catch (error) {
+        console.error("Error fetching places from Firestore:", error);
+        return "Erreur lors de la récupération des lieux depuis la base de données.";
+      }
+    }
 
     const placesContext = await getPlacesContext(input.category);
 
-    if(!makeDecisionPrompt) {
+    if (!makeDecisionPrompt) {
       makeDecisionPrompt = ai.definePrompt({
         name: 'makeDecisionPrompt',
         input: { schema: MakeDecisionInputSchema.extend({ placesContext: z.string(), randomNumber: z.number().optional() }) },
