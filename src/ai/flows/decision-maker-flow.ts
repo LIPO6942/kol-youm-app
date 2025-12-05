@@ -18,59 +18,10 @@ const makeDecisionFlow = ai.defineFlow(
   {
     name: 'makeDecisionFlow',
     inputSchema: MakeDecisionInputSchema,
-    outputSchema: MakeDecisionOutputSchema,
-  },
-  async input => {
-
-    // Dynamic Fetching Logic
-    async function getPlacesContext(category: string): Promise<string> {
-      try {
-        // Dynamic import to ensure basic server-side safety if needed, 
-        // essentially replicating the logic but preventing module-level side-effects if any.
-        const { db } = await import('@/lib/firebase/client');
-        const { collection, getDocs } = await import('firebase/firestore');
-
-        const zonesSnapshot = await getDocs(collection(db, 'zones'));
-
-        let categoryKey = '';
-        const lowerCat = category.toLowerCase();
-
-        if (lowerCat.includes('café') || lowerCat.includes('cafe')) categoryKey = 'cafes';
-        else if (lowerCat.includes('restaurant')) categoryKey = 'restaurants';
-        else if (lowerCat.includes('fast') || lowerCat.includes('food')) categoryKey = 'fastFoods'; // Correct camelCase key
-        else if (lowerCat.includes('brunch')) categoryKey = 'brunch';
-        else if (lowerCat.includes('balade')) categoryKey = 'balade';
-        else if (lowerCat.includes('shopping')) categoryKey = 'shopping';
-        else categoryKey = lowerCat; // fallback
-
-        if (!categoryKey) return "Aucune liste de lieux disponible pour cette catégorie.";
-
-        let context = `- **Source exclusive pour "${category}" :** Tes suggestions pour la catégorie "${category}" doivent provenir **EXCLUSIVEMENT** de la liste suivante. Si aucun lieu ne correspond au filtre de zone de l'utilisateur, ne suggère rien.\n`;
-        let hasPlaces = false;
-
-        zonesSnapshot.forEach(doc => {
-          const data = doc.data();
-          // Access the category key directly. Ensure we handle cases where the field might be missing.
-          const places = data[categoryKey];
-          if (Array.isArray(places) && places.length > 0) {
-            const zoneName = data.zone || doc.id;
-            context += `  - **Zone ${zoneName} :** ${places.join(', ')}.\n`;
-            hasPlaces = true;
-          }
-        });
-
-        if (!hasPlaces) return `Aucun lieu trouvé dans la base de données pour la catégorie ${category}.`;
-
-        return context;
-      } catch (error) {
-        console.error("Error fetching places from Firestore:", error);
-        return "Erreur lors de la récupération des lieux depuis la base de données.";
-      }
-    }
 
     const placesContext = await getPlacesContext(input.category);
 
-    if (!makeDecisionPrompt) {
+    if(!makeDecisionPrompt) {
       makeDecisionPrompt = ai.definePrompt({
         name: 'makeDecisionPrompt',
         input: { schema: MakeDecisionInputSchema.extend({ placesContext: z.string(), randomNumber: z.number().optional() }) },
