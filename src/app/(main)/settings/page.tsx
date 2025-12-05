@@ -445,7 +445,7 @@ export default function SettingsPage() {
     const categories = getCategoriesForZone(zone);
     const categoryKey = category === 'cafés' || category === 'Café' ? 'cafes' :
       category === 'restaurant' || category === 'Restaurant' ? 'restaurants' :
-        category === 'fast-food' || category === 'Fast Food' ? 'fastFoods' :
+        category === 'fast-food' || category === 'Fast Food' || category === 'fastFoods' ? 'fastFoods' :
           category === 'Brunch' ? 'brunch' :
             category === 'Balade' ? 'balade' :
               category === 'Shopping' ? 'shopping' :
@@ -667,8 +667,8 @@ export default function SettingsPage() {
       <div className="flex gap-1 mb-6 border-b">
         <button
           className={`px-4 py-2 font-medium transition-colors ${activeTab === 'profile'
-              ? 'text-primary border-b-2 border-primary'
-              : 'text-muted-foreground hover:text-foreground'
+            ? 'text-primary border-b-2 border-primary'
+            : 'text-muted-foreground hover:text-foreground'
             }`}
           onClick={() => setActiveTab('profile')}
         >
@@ -676,8 +676,8 @@ export default function SettingsPage() {
         </button>
         <button
           className={`px-4 py-2 font-medium transition-colors ${activeTab === 'tfarrej'
-              ? 'text-primary border-b-2 border-primary'
-              : 'text-muted-foreground hover:text-foreground'
+            ? 'text-primary border-b-2 border-primary'
+            : 'text-muted-foreground hover:text-foreground'
             }`}
           onClick={() => setActiveTab('tfarrej')}
         >
@@ -685,8 +685,8 @@ export default function SettingsPage() {
         </button>
         <button
           className={`px-4 py-2 font-medium transition-colors ${activeTab === 'khrouj'
-              ? 'text-primary border-b-2 border-primary'
-              : 'text-muted-foreground hover:text-foreground'
+            ? 'text-primary border-b-2 border-primary'
+            : 'text-muted-foreground hover:text-foreground'
             }`}
           onClick={() => setActiveTab('khrouj')}
         >
