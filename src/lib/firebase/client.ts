@@ -9,15 +9,14 @@ const firebaseConfig = {
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
 
-// Initialize Firebase
-const app: FirebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  const app: FirebaseApp | null = getApps().length
+    ? getApp()
+    : (firebaseConfig.apiKey ? initializeApp(firebaseConfig) : null);
 
-const auth: Auth = getAuth(app);
-const db: Firestore = getFirestore(app);
+const auth: Auth = app ? getAuth(app) : {} as Auth;
+const db: Firestore = app ? getFirestore(app) : {} as Firestore;
 // Storage is not used for now, but client is kept for potential future use
-const storage: FirebaseStorage = getStorage(app);
+const storage: FirebaseStorage = app ? getStorage(app) : {} as FirebaseStorage;
 
 export { auth, db, storage };

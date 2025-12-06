@@ -117,22 +117,22 @@ function MovieListContent({
 
                         {/* Afficher les détails pour la liste "À Voir" */}
                         {listType === 'moviesToWatch' && details && (
-                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <div className="flex flex-nowrap items-center gap-2 mt-2 overflow-hidden text-xs text-muted-foreground">
                             {details.rating && (
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-0.5 flex-shrink-0">
                                 <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                                <span className="text-xs font-medium">{details.rating}/10</span>
+                                <span className="font-medium">{details.rating}/10</span>
                               </div>
                             )}
 
                             {details.year && (
-                              <Badge variant="secondary" className="text-xs">
+                              <Badge variant="secondary" className="px-1.5 py-0 text-[10px] h-5 flex-shrink-0">
                                 {details.year}
                               </Badge>
                             )}
 
                             {details.country && (
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="px-1.5 py-0 text-[10px] h-5 truncate max-w-[80px]">
                                 {details.country}
                               </Badge>
                             )}
@@ -143,7 +143,7 @@ function MovieListContent({
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-6 w-6 p-0"
+                                    className="h-6 w-6 p-0 flex-shrink-0"
                                     onClick={() => window.open(details.wikipediaUrl, '_blank')}
                                   >
                                     <ExternalLink className="h-3 w-3" />

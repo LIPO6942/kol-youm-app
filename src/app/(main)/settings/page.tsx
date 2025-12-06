@@ -858,7 +858,7 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
                   <h3 className="text-lg font-medium flex items-center gap-2">
                     <Database className="h-5 w-5" />
@@ -866,7 +866,7 @@ export default function SettingsPage() {
                   </h3>
                   <p className="text-sm text-muted-foreground">Administrez tous les lieux du système IA</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <Button
                     variant="outline"
                     size="sm"
@@ -1050,14 +1050,14 @@ export default function SettingsPage() {
 
                           <Card>
                             <CardHeader className="pb-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <h5 className="font-medium">{selectedZone}</h5>
-                                  <Badge variant="secondary" className="text-xs">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                  <h5 className="font-medium truncate">{selectedZone}</h5>
+                                  <Badge variant="secondary" className="text-xs flex-shrink-0">
                                     {getPlacesForZoneAndCategory(selectedZone, selectedCategory).length} lieux
                                   </Badge>
                                 </div>
-                                <div className="flex gap-1">
+                                <div className="flex gap-1 flex-wrap sm:flex-nowrap">
                                   {editingZone === `${selectedZone}-${selectedCategory}` ? (
                                     <>
                                       <Button size="sm" onClick={() => handleSaveZoneCategory(selectedZone, selectedCategory)}>
@@ -1133,7 +1133,7 @@ export default function SettingsPage() {
                               ) : (
                                 <div className="space-y-1">
                                   {/* Ajout rapide de lieu */}
-                                  {console.log('Condition champ ajout:', newPlaceName !== null, 'newPlaceName:', newPlaceName) || (newPlaceName !== null) && (
+                                  {(newPlaceName !== null) && (
                                     <div className="flex gap-2 p-2 border rounded bg-blue-50">
                                       <Input
                                         placeholder="Nom du nouveau lieu..."
