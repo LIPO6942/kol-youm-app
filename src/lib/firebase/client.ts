@@ -9,10 +9,12 @@ const firebaseConfig = {
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
 
-  const app: FirebaseApp | null = getApps().length
-    ? getApp()
-    : (firebaseConfig.apiKey ? initializeApp(firebaseConfig) : null);
+const app: FirebaseApp | null = getApps().length
+  ? getApp()
+  : (firebaseConfig.apiKey ? initializeApp(firebaseConfig) : null);
 
 const auth: Auth = app ? getAuth(app) : {} as Auth;
 const db: Firestore = app ? getFirestore(app) : {} as Firestore;
