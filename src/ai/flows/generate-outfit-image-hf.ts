@@ -1,68 +1,49 @@
 /**
- * Flow de recherche d'images professionnel via Unsplash & Pexels (Alternative ultra-stable)
- * Utilise des banques d'images pro pour garantir 100% de succès et une esthétique haut de gamme.
- * Plus d'IA instable, juste de la qualité.
+ * Flow de génération d'images haute qualité via Hugging Face
+ * Utilise le modèle FLUX spécifié côté serveur pour un matching précis avec LA PIECE.
  */
 
 import { GenerateOutfitImageInputSchema, GenerateOutfitImageOutputSchema, type GenerateOutfitImageInput, type GenerateOutfitImageOutput } from './generate-outfit-image.types';
 
 export async function generateOutfitImage(input: GenerateOutfitImageInput): Promise<GenerateOutfitImageOutput> {
+    // On prend le premier élément de la description pour éviter de perdre l'IA avec des choix multiples
+    const cleanDesc = input.itemDescription.replace(/N\/A/g, '').split(/ ou | or |,/i)[0].trim();
+
     try {
-        const category = input.category?.toLowerCase() || 'clothing';
-        const cleanDesc = input.itemDescription
-            .replace(/N\/A/g, '')
-            .split(/ ou | or |,/i)[0]
-            .trim();
+        console.log('Requesting HF Generation for:', cleanDesc);
 
-        // On utilise Unsplash Source avec des mots clés ultra-précis
-        // Ajout d'un paramètre aléatoire (sig) pour forcer une image différente
-        const sig = Math.floor(Math.random() * 10000);
+        const resp = await fetch('/api/hf-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                prompt: cleanDesc,
+                gender: input.gender,
+                category: input.category
+            })
+        });
 
-        // Requête optimisée pour des photos de mode professionnelles sur fond neutre
-        const query = `${encodeURIComponent(cleanDesc)},fashion,style,portrait`;
-        const imageUrl = `https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=512&q=80`; // Fallback image de mode
+        if (!resp.ok) {
+            const errorData = await resp.json().catch(() => ({}));
+            throw new Error(errorData.error || `Erreur serveur : ${resp.status}`);
+        }
 
-        // Liste d'images de mode professionnelles ultra-qualitatives pour garantir le rendu visuel
-        const curatedImages: Record<string, string[]> = {
-            haut: [
-                'https://images.unsplash.com/photo-1521572267360-ee0c2909d518', // T-shirt white
-                'https://images.unsplash.com/photo-1598033129183-c4f50c7176c8', // Shirt
-                'https://images.unsplash.com/photo-1576566588028-4147f3842f27', // Sweater
-            ],
-            bas: [
-                'https://images.unsplash.com/photo-1542272604-787c3835535d', // Jeans
-                'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1', // Pants
-                'https://images.unsplash.com/photo-1584305323448-299e461b3695', // Trousers
-            ],
-            chaussures: [
-                'https://images.unsplash.com/photo-1542291026-7eec264c27ff', // Sneakers
-                'https://images.unsplash.com/photo-1549298916-b41d501d3772', // Shoes
-                'https://images.unsplash.com/photo-1560769629-975ec94e6a86', // Sneakers pro
-            ],
-            accessoires: [
-                'https://images.unsplash.com/photo-1523275335684-37898b6baf30', // Watch
-                'https://images.unsplash.com/photo-1508296684628-25c1b4fdad8b', // Sunglasses
-                'https://images.unsplash.com/photo-1548036328-c9fa89d128fa', // Bag
-            ]
-        };
+        const data = await resp.json();
 
-        const categoryKey = category as keyof typeof curatedImages;
-        const images = curatedImages[categoryKey] || curatedImages['haut'];
-        const randomBaseUrl = images[Math.floor(Math.random() * images.length)];
+        if (data.imageDataUri) {
+            return { imageDataUri: data.imageDataUri };
+        }
 
-        // On ajoute les paramètres de redimensionnement Unsplash pour la vitesse
-        const finalUrl = `${randomBaseUrl}?auto=format&fit=crop&w=512&h=512&q=80&sig=${sig}`;
+        throw new Error('Aucune image générée par le serveur');
 
-        console.log('Professional Image Selected:', finalUrl);
+    } catch (error: any) {
+        console.error('Error in HF generateOutfitImage:', error);
 
-        return {
-            imageDataUri: finalUrl
-        };
+        // Fallback Pollinations (direct client) si le serveur HF est saturé
+        // Cela permet d'avoir TOUJOURS une image même si le quota HF est atteint
+        console.warn('Falling back to Pollinations due to HF error');
+        const seed = Math.floor(Math.random() * 1000000);
+        const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(cleanDesc + " fashion photography white background")}?width=512&height=512&seed=${seed}&nologo=true&model=flux`;
 
-    } catch (error) {
-        console.error('Error in professional image discovery:', error);
-        return {
-            imageDataUri: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=512&q=80'
-        };
+        return { imageDataUri: pollinationsUrl };
     }
 }
