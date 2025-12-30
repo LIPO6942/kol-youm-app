@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
+import { Buffer } from 'node:buffer';
 
 export const runtime = 'nodejs';
 
 /**
  * Génération d'images via Hugging Face Inference API
- * Utilise le modèle FLUX.1-schnell pour la rapidité et la qualité
+ * Utilise une stratégie Multi-Modèles pour garantir une image
  */
 export async function POST(request: Request) {
     try {
@@ -13,70 +14,87 @@ export async function POST(request: Request) {
 
         if (!apiKey) {
             console.error('HUGGINGFACE_API_KEY is missing');
-            return NextResponse.json({ error: 'Configurations IA manquantes' }, { status: 500 });
+            return NextResponse.json({ error: 'Clé API Hugging Face manquante' }, { status: 500 });
         }
 
-        // Amélioration du prompt pour un rendu mode professionnel
+        // Amélioration du prompt
         const enhancedPrompt = `fashion photography, ${prompt}, ${gender === 'Femme' ? "women's style" : "men's style"}, white background, studio shot, high resolution, realistic clothing item, clean lighting`;
 
-        console.log('Generating with HF (FLUX):', enhancedPrompt);
+        // Liste de modèles à essayer par ordre de préférence
+        const models = [
+            "black-forest-labs/FLUX.1-schnell",
+            "stabilityai/stable-diffusion-xl-base-1.0",
+            "runwayml/stable-diffusion-v1-5"
+        ];
 
-        // Modèle Stable Diffusion XL (Plus stable sur l'API Inference gratuite)
-        const modelUrl = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0";
+        let lastError = '';
 
-        // Tentative avec retry si le modèle charge (503)
-        let hfResponse;
-        let retries = 0;
-        const maxRetries = 2;
+        for (const model of models) {
+            try {
+                console.log(`Trying Hugging Face Model: ${model}`);
+                const modelUrl = `https://api-inference.huggingface.co/models/${model}`;
 
-        while (retries <= maxRetries) {
-            hfResponse = await fetch(modelUrl, {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${apiKey}`,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    inputs: enhancedPrompt,
-                    parameters: {
-                        negative_prompt: "blurry, low quality, distorted, deformed, text, watermark",
-                        width: 512,
-                        height: 512
-                    }
-                }),
-            });
+                const response = await fetch(modelUrl, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${apiKey}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        inputs: enhancedPrompt,
+                        parameters: {
+                            // Paramètres spécifiques pour SDXL/FLUX si nécessaire
+                            ...(model.includes('FLUX') ? { num_inference_steps: 4 } : {})
+                        }
+                    }),
+                });
 
-            if (hfResponse.status === 503 && retries < maxRetries) {
-                console.log('Model loading (503), waiting 5s...');
-                await new Promise(r => setTimeout(r, 5000));
-                retries++;
-            } else {
-                break;
+                if (response.status === 503) {
+                    console.warn(`Model ${model} is loading, skipping to next or retrying...`);
+                    lastError = 'Modèle en cours de chargement';
+                    continue;
+                }
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.warn(`Model ${model} failed with status ${response.status}: ${errorText}`);
+                    lastError = `Statut ${response.status}`;
+                    continue;
+                }
+
+                const imageBlob = await response.blob();
+
+                // Si le blob n'est pas une image ou est trop petit (erreur déguisée)
+                if (imageBlob.size < 1000) {
+                    console.warn(`Model ${model} returned a suspicious small blob`);
+                    continue;
+                }
+
+                const buffer = await imageBlob.arrayBuffer();
+                const base64 = Buffer.from(buffer).toString('base64');
+                const contentType = imageBlob.type || 'image/webp';
+
+                console.log(`Successfully generated image with model: ${model}`);
+                return NextResponse.json({
+                    success: true,
+                    imageDataUri: `data:${contentType};base64,${base64}`,
+                    modelUsed: model
+                });
+
+            } catch (err: any) {
+                console.error(`Error with model ${model}:`, err.message);
+                lastError = err.message;
             }
         }
 
-        if (!hfResponse || !hfResponse.ok) {
-            const errorText = await hfResponse?.text() || 'Unknown error';
-            console.error('HF API Final Error:', hfResponse?.status, errorText);
-            return NextResponse.json({
-                error: hfResponse?.status === 503 ? 'L\'IA est en train de démarrer, réessayez dans 10 secondes.' : 'Quota Hugging Face atteint ou erreur.'
-            }, { status: hfResponse?.status || 500 });
-        }
-
-        const imageBlob = await hfResponse.blob();
-        const buffer = await imageBlob.arrayBuffer();
-        const base64 = Buffer.from(buffer).toString('base64');
-        const contentType = imageBlob.type || 'image/webp';
-
         return NextResponse.json({
-            success: true,
-            imageDataUri: `data:${contentType};base64,${base64}`
-        });
+            error: `Toutes les tentatives Hugging Face ont échoué. ${lastError}`
+        }, { status: 500 });
 
     } catch (error: any) {
-        console.error('HF Route Error:', error);
+        console.error('Global HF Route Error:', error);
         return NextResponse.json(
-            { error: 'Échec de la génération sur le serveur', details: error?.message },
+            { error: 'Erreur interne du serveur', details: error?.message },
             { status: 500 }
         );
     }

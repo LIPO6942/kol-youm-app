@@ -1,15 +1,16 @@
 /**
- * Flow de génération d'images haute qualité via Hugging Face uniquement.
- * Pollinations a été TOTALEMENT supprimé.
+ * Flow de génération d'images haute qualité via le serveur Hugging Face.
+ * Pollinations et Lexica ont été supprimés.
  */
 
 import { GenerateOutfitImageInputSchema, GenerateOutfitImageOutputSchema, type GenerateOutfitImageInput, type GenerateOutfitImageOutput } from './generate-outfit-image.types';
 
 export async function generateOutfitImage(input: GenerateOutfitImageInput): Promise<GenerateOutfitImageOutput> {
+    // On simplifie la description pour l'IA
     const cleanDesc = input.itemDescription.replace(/N\/A/g, '').split(/ ou | or |,/i)[0].trim();
 
     try {
-        console.log('Requesting HF Generation for:', cleanDesc);
+        console.log('Appel HF Serveur pour :', cleanDesc);
 
         const resp = await fetch('/api/hf-image', {
             method: 'POST',
@@ -31,11 +32,11 @@ export async function generateOutfitImage(input: GenerateOutfitImageInput): Prom
             return { imageDataUri: data.imageDataUri };
         }
 
-        throw new Error('Aucune image générée par le serveur');
+        throw new Error('Le serveur n\'a pas renvoyé d\'image.');
 
     } catch (error: any) {
-        console.error('Final HF Error:', error);
-        // Plus de fallback Pollinations ici. On remonte l'erreur pour que l'UI affiche l'état d'erreur propre.
-        throw new Error(error.message || 'Échec de la génération IA');
+        console.error('Erreur finale Image Flow:', error);
+        // On propage l'erreur pour que l'interface puisse l'afficher avec le bouton de retry
+        throw new Error(error.message || 'Échec de la génération de l\'image');
     }
 }
