@@ -21,37 +21,49 @@ export async function POST(request: Request) {
 
         console.log('Generating with HF (FLUX):', enhancedPrompt);
 
-        // Modèle FLUX.1-schnell (Excellent compromis vitesse/qualité)
-        const modelUrl = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-schnell";
+        // Modèle Stable Diffusion XL (Plus stable sur l'API Inference gratuite)
+        const modelUrl = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0";
 
-        const response = await fetch(modelUrl, {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                inputs: enhancedPrompt,
-                parameters: {
-                    num_inference_steps: 4, // Schnell est optimisé pour peu d'étapes
-                    guidance_scale: 3.5
-                }
-            }),
-        });
+        // Tentative avec retry si le modèle charge (503)
+        let hfResponse;
+        let retries = 0;
+        const maxRetries = 2;
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('HF API Error:', response.status, errorText);
+        while (retries <= maxRetries) {
+            hfResponse = await fetch(modelUrl, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${apiKey}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    inputs: enhancedPrompt,
+                    parameters: {
+                        negative_prompt: "blurry, low quality, distorted, deformed, text, watermark",
+                        width: 512,
+                        height: 512
+                    }
+                }),
+            });
 
-            // Si le modèle est en cours de chargement (503), on peut suggérer de réessayer
-            if (response.status === 503) {
-                return NextResponse.json({ error: 'Le modèle IA se réveille, réessayez dans 30 secondes.' }, { status: 503 });
+            if (hfResponse.status === 503 && retries < maxRetries) {
+                console.log('Model loading (503), waiting 5s...');
+                await new Promise(r => setTimeout(r, 5000));
+                retries++;
+            } else {
+                break;
             }
-
-            return NextResponse.json({ error: 'Erreur API Hugging Face' }, { status: response.status });
         }
 
-        const imageBlob = await response.blob();
+        if (!hfResponse || !hfResponse.ok) {
+            const errorText = await hfResponse?.text() || 'Unknown error';
+            console.error('HF API Final Error:', hfResponse?.status, errorText);
+            return NextResponse.json({
+                error: hfResponse?.status === 503 ? 'L\'IA est en train de démarrer, réessayez dans 10 secondes.' : 'Quota Hugging Face atteint ou erreur.'
+            }, { status: hfResponse?.status || 500 });
+        }
+
+        const imageBlob = await hfResponse.blob();
         const buffer = await imageBlob.arrayBuffer();
         const base64 = Buffer.from(buffer).toString('base64');
         const contentType = imageBlob.type || 'image/webp';

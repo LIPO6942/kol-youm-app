@@ -41,25 +41,6 @@ const nextConfig: NextConfig = {
         hostname: 'res.cloudinary.com',
         port: '',
         pathname: '/**',
-      }
-      ,
-      {
-        protocol: 'https',
-        hostname: 'lexica.art',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'image.pollinations.ai',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'gen.pollinations.ai',
-        port: '',
-        pathname: '/**',
       },
       {
         protocol: 'https',
