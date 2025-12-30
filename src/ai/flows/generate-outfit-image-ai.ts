@@ -1,18 +1,17 @@
 /**
- * Flow de génération d'images haute qualité via le serveur Hugging Face.
- * Pollinations et Lexica ont été supprimés.
+ * Flow de génération d'images via Cloudflare Workers AI.
+ * Remplace définitivement Hugging Face et Pollinations.
  */
 
 import { GenerateOutfitImageInputSchema, GenerateOutfitImageOutputSchema, type GenerateOutfitImageInput, type GenerateOutfitImageOutput } from './generate-outfit-image.types';
 
 export async function generateOutfitImage(input: GenerateOutfitImageInput): Promise<GenerateOutfitImageOutput> {
-    // On simplifie la description pour l'IA
     const cleanDesc = input.itemDescription.replace(/N\/A/g, '').split(/ ou | or |,/i)[0].trim();
 
     try {
-        console.log('Appel HF Serveur pour :', cleanDesc);
+        console.log('Appel Cloudflare AI pour :', cleanDesc);
 
-        const resp = await fetch('/api/hf-image', {
+        const resp = await fetch('/api/generate-outfit-image', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -32,11 +31,10 @@ export async function generateOutfitImage(input: GenerateOutfitImageInput): Prom
             return { imageDataUri: data.imageDataUri };
         }
 
-        throw new Error('Le serveur n\'a pas renvoyé d\'image.');
+        throw new Error('Le serveur Cloudflare n\'a pas renvoyé d\'image.');
 
     } catch (error: any) {
-        console.error('Erreur finale Image Flow:', error);
-        // On propage l'erreur pour que l'interface puisse l'afficher avec le bouton de retry
+        console.error('Erreur finale Image Flow (Cloudflare):', error);
         throw new Error(error.message || 'Échec de la génération de l\'image');
     }
 }
