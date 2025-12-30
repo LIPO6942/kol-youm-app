@@ -39,11 +39,6 @@ const handleAiError = (error: any, toast: any) => {
     description: "L'IA a du mal à générer certaines images pour le moment. Vous pouvez essayer de régénérer chaque vêtement individuellement.",
   });
 };
-description: "Une erreur s'est produite. Veuillez réessayer.",
-    });
-  }
-console.error(error);
-};
 
 
 export default function OutfitSuggester() {
