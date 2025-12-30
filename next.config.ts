@@ -45,6 +45,12 @@ const nextConfig: NextConfig = {
       ,
       {
         protocol: 'https',
+        hostname: 'lexica.art',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'upload.wikimedia.org',
         port: '',
         pathname: '/**',
