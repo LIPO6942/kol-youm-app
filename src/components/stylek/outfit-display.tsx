@@ -20,19 +20,19 @@ interface OutfitDisplayProps {
 }
 
 const renderLoading = () => (
-    <CardContent className="flex flex-col items-center text-muted-foreground p-8 text-center h-full justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="mt-4 text-lg">Votre styliste IA réfléchit...</p>
-        <p className="text-sm">La génération d'images peut prendre un moment.</p>
-    </CardContent>
+  <CardContent className="flex flex-col items-center text-muted-foreground p-8 text-center h-full justify-center">
+    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+    <p className="mt-4 text-lg">Votre styliste IA compose votre tenue...</p>
+    <p className="text-sm">Nous insistons auprès de l'IA pour obtenir le meilleur résultat, merci de patienter un instant.</p>
+  </CardContent>
 );
 
 const renderPlaceholder = () => (
-    <CardContent className="flex flex-col items-center text-muted-foreground p-8 text-center h-full justify-center">
-        <Wand2 className="h-12 w-12 mx-auto" />
-        <p className="mt-4 text-lg">Votre suggestion de tenue apparaîtra ici.</p>
-        <p className="text-sm">Remplissez le formulaire et lancez la magie !</p>
-    </CardContent>
+  <CardContent className="flex flex-col items-center text-muted-foreground p-8 text-center h-full justify-center">
+    <Wand2 className="h-12 w-12 mx-auto" />
+    <p className="mt-4 text-lg">Votre suggestion de tenue apparaîtra ici.</p>
+    <p className="text-sm">Remplissez le formulaire et lancez la magie !</p>
+  </CardContent>
 );
 
 export function OutfitDisplay({ isLoading, suggestion, photoSuggestion, gender, onRegeneratePart, regeneratingPart, baseItemPhoto }: OutfitDisplayProps) {
@@ -43,21 +43,21 @@ export function OutfitDisplay({ isLoading, suggestion, photoSuggestion, gender, 
 
   if (baseItemPhoto && photoSuggestion) {
     return (
-        <PhotoOutfitDisplay 
-            photoSuggestion={photoSuggestion}
-            baseItemPhoto={baseItemPhoto}
-            onRegeneratePart={onRegeneratePart}
-            regeneratingPart={regeneratingPart}
-        />
+      <PhotoOutfitDisplay
+        photoSuggestion={photoSuggestion}
+        baseItemPhoto={baseItemPhoto}
+        onRegeneratePart={onRegeneratePart}
+        regeneratingPart={regeneratingPart}
+      />
     );
   }
-  
+
   if (suggestion) {
     return (
-        <GeneratedOutfitDisplay 
-            suggestion={suggestion}
-            gender={gender}
-        />
+      <GeneratedOutfitDisplay
+        suggestion={suggestion}
+        gender={gender}
+      />
     );
   }
 

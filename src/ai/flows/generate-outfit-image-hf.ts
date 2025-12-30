@@ -15,36 +15,59 @@ function enhancePromptForFashion(description: string, gender?: string, category?
 }
 
 export async function generateOutfitImage(input: GenerateOutfitImageInput): Promise<GenerateOutfitImageOutput> {
-  try {
-    const enhanced = enhancePromptForFashion(input.itemDescription, input.gender, input.category);
-    const seed = Math.floor(Math.random() * 1000000);
+  const maxRetries = 5;
+  let attempt = 0;
 
-    // On utilise l'URL Pollinations directement depuis le navigateur du client
-    // Chaque vêtement utilise une URL légèrement différente pour répartir la charge
-    const domains = ['image.pollinations.ai', 'gen.pollinations.ai'];
-    const domain = domains[Math.floor(Math.random() * domains.length)];
+  while (attempt < maxRetries) {
+    try {
+      const enhanced = enhancePromptForFashion(input.itemDescription, input.gender, input.category);
+      // On change le seed à chaque essai pour forcer un nouveau calcul
+      const seed = Math.floor(Math.random() * 1000000) + attempt;
 
-    // Note: On utilise ?nologo=1 pour éviter le filigrane si possible
-    const url = `https://${domain}/prompt/${encodeURIComponent(enhanced)}?width=512&height=512&seed=${seed}&nologo=1&model=turbo`;
+      const domains = ['image.pollinations.ai', 'gen.pollinations.ai'];
+      const domain = domains[attempt % domains.length];
 
-    console.log('Fetching image from client:', url);
+      const url = `https://${domain}/prompt/${encodeURIComponent(enhanced)}?width=512&height=512&seed=${seed}&nologo=1&model=turbo`;
 
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`Image API error: ${resp.status}`);
+      console.log(`Attempt ${attempt + 1}: Fetching from client:`, url);
 
-    const blob = await resp.blob();
+      const resp = await fetch(url);
 
-    // Conversion en Data URI pour rester compatible avec le reste de l'app
-    const dataUri = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+      // Si on reçoit une erreur de type "Rate Limit" ou serveur, on attend et on réessaye
+      if (!resp.ok) {
+        if (resp.status === 429 || resp.status >= 500) {
+          throw new Error(`API temporary error: ${resp.status}`);
+        }
+        throw new Error(`Image API error: ${resp.status}`);
+      }
 
-    return { imageDataUri: dataUri };
-  } catch (error) {
-    console.error('Erreur lors de la génération d\'image (Client):', error);
-    throw error;
+      const blob = await resp.blob();
+
+      // Sécurité : si le blob est trop petit, c'est probablement l'image d'erreur "Rate Limit"
+      // L'image de rate limit de Pollinations fait environ 20-30ko
+      if (blob.size < 5000) {
+        throw new Error('Image too small, likely a rate limit placeholder');
+      }
+
+      const dataUri = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      return { imageDataUri: dataUri };
+    } catch (error) {
+      attempt++;
+      console.warn(`Attempt ${attempt} failed:`, error);
+
+      if (attempt >= maxRetries) break;
+
+      // Attente exponentielle pour laisser l'API respirer
+      const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
   }
+
+  throw new Error('Impossible de générer l\'image après plusieurs tentatives. Veuillez réessayer plus tard.');
 }
