@@ -31,27 +31,18 @@ export type OutfitPart = keyof PhotoSuggestion;
 
 
 const handleAiError = (error: any, toast: any) => {
+  console.error('AI Error Detail:', error);
   const errorMessage = String(error.message || '');
-  if (errorMessage.includes('429') || errorMessage.includes('quota')) {
-    toast({
-      variant: 'destructive',
-      title: 'L\'IA est très demandée !',
-      description: "Nous avons atteint notre limite de requêtes. L'IA se repose un peu, réessayez dans quelques minutes.",
-    });
-  } else if (errorMessage.includes('503') || errorMessage.includes('overloaded') || errorMessage.includes('unavailable')) {
-    toast({
-      variant: 'destructive',
-      title: 'L\'IA est en surchauffe !',
-      description: "Nos serveurs sont un peu surchargés. Donnez-lui un instant pour reprendre son souffle et réessayez.",
-    });
-  } else {
-    toast({
-      variant: 'destructive',
-      title: 'Erreur Inattendue',
-      description: "Une erreur s'est produite. Veuillez réessayer.",
+  toast({
+    variant: 'destructive',
+    title: 'Petit contretemps IA',
+    description: "L'IA a du mal à générer certaines images pour le moment. Vous pouvez essayer de régénérer chaque vêtement individuellement.",
+  });
+};
+description: "Une erreur s'est produite. Veuillez réessayer.",
     });
   }
-  console.error(error);
+console.error(error);
 };
 
 
