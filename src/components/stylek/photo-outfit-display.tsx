@@ -29,23 +29,29 @@ const SuggestedItem = ({ item, title, onRegenerate, isRegenerating }: SuggestedI
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 </div>
             )}
-            
+
             {hasFailed && (
                 <>
-                    <ImageOff className="h-8 w-8 text-muted-foreground mb-2"/>
+                    <ImageOff className="h-8 w-8 text-muted-foreground mb-2" />
                     <p className="font-semibold text-sm">{title}</p>
                     <p className="text-xs text-muted-foreground">{item.description}</p>
                 </>
             )}
 
             {!isRegenerating && !hasFailed && item.imageDataUri && (
-                 <Image src={item.imageDataUri} alt={item.description} fill className="object-cover" />
+                <Image
+                    src={item.imageDataUri}
+                    alt={item.description}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                />
             )}
 
             <div className="absolute top-1 right-1 z-20">
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
+                <Button
+                    variant="ghost"
+                    size="icon"
                     className="bg-black/30 hover:bg-black/60 text-white hover:text-white h-7 w-7 rounded-full backdrop-blur-sm"
                     onClick={onRegenerate}
                     disabled={isRegenerating}
@@ -66,10 +72,10 @@ const SuggestedItem = ({ item, title, onRegenerate, isRegenerating }: SuggestedI
 
 
 interface PhotoOutfitDisplayProps {
-  photoSuggestion: PhotoSuggestion;
-  baseItemPhoto: string;
-  onRegeneratePart: (part: OutfitPart) => void;
-  regeneratingPart: OutfitPart | null;
+    photoSuggestion: PhotoSuggestion;
+    baseItemPhoto: string;
+    onRegeneratePart: (part: OutfitPart) => void;
+    regeneratingPart: OutfitPart | null;
 }
 
 export function PhotoOutfitDisplay({ photoSuggestion, baseItemPhoto, onRegeneratePart, regeneratingPart }: PhotoOutfitDisplayProps) {
@@ -90,14 +96,14 @@ export function PhotoOutfitDisplay({ photoSuggestion, baseItemPhoto, onRegenerat
     return (
         <CardContent className="p-4 sm:p-6 w-full animate-in fade-in-50">
             <h3 className="text-xl font-bold font-headline text-center mb-4">Votre Tenue Personnalisée</h3>
-            
+
             <div className="flex flex-col items-center gap-2 mb-4">
                 <h4 className="font-semibold text-center text-muted-foreground text-sm">Votre Pièce</h4>
                 <div className="relative aspect-square w-24 bg-secondary rounded-lg overflow-hidden flex items-center justify-center shadow-lg">
                     <Image src={baseItemPhoto} alt="Votre pièce de base" fill className="object-cover" />
                 </div>
             </div>
-            
+
             <div className="text-center mb-4">
                 <p className="text-sm font-semibold text-muted-foreground">Détails de la tenue :</p>
                 <p className="text-xs text-foreground mt-1 italic">"{allDescriptions}"</p>
@@ -108,10 +114,10 @@ export function PhotoOutfitDisplay({ photoSuggestion, baseItemPhoto, onRegenerat
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {suggestedParts.map((item) => (
                     item.part.description && item.part.description !== 'N/A' && (
-                        <SuggestedItem 
-                            key={item.key} 
-                            item={item.part} 
-                            title={item.title} 
+                        <SuggestedItem
+                            key={item.key}
+                            item={item.part}
+                            title={item.title}
                             onRegenerate={() => onRegeneratePart(item.key as OutfitPart)}
                             isRegenerating={regeneratingPart === item.key}
                         />
