@@ -7,12 +7,13 @@ const withPWA = withPWAInit({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
-  cacheOnFrontEndNav: true,
-  aggressiveFrontEndNavCaching: true,
+  cacheOnFrontEndNav: false, // Désactiver pour éviter les conflits avec les APIs
+  aggressiveFrontEndNavCaching: false,
   reloadOnOnline: true,
   swcMinify: false,
   workboxOptions: {
     disableDevLogs: true,
+    exclude: [/api\/.*$/], // Ne jamais mettre en cache les APIs
   },
   fallbacks: {
     image: "/icons/icon-512x512.png",

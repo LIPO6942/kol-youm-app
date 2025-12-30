@@ -36,12 +36,12 @@ export async function POST(request: Request) {
     console.log('Pollinations.ai Prompt:', enhanced);
 
     // Pollinations.ai est rapide, gratuit et ne nécessite pas de polling complexe.
-    // On génère une URL directe
+    // On utilise l'endpoint recommandé gen.pollinations.ai
     const seed = Math.floor(Math.random() * 1000000);
-    const model = 'flux'; // Flux est un excellent modèle disponible sur Pollinations
-    const pollinationsUrl = `https://pollinations.ai/p/${encodeURIComponent(enhanced)}?width=512&height=512&seed=${seed}&model=${model}&nologo=true`;
+    const model = 'flux';
+    const pollinationsUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(enhanced)}?width=512&height=512&seed=${seed}&model=${model}&nologo=1&t=${Date.now()}`;
 
-    console.log('Fetching from Pollinations:', pollinationsUrl);
+    console.log('Fetching from Pollinations (New Endpoint):', pollinationsUrl);
 
     // On télécharge l'image pour la renvoyer en base64 (Data URI)
     // Cela évite les problèmes de CSP/CORS et assure que l'image est bien là

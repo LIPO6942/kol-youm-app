@@ -1,4 +1,4 @@
- 
+
 /**
  * Flow de génération d'images avec Hugging Face API
  * Utilise Stable Diffusion pour générer des images de vêtements réalistes
@@ -9,7 +9,7 @@ import { GenerateOutfitImageInputSchema, GenerateOutfitImageOutputSchema, type G
 export async function generateOutfitImage(input: GenerateOutfitImageInput): Promise<GenerateOutfitImageOutput> {
   try {
     // Appel côté client vers la route API Next (côté serveur) qui utilise HUGGINGFACE_API_KEY
-    const resp = await fetch('/api/hf-image', {
+    const resp = await fetch(`/api/hf-image?t=${Date.now()}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: input.itemDescription, gender: input.gender, category: input.category })
