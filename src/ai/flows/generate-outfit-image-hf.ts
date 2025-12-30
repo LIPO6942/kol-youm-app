@@ -1,73 +1,68 @@
 /**
- * Flow de génération d'images avec Pollinations.ai (Côté Client)
- * Utilise Pollinations.ai directement pour éviter le Rate Limit du serveur Vercel
+ * Flow de génération/recherche d'images IA ultra-rapide
+ * Utilise Lexica pour la vitesse et la qualité (recherche d'images existantes)
+ * et Pollinations en secours (génération à la demande)
  */
 
 import { GenerateOutfitImageInputSchema, GenerateOutfitImageOutputSchema, type GenerateOutfitImageInput, type GenerateOutfitImageOutput } from './generate-outfit-image.types';
 
-function enhancePromptForFashion(description: string, gender?: string, category?: string): string {
-  let enhanced = `fashion photography, ${description}`;
-  if (gender === 'Femme') enhanced += ", women's style";
-  else enhanced += ", men's style";
-
-  enhanced += ', clean white background, studio lighting, high quality, realistic, isolated item, clothing product shot';
-  return enhanced;
-}
-
 export async function generateOutfitImage(input: GenerateOutfitImageInput): Promise<GenerateOutfitImageOutput> {
-  const maxRetries = 5;
-  let attempt = 0;
+  const query = `${input.itemDescription} fashion photography, ${input.gender === 'Femme' ? "women's style" : "men's style"}, white background, product photo, high quality, realistic`;
 
-  while (attempt < maxRetries) {
-    try {
-      const enhanced = enhancePromptForFashion(input.itemDescription, input.gender, input.category);
-      // On change le seed à chaque essai pour forcer un nouveau calcul
-      const seed = Math.floor(Math.random() * 1000000) + attempt;
+  try {
+    // 1. Essayer Lexica (Moteur de recherche IA - Instantané et sans limite)
+    console.log('Searching Lexica for:', query);
+    const lexicaResp = await fetch(`https://lexica.art/api/v1/search?q=${encodeURIComponent(query)}`);
 
-      const domains = ['image.pollinations.ai', 'gen.pollinations.ai'];
-      const domain = domains[attempt % domains.length];
+    if (lexicaResp.ok) {
+      const data = await lexicaResp.json();
+      if (data.images && data.images.length > 0) {
+        // On prend une image au hasard parmi les 10 premières pour varier
+        const randomIndex = Math.floor(Math.random() * Math.min(10, data.images.length));
+        const imageUrl = data.images[randomIndex].src;
 
-      const url = `https://${domain}/prompt/${encodeURIComponent(enhanced)}?width=512&height=512&seed=${seed}&nologo=1&model=turbo`;
+        console.log('Lexica match found:', imageUrl);
 
-      console.log(`Attempt ${attempt + 1}: Fetching from client:`, url);
+        // On télécharge l'image pour la convertir en base64
+        const imgResp = await fetch(imageUrl);
+        const blob = await imgResp.blob();
+        const dataUri = await blobToDataUri(blob);
 
-      const resp = await fetch(url);
-
-      // Si on reçoit une erreur de type "Rate Limit" ou serveur, on attend et on réessaye
-      if (!resp.ok) {
-        if (resp.status === 429 || resp.status >= 500) {
-          throw new Error(`API temporary error: ${resp.status}`);
-        }
-        throw new Error(`Image API error: ${resp.status}`);
+        return { imageDataUri: dataUri };
       }
-
-      const blob = await resp.blob();
-
-      // Sécurité : si le blob est trop petit, c'est probablement l'image d'erreur "Rate Limit"
-      // L'image de rate limit de Pollinations fait environ 20-30ko
-      if (blob.size < 5000) {
-        throw new Error('Image too small, likely a rate limit placeholder');
-      }
-
-      const dataUri = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-
-      return { imageDataUri: dataUri };
-    } catch (error) {
-      attempt++;
-      console.warn(`Attempt ${attempt} failed:`, error);
-
-      if (attempt >= maxRetries) break;
-
-      // Attente exponentielle pour laisser l'API respirer
-      const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
-      await new Promise(resolve => setTimeout(resolve, delay));
     }
+  } catch (e) {
+    console.warn('Lexica search failed, falling back to Pollinations:', e);
   }
 
-  throw new Error('Impossible de générer l\'image après plusieurs tentatives. Veuillez réessayer plus tard.');
+  // 2. Secours : Pollinations avec rotation de modèles pour éviter le Rate Limit
+  const models = ['flux', 'turbo', 'unity', 'deliberate'];
+  const model = models[Math.floor(Math.random() * models.length)];
+  const seed = Math.floor(Math.random() * 1000000);
+
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(query)}?width=512&height=512&seed=${seed}&model=${model}&nologo=1`;
+
+  try {
+    console.log('Pollinations fallback triggering with model:', model);
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`API Error: ${resp.status}`);
+
+    const blob = await resp.blob();
+    if (blob.size < 5000) throw new Error('Received rate limit or error image');
+
+    const dataUri = await blobToDataUri(blob);
+    return { imageDataUri: dataUri };
+  } catch (error: any) {
+    console.error('Final fallback failed:', error);
+    throw new Error('Impossible de générer ou trouver une image. Veuillez réessayer.');
+  }
+}
+
+async function blobToDataUri(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }

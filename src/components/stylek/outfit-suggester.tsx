@@ -170,26 +170,24 @@ export default function OutfitSuggester() {
         setPhotoSuggestion(initialPhotoSuggestion);
         setSuggestion(null);
 
-        // Generate images progressively with a small delay between each
-        partsToGenerate.forEach((part, index) => {
-          setTimeout(() => {
-            generateOutfitImage({ itemDescription: part.description, gender: userProfile?.gender, category: part.key })
-              .then(imageResult => {
-                setPhotoSuggestion(prev => {
-                  if (!prev) return null;
-                  return {
-                    ...prev,
-                    [part.key]: {
-                      ...prev[part.key],
-                      imageDataUri: imageResult.imageDataUri
-                    }
-                  };
-                });
-              })
-              .catch(error => {
-                console.error(`Failed to generate image for ${part.key}:`, error);
+        // Generate images progressively without artificial delays
+        partsToGenerate.forEach((part) => {
+          generateOutfitImage({ itemDescription: part.description, gender: userProfile?.gender, category: part.key })
+            .then(imageResult => {
+              setPhotoSuggestion(prev => {
+                if (!prev) return null;
+                return {
+                  ...prev,
+                  [part.key]: {
+                    ...prev[part.key],
+                    imageDataUri: imageResult.imageDataUri
+                  }
+                };
               });
-          }, index * 800); // 800ms de décalage entre chaque image
+            })
+            .catch(error => {
+              console.error(`Failed to generate image for ${part.key}:`, error);
+            });
         });
 
       } else {
