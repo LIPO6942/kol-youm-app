@@ -152,47 +152,44 @@ export default function OutfitSuggester() {
           .map(([key, value]: [string, any]) => ({ key: key as OutfitPart, description: (value?.description as string) }))
           .filter(p => p.description && p.description !== 'N/A');
 
-        const imagePromises = partsToGenerate.map(part =>
-          generateOutfitImage({ itemDescription: part.description, gender: userProfile?.gender, category: part.key })
-            .then(imageResult => ({
-              key: part.key,
-              description: part.description,
-              imageDataUri: imageResult.imageDataUri
-            }))
-            .catch(error => {
-              console.error(`Failed to generate image for ${part.key}:`, error);
-              handleAiError(error, toast);
-              return { key: part.key, description: part.description, imageDataUri: '' };
-            })
-        );
-
-        const generatedImages = await Promise.all(imagePromises);
-
-        const finalPhotoSuggestion: PhotoSuggestion = {
+        const initialPhotoSuggestion: PhotoSuggestion = {
           haut: { description: 'N/A', imageDataUri: '' },
           bas: { description: 'N/A', imageDataUri: '' },
           chaussures: { description: 'N/A', imageDataUri: '' },
           accessoires: { description: 'N/A', imageDataUri: '' },
         };
 
-        generatedImages.forEach(image => {
-          if (image) {
-            finalPhotoSuggestion[image.key] = {
-              description: image.description,
-              imageDataUri: image.imageDataUri,
-            };
-          }
-        });
-
-        Object.keys(descriptionResult).forEach(keyStr => {
+        // Fill descriptions first
+        Object.entries(descriptionResult).forEach(([keyStr, value]: [string, any]) => {
           const key = keyStr as OutfitPart;
-          if (descriptionResult[key] && descriptionResult[key].description !== 'N/A' && !finalPhotoSuggestion[key].description) {
-            finalPhotoSuggestion[key].description = descriptionResult[key].description;
+          if (value?.description && value.description !== 'N/A') {
+            initialPhotoSuggestion[key].description = value.description;
           }
         });
 
-        setPhotoSuggestion(finalPhotoSuggestion);
+        setPhotoSuggestion(initialPhotoSuggestion);
         setSuggestion(null);
+
+        // Generate images progressively
+        partsToGenerate.forEach(part => {
+          generateOutfitImage({ itemDescription: part.description, gender: userProfile?.gender, category: part.key })
+            .then(imageResult => {
+              setPhotoSuggestion(prev => {
+                if (!prev) return null;
+                return {
+                  ...prev,
+                  [part.key]: {
+                    ...prev[part.key],
+                    imageDataUri: imageResult.imageDataUri
+                  }
+                };
+              });
+            })
+            .catch(error => {
+              console.error(`Failed to generate image for ${part.key}:`, error);
+              // L'UI affiche déjà le placeholder si imageDataUri est vide
+            });
+        });
 
       } else {
         setPhotoSuggestion(null);

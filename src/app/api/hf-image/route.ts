@@ -37,8 +37,8 @@ export async function POST(request: Request) {
 
     // Pollinations.ai standard URL
     const seed = Math.floor(Math.random() * 1000000);
-    // On utilise l'endpoint le plus simple et fiable
-    const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhanced)}?width=512&height=512&seed=${seed}&nologo=true`;
+    // On utilise le modèle turbo pour plus de rapidité
+    const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhanced)}?width=512&height=512&seed=${seed}&model=turbo&nologo=true`;
 
     console.log('Fetching from Pollinations:', pollinationsUrl);
 
