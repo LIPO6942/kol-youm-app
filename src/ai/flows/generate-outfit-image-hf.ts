@@ -7,23 +7,29 @@
 import { GenerateOutfitImageInputSchema, GenerateOutfitImageOutputSchema, type GenerateOutfitImageInput, type GenerateOutfitImageOutput } from './generate-outfit-image.types';
 
 export async function generateOutfitImage(input: GenerateOutfitImageInput): Promise<GenerateOutfitImageOutput> {
-  const query = `${input.itemDescription} fashion photography, ${input.gender === 'Femme' ? "women's style" : "men's style"}, white background, product photo, high quality, realistic`;
+  // Nettoyage de la description pour Lexica 
+  // On enlève "N/A" et on ne garde que le premier vêtement suggéré (avant le "ou")
+  let cleanDesc = input.itemDescription.replace(/N\/A/g, '').split(/ ou | or |,|;|:/i)[0].trim();
+
+  if (!cleanDesc || cleanDesc.length < 2) {
+    cleanDesc = `${input.category} fashion`;
+  }
+
+  const query = `${cleanDesc} fashion photography, white background, realistic product shot`;
 
   try {
-    // 1. Essayer Lexica (Moteur de recherche IA - Instantané et sans limite)
-    console.log('Searching Lexica for:', query);
+    console.log('Testing Lexica Only - Query:', query);
     const lexicaResp = await fetch(`https://lexica.art/api/v1/search?q=${encodeURIComponent(query)}`);
 
     if (lexicaResp.ok) {
       const data = await lexicaResp.json();
       if (data.images && data.images.length > 0) {
-        // On prend une image au hasard parmi les 10 premières pour varier
-        const randomIndex = Math.floor(Math.random() * Math.min(10, data.images.length));
+        // On prend une image parmi les 15 premières
+        const randomIndex = Math.floor(Math.random() * Math.min(15, data.images.length));
         const imageUrl = data.images[randomIndex].src;
 
         console.log('Lexica match found:', imageUrl);
 
-        // On télécharge l'image pour la convertir en base64
         const imgResp = await fetch(imageUrl);
         const blob = await imgResp.blob();
         const dataUri = await blobToDataUri(blob);
@@ -31,31 +37,27 @@ export async function generateOutfitImage(input: GenerateOutfitImageInput): Prom
         return { imageDataUri: dataUri };
       }
     }
+
+    // Si rien n'est trouvé, tenter une recherche ultra-générique
+    const ultraSimple = `${input.category} clothing product white background`;
+    console.log('Lexica fallback (ultra-simple):', ultraSimple);
+    const fallbackResp = await fetch(`https://lexica.art/api/v1/search?q=${encodeURIComponent(ultraSimple)}`);
+
+    if (fallbackResp.ok) {
+      const data = await fallbackResp.json();
+      if (data.images && data.images.length > 0) {
+        const imageUrl = data.images[0].src;
+        const imgResp = await fetch(imageUrl);
+        const blob = await imgResp.blob();
+        const dataUri = await blobToDataUri(blob);
+        return { imageDataUri: dataUri };
+      }
+    }
   } catch (e) {
-    console.warn('Lexica search failed, falling back to Pollinations:', e);
+    console.error('Lexica search error:', e);
   }
 
-  // 2. Secours : Pollinations avec rotation de modèles pour éviter le Rate Limit
-  const models = ['flux', 'turbo', 'unity', 'deliberate'];
-  const model = models[Math.floor(Math.random() * models.length)];
-  const seed = Math.floor(Math.random() * 1000000);
-
-  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(query)}?width=512&height=512&seed=${seed}&model=${model}&nologo=1`;
-
-  try {
-    console.log('Pollinations fallback triggering with model:', model);
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`API Error: ${resp.status}`);
-
-    const blob = await resp.blob();
-    if (blob.size < 5000) throw new Error('Received rate limit or error image');
-
-    const dataUri = await blobToDataUri(blob);
-    return { imageDataUri: dataUri };
-  } catch (error: any) {
-    console.error('Final fallback failed:', error);
-    throw new Error('Impossible de générer ou trouver une image. Veuillez réessayer.');
-  }
+  throw new Error('Aucune image trouvée sur Lexica.');
 }
 
 async function blobToDataUri(blob: Blob): Promise<string> {

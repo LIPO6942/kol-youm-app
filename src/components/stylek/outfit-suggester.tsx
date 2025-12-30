@@ -174,7 +174,7 @@ export default function OutfitSuggester() {
         partsToGenerate.forEach((part) => {
           generateOutfitImage({ itemDescription: part.description, gender: userProfile?.gender, category: part.key })
             .then(imageResult => {
-              setPhotoSuggestion(prev => {
+              setPhotoSuggestion((prev: PhotoSuggestion | null) => {
                 if (!prev) return null;
                 return {
                   ...prev,
