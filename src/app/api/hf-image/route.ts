@@ -33,35 +33,39 @@ export async function POST(request: Request) {
     }
 
     const enhanced = enhancePromptForFashion(prompt, gender, category);
-    console.log('Pollinations.ai Prompt:', enhanced);
+    console.log('Pollinations Prompt:', enhanced);
 
-    // Pollinations.ai est rapide, gratuit et ne nécessite pas de polling complexe.
-    // On utilise l'endpoint recommandé gen.pollinations.ai
+    // Pollinations.ai standard URL
     const seed = Math.floor(Math.random() * 1000000);
-    const model = 'flux';
-    const pollinationsUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(enhanced)}?width=512&height=512&seed=${seed}&model=${model}&nologo=1&t=${Date.now()}`;
+    // On utilise l'endpoint le plus simple et fiable
+    const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhanced)}?width=512&height=512&seed=${seed}&nologo=true`;
 
-    console.log('Fetching from Pollinations (New Endpoint):', pollinationsUrl);
+    console.log('Fetching from Pollinations:', pollinationsUrl);
 
-    // On télécharge l'image pour la renvoyer en base64 (Data URI)
-    // Cela évite les problèmes de CSP/CORS et assure que l'image est bien là
     const imageResponse = await fetch(pollinationsUrl);
 
     if (!imageResponse.ok) {
+      const errorText = await imageResponse.text().catch(() => 'No error text');
+      console.error('Pollinations API Error:', imageResponse.status, errorText);
       throw new Error(`Pollinations API error: ${imageResponse.status}`);
     }
 
     const imageBuffer = await imageResponse.arrayBuffer();
-    const base64 = Buffer.from(imageBuffer).toString('base64');
-    const contentType = imageResponse.headers.get('content-type') || 'image/webp';
+    if (!imageBuffer || imageBuffer.byteLength === 0) {
+      throw new Error('Received empty buffer from Pollinations');
+    }
+
+    const base64 = Buffer.from(new Uint8Array(imageBuffer)).toString('base64');
+    const contentType = imageResponse.headers.get('content-type') || 'image/png';
     const dataUri = `data:${contentType};base64,${base64}`;
 
-    console.log('Pollinations Image obtained successfully');
+    console.log('Pollinations Image obtained successfully, length:', dataUri.length);
 
     return NextResponse.json({
       success: true,
       imageDataUri: dataUri,
-      modelUsed: `Pollinations.ai (${model})`
+      modelUsed: `Pollinations.ai`,
+      debug: { url: pollinationsUrl, size: dataUri.length }
     });
 
   } catch (error: any) {

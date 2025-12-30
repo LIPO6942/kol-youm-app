@@ -21,6 +21,7 @@ export async function generateOutfitImage(input: GenerateOutfitImageInput): Prom
     }
 
     const data = await resp.json();
+    console.log('Image API Response:', { success: !!data?.imageDataUri, length: data?.imageDataUri?.length });
     const imageDataUri = data?.imageDataUri as string | undefined;
     if (!imageDataUri) throw new Error('No imageDataUri in response');
 
