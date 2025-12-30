@@ -19,10 +19,18 @@ export async function POST(request: Request) {
             }, { status: 500 });
         }
 
-        // Amélioration du prompt pour un rendu mode professionnel
-        const enhancedPrompt = `fashion photography, ${prompt}, ${gender === 'Femme' ? "women's style" : "men's style"}, white background, studio shot, high resolution, realistic clothing item, clean lighting`;
+        // Amélioration du prompt selon la catégorie pour éviter les portraits et se concentrer sur l'objet
+        let focusInstruction = 'realistic clothing item, studio shot, isolated on white background';
 
-        console.log('Generating with Cloudflare Workers AI:', enhancedPrompt);
+        if (category?.toLowerCase() === 'chaussures' || category?.toLowerCase() === 'accessoires') {
+            focusInstruction = 'single product photo, centered, macro shot, isolated on pure white background, no person, no model, no human';
+        } else if (category?.toLowerCase() === 'haut' || category?.toLowerCase() === 'bas') {
+            focusInstruction = 'flat lay photography, ghost mannequin, isolated on white background, no head, no person, centered';
+        }
+
+        const enhancedPrompt = `${prompt}, ${gender === 'Femme' ? "women style" : "men style"}, ${focusInstruction}, high resolution, professional commercial photography, clean studio lighting`;
+
+        console.log('Generating with Cloudflare Workers AI (Targeted):', enhancedPrompt);
 
         const model = "@cf/bytedance/stable-diffusion-xl-lightning";
         const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`;
