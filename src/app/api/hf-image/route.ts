@@ -1,81 +1,60 @@
 import { NextResponse } from 'next/server';
-import { Buffer } from 'node:buffer';
 
 export const runtime = 'nodejs';
 
-type Category = 'haut' | 'bas' | 'chaussures' | 'accessoires';
-type Gender = 'Homme' | 'Femme' | undefined;
-
-// Fonction pour améliorer le prompt
-function enhancePromptForFashion(
-  description: string,
-  gender?: Gender,
-  category?: Category
-): string {
-  let enhanced = description;
-
-  if (gender === 'Femme') {
-    enhanced += ", women's fashion";
-  } else {
-    enhanced += ", men's fashion";
-  }
-
-  enhanced += ', white background, product photo, high quality, realistic';
-  return enhanced;
-}
-
 export async function POST(request: Request) {
   try {
-    const { prompt, gender, category } = await request.json();
+    const { prompt, category } = await request.json();
 
-    if (!prompt || typeof prompt !== 'string') {
-      return NextResponse.json({ error: 'Invalid prompt' }, { status: 400 });
+    // Nettoyage de la requête pour Lexica
+    let cleanDesc = prompt ? prompt.replace(/N\/A/g, '').split(/ ou | or |,|;|:/i)[0].trim() : '';
+
+    if (!cleanDesc || cleanDesc.length < 2) {
+      cleanDesc = `${category || 'fashion'} clothing`;
     }
 
-    const enhanced = enhancePromptForFashion(prompt, gender, category);
-    console.log('Pollinations Prompt:', enhanced);
+    const query = `${cleanDesc} fashion photography, white background, realistic product shot`;
+    console.log('Lexica Server Search:', query);
 
-    // Pollinations.ai standard URL
-    const seed = Math.floor(Math.random() * 1000000);
-    // On utilise le modèle turbo pour plus de rapidité
-    const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enhanced)}?width=512&height=512&seed=${seed}&model=turbo&nologo=true`;
+    // Appel à Lexica depuis le serveur (pas de blocage CORS ici)
+    const lexicaResp = await fetch(`https://lexica.art/api/v1/search?q=${encodeURIComponent(query)}`);
 
-    console.log('Fetching from Pollinations:', pollinationsUrl);
+    if (lexicaResp.ok) {
+      const data = await lexicaResp.json();
+      if (data.images && data.images.length > 0) {
+        // On prend une image parmi les 15 premières
+        const randomIndex = Math.floor(Math.random() * Math.min(15, data.images.length));
+        const imageUrl = data.images[randomIndex].src;
 
-    const imageResponse = await fetch(pollinationsUrl);
-
-    if (!imageResponse.ok) {
-      const errorText = await imageResponse.text().catch(() => 'No error text');
-      console.error('Pollinations API Error:', imageResponse.status, errorText);
-      throw new Error(`Pollinations API error: ${imageResponse.status}`);
+        return NextResponse.json({
+          success: true,
+          imageUrl: imageUrl,
+          source: 'Lexica'
+        });
+      }
     }
 
-    const imageBuffer = await imageResponse.arrayBuffer();
-    if (!imageBuffer || imageBuffer.byteLength === 0) {
-      throw new Error('Received empty buffer from Pollinations');
+    // Fallback ultra-générique sur Lexica
+    const fallbackQuery = `${category || 'clothing'} fashion product white background`;
+    const fallbackResp = await fetch(`https://lexica.art/api/v1/search?q=${encodeURIComponent(fallbackQuery)}`);
+
+    if (fallbackResp.ok) {
+      const data = await fallbackResp.json();
+      if (data.images && data.images.length > 0) {
+        return NextResponse.json({
+          success: true,
+          imageUrl: data.images[0].src,
+          source: 'Lexica Fallback'
+        });
+      }
     }
 
-    const base64 = Buffer.from(new Uint8Array(imageBuffer)).toString('base64');
-    const contentType = imageResponse.headers.get('content-type') || 'image/png';
-    const dataUri = `data:${contentType};base64,${base64}`;
-
-    console.log('Pollinations Image obtained successfully, length:', dataUri.length);
-
-    return NextResponse.json({
-      success: true,
-      imageDataUri: dataUri,
-      modelUsed: `Pollinations.ai`,
-      debug: { url: pollinationsUrl, size: dataUri.length }
-    });
+    return NextResponse.json({ error: 'Aucune image trouvée sur Lexica' }, { status: 404 });
 
   } catch (error: any) {
-    console.error('Error in Pollinations API route:', error);
+    console.error('Lexica API Bridge Error:', error);
     return NextResponse.json(
-      {
-        error: 'Image generation failed',
-        details: error?.message || String(error),
-        hint: 'Réessayez dans quelques instants.'
-      },
+      { error: 'Erreur lors de la recherche d\'image', details: error?.message },
       { status: 500 }
     );
   }
