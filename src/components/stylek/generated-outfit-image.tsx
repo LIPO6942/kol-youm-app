@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { Loader2, XCircle } from 'lucide-react';
-import { generateOutfitImage } from '@/ai/flows/generate-outfit-image-hf';
+import { generateOutfitImage } from '@/ai/flows/generate-outfit-image-ai';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
@@ -17,23 +17,23 @@ export const GeneratedOutfitImage = ({ description, gender }: { description: str
   const handleAiError = useCallback((error: any) => {
     const errorMessage = String(error.message || '');
     if (errorMessage.includes('429') || errorMessage.includes('quota')) {
-        toast({
-            variant: 'destructive',
-            title: 'L\'IA est très demandée !',
-            description: "Le générateur d'images se repose, réessayez dans un instant.",
-        });
+      toast({
+        variant: 'destructive',
+        title: 'L\'IA est très demandée !',
+        description: "Le générateur d'images se repose, réessayez dans un instant.",
+      });
     } else if (errorMessage.includes('503') || errorMessage.includes('overloaded') || errorMessage.includes('unavailable')) {
-         toast({
-            variant: 'destructive',
-            title: 'L\'IA est en surchauffe !',
-            description: "Nos serveurs sont un peu surchargés pour l'imagerie. Réessayez dans un instant.",
-        });
+      toast({
+        variant: 'destructive',
+        title: 'L\'IA est en surchauffe !',
+        description: "Nos serveurs sont un peu surchargés pour l'imagerie. Réessayez dans un instant.",
+      });
     } else {
-        toast({
-            variant: 'destructive',
-            title: 'Erreur d\'image',
-            description: "Impossible de générer l'image. Veuillez réessayer.",
-        });
+      toast({
+        variant: 'destructive',
+        title: 'Erreur d\'image',
+        description: "Impossible de générer l'image. Veuillez réessayer.",
+      });
     }
     console.error(`Failed to generate outfit image`, error);
   }, [toast]);
