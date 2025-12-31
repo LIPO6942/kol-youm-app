@@ -273,7 +273,7 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
   return (
     <Sheet>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
-      <SheetContent className="flex flex-col sm:max-w-md">
+      <SheetContent className="flex flex-col w-[90%] sm:max-w-[90%]">
         <SheetHeader>
           <div className="flex justify-between items-start">
             <div className="pr-4">
