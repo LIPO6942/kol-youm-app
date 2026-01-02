@@ -112,16 +112,19 @@ export default function WardrobePage() {
                                                             <Image src={item.photoDataUri} alt={`${item.style} ${item.type}`} width={80} height={80} className="object-cover h-full w-full" />
                                                         )}
                                                         {item.matchingColors && item.matchingColors.length > 0 && (
-                                                            <div className="absolute bottom-1 right-1 flex space-x-1 z-10 bg-background/50 p-1 rounded-full backdrop-blur-sm">
-                                                                {item.matchingColors.map((color, idx) => (
-                                                                    <div
-                                                                        key={idx}
-                                                                        title={color.name}
-                                                                        className="w-3 h-3 rounded-full border border-white shadow-sm"
-                                                                        style={{ backgroundColor: color.hex }}
-                                                                    />
-                                                                ))}
-                                                            </div>
+                                                            <>
+                                                                {console.log("Item with colors:", item.id, item.matchingColors)}
+                                                                <div className="absolute bottom-1 right-1 flex space-x-1 z-10 bg-background/50 p-1 rounded-full backdrop-blur-sm">
+                                                                    {item.matchingColors.map((color, idx) => (
+                                                                        <div
+                                                                            key={idx}
+                                                                            title={color.name}
+                                                                            className="w-3 h-3 rounded-full border border-white shadow-sm"
+                                                                            style={{ backgroundColor: color.hex }}
+                                                                        />
+                                                                    ))}
+                                                                </div>
+                                                            </>
                                                         )}
                                                     </div>
                                                 </DialogTrigger>

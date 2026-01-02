@@ -217,6 +217,8 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
       // Continue even if analysis fails
     }
 
+    console.log("Final matchingColors before save:", matchingColors); // DEBUG LOG
+
     try {
       await addWardrobeItem(user.uid, {
         type: values.baseItemType,
