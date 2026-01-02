@@ -1,5 +1,5 @@
 
-import { doc, setDoc, getDoc, serverTimestamp, arrayUnion, arrayRemove, writeBatch } from "firebase/firestore"; 
+import { doc, setDoc, getDoc, serverTimestamp, arrayUnion, arrayRemove, writeBatch } from "firebase/firestore";
 import { db as firestoreDb } from "./client";
 import { getUserFromDb, storeUserInDb } from "@/lib/indexeddb";
 
@@ -9,16 +9,20 @@ export type WardrobeItem = {
     style: 'Professionnel' | 'Décontracté' | 'Chic' | 'Sportif';
     photoDataUri: string; // This will now store the Cloudinary URL
     createdAt: number; // Timestamp for sorting
+    matchingColors?: {
+        name: string;
+        hex: string;
+    }[];
 };
 
 export type PlaceItem = {
-  id: string;
-  name: string;
-  category: 'café' | 'restaurant' | 'fast-food' | 'bar' | 'parc' | 'musée' | 'cinéma' | 'théâtre' | 'autre';
-  address?: string;
-  description?: string;
-  predefinedArea?: string;
-  createdAt: any;
+    id: string;
+    name: string;
+    category: 'café' | 'restaurant' | 'fast-food' | 'bar' | 'parc' | 'musée' | 'cinéma' | 'théâtre' | 'autre';
+    address?: string;
+    description?: string;
+    predefinedArea?: string;
+    createdAt: any;
 };
 
 export type UserProfile = {
@@ -43,28 +47,28 @@ export type UserProfile = {
 };
 
 export async function createUserProfile(uid: string, data: { email: string | null }) {
-  const userProfile: UserProfile = {
-    uid,
-    email: data.email,
-    personalizationComplete: false,
-    createdAt: serverTimestamp(),
-    seenMovieTitles: [],
-    moviesToWatch: [],
-    seenKhroujSuggestions: [],
-    wardrobe: [],
-    places: [],
-    preferredCountries: [],
-    preferredMinRating: 6,
-    fullBodyPhotoUrl: '',
-    closeupPhotoUrl: '',
-  };
-  const { fullBodyPhotoUrl, closeupPhotoUrl, ...firestoreProfile } = userProfile;
-  await setDoc(doc(firestoreDb, "users", uid), firestoreProfile);
-  await storeUserInDb(uid, userProfile);
-  return userProfile;
+    const userProfile: UserProfile = {
+        uid,
+        email: data.email,
+        personalizationComplete: false,
+        createdAt: serverTimestamp(),
+        seenMovieTitles: [],
+        moviesToWatch: [],
+        seenKhroujSuggestions: [],
+        wardrobe: [],
+        places: [],
+        preferredCountries: [],
+        preferredMinRating: 6,
+        fullBodyPhotoUrl: '',
+        closeupPhotoUrl: '',
+    };
+    const { fullBodyPhotoUrl, closeupPhotoUrl, ...firestoreProfile } = userProfile;
+    await setDoc(doc(firestoreDb, "users", uid), firestoreProfile);
+    await storeUserInDb(uid, userProfile);
+    return userProfile;
 }
 
-export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>>, localOnly: boolean = false) {
+export async function updateUserProfile(uid: string, data: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>>, localOnly: boolean = false) {
     const firestoreData: { [key: string]: any } = {};
     const localData: { [key: string]: any } = {};
 
@@ -72,7 +76,7 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
         if (key === 'fullBodyPhotoUrl' || key === 'closeupPhotoUrl') {
             localData[key] = (data as any)[key];
         } else {
-             if (key === 'seenMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions' || key === 'wardrobe' || key === 'places') {
+            if (key === 'seenMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions' || key === 'wardrobe' || key === 'places') {
                 firestoreData[key] = arrayUnion(...(data as any)[key]);
             } else {
                 firestoreData[key] = (data as any)[key];
@@ -82,14 +86,14 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
     }
 
     if (!localOnly && Object.keys(firestoreData).length > 0) {
-      const userRef = doc(firestoreDb, 'users', uid);
-      await setDoc(userRef, firestoreData, { merge: true });
+        const userRef = doc(firestoreDb, 'users', uid);
+        await setDoc(userRef, firestoreData, { merge: true });
     }
 
     const localProfile = await getUserFromDb(uid);
     if (localProfile) {
         const updatedProfile: UserProfile = { ...localProfile, ...data };
-        
+
         if (data.seenMovieTitles) {
             updatedProfile.seenMovieTitles = Array.from(new Set([...(localProfile.seenMovieTitles || []), ...data.seenMovieTitles]));
         }
@@ -99,7 +103,7 @@ export async function updateUserProfile(uid:string, data: Partial<Omit<UserProfi
         if (data.seenKhroujSuggestions) {
             updatedProfile.seenKhroujSuggestions = Array.from(new Set([...(localProfile.seenKhroujSuggestions || []), ...data.seenKhroujSuggestions]));
         }
-         if (data.wardrobe) {
+        if (data.wardrobe) {
             const allItems = [...(localProfile.wardrobe || []), ...data.wardrobe];
             const uniqueItems = Array.from(new Map(allItems.map(item => [item.id, item])).values());
             updatedProfile.wardrobe = uniqueItems;
@@ -157,7 +161,7 @@ export async function deleteWardrobeItem(uid: string, itemToDelete: WardrobeItem
     } catch (error) {
         console.error("Error calling delete-image API route:", error);
     }
-    
+
     // Then, delete the item from Firestore.
     // The onSnapshot listener in useAuth will handle updating the local state and IndexedDB.
     const userRef = doc(firestoreDb, 'users', uid);
@@ -209,8 +213,8 @@ export async function deletePlace(uid: string, placeToDelete: PlaceItem) {
 
 export async function moveMovieFromWatchlistToSeen(uid: string, movieTitle: string) {
     const userRef = doc(firestoreDb, "users", uid);
-    
-    await setDoc(userRef, { 
+
+    await setDoc(userRef, {
         moviesToWatch: arrayRemove(movieTitle),
         seenMovieTitles: arrayUnion(movieTitle)
     }, { merge: true });
@@ -228,8 +232,8 @@ export async function moveMovieFromWatchlistToSeen(uid: string, movieTitle: stri
 
 export async function removeMovieFromSeenList(uid: string, movieTitle: string) {
     const userRef = doc(firestoreDb, "users", uid);
-    
-    await setDoc(userRef, { 
+
+    await setDoc(userRef, {
         seenMovieTitles: arrayRemove(movieTitle)
     }, { merge: true });
 
@@ -247,17 +251,17 @@ export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' 
     const userRef = doc(firestoreDb, 'users', uid);
     const firestoreUpdate: any = {};
     firestoreUpdate[listName] = [];
-    
+
     // Special handling for seenMovieTitles to also clear moviesToWatch
     if (listName === 'seenMovieTitles') {
         firestoreUpdate.moviesToWatch = [];
     }
 
     await setDoc(userRef, firestoreUpdate, { merge: true });
-    
+
     const localProfile = await getUserFromDb(uid);
     if (localProfile) {
-        const updatedProfile = {...localProfile};
+        const updatedProfile = { ...localProfile };
         (updatedProfile as any)[listName] = [];
         if (listName === 'seenMovieTitles') {
             updatedProfile.moviesToWatch = [];
@@ -272,10 +276,10 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
 
     const userRef = doc(firestoreDb, "users", uid);
     const userSnap = await getDoc(userRef);
-    
+
     if (userSnap.exists()) {
         const firestoreProfileData = userSnap.data() as UserProfile;
-        
+
         // Merge Firestore data with local-only data
         const mergedProfile: UserProfile = {
             ...firestoreProfileData, // Base from Firestore
@@ -287,8 +291,8 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
 
         await storeUserInDb(uid, mergedProfile);
         return mergedProfile;
-    } 
-    
+    }
+
     if (localProfile) {
         return localProfile;
     }

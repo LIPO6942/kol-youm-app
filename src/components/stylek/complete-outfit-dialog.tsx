@@ -63,8 +63,8 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
   }, []);
 
@@ -78,30 +78,30 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
 
   useEffect(() => {
     if (!isDialogOpen) {
-        resetFormAndState();
+      resetFormAndState();
     }
   }, [isDialogOpen, resetFormAndState]);
 
   const setupCamera = async () => {
-      try {
-          const stream = await navigator.mediaDevices.getUserMedia({ 
-              video: { facingMode: 'environment' }
-          });
-          streamRef.current = stream;
-          if (videoRef.current) {
-              videoRef.current.srcObject = stream;
-          }
-          setHasCameraPermission(true);
-      } catch (error) {
-          console.error("Error accessing camera:", error);
-          setHasCameraPermission(false);
-          toast({
-              variant: 'destructive',
-              title: 'Accès Caméra Refusé',
-              description: "Veuillez autoriser l'accès à la caméra dans les paramètres de votre navigateur.",
-          });
-          setView('idle');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
       }
+      setHasCameraPermission(true);
+    } catch (error) {
+      console.error("Error accessing camera:", error);
+      setHasCameraPermission(false);
+      toast({
+        variant: 'destructive',
+        title: 'Accès Caméra Refusé',
+        description: "Veuillez autoriser l'accès à la caméra dans les paramètres de votre navigateur.",
+      });
+      setView('idle');
+    }
   };
 
   const handleCameraView = () => {
@@ -114,7 +114,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!);
-    
+
     try {
       const response = await fetch(`https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`, {
         method: 'POST',
@@ -125,7 +125,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
         const errorData = await response.json();
         throw new Error(errorData.error.message || 'Upload failed');
       }
-      
+
       const { secure_url } = await response.json();
       setPreviewImage(secure_url);
       completeOutfitForm.setValue('baseItemPhotoDataUri', secure_url, { shouldValidate: true });
@@ -143,98 +143,118 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-        if (file.size > 10 * 1024 * 1024) { // 10MB limit
-            toast({
-                variant: 'destructive',
-                title: 'Fichier trop volumineux',
-                description: 'Veuillez choisir une image de moins de 10 Mo.',
-            });
-            return;
-        }
-        await uploadImage(file);
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        toast({
+          variant: 'destructive',
+          title: 'Fichier trop volumineux',
+          description: 'Veuillez choisir une image de moins de 10 Mo.',
+        });
+        return;
+      }
+      await uploadImage(file);
     }
   };
 
   const handleCapturePhoto = async () => {
     if (videoRef.current) {
-        const video = videoRef.current;
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const context = canvas.getContext('2d');
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
 
-        if (context) {
-            context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-            canvas.toBlob(async (blob) => {
-                if (blob) {
-                    await uploadImage(blob);
-                }
-            }, 'image/jpeg', 0.95);
-            stopCamera();
-            setView('idle');
-        }
+      if (context) {
+        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        canvas.toBlob(async (blob) => {
+          if (blob) {
+            await uploadImage(blob);
+          }
+        }, 'image/jpeg', 0.95);
+        stopCamera();
+        setView('idle');
+      }
     }
   };
 
 
   const handleCompleteOutfitSubmit = async (values: CompleteOutfitFormValues) => {
     if (!user) {
-        toast({ variant: "destructive", title: "Non connecté", description: "Veuillez vous connecter." });
-        return;
+      toast({ variant: "destructive", title: "Non connecté", description: "Veuillez vous connecter." });
+      return;
     }
 
     const mainFormValues = mainForm.getValues();
     const isMainFormValid = await mainForm.trigger();
     if (!isMainFormValid) {
-        toast({
-            variant: 'destructive',
-            title: 'Champs manquants',
-            description: "Veuillez remplir les informations de base (activité, météo, occasion) avant de compléter une tenue.",
-        });
-        setIsDialogOpen(false);
-        return;
+      toast({
+        variant: 'destructive',
+        title: 'Champs manquants',
+        description: "Veuillez remplir les informations de base (activité, météo, occasion) avant de compléter une tenue.",
+      });
+      setIsDialogOpen(false);
+      return;
     }
-    
+
+    let matchingColors = [];
     try {
-        await addWardrobeItem(user.uid, {
-            type: values.baseItemType,
-            style: mainFormValues.occasion,
-            photoDataUri: values.baseItemPhotoDataUri,
-        });
+      const analyzeResponse = await fetch('/api/analyze-color', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: values.baseItemPhotoDataUri }),
+      });
 
-        await forceProfileRefresh();
-        
-        toast({
-            title: "Pièce ajoutée !",
-            description: "Votre article a été sauvegardé dans votre garde-robe virtuelle.",
-        });
+      if (analyzeResponse.ok) {
+        const data = await analyzeResponse.json();
+        if (data.success && data.analysis && data.analysis.matches) {
+          matchingColors = data.analysis.matches;
+        }
+      }
+    } catch (err) {
+      console.error("Color analysis failed", err);
+      // Continue even if analysis fails
+    }
 
-        const completeOutfitInput = {
-          ...mainFormValues,
-          baseItemPhotoDataUri: values.baseItemPhotoDataUri,
-          baseItemType: values.baseItemType,
-        };
-        onCompleteOutfit(completeOutfitInput);
+    try {
+      await addWardrobeItem(user.uid, {
+        type: values.baseItemType,
+        style: mainFormValues.occasion,
+        photoDataUri: values.baseItemPhotoDataUri,
+        matchingColors: matchingColors,
+      });
+
+      await forceProfileRefresh();
+
+      toast({
+        title: "Pièce ajoutée !",
+        description: "Votre article a été sauvegardé dans votre garde-robe virtuelle.",
+      });
+
+      const completeOutfitInput = {
+        ...mainFormValues,
+        baseItemPhotoDataUri: values.baseItemPhotoDataUri,
+        baseItemType: values.baseItemType,
+      };
+      onCompleteOutfit(completeOutfitInput);
 
     } catch (error) {
-        console.error("Failed to save wardrobe item or generate outfit:", error);
-        toast({
-            variant: "destructive",
-            title: "Erreur de Traitement",
-            description: "Impossible de sauvegarder la photo ou de générer la tenue.",
-        });
+      console.error("Failed to save wardrobe item or generate outfit:", error);
+      toast({
+        variant: "destructive",
+        title: "Erreur de Traitement",
+        description: "Impossible de sauvegarder la photo ou de générer la tenue.",
+      });
     }
 
     setIsDialogOpen(false);
   };
-    
+
   const resetPhoto = () => {
-      completeOutfitForm.setValue('baseItemPhotoDataUri', '');
-      setPreviewImage(null);
-      if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-      }
-      setView('idle');
+    completeOutfitForm.setValue('baseItemPhotoDataUri', '');
+    setPreviewImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    setView('idle');
   }
 
   const renderIdleView = () => (
@@ -243,11 +263,11 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
         <Upload className="mr-2" /> Importer une photo
       </Button>
       <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          className="hidden"
-          accept="image/png, image/jpeg, image/webp"
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+        accept="image/png, image/jpeg, image/webp"
       />
       <Button variant="outline" className="w-full h-20" onClick={handleCameraView} disabled={isUploading}>
         <Camera className="mr-2" /> Prendre une photo
@@ -257,70 +277,70 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
 
   const renderCameraView = () => (
     <div className="space-y-4">
-        <div className="relative aspect-square w-full rounded-md border bg-muted overflow-hidden">
-            <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
-            {hasCameraPermission === false && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white p-4 text-center">
-                    <CameraOff className="h-10 w-10 mb-4" />
-                    <p className="font-bold">Accès caméra requis</p>
-                    <p className="text-sm">Veuillez autoriser l'accès dans votre navigateur.</p>
-                </div>
-            )}
-        </div>
-        <Button onClick={handleCapturePhoto} className="w-full" disabled={!hasCameraPermission || isUploading}>Capturer</Button>
-        <Button variant="ghost" onClick={() => { stopCamera(); setView('idle'); }} className="w-full">Annuler</Button>
+      <div className="relative aspect-square w-full rounded-md border bg-muted overflow-hidden">
+        <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
+        {hasCameraPermission === false && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-white p-4 text-center">
+            <CameraOff className="h-10 w-10 mb-4" />
+            <p className="font-bold">Accès caméra requis</p>
+            <p className="text-sm">Veuillez autoriser l'accès dans votre navigateur.</p>
+          </div>
+        )}
+      </div>
+      <Button onClick={handleCapturePhoto} className="w-full" disabled={!hasCameraPermission || isUploading}>Capturer</Button>
+      <Button variant="ghost" onClick={() => { stopCamera(); setView('idle'); }} className="w-full">Annuler</Button>
     </div>
   );
 
   const renderFormContent = () => (
     <>
       <div className='space-y-2'>
-          <Label>Aperçu de la photo</Label>
-          <div className="relative aspect-square w-full rounded-md border bg-muted overflow-hidden">
-              {isUploading && (
-                <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              )}
-              {previewImage && <Image src={previewImage} alt="Aperçu de la pièce" fill className="object-cover" />}
-              <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 bg-background/50 hover:bg-background/80 h-7 w-7" onClick={resetPhoto}>
-                  <X className="h-4 w-4" />
-              </Button>
-          </div>
+        <Label>Aperçu de la photo</Label>
+        <div className="relative aspect-square w-full rounded-md border bg-muted overflow-hidden">
+          {isUploading && (
+            <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          )}
+          {previewImage && <Image src={previewImage} alt="Aperçu de la pièce" fill className="object-cover" />}
+          <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 bg-background/50 hover:bg-background/80 h-7 w-7" onClick={resetPhoto}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
       <FormField
-          control={completeOutfitForm.control}
-          name="baseItemPhotoDataUri"
-          render={() => <FormItem><FormMessage /></FormItem>}
+        control={completeOutfitForm.control}
+        name="baseItemPhotoDataUri"
+        render={() => <FormItem><FormMessage /></FormItem>}
       />
       <FormField
-          control={completeOutfitForm.control}
-          name="baseItemType"
-          render={({ field }) => (
-              <FormItem className="space-y-3">
-              <FormLabel>Quel est le type de cette pièce ?</FormLabel>
-              <FormControl>
-                  <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {itemTypeOptions.map(opt => (
-                          <div key={opt.value}>
-                              <RadioGroupItem value={opt.value} id={opt.value} className="sr-only" />
-                              <Label 
-                                  htmlFor={opt.value}
-                                  className={cn(
-                                      "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer h-20 text-xs",
-                                      field.value === opt.value && "border-primary"
-                                  )}
-                              >
-                                  <opt.icon className="h-5 w-5 mb-1" />
-                                  {opt.label}
-                              </Label>
-                          </div>
-                      ))}
-                  </RadioGroup>
-              </FormControl>
-              <FormMessage />
-              </FormItem>
-          )}
+        control={completeOutfitForm.control}
+        name="baseItemType"
+        render={({ field }) => (
+          <FormItem className="space-y-3">
+            <FormLabel>Quel est le type de cette pièce ?</FormLabel>
+            <FormControl>
+              <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {itemTypeOptions.map(opt => (
+                  <div key={opt.value}>
+                    <RadioGroupItem value={opt.value} id={opt.value} className="sr-only" />
+                    <Label
+                      htmlFor={opt.value}
+                      className={cn(
+                        "flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-2 font-normal hover:bg-accent hover:text-accent-foreground cursor-pointer h-20 text-xs",
+                        field.value === opt.value && "border-primary"
+                      )}
+                    >
+                      <opt.icon className="h-5 w-5 mb-1" />
+                      {opt.label}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
       />
     </>
   );
@@ -342,22 +362,22 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
           </DialogDescription>
         </DialogHeader>
         <Form {...completeOutfitForm}>
-            <form onSubmit={completeOutfitForm.handleSubmit(handleCompleteOutfitSubmit)} className="space-y-6 pt-2 overflow-hidden flex flex-col">
-                <ScrollArea className="flex-grow pr-6 -mr-6">
-                    <div className="space-y-6 pr-1">
-                      {view === 'camera' && renderCameraView()}
-                      {view === 'idle' && !previewImage && renderIdleView()}
-                      {(view === 'idle' && previewImage) && renderFormContent()}
-                    </div>
-                </ScrollArea>
-                
-                <DialogFooter className="pt-6">
-                    <Button type="submit" disabled={isUploading || isGenerating || !previewImage} className="w-full">
-                        {(isUploading || isGenerating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Générer la tenue
-                    </Button>
-                </DialogFooter>
-            </form>
+          <form onSubmit={completeOutfitForm.handleSubmit(handleCompleteOutfitSubmit)} className="space-y-6 pt-2 overflow-hidden flex flex-col">
+            <ScrollArea className="flex-grow pr-6 -mr-6">
+              <div className="space-y-6 pr-1">
+                {view === 'camera' && renderCameraView()}
+                {view === 'idle' && !previewImage && renderIdleView()}
+                {(view === 'idle' && previewImage) && renderFormContent()}
+              </div>
+            </ScrollArea>
+
+            <DialogFooter className="pt-6">
+              <Button type="submit" disabled={isUploading || isGenerating || !previewImage} className="w-full">
+                {(isUploading || isGenerating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Générer la tenue
+              </Button>
+            </DialogFooter>
+          </form>
         </Form>
       </DialogContent>
     </Dialog>
