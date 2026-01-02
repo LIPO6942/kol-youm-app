@@ -86,13 +86,18 @@ export async function generateOutfitFromPhoto(input: GenerateOutfitFromPhotoInpu
     // Adapter selon la météo
     // Adapter selon la météo
     if (weather.includes('froid') || weather.includes('pluie')) {
-      if (!isEvening) { // Avoid chunky sweaters for evening wear unless very necessary, or adapt wording
+      if (!isEvening) {
         adaptedSuggestions.haut = 'Un pull ou gilet chaud, ' + adaptedSuggestions.haut;
       }
       adaptedSuggestions.accessoires = 'Une écharpe et ' + adaptedSuggestions.accessoires;
     } else if (weather.includes('chaud') || weather.includes('soleil')) {
       if (isBusiness) {
         adaptedSuggestions.haut = adaptedSuggestions.haut.replace('chemise', 'chemise en lin').replace('chemisier', 'chemisier léger');
+      } else if (isCasual) {
+        // Force very casual for hot weather + casual
+        adaptedSuggestions.haut = 'Un t-shirt graphique ou un polo coloré';
+        adaptedSuggestions.bas = 'Un short en jean ou un bermuda chino';
+        adaptedSuggestions.chaussures = 'Une paire de baskets légères ou sandales';
       } else if (!isEvening && !isSport) {
         adaptedSuggestions.haut = 'Un t-shirt léger ou ' + adaptedSuggestions.haut;
       }

@@ -21,10 +21,17 @@ export async function POST(request: Request) {
         // However, for simplicity via REST, we might need to be careful. 
         // LLaVA on CF accepts: { image: [int array], prompt: string } usually.
 
-        // Let's assume we parse the base64 from the data URI first.
-        const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, "");
-        const imageBuffer = Buffer.from(base64Data, 'base64');
-        const imageArray = Array.from(new Uint8Array(imageBuffer));
+        // Check if it's a URL or Base64
+        let imageArray;
+        if (imageUrl.startsWith('http')) {
+            const imgRes = await fetch(imageUrl);
+            const arrayBuffer = await imgRes.arrayBuffer();
+            imageArray = Array.from(new Uint8Array(arrayBuffer));
+        } else {
+            const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, "");
+            const imageBuffer = Buffer.from(base64Data, 'base64');
+            imageArray = Array.from(new Uint8Array(imageBuffer));
+        }
 
         const model = "@cf/llava-hf/llava-1.5-7b-hf";
         const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`;
