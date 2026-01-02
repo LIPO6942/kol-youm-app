@@ -11,6 +11,7 @@ export async function generateOutfitFromPhoto(input: GenerateOutfitFromPhotoInpu
   try {
     const baseItemType = input.baseItemType?.toLowerCase() || '';
     const occasion = input.occasion?.toLowerCase() || '';
+    const scheduleKeywords = input.scheduleKeywords?.toLowerCase() || '';
     const weather = input.weather?.toLowerCase() || '';
     const gender = input.gender?.toLowerCase() || '';
 
@@ -48,30 +49,42 @@ export async function generateOutfitFromPhoto(input: GenerateOutfitFromPhotoInpu
     };
 
     // Adapter selon l'occasion
-    if (occasion.includes('travail') || occasion.includes('professionnel')) {
-      adaptedSuggestions.haut = 'Une chemise blanche';
-      adaptedSuggestions.bas = 'Un pantalon de costume';
-      adaptedSuggestions.chaussures = 'Une paire de chaussures de ville';
-      adaptedSuggestions.accessoires = 'Un attaché-case';
-    } else if (occasion.includes('sport')) {
-      adaptedSuggestions.haut = 'Un t-shirt technique';
-      adaptedSuggestions.bas = 'Un short de sport';
-      adaptedSuggestions.chaussures = 'Une paire de chaussures de running';
+    // Adapter selon l'occasion et l'activité
+    const isBusiness = occasion.includes('travail') || occasion.includes('professionnel') || scheduleKeywords.includes('réunion') || scheduleKeywords.includes('bureau');
+    const isSport = occasion.includes('sport') || scheduleKeywords.includes('sport') || scheduleKeywords.includes('gym');
+    const isEvening = occasion.includes('soirée') || scheduleKeywords.includes('soirée') || scheduleKeywords.includes('dîner');
+
+    if (isBusiness) {
+      adaptedSuggestions.haut = 'Une chemise blanche ou un chemisier fluide';
+      adaptedSuggestions.bas = 'Un pantalon de costume ou une jupe crayon';
+      adaptedSuggestions.chaussures = 'Une paire de chaussures de ville ou escarpins';
+      adaptedSuggestions.accessoires = 'Un attaché-case ou sac structuré';
+    } else if (isSport) {
+      adaptedSuggestions.haut = 'Un t-shirt technique respirant';
+      adaptedSuggestions.bas = 'Un short de sport ou legging';
+      adaptedSuggestions.chaussures = 'Une paire de baskets de running';
       adaptedSuggestions.accessoires = 'Une gourde sportive';
-    } else if (occasion.includes('soirée')) {
-      adaptedSuggestions.haut = 'Une veste de smoking';
-      adaptedSuggestions.bas = 'N/A (robe)';
-      adaptedSuggestions.chaussures = 'Une paire de chaussures de soirée';
+    } else if (isEvening) {
+      adaptedSuggestions.haut = 'Une veste de smoking ou top soyeux';
+      adaptedSuggestions.bas = 'Un pantalon ajusté ou N/A (robe)';
+      adaptedSuggestions.chaussures = 'Une paire de chaussures vernies ou talons';
       adaptedSuggestions.accessoires = 'Une pochette élégante';
     }
 
     // Adapter selon la météo
+    // Adapter selon la météo
     if (weather.includes('froid') || weather.includes('pluie')) {
-      adaptedSuggestions.haut = 'Pull chaud, ' + adaptedSuggestions.haut;
-      adaptedSuggestions.accessoires = 'Écharpe et ' + adaptedSuggestions.accessoires;
+      if (!isEvening) { // Avoid chunky sweaters for evening wear unless very necessary, or adapt wording
+        adaptedSuggestions.haut = 'Un pull ou gilet chaud, ' + adaptedSuggestions.haut;
+      }
+      adaptedSuggestions.accessoires = 'Une écharpe et ' + adaptedSuggestions.accessoires;
     } else if (weather.includes('chaud') || weather.includes('soleil')) {
-      adaptedSuggestions.haut = 'T-shirt léger ou ' + adaptedSuggestions.haut;
-      adaptedSuggestions.accessoires = 'Lunettes de soleil et ' + adaptedSuggestions.accessoires;
+      if (isBusiness) {
+        adaptedSuggestions.haut = adaptedSuggestions.haut.replace('chemise', 'chemise en lin').replace('chemisier', 'chemisier léger');
+      } else if (!isEvening && !isSport) {
+        adaptedSuggestions.haut = 'Un t-shirt léger ou ' + adaptedSuggestions.haut;
+      }
+      adaptedSuggestions.accessoires = 'Une paire de lunettes de soleil et ' + adaptedSuggestions.accessoires;
     }
 
     // Adapter selon le genre
