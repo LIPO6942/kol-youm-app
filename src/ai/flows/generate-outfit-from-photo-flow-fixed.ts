@@ -50,9 +50,21 @@ export async function generateOutfitFromPhoto(input: GenerateOutfitFromPhotoInpu
 
     // Adapter selon l'occasion
     // Adapter selon l'occasion et l'activité
+    // Adapter selon l'occasion et l'activité
     const isBusiness = occasion.includes('travail') || occasion.includes('professionnel') || scheduleKeywords.includes('réunion') || scheduleKeywords.includes('bureau');
     const isSport = occasion.includes('sport') || scheduleKeywords.includes('sport') || scheduleKeywords.includes('gym');
     const isEvening = occasion.includes('soirée') || scheduleKeywords.includes('soirée') || scheduleKeywords.includes('dîner');
+    const isCasual = occasion.includes('casual') || occasion.includes('décontracté') || occasion.includes('amis') || occasion.includes('sortie');
+
+    // Override defaults based on style BEFORE context blocks if needed, or just let context blocks handle it.
+    // However, the previous logic used 'adaptedSuggestions' initialized from static defaults.
+    // Let's refine the defaults using the style.
+
+    if (isCasual) {
+      if (adaptedSuggestions.haut.includes('chemise élégante')) adaptedSuggestions.haut = 'Une chemise décontractée ou un t-shirt';
+      if (adaptedSuggestions.bas.includes('pantalon de costume')) adaptedSuggestions.bas = 'Un pantalon chino ou un jean';
+      if (adaptedSuggestions.chaussures.includes('chaussures de ville')) adaptedSuggestions.chaussures = 'Une paire de baskets ou mocassins';
+    }
 
     if (isBusiness) {
       adaptedSuggestions.haut = 'Une chemise blanche ou un chemisier fluide';

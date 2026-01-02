@@ -29,7 +29,7 @@ export async function POST(request: Request) {
         const model = "@cf/llava-hf/llava-1.5-7b-hf";
         const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`;
 
-        const prompt = "Identify the dominant color of this clothing item. Then, based on color theory, suggest 3 distinct matching colors that would create a stylish outfit. Return strict JSON format with fields: `dominantColor` (string name), `matches` (array of objects with `name` and `hex`). do not include markdown formatting.";
+        const prompt = "Analyze this clothing item color. Return a JSON object with two fields: 'dominantColor' (string, e.g. 'Navy Blue') and 'matches' (array of 3 objects with 'name' and 'hex'). Example: {\"dominantColor\": \"Red\", \"matches\": [{\"name\": \"White\", \"hex\": \"#FFFFFF\"}]}. Do not add any text before or after.";
 
         const response = await fetch(url, {
             method: "POST",
