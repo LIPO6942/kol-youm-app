@@ -219,13 +219,16 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
 
     console.log("Final matchingColors before save:", matchingColors); // DEBUG LOG
 
+    const itemToSave = {
+      type: values.baseItemType,
+      style: mainFormValues.occasion,
+      photoDataUri: values.baseItemPhotoDataUri,
+      matchingColors: matchingColors,
+    };
+    console.log("Item being saved to wardrobe:", itemToSave); // DEBUG LOG
+
     try {
-      await addWardrobeItem(user.uid, {
-        type: values.baseItemType,
-        style: mainFormValues.occasion,
-        photoDataUri: values.baseItemPhotoDataUri,
-        matchingColors: matchingColors,
-      });
+      await addWardrobeItem(user.uid, itemToSave);
 
       await forceProfileRefresh();
 
