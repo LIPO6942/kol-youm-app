@@ -20,15 +20,18 @@ export async function POST(request: Request) {
         }
 
         // Amélioration du prompt selon la catégorie pour éviter les portraits et se concentrer sur l'objet
-        let focusInstruction = 'realistic clothing item, studio shot, isolated on white background';
+        let focusInstruction = 'one single clothing item, studio shot, isolated on white background';
 
-        if (category?.toLowerCase() === 'chaussures' || category?.toLowerCase() === 'accessoires') {
-            focusInstruction = 'single product photo, centered, macro shot, isolated on pure white background, no person, no model, no human';
+        if (category?.toLowerCase() === 'chaussures') {
+            focusInstruction = 'one single pair of shoes, side view, macro shot, isolated on pure white background, no box, no human feet';
+        } else if (category?.toLowerCase() === 'accessoires') {
+            focusInstruction = 'one single accessory object only, macro shot, isolated on pure white background, centered';
         } else if (category?.toLowerCase() === 'haut' || category?.toLowerCase() === 'bas') {
-            focusInstruction = 'flat lay photography, ghost mannequin, isolated on white background, no head, no person, centered';
+            focusInstruction = 'one single garment only, flat lay photography, ghost mannequin, isolated on white background, no person, centered';
         }
 
-        const enhancedPrompt = `${prompt}, ${gender === 'Femme' ? "women style" : "men style"}, ${focusInstruction}, high resolution, professional commercial photography, clean studio lighting`;
+        const negativePrompt = "multiple items, collage, grid, many objects, collection, rack, shelf, store, blurry, watermark, text, human body, face, head, feet, hands, model";
+        const enhancedPrompt = `${prompt}, ${gender === 'Femme' ? "women style" : "men style"}, ${focusInstruction}, high resolution, professional commercial photography, clean studio lighting --no ${negativePrompt}`;
 
         console.log('Generating with Cloudflare Workers AI (Targeted):', enhancedPrompt);
 

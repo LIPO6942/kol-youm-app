@@ -1,4 +1,4 @@
- 
+
 
 /**
  * Flow de fallback pour la génération de tenues à partir de photos
@@ -13,7 +13,7 @@ export async function generateOutfitFromPhoto(input: GenerateOutfitFromPhotoInpu
     const occasion = input.occasion?.toLowerCase() || '';
     const weather = input.weather?.toLowerCase() || '';
     const gender = input.gender?.toLowerCase() || '';
-    
+
     // Suggestions prédéfinies selon le type de pièce de base
     const suggestions = {
       'haut': {
@@ -37,7 +37,7 @@ export async function generateOutfitFromPhoto(input: GenerateOutfitFromPhotoInpu
         chaussures: 'Chaussures confortables'
       }
     };
-    
+
     const baseSuggestionsRaw = suggestions[baseItemType as keyof typeof suggestions] || suggestions['haut'];
     // Toujours garantir les 4 clés pour éviter les erreurs de type
     const adaptedSuggestions: Record<'haut' | 'bas' | 'chaussures' | 'accessoires', string> = {
@@ -46,7 +46,7 @@ export async function generateOutfitFromPhoto(input: GenerateOutfitFromPhotoInpu
       chaussures: (baseSuggestionsRaw as any).chaussures || 'Chaussures appropriées',
       accessoires: (baseSuggestionsRaw as any).accessoires || 'Accessoires selon vos préférences'
     };
-    
+
     // Adapter selon l'occasion
     if (occasion.includes('travail') || occasion.includes('professionnel')) {
       adaptedSuggestions.haut = 'Chemise blanche ou chemisier élégant';
@@ -64,7 +64,7 @@ export async function generateOutfitFromPhoto(input: GenerateOutfitFromPhotoInpu
       adaptedSuggestions.chaussures = 'Escarpins ou chaussures de soirée';
       adaptedSuggestions.accessoires = 'Bijoux élégants et sac à main';
     }
-    
+
     // Adapter selon la météo
     if (weather.includes('froid') || weather.includes('pluie')) {
       adaptedSuggestions.haut = 'Pull chaud, ' + adaptedSuggestions.haut;
@@ -73,7 +73,7 @@ export async function generateOutfitFromPhoto(input: GenerateOutfitFromPhotoInpu
       adaptedSuggestions.haut = 'T-shirt léger ou ' + adaptedSuggestions.haut;
       adaptedSuggestions.accessoires = 'Lunettes de soleil et ' + adaptedSuggestions.accessoires;
     }
-    
+
     // Adapter selon le genre
     if (gender === 'femme') {
       if (adaptedSuggestions.bas.includes('pantalon')) {
@@ -90,7 +90,7 @@ export async function generateOutfitFromPhoto(input: GenerateOutfitFromPhotoInpu
         adaptedSuggestions.chaussures = 'Chaussures de ville';
       }
     }
-    
+
     // Retourner les suggestions en excluant la pièce de base
     const result: GenerateOutfitFromPhotoOutput = {
       haut: { description: baseItemType === 'haut' ? 'N/A' : adaptedSuggestions.haut },
@@ -98,11 +98,11 @@ export async function generateOutfitFromPhoto(input: GenerateOutfitFromPhotoInpu
       chaussures: { description: baseItemType === 'chaussures' ? 'N/A' : adaptedSuggestions.chaussures },
       accessoires: { description: baseItemType === 'accessoires' ? 'N/A' : adaptedSuggestions.accessoires }
     };
-    
+
     return result;
   } catch (error) {
     console.error('Error in generateOutfitFromPhoto:', error);
-    
+
     // Fallback générique
     return {
       haut: { description: 'T-shirt ou chemise confortable' },
