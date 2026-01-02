@@ -17,52 +17,52 @@ export async function generateOutfitFromPhoto(input: GenerateOutfitFromPhotoInpu
     // Suggestions prédéfinies selon le type de pièce de base
     const suggestions = {
       'haut': {
-        bas: 'Pantalon de costume ou jean droit',
-        chaussures: 'Chaussures de ville ou baskets',
-        accessoires: 'Sac à main ou attaché-case'
+        bas: 'Un pantalon de costume',
+        chaussures: 'Une paire de chaussures de ville',
+        accessoires: 'Un sac à dos en cuir'
       },
       'bas': {
-        haut: 'Chemise ou t-shirt élégant',
-        chaussures: 'Chaussures assorties',
-        accessoires: 'Ceinture et sac'
+        haut: 'Une chemise élégante',
+        chaussures: 'Une paire de chaussures assortie',
+        accessoires: 'Une ceinture en cuir'
       },
       'chaussures': {
-        haut: 'T-shirt ou chemise',
-        bas: 'Pantalon ou jean',
-        accessoires: 'Sac et bijoux'
+        haut: 'Un t-shirt basique',
+        bas: 'Un jean coupe droite',
+        accessoires: 'Une montre minimaliste'
       },
       'accessoires': {
-        haut: 'T-shirt ou chemise',
-        bas: 'Pantalon ou jean',
-        chaussures: 'Chaussures confortables'
+        haut: 'Une chemise casual',
+        bas: 'Un pantalon chino',
+        chaussures: 'Une paire de baskets'
       }
     };
 
     const baseSuggestionsRaw = suggestions[baseItemType as keyof typeof suggestions] || suggestions['haut'];
     // Toujours garantir les 4 clés pour éviter les erreurs de type
     const adaptedSuggestions: Record<'haut' | 'bas' | 'chaussures' | 'accessoires', string> = {
-      haut: (baseSuggestionsRaw as any).haut || 'T-shirt ou chemise',
-      bas: (baseSuggestionsRaw as any).bas || 'Pantalon ou jean',
-      chaussures: (baseSuggestionsRaw as any).chaussures || 'Chaussures appropriées',
-      accessoires: (baseSuggestionsRaw as any).accessoires || 'Accessoires selon vos préférences'
+      haut: (baseSuggestionsRaw as any).haut || 'Une chemise',
+      bas: (baseSuggestionsRaw as any).bas || 'Un pantalon',
+      chaussures: (baseSuggestionsRaw as any).chaussures || 'Une paire de chaussures',
+      accessoires: (baseSuggestionsRaw as any).accessoires || 'Un accessoire'
     };
 
     // Adapter selon l'occasion
     if (occasion.includes('travail') || occasion.includes('professionnel')) {
-      adaptedSuggestions.haut = 'Chemise blanche ou chemisier élégant';
-      adaptedSuggestions.bas = 'Pantalon de costume ou jupe droite';
-      adaptedSuggestions.chaussures = 'Chaussures de ville ou talons';
-      adaptedSuggestions.accessoires = 'Attaché-case ou sac professionnel';
+      adaptedSuggestions.haut = 'Une chemise blanche';
+      adaptedSuggestions.bas = 'Un pantalon de costume';
+      adaptedSuggestions.chaussures = 'Une paire de chaussures de ville';
+      adaptedSuggestions.accessoires = 'Un attaché-case';
     } else if (occasion.includes('sport')) {
-      adaptedSuggestions.haut = 'T-shirt technique';
-      adaptedSuggestions.bas = 'Short de sport ou legging';
-      adaptedSuggestions.chaussures = 'Chaussures de sport';
-      adaptedSuggestions.accessoires = 'Bouteille d\'eau et serviette';
+      adaptedSuggestions.haut = 'Un t-shirt technique';
+      adaptedSuggestions.bas = 'Un short de sport';
+      adaptedSuggestions.chaussures = 'Une paire de chaussures de running';
+      adaptedSuggestions.accessoires = 'Une gourde sportive';
     } else if (occasion.includes('soirée')) {
-      adaptedSuggestions.haut = 'Robe élégante ou costume de soirée';
+      adaptedSuggestions.haut = 'Une veste de smoking';
       adaptedSuggestions.bas = 'N/A (robe)';
-      adaptedSuggestions.chaussures = 'Escarpins ou chaussures de soirée';
-      adaptedSuggestions.accessoires = 'Bijoux élégants et sac à main';
+      adaptedSuggestions.chaussures = 'Une paire de chaussures de soirée';
+      adaptedSuggestions.accessoires = 'Une pochette élégante';
     }
 
     // Adapter selon la météo

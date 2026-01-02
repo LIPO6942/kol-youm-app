@@ -1,4 +1,4 @@
- 
+
 
 /**
  * Flow de fallback simple pour les suggestions de tenues
@@ -9,31 +9,31 @@ import { SuggestOutfitInputSchema, SuggestOutfitOutputSchema, type SuggestOutfit
 
 const outfitSuggestions = {
   casual: {
-    haut: 'T-shirt confortable ou chemise décontractée',
-    bas: 'Jeans slim ou pantalon chino',
-    chaussures: 'Baskets blanches ou chaussures de toile',
-    accessoires: 'Sac à dos en cuir ou sac bandoulière',
+    haut: 'Un t-shirt confortable',
+    bas: 'Un jean slim',
+    chaussures: 'Une paire de baskets blanches',
+    accessoires: 'Un sac à dos en cuir',
     suggestionText: 'Look décontracté et moderne, parfait pour une sortie entre amis ou une balade en ville.'
   },
   business: {
-    haut: 'Chemise blanche ou chemisier élégant',
-    bas: 'Pantalon de costume ou jupe droite',
-    chaussures: 'Chaussures de ville ou talons noirs',
-    accessoires: 'Attaché-case ou sac à main professionnel',
+    haut: 'Une chemise blanche',
+    bas: 'Un pantalon de costume',
+    chaussures: 'Une paire de chaussures de ville',
+    accessoires: 'Un attaché-case',
     suggestionText: 'Look professionnel et sophistiqué, parfait pour le travail ou les rendez-vous importants.'
   },
   sport: {
-    haut: 'T-shirt technique ou débardeur',
-    bas: 'Short de sport ou legging',
-    chaussures: 'Chaussures de running',
-    accessoires: 'Bouteille d\'eau et serviette',
+    haut: 'Un t-shirt technique',
+    bas: 'Un short de sport',
+    chaussures: 'Une paire de chaussures de running',
+    accessoires: 'Une gourde',
     suggestionText: 'Tenue sportive confortable et fonctionnelle, parfaite pour l\'exercice.'
   },
   evening: {
-    haut: 'Robe élégante ou costume de soirée',
-    bas: 'N/A (robe) ou pantalon de costume',
-    chaussures: 'Escarpins ou chaussures de soirée',
-    accessoires: 'Bijoux élégants et sac à main',
+    haut: 'Une robe élégante',
+    bas: 'N/A (robe)',
+    chaussures: 'Une paire d\'escarpins',
+    accessoires: 'Une pochette élégante',
     suggestionText: 'Tenue de soirée glamour et raffinée, parfaite pour les événements spéciaux.'
   }
 };
@@ -42,13 +42,13 @@ export async function suggestOutfit(input: SuggestOutfitInput): Promise<SuggestO
   try {
     // Déterminer le type de tenue basé sur l'occasion et les mots-clés
     let outfitType = 'casual';
-    
+
     const occasion = input.occasion?.toLowerCase() || '';
     const keywords = input.scheduleKeywords?.toLowerCase() || '';
     const gender = (input.gender || '').toLowerCase();
     const preferredColorsRaw = (input.preferredColors || '').split(',').map((c: string) => c.trim()).filter(Boolean);
     const preferredColor = preferredColorsRaw[0] || '';
-    
+
     if (occasion.includes('travail') || occasion.includes('professionnel') || keywords.includes('bureau')) {
       outfitType = 'business';
     } else if (occasion.includes('sport') || keywords.includes('gym') || keywords.includes('course')) {
@@ -58,10 +58,10 @@ export async function suggestOutfit(input: SuggestOutfitInput): Promise<SuggestO
     }
 
     const suggestion = outfitSuggestions[outfitType as keyof typeof outfitSuggestions];
-    
+
     // Adapter selon la météo
     let adaptedSuggestion = { ...suggestion };
-    
+
     if (input.weather?.toLowerCase().includes('froid') || input.weather?.toLowerCase().includes('pluie')) {
       adaptedSuggestion.haut = 'Pull ou cardigan chaud, ' + adaptedSuggestion.haut;
       adaptedSuggestion.accessoires = 'Écharpe et ' + adaptedSuggestion.accessoires;
@@ -78,8 +78,8 @@ export async function suggestOutfit(input: SuggestOutfitInput): Promise<SuggestO
       }
     } else if (gender === 'homme') {
       if (outfitType === 'casual') {
-        adaptedSuggestion.bas = 'Jeans droit ou pantalon chino masculin';
-        adaptedSuggestion.chaussures = 'Baskets ou chaussures de toile';
+        adaptedSuggestion.bas = 'Un jean straight';
+        adaptedSuggestion.chaussures = 'Une paire de baskets';
       }
     }
 
@@ -101,7 +101,7 @@ export async function suggestOutfit(input: SuggestOutfitInput): Promise<SuggestO
     };
   } catch (error) {
     console.error('Error in suggestOutfit:', error);
-    
+
     // Fallback générique
     return {
       haut: { description: 'T-shirt ou chemise confortable' },

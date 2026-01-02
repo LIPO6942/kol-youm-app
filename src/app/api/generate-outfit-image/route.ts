@@ -21,17 +21,19 @@ export async function POST(request: Request) {
 
         // Amélioration du prompt selon la catégorie pour éviter les portraits et se concentrer sur l'objet
         let focusInstruction = 'one single clothing item, studio shot, isolated on white background';
+        const cat = category?.toLowerCase() || '';
 
-        if (category?.toLowerCase() === 'chaussures') {
+        if (cat.includes('chaussure')) {
             focusInstruction = 'one single pair of shoes, side view, macro shot, isolated on pure white background, no box, no human feet';
-        } else if (category?.toLowerCase() === 'accessoires') {
+        } else if (cat.includes('accessoire')) {
             focusInstruction = 'one single accessory object only, macro shot, isolated on pure white background, centered';
-        } else if (category?.toLowerCase() === 'haut' || category?.toLowerCase() === 'bas') {
+        } else if (cat.includes('haut') || cat.includes('bas')) {
             focusInstruction = 'one single garment only, flat lay photography, ghost mannequin, isolated on white background, no person, centered';
         }
 
-        const negativePrompt = "multiple items, collage, grid, many objects, collection, rack, shelf, store, blurry, watermark, text, human body, face, head, feet, hands, model";
-        const enhancedPrompt = `${prompt}, ${gender === 'Femme' ? "women style" : "men style"}, ${focusInstruction}, high resolution, professional commercial photography, clean studio lighting --no ${negativePrompt}`;
+        const negativePrompt = "multiple items, collage, grid, many objects, collection, rack, shelf, store, blurry, watermark, text, human body, face, head, feet, hands, model, split view, triptych, two objects";
+        // FOCUS INSTRUCTION FIRST: Cloudflare AI model pays more attention to the beginning of the prompt.
+        const enhancedPrompt = `${focusInstruction}. ${prompt}, ${gender === 'Femme' ? "women style" : "men style"}, high resolution, professional commercial photography, clean studio lighting`;
 
         console.log('Generating with Cloudflare Workers AI (Targeted):', enhancedPrompt);
 
@@ -45,7 +47,8 @@ export async function POST(request: Request) {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                prompt: enhancedPrompt
+                prompt: enhancedPrompt,
+                negative_prompt: negativePrompt
             }),
         });
 
