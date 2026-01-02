@@ -205,9 +205,12 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
 
       if (analyzeResponse.ok) {
         const data = await analyzeResponse.json();
+        console.log("Color Analysis Result:", data); // DEBUG LOG
         if (data.success && data.analysis && data.analysis.matches) {
           matchingColors = data.analysis.matches;
         }
+      } else {
+        console.error("Color Analysis Error Status:", analyzeResponse.status);
       }
     } catch (err) {
       console.error("Color analysis failed", err);
