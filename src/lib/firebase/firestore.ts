@@ -1,5 +1,5 @@
 
-import { doc, setDoc, getDoc, serverTimestamp, arrayUnion, arrayRemove, writeBatch } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp, arrayUnion, arrayRemove, writeBatch, updateDoc } from "firebase/firestore";
 import { db as firestoreDb } from "./client";
 import { getUserFromDb, storeUserInDb } from "@/lib/indexeddb";
 
@@ -25,6 +25,13 @@ export type PlaceItem = {
     createdAt: any;
 };
 
+export type VisitLog = {
+    id: string;
+    placeName: string;
+    category: string;
+    date: number; // timestamp
+};
+
 export type UserProfile = {
     uid: string;
     email: string | null;
@@ -38,6 +45,7 @@ export type UserProfile = {
     seenKhroujSuggestions?: string[];
     wardrobe?: WardrobeItem[];
     places?: PlaceItem[];
+    visits?: VisitLog[];
     // Tfarrej preferences
     preferredCountries?: string[];
     preferredMinRating?: number;
@@ -298,4 +306,45 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     }
 
     return null;
+}
+
+export async function addVisitLog(uid: string, visit: Omit<VisitLog, 'id'>) {
+    const newVisit: VisitLog = {
+        ...visit,
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    };
+
+    const userRef = doc(firestoreDb, 'users', uid);
+    await updateDoc(userRef, {
+        visits: arrayUnion(newVisit)
+    });
+
+    // Update local state
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = {
+            ...localProfile,
+            visits: [...(localProfile.visits || []), newVisit]
+        };
+        await storeUserInDb(uid, updatedProfile);
+    }
+}
+
+export async function deleteVisitLog(uid: string, visitId: string) {
+    const localProfile = await getUserFromDb(uid);
+    if (!localProfile) return;
+
+    const visitToDelete = localProfile.visits?.find(v => v.id === visitId);
+    if (!visitToDelete) return;
+
+    const userRef = doc(firestoreDb, 'users', uid);
+    await updateDoc(userRef, {
+        visits: arrayRemove(visitToDelete)
+    });
+
+    const updatedProfile = {
+        ...localProfile,
+        visits: (localProfile.visits || []).filter(v => v.id !== visitId)
+    };
+    await storeUserInDb(uid, updatedProfile);
 }

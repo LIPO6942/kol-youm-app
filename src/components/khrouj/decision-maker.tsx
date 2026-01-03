@@ -1,21 +1,23 @@
 
-'use client';
-
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { Suggestion } from '@/ai/flows/decision-maker-flow.types';
-import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda } from 'lucide-react';
+import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { updateUserProfile } from '@/lib/firebase/firestore';
+import { updateUserProfile, addVisitLog, deleteVisitLog, type VisitLog } from '@/lib/firebase/firestore';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const outingOptions: { id: string; label: string; icon: LucideIcon; description: string, colorClass: string, bgClass: string, hoverClass: string, selectedClass: string }[] = [
   { id: 'fast-food', label: 'Fast Food', icon: Sandwich, description: "Rapide et gourmand", colorClass: 'text-orange-700', bgClass: 'bg-orange-50', hoverClass: 'hover:bg-orange-100', selectedClass: 'border-orange-500 bg-orange-100' },
@@ -69,9 +71,51 @@ export default function DecisionMaker() {
   const [seenSuggestions, setSeenSuggestions] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<(typeof outingOptions)[0] | undefined>(undefined);
   const [selectedZones, setSelectedZones] = useState<string[]>([]);
+  const [view, setView] = useState<'search' | 'stats'>('search');
+  const [isAddingVisit, setIsAddingVisit] = useState(false);
   const { toast } = useToast();
   const { user, userProfile } = useAuth();
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
+
+  // Assisted selection data
+  const [allPlaces, setAllPlaces] = useState<{ name: string; category: string }[]>([]);
+  const [isFetchingPlaces, setIsFetchingPlaces] = useState(false);
+
+  useEffect(() => {
+    async function fetchAllPlaces() {
+      setIsFetchingPlaces(true);
+      try {
+        const response = await fetch('/api/places-database-firestore');
+        const result = await response.json();
+        if (result.success && result.data.zones) {
+          const flatPlaces: { name: string; category: string }[] = [];
+          result.data.zones.forEach((zone: any) => {
+            Object.entries(zone.categories).forEach(([catKey, places]: [string, any]) => {
+              // Map Firestore keys to UI labels
+              const labelMap: Record<string, string> = {
+                cafes: 'Café',
+                restaurants: 'Restaurant',
+                fastFoods: 'Fast Food',
+                brunch: 'Brunch',
+                balade: 'Balade',
+                shopping: 'Shopping'
+              };
+              const categoryLabel = labelMap[catKey] || catKey;
+              places.forEach((name: string) => {
+                flatPlaces.push({ name, category: categoryLabel });
+              });
+            });
+          });
+          setAllPlaces(flatPlaces);
+        }
+      } catch (error) {
+        console.error("Failed to fetch places for selection help", error);
+      } finally {
+        setIsFetchingPlaces(false);
+      }
+    }
+    fetchAllPlaces();
+  }, []);
 
   const handleAiError = (error: any) => {
     const errorMessage = String(error.message || '');
@@ -139,7 +183,6 @@ export default function DecisionMaker() {
   const handleCategorySelect = (category: (typeof outingOptions)[0]) => {
     setSeenSuggestions([]); // Reset session memory for the new category
     setSelectedCategory(category);
-    // The actual fetch is triggered from here now
     fetchSuggestions(category, selectedZones);
   };
 
@@ -155,11 +198,28 @@ export default function DecisionMaker() {
   const handleReset = () => {
     setSuggestions([]);
     setSelectedCategory(undefined);
-    // Let's keep the zone filter selected for user convenience
-    // setSelectedZones([]); 
     setSeenSuggestions([]);
     if (carouselApi) {
       carouselApi.destroy();
+    }
+  };
+
+  const handleVisit = async (suggestion: Suggestion) => {
+    if (!user) return;
+    try {
+      await addVisitLog(user.uid, {
+        placeName: suggestion.placeName,
+        category: selectedCategory?.label || 'Autre',
+        date: Date.now()
+      });
+      toast({
+        title: "C'est noté !",
+        description: `Visite à ${suggestion.placeName} enregistrée. Profitez bien !`,
+      });
+      // Redirect to Maps
+      window.open(suggestion.googleMapsUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -168,7 +228,6 @@ export default function DecisionMaker() {
       fetchSuggestions(selectedCategory, selectedZones);
     }
   }
-
 
   const getFilterButtonText = () => {
     if (selectedZones.length === 0) {
@@ -185,6 +244,246 @@ export default function DecisionMaker() {
     setSelectedZones([]);
   }
 
+  // --- STATS LOGIC ---
+  const stats = useMemo(() => {
+    const defaultStats = {
+      total: 0,
+      byCategory: {} as Record<string, number>,
+      byPlace: [] as [string, { count: number; category: string; dates: number[] }][]
+    };
+
+    if (!userProfile?.visits) return defaultStats;
+
+    const visits = userProfile.visits;
+    const byCategory: Record<string, number> = {};
+    const byPlaceMap: Record<string, { count: number; category: string; dates: number[] }> = {};
+
+    visits.forEach(v => {
+      byCategory[v.category] = (byCategory[v.category] || 0) + 1;
+      if (!byPlaceMap[v.placeName]) {
+        byPlaceMap[v.placeName] = { count: 0, category: v.category, dates: [] };
+      }
+      byPlaceMap[v.placeName].count++;
+      byPlaceMap[v.placeName].dates.push(v.date);
+    });
+
+    return {
+      total: visits.length,
+      byCategory,
+      byPlace: Object.entries(byPlaceMap).sort((a, b) => b[1].count - a[1].count)
+    };
+  }, [userProfile?.visits]);
+
+
+  const ManualVisitForm = () => {
+    const [open, setOpen] = useState(false);
+    const [selectedPlace, setSelectedPlace] = useState("");
+    const [selectedCat, setSelectedCat] = useState("Café");
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const filteredSuggestions = useMemo(() => {
+      if (!searchQuery) return [];
+      return allPlaces
+        .filter(p =>
+          p.category === selectedCat &&
+          p.name.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        .slice(0, 5);
+    }, [searchQuery, selectedCat, allPlaces]);
+
+    const handleSave = async () => {
+      const placeToSave = selectedPlace || searchQuery;
+      if (!placeToSave) return;
+      if (!user) return;
+
+      await addVisitLog(user.uid, {
+        placeName: placeToSave,
+        category: selectedCat,
+        date: Date.now()
+      });
+
+      toast({ title: "Visite ajoutée", description: `${placeToSave} a été ajouté à vos statistiques.` });
+      setOpen(false);
+      setSelectedPlace("");
+      setSearchQuery("");
+    };
+
+    return (
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm" className="gap-2">
+            <Plus className="h-4 w-4" /> Ajouter manuellement
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Où êtes-vous allé ?</DialogTitle>
+            <DialogDescription>Notez une sortie faite sans l'aide de l'application.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Catégorie</Label>
+              <div className="flex flex-wrap gap-2">
+                {outingOptions.map(opt => (
+                  <Badge
+                    key={opt.id}
+                    variant={selectedCat === opt.label ? "default" : "outline"}
+                    className="cursor-pointer py-1 px-3"
+                    onClick={() => {
+                      setSelectedCat(opt.label);
+                      setSelectedPlace("");
+                    }}
+                  >
+                    {opt.label}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2 relative">
+              <Label>Lieu</Label>
+              <Input
+                placeholder="Ex: Café Matignon..."
+                value={selectedPlace || searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setSelectedPlace("");
+                }}
+              />
+              {filteredSuggestions.length > 0 && !selectedPlace && (
+                <Card className="absolute z-50 w-full mt-1 shadow-lg border-primary/20">
+                  <ScrollArea className="h-auto max-h-[200px]">
+                    <div className="p-1">
+                      {filteredSuggestions.map((p, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2 hover:bg-accent rounded-sm cursor-pointer text-sm flex items-center gap-2"
+                          onClick={() => {
+                            setSelectedPlace(p.name);
+                            setSearchQuery("");
+                          }}
+                        >
+                          <Building2 className="h-3 w-3 text-muted-foreground" />
+                          {p.name}
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </Card>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleSave} disabled={!(selectedPlace || searchQuery)}>Enregistrer la visite</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
+  const StatsDashboard = () => {
+    return (
+      <div className="space-y-6 animate-in fade-in-50">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setView('search')}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <h2 className="text-2xl font-bold font-headline">Mes Habitudes</h2>
+          </div>
+          <ManualVisitForm />
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <Card className="bg-primary/5 border-primary/20">
+            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+              <span className="text-3xl font-bold text-primary">{stats.total}</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Sorties</span>
+            </CardContent>
+          </Card>
+          {outingOptions.slice(0, 3).map(opt => (
+            <Card key={opt.id} className="hover:bg-accent/50 transition-colors cursor-default">
+              <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                <opt.icon className={cn("h-5 w-5 mb-1", opt.colorClass)} />
+                <span className="text-xl font-bold">{stats.byCategory[opt.label] || 0}</span>
+                <span className="text-xs text-muted-foreground">{opt.label}s</span>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="font-semibold flex items-center gap-2">
+            <History className="h-4 w-4 text-primary" />
+            Lieux les plus fréquentés
+          </h3>
+          <div className="grid gap-3">
+            {stats.byPlace.length > 0 ? (
+              stats.byPlace.slice(0, 5).map(([name, data]) => (
+                <Dialog key={name}>
+                  <DialogTrigger asChild>
+                    <Card className="hover:border-primary/50 transition-all cursor-pointer group">
+                      <CardContent className="p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-muted rounded-full group-hover:bg-primary/10 transition-colors">
+                            <MapPin className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{name}</p>
+                            <p className="text-xs text-muted-foreground">{data.category}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">{data.count} visites</Badge>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>{name}</DialogTitle>
+                      <DialogDescription>Historique de vos visites à cet endroit.</DialogDescription>
+                    </DialogHeader>
+                    <ScrollArea className="h-[300px] pr-4">
+                      <div className="space-y-3">
+                        {data.dates.sort((a, b) => b - a).map((date, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                            <div className="flex items-center gap-3 text-sm">
+                              <Calendar className="h-4 w-4 text-primary" />
+                              <span>{new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              onClick={async () => {
+                                if (!user) return;
+                                // Find the specific visit ID to delete
+                                const visitId = userProfile?.visits?.find(v => v.placeName === name && v.date === date)?.id;
+                                if (visitId) {
+                                  await deleteVisitLog(user.uid, visitId);
+                                  toast({ title: "Visite supprimée" });
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </DialogContent>
+                </Dialog>
+              ))
+            ) : (
+              <p className="text-center py-8 text-muted-foreground italic">Aucune visite enregistrée pour le moment.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
 
   if (isLoading) {
     return (
@@ -194,18 +493,33 @@ export default function DecisionMaker() {
     )
   }
 
+  if (view === 'stats') {
+    return (
+      <Card className="max-w-2xl mx-auto">
+        <CardContent className="p-6">
+          <StatsDashboard />
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (suggestions.length > 0 && selectedCategory) {
     return (
       <div className="space-y-4 animate-in fade-in-50">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={handleReset}>
-            <ArrowLeft className="h-4 w-4" />
-            <span className="sr-only">Retour</span>
-          </Button>
-          <div>
-            <h2 className="text-2xl font-bold font-headline tracking-tight">Suggestions de {selectedCategory.label}s</h2>
-            <p className="text-muted-foreground">Voici quelques idées pour vous, dans des zones différentes.</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={handleReset}>
+              <ArrowLeft className="h-4 w-4" />
+              <span className="sr-only">Retour</span>
+            </Button>
+            <div>
+              <h2 className="text-2xl font-bold font-headline tracking-tight">Suggestions de {selectedCategory.label}s</h2>
+              <p className="text-muted-foreground">Voici quelques idées pour vous.</p>
+            </div>
           </div>
+          <Button variant="ghost" size="sm" className="gap-2" onClick={() => setView('stats')}>
+            <BarChart3 className="h-4 w-4 text-primary" /> Stats
+          </Button>
         </div>
 
         <Carousel setApi={setCarouselApi} className="w-full max-w-xs mx-auto">
@@ -215,7 +529,7 @@ export default function DecisionMaker() {
               return (
                 <CarouselItem key={index}>
                   <div className="p-1">
-                    <Card className="flex flex-col h-[350px]">
+                    <Card className="flex flex-col h-[380px]">
                       <CardHeader>
                         <div className="flex items-start justify-between">
                           <div>
@@ -230,10 +544,13 @@ export default function DecisionMaker() {
                       <CardContent className="flex-grow">
                         <p className="text-muted-foreground text-sm italic">"{suggestion.description}"</p>
                       </CardContent>
-                      <CardFooter>
+                      <CardFooter className="flex flex-col gap-2">
+                        <Button className="w-full h-11" onClick={() => handleVisit(suggestion)}>
+                          <MapPin className="mr-2 h-4 w-4" /> J'y vais !
+                        </Button>
                         <Link href={suggestion.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="w-full">
-                          <Button variant="outline" className="w-full">
-                            <MapPin className="mr-2 h-4 w-4" /> M'y emmener
+                          <Button variant="ghost" className="w-full text-xs h-8">
+                            Voir photos & infos
                           </Button>
                         </Link>
                       </CardFooter>
@@ -244,7 +561,7 @@ export default function DecisionMaker() {
             })}
             <CarouselItem>
               <div className="p-1">
-                <Card className="flex flex-col h-[350px] items-center justify-center text-center">
+                <Card className="flex flex-col h-[380px] items-center justify-center text-center">
                   <CardHeader>
                     <CardTitle>Plus d'idées ?</CardTitle>
                     <CardDescription>Demandez à l'IA de nouvelles suggestions.</CardDescription>
@@ -268,9 +585,14 @@ export default function DecisionMaker() {
 
   return (
     <Card className="max-w-2xl mx-auto">
-      <CardHeader className="text-center">
-        <CardTitle className="font-headline">Quelle est votre envie du moment ?</CardTitle>
-        <CardDescription>Cliquez sur une catégorie et laissez la magie opérer.</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
+        <div className="text-center w-full">
+          <CardTitle className="font-headline text-3xl mb-2">Quelle est votre envie ?</CardTitle>
+          <CardDescription>Cliquez sur une catégorie et laissez la magie opérer.</CardDescription>
+        </div>
+        <Button variant="ghost" size="icon" className="absolute right-6 top-6" onClick={() => setView('stats')}>
+          <BarChart3 className="h-6 w-6 text-primary" />
+        </Button>
       </CardHeader>
       <CardContent className="space-y-6">
         <Collapsible className="space-y-2">
@@ -325,6 +647,9 @@ export default function DecisionMaker() {
                 <Icon className={cn("h-8 w-8 mb-1 transition-colors duration-300", option.colorClass)} />
                 <h3 className={cn("text-md font-semibold transition-colors duration-300", option.colorClass)}>{option.label}</h3>
                 <p className="text-xs text-center text-muted-foreground">{option.description}</p>
+                {stats.byCategory[option.label] > 0 && (
+                  <Badge variant="secondary" className="mt-1">{stats.byCategory[option.label]} visites</Badge>
+                )}
               </div>
             )
           })}
