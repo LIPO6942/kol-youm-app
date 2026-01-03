@@ -116,35 +116,31 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
     },
   });
 
+  const watchedSchedule = form.watch('scheduleKeywords');
+  const watchedOccasion = form.watch('occasion');
+
+  // Logic 1: Sync Activity -> Style default
   useEffect(() => {
-    const subscription = form.watch((value, { name }) => {
-      const schedule = value.scheduleKeywords;
-      const occasion = value.occasion;
+    const mapping: Record<string, string> = {
+      'Réunion Pro': 'Professionnel',
+      'Session de Sport': 'Sportif',
+      'Journée détente': 'Décontracté',
+      'Sortie entre amis': 'Décontracté',
+    };
 
-      // Logic 1: Sync Activity -> Style default (when Activity changes)
-      if (name === 'scheduleKeywords') {
-        const mapping: Record<string, string> = {
-          'Réunion Pro': 'Professionnel',
-          'Session de Sport': 'Sportif',
-          'Journée détente': 'Décontracté',
-          'Sortie entre amis': 'Décontracté',
-        };
+    if (watchedSchedule && mapping[watchedSchedule]) {
+      // Small delay to avoid collision with manual selection if needed, 
+      // but usually react-hook-form handles this fine.
+      form.setValue('occasion', mapping[watchedSchedule]);
+    }
+  }, [watchedSchedule, form]);
 
-        if (schedule && mapping[schedule]) {
-          // We use setValue here. Note that this might trigger watch again or not depending on configuration,
-          // but since we are changing 'occasion', the next pass will see the new occasion.
-          form.setValue('occasion', mapping[schedule]);
-        }
-      }
-
-      // Logic 2: Chic Rule (Reunion + Casual = Chic)
-      // This applies whenever form changes, allowing us to catch when user manually selects 'Décontracté' while 'Réunion' is active.
-      if (schedule === 'Réunion Pro' && occasion === 'Décontracté') {
-        form.setValue('occasion', 'Chic');
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [form]);
+  // Logic 2: Chic Rule (Reunion + Casual = Chic)
+  useEffect(() => {
+    if (watchedSchedule === 'Réunion Pro' && watchedOccasion === 'Décontracté') {
+      form.setValue('occasion', 'Chic');
+    }
+  }, [watchedSchedule, watchedOccasion, form]);
 
   useEffect(() => {
     const occasion = searchParams.get('occasion');
@@ -176,7 +172,7 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
                 <FormItem className="space-y-3">
                   <FormLabel>Activité du jour</FormLabel>
                   <FormControl>
-                    <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
+                    <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
                       {scheduleOptions.map(opt => (
                         <FormItem key={opt.value} className="relative">
                           <FormControl>
@@ -207,7 +203,7 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
                 <FormItem className="space-y-3">
                   <FormLabel>Météo locale</FormLabel>
                   <FormControl>
-                    <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
+                    <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
                       {weatherOptions.map(opt => (
                         <FormItem key={opt.value} className="relative">
                           <FormControl>
@@ -238,7 +234,7 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
                 <FormItem className="space-y-3">
                   <FormLabel>Style de l'occasion</FormLabel>
                   <FormControl>
-                    <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
+                    <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
                       {occasionOptions.map(opt => (
                         <FormItem key={opt.value}>
                           <FormControl>
