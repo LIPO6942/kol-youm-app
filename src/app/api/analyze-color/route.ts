@@ -37,7 +37,7 @@ export async function POST(request: Request) {
         const model = "@cf/llava-hf/llava-1.5-7b-hf";
         const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`;
 
-        const prompt = "Analyze this clothing item color. Return a JSON object with two fields: 'dominantColor' (string, e.g. 'Navy Blue') and 'matches' (array of 3 objects with 'name' and 'hex'). Example: {\"dominantColor\": \"Red\", \"matches\": [{\"name\": \"White\", \"hex\": \"#FFFFFF\"}]}. Do not add any text before or after.";
+        const prompt = "You are a fashion stylist. Analyze the clothing item in the image. Identify its dominant color. Then, suggest exactly 3 matching colors to create a stylish outfit. Return strictly a JSON object with this structure: { \"dominantColor\": \"ColorName\", \"matches\": [{ \"name\": \"Name1\", \"hex\": \"#Hex1\" }, { \"name\": \"Name2\", \"hex\": \"#Hex2\" }, { \"name\": \"Name3\", \"hex\": \"#Hex3\" }] }. Do not include markdown formatting or explanation.";
 
         const response = await fetch(url, {
             method: "POST",
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
             body: JSON.stringify({
                 image: imageArray,
                 prompt: prompt,
-                max_tokens: 256 // Short response needed
+                max_tokens: 512, // Increased slightly
             }),
         });
 
@@ -67,10 +67,18 @@ export async function POST(request: Request) {
         // Attempt to extract JSON from the text response
         let jsonResponse;
         try {
+            // Clean up markdown code blocks if present
+            description = description.replace(/```json/g, '').replace(/```/g, '');
+
             // Find JSON-like structure in the response
             const jsonMatch = description.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 jsonResponse = JSON.parse(jsonMatch[0]);
+
+                // Validate structure
+                if (!jsonResponse.matches || !Array.isArray(jsonResponse.matches)) {
+                    throw new Error("Invalid JSON structure: matches missing or not array");
+                }
             } else {
                 throw new Error("No JSON found");
             }
@@ -78,8 +86,12 @@ export async function POST(request: Request) {
             console.warn("Failed to parse LLaVA JSON, using fallback.", e);
             // Fallback if AI fails to give JSON
             jsonResponse = {
-                dominantColor: "Unknown",
-                matches: []
+                dominantColor: "Non détecté",
+                matches: [
+                    { name: "Blanc", hex: "#FFFFFF" },
+                    { name: "Noir", hex: "#000000" },
+                    { name: "Gris", hex: "#808080" }
+                ]
             };
         }
 
