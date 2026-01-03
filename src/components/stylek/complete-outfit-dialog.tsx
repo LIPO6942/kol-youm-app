@@ -50,8 +50,9 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
-  const { user, forceProfileRefresh } = useAuth();
+  const { user, userProfile, forceProfileRefresh } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -74,6 +75,7 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
     setView('idle');
     stopCamera();
     setHasCameraPermission(null);
+    setIsAnalyzing(false);
   }, [completeOutfitForm, stopCamera]);
 
   useEffect(() => {
@@ -196,11 +198,16 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
     }
 
     let matchingColors = [];
+
     try {
+      setIsAnalyzing(true);
       const analyzeResponse = await fetch('/api/analyze-color', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: values.baseItemPhotoDataUri }),
+        body: JSON.stringify({
+          imageUrl: values.baseItemPhotoDataUri,
+          gender: userProfile?.gender
+        }),
       });
 
       if (analyzeResponse.ok) {
@@ -215,6 +222,8 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
     } catch (err) {
       console.error("Color analysis failed", err);
       // Continue even if analysis fails
+    } finally {
+      setIsAnalyzing(false);
     }
 
     console.log("Final matchingColors before save:", matchingColors); // DEBUG LOG
@@ -305,9 +314,12 @@ export function CompleteOutfitDialog({ mainForm, onCompleteOutfit, isGenerating 
       <div className='space-y-2'>
         <Label>Aperçu de la photo</Label>
         <div className="relative aspect-square w-full rounded-md border bg-muted overflow-hidden">
-          {isUploading && (
-            <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          {(isUploading || isAnalyzing) && (
+            <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-20">
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-xs font-medium">{isUploading ? 'Téléversement...' : 'Analyse des couleurs...'}</p>
+              </div>
             </div>
           )}
           {previewImage && <Image src={previewImage} alt="Aperçu de la pièce" fill className="object-cover" />}

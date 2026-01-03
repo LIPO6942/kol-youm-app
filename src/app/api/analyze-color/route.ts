@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
  */
 export async function POST(request: Request) {
     try {
-        const { imageUrl } = await request.json();
+        const { imageUrl, gender } = await request.json();
         const apiToken = process.env.CLOUDFLARE_API_TOKEN;
         const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
 
@@ -37,7 +37,9 @@ export async function POST(request: Request) {
         const model = "@cf/llava-hf/llava-1.5-7b-hf";
         const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`;
 
-        const prompt = "You are a fashion stylist. Analyze the clothing item in the image. Identify its dominant color. Then, suggest exactly 5 matching colors to create a stylish outfit. Return strictly a JSON object with this structure: { \"dominantColor\": \"ColorName\", \"matches\": [{ \"name\": \"Name1\", \"hex\": \"#Hex1\" }, { \"name\": \"Name2\", \"hex\": \"#Hex2\" }, { \"name\": \"Name3\", \"hex\": \"#Hex3\" }, { \"name\": \"Name4\", \"hex\": \"#Hex4\" }, { \"name\": \"Name5\", \"hex\": \"#Hex5\" }] }. Do not include markdown formatting or explanation.";
+        const genderContext = gender === 'Femme' ? "This is for a woman's outfit. Prefer feminine and vibrant color palettes." : "This is for a man's outfit. Prefer stylish and modern color combinations.";
+
+        const prompt = `You are an expert fashion stylist. Analyze the clothing item in the image. ${genderContext} Identify its dominant color. Then, suggest exactly 5 matching colors to create a highly stylish and modern outfit. Avoid suggesting only neutrals like black, white, and gray; instead, include at least 2 vibrant or interesting colors that complement the piece. Return strictly a JSON object with this structure: { "dominantColor": "ColorName", "matches": [{ "name": "Name1", "hex": "#Hex1" }, { "name": "Name2", "hex": "#Hex2" }, { "name": "Name3", "hex": "#Hex3" }, { "name": "Name4", "hex": "#Hex4" }, { "name": "Name5", "hex": "#Hex5" }] }. Do not include markdown formatting or explanation.`;
 
         const response = await fetch(url, {
             method: "POST",
@@ -48,7 +50,7 @@ export async function POST(request: Request) {
             body: JSON.stringify({
                 image: imageArray,
                 prompt: prompt,
-                max_tokens: 512, // Increased slightly
+                max_tokens: 512,
             }),
         });
 
@@ -88,11 +90,11 @@ export async function POST(request: Request) {
             jsonResponse = {
                 dominantColor: "Non détecté",
                 matches: [
-                    { name: "Blanc", hex: "#FFFFFF" },
-                    { name: "Noir", hex: "#000000" },
-                    { name: "Gris", hex: "#808080" },
+                    { name: "Sable", hex: "#C2B280" },
+                    { name: "Terracotta", hex: "#E2725B" },
+                    { name: "Bleu Pétrole", hex: "#005F6A" },
                     { name: "Beige", hex: "#F5F5DC" },
-                    { name: "Bleu Marine", hex: "#000080" }
+                    { name: "Vert Olive", hex: "#808000" }
                 ]
             };
         }
