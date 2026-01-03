@@ -587,24 +587,23 @@ export default function DecisionMaker() {
 
   return (
     <Card className="max-w-2xl mx-auto">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7">
-        <div className="text-center w-full">
-          <CardTitle className="font-headline text-3xl mb-2">Quelle est votre envie ?</CardTitle>
-          <CardDescription>Cliquez sur une catégorie et laissez la magie opérer.</CardDescription>
-        </div>
-        <Button variant="ghost" size="icon" className="absolute right-6 top-6" onClick={() => setView('stats')}>
-          <BarChart3 className="h-6 w-6 text-primary" />
-        </Button>
+      <CardHeader className="text-center pb-7">
+        <CardTitle className="font-headline text-3xl mb-2">Quelle est votre envie ?</CardTitle>
+        <CardDescription>Cliquez sur une catégorie et laissez la magie opérer.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <Collapsible className="space-y-2">
-          <div className="flex justify-center items-center">
+          <div className="flex justify-center items-center gap-2">
             <CollapsibleTrigger asChild>
               <Button variant="ocean">
                 <Filter className="mr-2 h-4 w-4" />
                 {getFilterButtonText()}
               </Button>
             </CollapsibleTrigger>
+            <Button variant="outline" className="gap-2" onClick={() => setView('stats')}>
+              <BarChart3 className="h-4 w-4 text-primary" />
+              Mes Stats
+            </Button>
             {selectedZones.length > 0 && (
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleClearZones}>
                 <X className="h-4 w-4" />
@@ -649,14 +648,11 @@ export default function DecisionMaker() {
                 <Icon className={cn("h-8 w-8 mb-1 transition-colors duration-300", option.colorClass)} />
                 <h3 className={cn("text-md font-semibold transition-colors duration-300", option.colorClass)}>{option.label}</h3>
                 <p className="text-xs text-center text-muted-foreground">{option.description}</p>
-                {stats.byCategory[option.label] > 0 && (
-                  <Badge variant="secondary" className="mt-1">{stats.byCategory[option.label]} visites</Badge>
-                )}
               </div>
             )
           })}
         </div>
       </CardContent>
-    </Card>
+    </Card >
   );
 }
