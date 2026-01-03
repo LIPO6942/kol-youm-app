@@ -118,8 +118,11 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
 
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
+      const schedule = value.scheduleKeywords;
+      const occasion = value.occasion;
+
+      // Logic 1: Sync Activity -> Style default (when Activity changes)
       if (name === 'scheduleKeywords') {
-        const schedule = value.scheduleKeywords;
         const mapping: Record<string, string> = {
           'Réunion Pro': 'Professionnel',
           'Session de Sport': 'Sportif',
@@ -128,8 +131,16 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
         };
 
         if (schedule && mapping[schedule]) {
+          // We use setValue here. Note that this might trigger watch again or not depending on configuration,
+          // but since we are changing 'occasion', the next pass will see the new occasion.
           form.setValue('occasion', mapping[schedule]);
         }
+      }
+
+      // Logic 2: Chic Rule (Reunion + Casual = Chic)
+      // This applies whenever form changes, allowing us to catch when user manually selects 'Décontracté' while 'Réunion' is active.
+      if (schedule === 'Réunion Pro' && occasion === 'Décontracté') {
+        form.setValue('occasion', 'Chic');
       }
     });
     return () => subscription.unsubscribe();
