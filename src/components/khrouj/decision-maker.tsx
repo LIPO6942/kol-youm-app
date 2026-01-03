@@ -313,8 +313,9 @@ export default function DecisionMaker() {
     return (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Plus className="h-4 w-4" /> Ajouter manuellement
+          <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
+            <Plus className="h-4 w-4" />
+            <span>Ajout <span className="hidden sm:inline">manuel</span></span>
           </Button>
         </DialogTrigger>
         <DialogContent>
@@ -385,14 +386,16 @@ export default function DecisionMaker() {
   const StatsDashboard = () => {
     return (
       <div className="space-y-6 animate-in fade-in-50">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => setView('search')}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-2xl font-bold font-headline">Mes Habitudes</h2>
           </div>
-          <ManualVisitForm />
+          <div className="w-full sm:w-auto">
+            <ManualVisitForm />
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -519,8 +522,9 @@ export default function DecisionMaker() {
               <p className="text-muted-foreground">Voici quelques idées pour vous.</p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" className="gap-2" onClick={() => setView('stats')}>
-            <BarChart3 className="h-4 w-4 text-primary" /> Stats
+          <Button variant="ghost" size="sm" className="sm:gap-2" onClick={() => setView('stats')}>
+            <BarChart3 className="h-4 w-4 text-primary" />
+            <span className="hidden sm:inline">Stats</span>
           </Button>
         </div>
 
@@ -600,9 +604,9 @@ export default function DecisionMaker() {
                 {getFilterButtonText()}
               </Button>
             </CollapsibleTrigger>
-            <Button variant="outline" className="gap-2" onClick={() => setView('stats')}>
+            <Button variant="outline" className="sm:gap-2" onClick={() => setView('stats')}>
               <BarChart3 className="h-4 w-4 text-primary" />
-              Mes Stats
+              <span className="hidden sm:inline">Mes Stats</span>
             </Button>
             {selectedZones.length > 0 && (
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleClearZones}>
