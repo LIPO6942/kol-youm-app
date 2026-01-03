@@ -37,7 +37,7 @@ export async function POST(request: Request) {
         const model = "@cf/llava-hf/llava-1.5-7b-hf";
         const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`;
 
-        const prompt = "You are a fashion stylist. Analyze the clothing item in the image. Identify its dominant color. Then, suggest exactly 3 matching colors to create a stylish outfit. Return strictly a JSON object with this structure: { \"dominantColor\": \"ColorName\", \"matches\": [{ \"name\": \"Name1\", \"hex\": \"#Hex1\" }, { \"name\": \"Name2\", \"hex\": \"#Hex2\" }, { \"name\": \"Name3\", \"hex\": \"#Hex3\" }] }. Do not include markdown formatting or explanation.";
+        const prompt = "You are a fashion stylist. Analyze the clothing item in the image. Identify its dominant color. Then, suggest exactly 5 matching colors to create a stylish outfit. Return strictly a JSON object with this structure: { \"dominantColor\": \"ColorName\", \"matches\": [{ \"name\": \"Name1\", \"hex\": \"#Hex1\" }, { \"name\": \"Name2\", \"hex\": \"#Hex2\" }, { \"name\": \"Name3\", \"hex\": \"#Hex3\" }, { \"name\": \"Name4\", \"hex\": \"#Hex4\" }, { \"name\": \"Name5\", \"hex\": \"#Hex5\" }] }. Do not include markdown formatting or explanation.";
 
         const response = await fetch(url, {
             method: "POST",
@@ -90,7 +90,9 @@ export async function POST(request: Request) {
                 matches: [
                     { name: "Blanc", hex: "#FFFFFF" },
                     { name: "Noir", hex: "#000000" },
-                    { name: "Gris", hex: "#808080" }
+                    { name: "Gris", hex: "#808080" },
+                    { name: "Beige", hex: "#F5F5DC" },
+                    { name: "Bleu Marine", hex: "#000080" }
                 ]
             };
         }
