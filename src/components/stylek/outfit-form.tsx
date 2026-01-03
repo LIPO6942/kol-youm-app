@@ -17,18 +17,18 @@ import { CompleteOutfitDialog } from './complete-outfit-dialog';
 import { CompleteFromWardrobeDialog } from './complete-from-wardrobe-dialog';
 
 const colors = [
-    { name: 'Noir', value: '#1a1a1a' },
-    { name: 'Blanc', value: '#ffffff' },
-    { name: 'Gris', value: '#9ca3af' },
-    { name: 'Beige', value: '#f5f5dc' },
-    { name: 'Bleu', value: '#3b82f6' },
-    { name: 'Rouge', value: '#ef4444' },
-    { name: 'Vert', value: '#22c55e' },
-    { name: 'Jaune', value: '#eab308' },
-    { name: 'Rose', value: '#ec4899' },
-    { name: 'Violet', value: '#8b5cf6' },
-    { name: 'Marron', value: '#a16207' },
-    { name: 'Orange', value: '#f97316' },
+  { name: 'Noir', value: '#1a1a1a' },
+  { name: 'Blanc', value: '#ffffff' },
+  { name: 'Gris', value: '#9ca3af' },
+  { name: 'Beige', value: '#f5f5dc' },
+  { name: 'Bleu', value: '#3b82f6' },
+  { name: 'Rouge', value: '#ef4444' },
+  { name: 'Vert', value: '#22c55e' },
+  { name: 'Jaune', value: '#eab308' },
+  { name: 'Rose', value: '#ec4899' },
+  { name: 'Violet', value: '#8b5cf6' },
+  { name: 'Marron', value: '#a16207' },
+  { name: 'Orange', value: '#f97316' },
 ];
 
 const ColorPicker = ({ value, onChange }: { value: string, onChange: (value: string) => void }) => {
@@ -99,13 +99,13 @@ const weatherOptions = [
 
 
 interface OutfitFormProps {
-    isLoading: boolean;
-    onSuggestOutfit: (values: FormValues & { baseItem?: string, baseItemPhotoDataUri?: string, baseItemType?: 'haut' | 'bas' | 'chaussures' | 'accessoires' }) => void;
+  isLoading: boolean;
+  onSuggestOutfit: (values: FormValues & { baseItem?: string, baseItemPhotoDataUri?: string, baseItemType?: 'haut' | 'bas' | 'chaussures' | 'accessoires' }) => void;
 }
 
 export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
   const searchParams = useSearchParams();
-  
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -117,19 +117,38 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
   });
 
   useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === 'scheduleKeywords') {
+        const schedule = value.scheduleKeywords;
+        const mapping: Record<string, string> = {
+          'Réunion Pro': 'Professionnel',
+          'Session de Sport': 'Sportif',
+          'Journée détente': 'Décontracté',
+          'Sortie entre amis': 'Décontracté',
+        };
+
+        if (schedule && mapping[schedule]) {
+          form.setValue('occasion', mapping[schedule]);
+        }
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
+  useEffect(() => {
     const occasion = searchParams.get('occasion');
     if (occasion && occasionOptions.some(o => o.value === occasion)) {
-        form.setValue('occasion', occasion);
+      form.setValue('occasion', occasion);
     }
   }, [searchParams, form]);
-  
+
   const handleSuggestOutfit = async () => {
     const isValid = await form.trigger();
     if (isValid) {
       onSuggestOutfit(form.getValues());
     }
   };
-  
+
   return (
     <>
       <CardHeader>
@@ -148,19 +167,19 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
                   <FormControl>
                     <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
                       {scheduleOptions.map(opt => (
-                         <FormItem key={opt.value} className="relative">
+                        <FormItem key={opt.value} className="relative">
                           <FormControl>
-                              <RadioGroupItem value={opt.value} className="sr-only" />
+                            <RadioGroupItem value={opt.value} className="sr-only" />
                           </FormControl>
                           <FormLabel className={cn(
-                              "flex flex-col items-center justify-center rounded-md border-2 border-muted p-2 font-normal cursor-pointer h-20 transition-colors",
-                              opt.bgClass,
-                              opt.hoverClass,
-                              field.value === opt.value ? opt.selectedClass : "text-foreground"
+                            "flex flex-col items-center justify-center rounded-md border-2 border-muted p-2 font-normal cursor-pointer h-20 transition-colors",
+                            opt.bgClass,
+                            opt.hoverClass,
+                            field.value === opt.value ? opt.selectedClass : "text-foreground"
                           )}>
-                              <opt.icon className={cn("h-5 w-5 mb-1", opt.colorClass)} />
-                              <span className={cn("text-sm font-medium", opt.colorClass)}>{opt.label}</span>
-                         </FormLabel>
+                            <opt.icon className={cn("h-5 w-5 mb-1", opt.colorClass)} />
+                            <span className={cn("text-sm font-medium", opt.colorClass)}>{opt.label}</span>
+                          </FormLabel>
                         </FormItem>
                       ))}
                     </RadioGroup>
@@ -176,22 +195,22 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
               render={({ field }) => (
                 <FormItem className="space-y-3">
                   <FormLabel>Météo locale</FormLabel>
-                   <FormControl>
+                  <FormControl>
                     <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-4">
                       {weatherOptions.map(opt => (
                         <FormItem key={opt.value} className="relative">
                           <FormControl>
-                              <RadioGroupItem value={opt.value} className="sr-only" />
+                            <RadioGroupItem value={opt.value} className="sr-only" />
                           </FormControl>
                           <FormLabel className={cn(
-                              "flex flex-col items-center justify-center rounded-md border-2 border-muted p-2 font-normal cursor-pointer h-20 transition-colors",
-                              opt.bgClass,
-                              opt.hoverClass,
-                              field.value === opt.value ? opt.selectedClass : "text-foreground"
+                            "flex flex-col items-center justify-center rounded-md border-2 border-muted p-2 font-normal cursor-pointer h-20 transition-colors",
+                            opt.bgClass,
+                            opt.hoverClass,
+                            field.value === opt.value ? opt.selectedClass : "text-foreground"
                           )}>
-                              <opt.icon className={cn("h-5 w-5 mb-1", opt.colorClass)} />
-                              <span className={cn("text-sm font-medium", opt.colorClass)}>{opt.label}</span>
-                         </FormLabel>
+                            <opt.icon className={cn("h-5 w-5 mb-1", opt.colorClass)} />
+                            <span className={cn("text-sm font-medium", opt.colorClass)}>{opt.label}</span>
+                          </FormLabel>
                         </FormItem>
                       ))}
                     </RadioGroup>
@@ -212,16 +231,16 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
                       {occasionOptions.map(opt => (
                         <FormItem key={opt.value}>
                           <FormControl>
-                              <RadioGroupItem value={opt.value} id={opt.value} className="sr-only" />
+                            <RadioGroupItem value={opt.value} id={opt.value} className="sr-only" />
                           </FormControl>
-                           <FormLabel htmlFor={opt.value} className={cn(
-                              "flex flex-col items-center justify-center rounded-md border-2 border-muted p-2 font-normal cursor-pointer h-20 transition-colors",
-                              opt.bgClass,
-                              opt.hoverClass,
-                              field.value === opt.value ? opt.selectedClass : "text-foreground"
-                           )}>
-                              <opt.icon className={cn("h-5 w-5 mb-1", opt.colorClass)} />
-                              <span className={cn("text-sm font-medium", opt.colorClass)}>{opt.label}</span>
+                          <FormLabel htmlFor={opt.value} className={cn(
+                            "flex flex-col items-center justify-center rounded-md border-2 border-muted p-2 font-normal cursor-pointer h-20 transition-colors",
+                            opt.bgClass,
+                            opt.hoverClass,
+                            field.value === opt.value ? opt.selectedClass : "text-foreground"
+                          )}>
+                            <opt.icon className={cn("h-5 w-5 mb-1", opt.colorClass)} />
+                            <span className={cn("text-sm font-medium", opt.colorClass)}>{opt.label}</span>
                           </FormLabel>
                         </FormItem>
                       ))}
@@ -231,7 +250,7 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="preferredColors"
@@ -248,9 +267,9 @@ export function OutfitForm({ isLoading, onSuggestOutfit }: OutfitFormProps) {
           </CardContent>
           <CardFooter className="flex-col pt-6 space-y-2">
             <CompleteFromWardrobeDialog
-                mainForm={form}
-                onCompleteOutfit={onSuggestOutfit}
-                isGenerating={isLoading}
+              mainForm={form}
+              onCompleteOutfit={onSuggestOutfit}
+              isGenerating={isLoading}
             />
             <CompleteOutfitDialog
               mainForm={form}
