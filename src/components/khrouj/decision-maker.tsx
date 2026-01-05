@@ -543,22 +543,22 @@ export default function DecisionMaker() {
                 <Dialog key={name}>
                   <DialogTrigger asChild>
                     <Card className="hover:border-primary/50 transition-all duration-300 cursor-pointer group hover:shadow-md hover:bg-muted/30">
-                      <CardContent className="p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-muted rounded-full group-hover:bg-primary/10 transition-colors duration-300">
-                            <MapPin className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors duration-300" />
+                      <CardContent className="p-4 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="p-2 bg-muted rounded-full group-hover:bg-primary/10 transition-colors duration-300 flex-shrink-0">
+                            <MapPin className="h-4 w-4 text-red-500 group-hover:text-primary transition-colors duration-300" />
                           </div>
-                          <div>
-                            <p className="font-medium text-lg font-headline tracking-tight group-hover:text-primary transition-colors duration-300">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-lg font-headline tracking-tight group-hover:text-primary transition-colors duration-300 truncate">
                               {name}
-                              <span className="text-xs text-muted-foreground ml-2 font-normal">
+                              <span className="text-xs text-blue-600 ml-2 font-normal">
                                 {allPlaces.find(p => p.name === name)?.zone || ''}
                               </span>
                             </p>
                             <p className="text-xs text-muted-foreground font-medium">{data.category}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                           <Badge variant="secondary" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
                             {data.count}
                           </Badge>
