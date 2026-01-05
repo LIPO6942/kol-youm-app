@@ -1,8 +1,9 @@
 
 'use client';
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -78,6 +79,28 @@ export default function DecisionMaker() {
   const { toast } = useToast();
   const { user, userProfile } = useAuth();
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
+
+  // Deep Linking Logic
+  const searchParams = useSearchParams();
+  const hasAutoTriggered = useRef(false);
+
+  useEffect(() => {
+    if (user && !hasAutoTriggered.current) {
+      const categoryParam = searchParams.get('category');
+      if (categoryParam) {
+        const targetOption = outingOptions.find(opt => opt.id === categoryParam);
+        if (targetOption) {
+          hasAutoTriggered.current = true;
+          handleCategorySelect(targetOption);
+          // Optional: Display a visual feedback
+          toast({
+            title: "Suggestion Automatique",
+            description: `Recherche de ${targetOption.label}s pour votre plat...`,
+          });
+        }
+      }
+    }
+  }, [user, searchParams]);
 
   // Assisted selection data
   const [allPlaces, setAllPlaces] = useState<{ name: string; category: string; zone: string }[]>([]);
