@@ -543,15 +543,15 @@ export default function DecisionMaker() {
                 <Dialog key={name}>
                   <DialogTrigger asChild>
                     <Card className="hover:border-primary/50 transition-all duration-300 cursor-pointer group hover:shadow-md hover:bg-muted/30">
-                      <CardContent className="p-4 flex items-center justify-between gap-4">
+                      <CardContent className="p-3 sm:p-4 flex items-center justify-between gap-3 sm:gap-4">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="p-2 bg-muted rounded-full group-hover:bg-primary/10 transition-colors duration-300 flex-shrink-0">
+                          <div className="p-1.5 sm:p-2 bg-muted rounded-full group-hover:bg-primary/10 transition-colors duration-300 flex-shrink-0">
                             <MapPin className="h-4 w-4 text-red-500 group-hover:text-primary transition-colors duration-300" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-lg font-headline tracking-tight group-hover:text-primary transition-colors duration-300 truncate">
+                            <p className="font-medium text-base sm:text-lg font-headline tracking-tight group-hover:text-primary transition-colors duration-300 truncate">
                               {name}
-                              <span className="text-xs text-blue-600 ml-2 font-normal">
+                              <span className="text-xs text-blue-600 ml-1 sm:ml-2 font-normal">
                                 {allPlaces.find(p => p.name === name)?.zone || ''}
                               </span>
                             </p>
@@ -603,7 +603,7 @@ export default function DecisionMaker() {
   if (view === 'stats') {
     return (
       <Card className="max-w-2xl mx-auto">
-        <CardContent className="p-6">
+        <CardContent className="p-3 sm:p-6">
           <StatsDashboard />
         </CardContent>
       </Card>
