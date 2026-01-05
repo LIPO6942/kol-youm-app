@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,6 +22,7 @@ const formSchema = z.object({
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -34,25 +35,27 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, values.email, values.password);
-      router.push('/stylek'); // Will be redirected by main layout if personalization needed
+      const nextUrl = searchParams.get('next');
+      router.push(nextUrl || '/stylek');
+    } catch (error: any) {
     } catch (error: any) {
       console.error("Login Error Full Details:", error);
       let description = "Une erreur inattendue est survenue.";
       if (error.code) {
-          switch (error.code) {
-              case 'auth/invalid-credential':
-                  description = "L'e-mail ou le mot de passe est incorrect. Veuillez vérifier vos informations.";
-                  break;
-              case 'auth/network-request-failed':
-                  description = "Erreur de réseau. Il est probable que votre domaine Vercel ne soit pas autorisé. Veuillez vérifier vos paramètres Firebase.";
-                  break;
-              case 'auth/api-key-not-valid':
-                description = "La clé d'API Firebase n'est pas valide. Vérifiez vos variables d'environnement sur Vercel.";
-                break;
-              default:
-                  description = `Erreur technique: ${error.code}. Veuillez réessayer.`;
-                  break;
-          }
+        switch (error.code) {
+          case 'auth/invalid-credential':
+            description = "L'e-mail ou le mot de passe est incorrect. Veuillez vérifier vos informations.";
+            break;
+          case 'auth/network-request-failed':
+            description = "Erreur de réseau. Il est probable que votre domaine Vercel ne soit pas autorisé. Veuillez vérifier vos paramètres Firebase.";
+            break;
+          case 'auth/api-key-not-valid':
+            description = "La clé d'API Firebase n'est pas valide. Vérifiez vos variables d'environnement sur Vercel.";
+            break;
+          default:
+            description = `Erreur technique: ${error.code}. Veuillez réessayer.`;
+            break;
+        }
       } else {
         description = `Une erreur inattendue est survenue: ${error.message || 'Veuillez vérifier la console.'}`;
       }
@@ -108,10 +111,10 @@ export default function LoginPage() {
               Se connecter
             </Button>
             <p className="text-sm text-muted-foreground">
-                Vous n'avez pas de compte ?{' '}
-                <Link href="/signup" className="font-semibold text-primary hover:underline">
-                    Inscrivez-vous
-                </Link>
+              Vous n'avez pas de compte ?{' '}
+              <Link href="/signup" className="font-semibold text-primary hover:underline">
+                Inscrivez-vous
+              </Link>
             </p>
           </CardFooter>
         </form>
