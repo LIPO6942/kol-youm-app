@@ -10,7 +10,7 @@ import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { Suggestion } from '@/ai/flows/decision-maker-flow.types';
 import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { updateUserProfile, addVisitLog, deleteVisitLog, type VisitLog } from '@/lib/firebase/firestore';
+import { updateUserProfile, addVisitLog, deleteVisitLog, updateVisitLog, type VisitLog } from '@/lib/firebase/firestore';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -313,9 +313,9 @@ export default function DecisionMaker() {
     return (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto">
-            <Plus className="h-4 w-4" />
-            <span>Ajout <span className="hidden sm:inline">manuel</span></span>
+          <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto border-primary/20 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 group">
+            <Plus className="h-4 w-4 text-primary group-hover:scale-125 transition-transform duration-300" />
+            <span className="font-medium">Ajout <span className="hidden sm:inline">manuel</span></span>
           </Button>
         </DialogTrigger>
         <DialogContent>
@@ -383,6 +383,117 @@ export default function DecisionMaker() {
     );
   };
 
+  const VisitHistoryList = ({ placeName, dates }: { placeName: string; dates: number[] }) => {
+    const [editingDateId, setEditingDateId] = useState<string | null>(null);
+    const [editedDate, setEditedDate] = useState<string>('');
+
+    const handleEditClick = (date: number, visitId: string) => {
+      setEditingDateId(visitId);
+      // Convert timestamp to datetime-local format (YYYY-MM-DDThh:mm)
+      const dateObj = new Date(date);
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const hours = String(dateObj.getHours()).padStart(2, '0');
+      const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+      setEditedDate(`${year}-${month}-${day}T${hours}:${minutes}`);
+    };
+
+    const handleSaveDate = async (visitId: string) => {
+      if (!user || !editedDate) return;
+
+      const newTimestamp = new Date(editedDate).getTime();
+      await updateVisitLog(user.uid, visitId, newTimestamp);
+
+      toast({
+        title: "Date modifiée",
+        description: "La date de visite a été mise à jour avec succès."
+      });
+
+      setEditingDateId(null);
+      setEditedDate('');
+    };
+
+    const handleCancelEdit = () => {
+      setEditingDateId(null);
+      setEditedDate('');
+    };
+
+    return (
+      <ScrollArea className="h-[300px] pr-4">
+        <div className="space-y-3">
+          {dates.sort((a, b) => b - a).map((date, idx) => {
+            const visitId = userProfile?.visits?.find(v => v.placeName === placeName && v.date === date)?.id;
+            if (!visitId) return null;
+
+            const isEditing = editingDateId === visitId;
+
+            return (
+              <div key={idx} className={cn(
+                "flex items-center justify-between p-3 rounded-lg border gap-2 transition-all duration-300",
+                isEditing ? "border-primary bg-primary/5 shadow-sm" : "bg-muted/30 hover:bg-muted/50 border-transparent hover:border-muted-foreground/20"
+              )}>
+                {isEditing ? (
+                  <>
+                    <div className="flex items-center gap-2 flex-1">
+                      <Calendar className="h-4 w-4 text-primary flex-shrink-0" />
+                      <Input
+                        type="datetime-local"
+                        value={editedDate}
+                        onChange={(e) => setEditedDate(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-100"
+                        onClick={() => handleSaveDate(visitId)}
+                      >
+                        ✓
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={handleCancelEdit}
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div
+                      className="flex items-center gap-3 text-sm flex-1 cursor-pointer hover:text-primary transition-colors"
+                      onClick={() => handleEditClick(date, visitId)}
+                    >
+                      <Calendar className="h-4 w-4 text-primary" />
+                      <span>{new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive"
+                      onClick={async () => {
+                        if (!user) return;
+                        await deleteVisitLog(user.uid, visitId);
+                        toast({ title: "Visite supprimée" });
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </ScrollArea>
+    );
+  };
+
   const StatsDashboard = () => {
     return (
       <div className="space-y-6 animate-in fade-in-50">
@@ -391,7 +502,7 @@ export default function DecisionMaker() {
             <Button variant="ghost" size="icon" onClick={() => setView('search')}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <h2 className="text-2xl font-bold font-headline">Mes Habitudes</h2>
+            <h2 className="text-3xl font-bold font-headline text-foreground tracking-tight">Mes Habitudes</h2>
           </div>
           <div className="w-full sm:w-auto">
             <ManualVisitForm />
@@ -399,26 +510,31 @@ export default function DecisionMaker() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card className="bg-primary/5 border-primary/20">
+          <Card className="bg-primary/5 border-primary/20 group hover:border-primary/40 transition-all duration-300">
             <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-              <span className="text-3xl font-bold text-primary">{stats.total}</span>
-              <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total Sorties</span>
+              <span className="text-3xl font-bold text-primary group-hover:scale-110 transition-transform duration-300">{stats.total}</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Total Sorties</span>
             </CardContent>
           </Card>
           {outingOptions.slice(0, 3).map(opt => (
-            <Card key={opt.id} className="hover:bg-accent/50 transition-colors cursor-default">
+            <Card key={opt.id} className={cn(
+              "transition-all duration-300 cursor-default border group",
+              opt.bgClass,
+              opt.hoverClass,
+              "hover:shadow-md hover:-translate-y-1"
+            )}>
               <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                <opt.icon className={cn("h-5 w-5 mb-1", opt.colorClass)} />
-                <span className="text-xl font-bold">{stats.byCategory[opt.label] || 0}</span>
-                <span className="text-xs text-muted-foreground">{opt.label}s</span>
+                <opt.icon className={cn("h-6 w-6 mb-2 group-hover:scale-110 transition-transform duration-300", opt.colorClass)} />
+                <span className={cn("text-xl font-bold", opt.colorClass)}>{stats.byCategory[opt.label] || 0}</span>
+                <span className="text-xs text-muted-foreground font-medium">{opt.label}s</span>
               </CardContent>
             </Card>
           ))}
         </div>
 
         <div className="space-y-4">
-          <h3 className="font-semibold flex items-center gap-2">
-            <History className="h-4 w-4 text-primary" />
+          <h3 className="text-xl font-bold font-headline text-foreground tracking-tight flex items-center gap-2">
+            <History className="h-5 w-5 text-primary" />
             Lieux les plus fréquentés
           </h3>
           <div className="grid gap-3">
@@ -426,62 +542,43 @@ export default function DecisionMaker() {
               stats.byPlace.slice(0, 5).map(([name, data]) => (
                 <Dialog key={name}>
                   <DialogTrigger asChild>
-                    <Card className="hover:border-primary/50 transition-all cursor-pointer group">
+                    <Card className="hover:border-primary/50 transition-all duration-300 cursor-pointer group hover:shadow-md hover:bg-muted/30">
                       <CardContent className="p-4 flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-muted rounded-full group-hover:bg-primary/10 transition-colors">
-                            <MapPin className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
+                          <div className="p-2 bg-muted rounded-full group-hover:bg-primary/10 transition-colors duration-300">
+                            <MapPin className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors duration-300" />
                           </div>
                           <div>
-                            <p className="font-medium">{name}</p>
-                            <p className="text-xs text-muted-foreground">{data.category}</p>
+                            <p className="font-medium text-lg font-headline tracking-tight group-hover:text-primary transition-colors duration-300">{name}</p>
+                            <p className="text-xs text-muted-foreground font-medium">{data.category}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant="secondary">{data.count} visites</Badge>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          <Badge variant="secondary" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
+                            {data.count} visites
+                          </Badge>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform duration-300" />
                         </div>
                       </CardContent>
                     </Card>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>{name}</DialogTitle>
-                      <DialogDescription>Historique de vos visites à cet endroit.</DialogDescription>
+                      <DialogTitle className="text-2xl font-bold font-headline">{name}</DialogTitle>
+                      <DialogDescription>Historique de vos visites à cet endroit. Cliquez sur une date pour la modifier.</DialogDescription>
                     </DialogHeader>
-                    <ScrollArea className="h-[300px] pr-4">
-                      <div className="space-y-3">
-                        {data.dates.sort((a, b) => b - a).map((date, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
-                            <div className="flex items-center gap-3 text-sm">
-                              <Calendar className="h-4 w-4 text-primary" />
-                              <span>{new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive"
-                              onClick={async () => {
-                                if (!user) return;
-                                // Find the specific visit ID to delete
-                                const visitId = userProfile?.visits?.find(v => v.placeName === name && v.date === date)?.id;
-                                if (visitId) {
-                                  await deleteVisitLog(user.uid, visitId);
-                                  toast({ title: "Visite supprimée" });
-                                }
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
+                    <VisitHistoryList placeName={name} dates={data.dates} />
                   </DialogContent>
                 </Dialog>
               ))
             ) : (
-              <p className="text-center py-8 text-muted-foreground italic">Aucune visite enregistrée pour le moment.</p>
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground space-y-2">
+                  <MapPin className="h-8 w-8 opacity-20" />
+                  <p className="italic">Aucune visite enregistrée pour le moment.</p>
+                  <p className="text-xs">Utilisez l'ajout manuel pour commencer !</p>
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>

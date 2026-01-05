@@ -330,6 +330,34 @@ export async function addVisitLog(uid: string, visit: Omit<VisitLog, 'id'>) {
     }
 }
 
+export async function updateVisitLog(uid: string, visitId: string, newDate: number) {
+    const localProfile = await getUserFromDb(uid);
+    if (!localProfile) return;
+
+    const visitToUpdate = localProfile.visits?.find(v => v.id === visitId);
+    if (!visitToUpdate) return;
+
+    const userRef = doc(firestoreDb, 'users', uid);
+
+    // Remove the old visit and add the updated one
+    const updatedVisit = { ...visitToUpdate, date: newDate };
+    await updateDoc(userRef, {
+        visits: arrayRemove(visitToUpdate)
+    });
+    await updateDoc(userRef, {
+        visits: arrayUnion(updatedVisit)
+    });
+
+    // Update local state
+    const updatedProfile = {
+        ...localProfile,
+        visits: (localProfile.visits || []).map(v =>
+            v.id === visitId ? updatedVisit : v
+        )
+    };
+    await storeUserInDb(uid, updatedProfile);
+}
+
 export async function deleteVisitLog(uid: string, visitId: string) {
     const localProfile = await getUserFromDb(uid);
     if (!localProfile) return;
