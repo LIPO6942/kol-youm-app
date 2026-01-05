@@ -494,6 +494,55 @@ export default function DecisionMaker() {
     );
   };
 
+  const GlobalHistoryList = () => {
+    if (!userProfile?.visits || userProfile.visits.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-10 text-center gap-2 text-muted-foreground">
+          <History className="h-12 w-12 opacity-20" />
+          <p>Aucune sortie enregistrée.</p>
+        </div>
+      );
+    }
+
+    const sortedVisits = [...userProfile.visits].sort((a, b) => b.date - a.date);
+
+    return (
+      <ScrollArea className="h-[60vh] -mx-6 px-6">
+        <div className="space-y-3 pb-6">
+          {sortedVisits.map((visit) => {
+            const cat = outingOptions.find(o => o.label === visit.category) || {
+              icon: MapPin,
+              colorClass: "text-slate-600",
+              bgClass: "bg-slate-100",
+              label: visit.category
+            };
+
+            return (
+              <div key={visit.id} className="group flex items-center gap-3 p-3 rounded-xl border bg-card/50 hover:bg-white hover:shadow-md hover:border-primary/20 transition-all duration-300">
+                <div className={cn("h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 transition-transform duration-300 group-hover:scale-110", cat.bgClass)}>
+                  <cat.icon className={cn("h-5 w-5", cat.colorClass)} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="font-bold text-sm sm:text-base truncate text-foreground/90 group-hover:text-primary transition-colors">{visit.placeName}</p>
+                    <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal bg-background/50 text-muted-foreground whitespace-nowrap">
+                      {new Date(visit.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <p className={cn("text-xs font-bold", cat.colorClass)}>
+                      {cat.label}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </ScrollArea>
+    );
+  };
+
   const StatsDashboard = () => {
     return (
       <div className="space-y-6 animate-in fade-in-50">
@@ -510,12 +559,28 @@ export default function DecisionMaker() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card className="bg-primary/5 border-primary/20 group hover:border-primary/40 transition-all duration-300">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-              <span className="text-3xl font-bold text-primary group-hover:scale-110 transition-transform duration-300">{stats.total}</span>
-              <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Total Sorties</span>
-            </CardContent>
-          </Card>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Card className="bg-primary/5 border-primary/20 group hover:border-primary/40 transition-all duration-300 cursor-pointer">
+                <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+                  <span className="text-3xl font-bold text-primary group-hover:scale-110 transition-transform duration-300">{stats.total}</span>
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Total Sorties</span>
+                </CardContent>
+              </Card>
+            </DialogTrigger>
+            <DialogContent className="max-w-md w-[95%] rounded-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold font-headline flex items-center gap-2">
+                  <History className="h-5 w-5 text-primary" />
+                  Historique Complet
+                </DialogTitle>
+                <DialogDescription>
+                  Retrouvez toutes vos sorties chronologiquement.
+                </DialogDescription>
+              </DialogHeader>
+              <GlobalHistoryList />
+            </DialogContent>
+          </Dialog>
           {outingOptions.slice(0, 3).map(opt => (
             <Card key={opt.id} className={cn(
               "transition-all duration-300 cursor-default border group",
