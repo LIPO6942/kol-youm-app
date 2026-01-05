@@ -88,7 +88,15 @@ export default function DecisionMaker() {
     if (user && !hasAutoTriggered.current) {
       const categoryParam = searchParams.get('category');
       if (categoryParam) {
-        const targetOption = outingOptions.find(opt => opt.id === categoryParam);
+        // Normalize input: lowercase and remove trailing 's' to handle plurals
+        const normalizedParam = categoryParam.toLowerCase().replace(/s$/, '');
+
+        const targetOption = outingOptions.find(opt =>
+          opt.id === categoryParam ||
+          opt.id === normalizedParam ||
+          opt.label.toLowerCase() === normalizedParam
+        );
+
         if (targetOption) {
           hasAutoTriggered.current = true;
           handleCategorySelect(targetOption);
