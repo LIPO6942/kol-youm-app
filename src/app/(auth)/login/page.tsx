@@ -38,7 +38,6 @@ export default function LoginPage() {
       const nextUrl = searchParams.get('next');
       router.push(nextUrl || '/stylek');
     } catch (error: any) {
-    } catch (error: any) {
       console.error("Login Error Full Details:", error);
       let description = "Une erreur inattendue est survenue.";
       if (error.code) {
