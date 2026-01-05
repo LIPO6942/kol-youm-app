@@ -80,7 +80,7 @@ export default function DecisionMaker() {
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
 
   // Assisted selection data
-  const [allPlaces, setAllPlaces] = useState<{ name: string; category: string }[]>([]);
+  const [allPlaces, setAllPlaces] = useState<{ name: string; category: string; zone: string }[]>([]);
   const [isFetchingPlaces, setIsFetchingPlaces] = useState(false);
 
   useEffect(() => {
@@ -90,7 +90,7 @@ export default function DecisionMaker() {
         const response = await fetch('/api/places-database-firestore');
         const result = await response.json();
         if (result.success && result.data.zones) {
-          const flatPlaces: { name: string; category: string }[] = [];
+          const flatPlaces: { name: string; category: string; zone: string }[] = [];
           result.data.zones.forEach((zone: any) => {
             Object.entries(zone.categories).forEach(([catKey, places]: [string, any]) => {
               // Map Firestore keys to UI labels
@@ -104,7 +104,7 @@ export default function DecisionMaker() {
               };
               const categoryLabel = labelMap[catKey] || catKey;
               places.forEach((name: string) => {
-                flatPlaces.push({ name, category: categoryLabel });
+                flatPlaces.push({ name, category: categoryLabel, zone: zone.zone });
               });
             });
           });
@@ -549,13 +549,18 @@ export default function DecisionMaker() {
                             <MapPin className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors duration-300" />
                           </div>
                           <div>
-                            <p className="font-medium text-lg font-headline tracking-tight group-hover:text-primary transition-colors duration-300">{name}</p>
+                            <p className="font-medium text-lg font-headline tracking-tight group-hover:text-primary transition-colors duration-300">
+                              {name}
+                              <span className="text-xs text-muted-foreground ml-2 font-normal">
+                                {allPlaces.find(p => p.name === name)?.zone || ''}
+                              </span>
+                            </p>
                             <p className="text-xs text-muted-foreground font-medium">{data.category}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
-                            {data.count} visites
+                            {data.count}
                           </Badge>
                           <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform duration-300" />
                         </div>
