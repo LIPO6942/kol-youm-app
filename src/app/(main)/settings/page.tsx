@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+const TypedBadge = Badge as any;
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -112,7 +113,7 @@ const fileToDataUri = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
+    reader.onerror = (error) => reject(error);
     reader.readAsDataURL(file);
   });
 };
@@ -225,6 +226,8 @@ export default function SettingsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('cafes');
   const [editingSpecialties, setEditingSpecialties] = useState<string | null>(null); // placeName
   const [currentSpecialties, setCurrentSpecialties] = useState<string[]>([]);
+  const [isSavingSpecialties, setIsSavingSpecialties] = useState(false);
+  const specialtyInputRef = useRef<HTMLInputElement>(null);
 
   // Charger la base de données des lieux
   const loadPlacesDatabase = async () => {
@@ -279,7 +282,7 @@ export default function SettingsPage() {
         if (firstZoneWithCategories) {
           setSelectedZone(firstZoneWithCategories.zone);
           // Sélectionner la première catégorie disponible dans cette zone
-          const firstCategory = Object.keys(firstZoneWithCategories.categories).find(cat =>
+          const firstCategory = Object.keys(firstZoneWithCategories.categories).find((cat: string) =>
             (firstZoneWithCategories.categories[cat as keyof CategoryPlaces]?.length || 0) > 0
           );
           if (firstCategory) {
@@ -481,6 +484,7 @@ export default function SettingsPage() {
 
   const handleUpdateSpecialties = async (zone: string, placeName: string, specialties: string[]) => {
     const trimmedPlaceName = placeName.trim();
+    setIsSavingSpecialties(true);
     try {
       const response = await fetch('/api/places-database-firestore', {
         method: 'POST',
@@ -503,6 +507,8 @@ export default function SettingsPage() {
       }
     } catch (error) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Erreur lors de la mise à jour des plats' });
+    } finally {
+      setIsSavingSpecialties(false);
     }
   };
 
@@ -510,8 +516,8 @@ export default function SettingsPage() {
   const getAllAvailableCategories = () => {
     if (!placesDatabase) return [];
     const categoriesSet = new Set<string>();
-    placesDatabase.zones.forEach(zone => {
-      Object.keys(zone.categories).forEach(cat => {
+    placesDatabase.zones.forEach((zone: ZoneData) => {
+      Object.keys(zone.categories).forEach((cat: string) => {
         if (zone.categories[cat as keyof CategoryPlaces]?.length) {
           categoriesSet.add(cat);
         }
@@ -757,7 +763,7 @@ export default function SettingsPage() {
                     <FormLabel>Sexe</FormLabel>
                     <div className="flex items-center gap-2">
                       {userProfile?.gender === 'Femme' ? <User className="h-5 w-5 text-primary" /> : <UserSquare className="h-5 w-5 text-primary" />}
-                      <Badge variant="outline">{userProfile?.gender || 'Non défini'}</Badge>
+                      <TypedBadge variant="outline">{userProfile?.gender || 'Non défini'}</TypedBadge>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Ce choix a été fait lors de votre première connexion.
@@ -1093,9 +1099,9 @@ export default function SettingsPage() {
                               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div className="flex items-center gap-2 overflow-hidden">
                                   <h5 className="font-medium truncate">{selectedZone}</h5>
-                                  <Badge variant="secondary" className="text-xs flex-shrink-0">
+                                  <TypedBadge variant="secondary" className="text-xs flex-shrink-0">
                                     {getPlacesForZoneAndCategory(selectedZone, selectedCategory).length} lieux
-                                  </Badge>
+                                  </TypedBadge>
                                 </div>
                                 <div className="flex gap-1 flex-wrap sm:flex-nowrap">
                                   {editingZone === `${selectedZone}-${selectedCategory}` ? (
@@ -1139,8 +1145,8 @@ export default function SettingsPage() {
                                     <Input
                                       placeholder="Nouveau lieu..."
                                       value={newPlaceName || ''}
-                                      onChange={(e) => setNewPlaceName(e.target.value)}
-                                      onKeyPress={(e) => e.key === 'Enter' && handleAddPlaceToEditing()}
+                                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPlaceName(e.target.value)}
+                                      onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && handleAddPlaceToEditing()}
                                       className="flex-1"
                                     />
                                     <Button size="sm" onClick={handleAddPlaceToEditing} disabled={!newPlaceName || !newPlaceName.trim()}>
@@ -1178,8 +1184,8 @@ export default function SettingsPage() {
                                       <Input
                                         placeholder="Nom du nouveau lieu..."
                                         value={newPlaceName || ''}
-                                        onChange={(e) => setNewPlaceName(e.target.value)}
-                                        onKeyPress={(e) => {
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewPlaceName(e.target.value)}
+                                        onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => {
                                           if (e.key === 'Enter') {
                                             handleAddPlaceToZoneCategory(selectedZone, selectedCategory);
                                           }
@@ -1221,9 +1227,9 @@ export default function SettingsPage() {
                                               <span className="text-sm font-semibold truncate">{place}</span>
                                               <div className="flex flex-wrap gap-1.5">
                                                 {specialties.map((s, idx) => (
-                                                  <Badge key={idx} variant="secondary" className="text-[10px] sm:text-xs px-2 py-0 h-5 bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100 transition-colors">
+                                                  <TypedBadge key={idx} variant="secondary" className="text-[10px] sm:text-xs px-2 py-0 h-5 bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100 transition-colors">
                                                     {s}
-                                                  </Badge>
+                                                  </TypedBadge>
                                                 ))}
                                                 {specialties.length === 0 && !isEditingThis && (
                                                   <span className="text-[10px] text-muted-foreground italic">Aucun plat défini</span>
@@ -1237,11 +1243,14 @@ export default function SettingsPage() {
                                                 onClick={() => {
                                                   setEditingSpecialties(isEditingThis ? null : place);
                                                   setCurrentSpecialties(specialties);
+                                                  if (!isEditingThis) {
+                                                    setTimeout(() => specialtyInputRef.current?.focus(), 100);
+                                                  }
                                                 }}
                                                 className={cn("h-8 flex-1 sm:flex-none px-3 text-xs", isEditingThis && "bg-blue-600 hover:bg-blue-700")}
                                               >
                                                 <UtensilsCrossed className="h-3.5 w-3.5 mr-2" />
-                                                Modifier Plats
+                                                {isEditingThis ? "Fermer l'édition" : "Modifier Plats"}
                                               </Button>
                                               <Button
                                                 size="sm"
@@ -1261,12 +1270,14 @@ export default function SettingsPage() {
                                                 <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ajouter une spécialité</Label>
                                                 <div className="flex gap-2">
                                                   <Input
+                                                    ref={specialtyInputRef}
                                                     placeholder="Ex: chapati, malfouf..."
                                                     className="h-9 text-sm focus-visible:ring-blue-500"
-                                                    onKeyDown={(e) => {
+                                                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                                                       if (e.key === 'Enter') {
+                                                        e.preventDefault();
                                                         const val = e.currentTarget.value.trim();
-                                                        if (val && !currentSpecialties.some(s => s.toLowerCase() === val.toLowerCase())) {
+                                                        if (val && !currentSpecialties.some((s: string) => s.toLowerCase() === val.toLowerCase())) {
                                                           setCurrentSpecialties([...currentSpecialties, val]);
                                                           e.currentTarget.value = '';
                                                         }
@@ -1275,11 +1286,45 @@ export default function SettingsPage() {
                                                   />
                                                   <Button
                                                     size="sm"
-                                                    className="h-9 px-4 bg-green-600 hover:bg-green-700"
-                                                    onClick={() => handleUpdateSpecialties(selectedZone, place, currentSpecialties)}
+                                                    type="button"
+                                                    variant="outline"
+                                                    className="h-9 px-3 border-blue-200 text-blue-600 hover:bg-blue-50"
+                                                    onClick={() => {
+                                                      const input = specialtyInputRef.current;
+                                                      if (input) {
+                                                        const val = input.value.trim();
+                                                        if (val && !currentSpecialties.some((s: string) => s.toLowerCase() === val.toLowerCase())) {
+                                                          setCurrentSpecialties([...currentSpecialties, val]);
+                                                          input.value = '';
+                                                          input.focus();
+                                                        }
+                                                      }
+                                                    }}
                                                   >
-                                                    <Save className="h-4 w-4 mr-2" />
+                                                    <Plus className="h-4 w-4" />
+                                                  </Button>
+                                                  <Button
+                                                    size="sm"
+                                                    className="h-9 px-4 bg-green-600 hover:bg-green-700 ml-auto"
+                                                    onClick={() => handleUpdateSpecialties(selectedZone, place, currentSpecialties)}
+                                                    disabled={isSavingSpecialties}
+                                                  >
+                                                    {isSavingSpecialties ? (
+                                                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                                    ) : (
+                                                      <Save className="h-4 w-4 mr-2" />
+                                                    )}
                                                     Enregistrer
+                                                  </Button>
+                                                  <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-9"
+                                                    onClick={() => setEditingSpecialties(null)}
+                                                    disabled={isSavingSpecialties}
+                                                  >
+                                                    <X className="h-4 w-4 mr-2" />
+                                                    Annuler
                                                   </Button>
                                                 </div>
                                               </div>
@@ -1288,15 +1333,15 @@ export default function SettingsPage() {
                                                 <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Liste actuelle</Label>
                                                 <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-muted/20 min-h-[40px]">
                                                   {currentSpecialties.map((s, idx) => (
-                                                    <Badge key={idx} variant="secondary" className="pl-3 pr-1 gap-2 py-1 h-7 text-xs bg-white border-blue-200">
+                                                    <TypedBadge key={idx} variant="secondary" className="pl-3 pr-1 gap-2 py-1 h-7 text-xs bg-white border-blue-200">
                                                       {s}
                                                       <button
-                                                        onClick={() => setCurrentSpecialties(currentSpecialties.filter(item => item !== s))}
+                                                        onClick={() => setCurrentSpecialties(currentSpecialties.filter((item: string) => item !== s))}
                                                         className="hover:text-red-600 rounded-full hover:bg-red-50 p-1 transition-colors"
                                                       >
                                                         <X className="h-3 w-3" />
                                                       </button>
-                                                    </Badge>
+                                                    </TypedBadge>
                                                   ))}
                                                   {currentSpecialties.length === 0 && (
                                                     <span className="text-xs text-muted-foreground italic py-1">Appuyez sur Entrée pour ajouter un plat</span>

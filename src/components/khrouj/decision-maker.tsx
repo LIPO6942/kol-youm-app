@@ -20,6 +20,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+const TypedBadge = Badge as any;
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const outingOptions: { id: string; label: string; icon: LucideIcon; description: string, colorClass: string, bgClass: string, hoverClass: string, selectedClass: string }[] = [
@@ -412,7 +413,7 @@ export default function DecisionMaker() {
               <Label>Catégorie</Label>
               <div className="flex flex-wrap gap-2">
                 {outingOptions.map((opt: (typeof outingOptions)[0]) => (
-                  <Badge
+                  <TypedBadge
                     key={opt.id}
                     variant={selectedCat === opt.label ? "default" : "outline"}
                     className="cursor-pointer py-1 px-3"
@@ -422,7 +423,7 @@ export default function DecisionMaker() {
                     }}
                   >
                     {opt.label}
-                  </Badge>
+                  </TypedBadge>
                 ))}
               </div>
             </div>
@@ -469,14 +470,14 @@ export default function DecisionMaker() {
               {(selectedPlace || searchQuery) && (
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {allPlaces.find((p: { name: string }) => p.name === (selectedPlace || searchQuery))?.specialties.map((s: string, idx: number) => (
-                    <Badge
+                    <TypedBadge
                       key={idx}
                       variant="outline"
                       className="cursor-pointer hover:bg-primary/5 text-[10px] bg-white text-muted-foreground"
                       onClick={() => setOrderedItem(s)}
                     >
                       {s}
-                    </Badge>
+                    </TypedBadge>
                   ))}
                 </div>
               )}
@@ -661,9 +662,9 @@ export default function DecisionMaker() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <p className="font-bold text-sm sm:text-base truncate text-foreground/90 group-hover:text-primary transition-colors">{visit.placeName}</p>
-                    <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal bg-background/50 text-muted-foreground whitespace-nowrap">
+                    <TypedBadge variant="outline" className="text-[10px] h-5 px-1.5 font-normal bg-background/50 text-muted-foreground whitespace-nowrap">
                       {new Date(visit.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
-                    </Badge>
+                    </TypedBadge>
                   </div>
                   <div className="flex flex-col gap-0.5">
                     <p className={cn("text-xs font-bold", cat.colorClass)}>
@@ -766,9 +767,9 @@ export default function DecisionMaker() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <Badge variant="secondary" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300 bg-secondary text-secondary-foreground">
+                          <TypedBadge variant="secondary" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300 bg-secondary text-secondary-foreground">
                             {data.count}
-                          </Badge>
+                          </TypedBadge>
                           <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform duration-300" />
                         </div>
                       </CardContent>
