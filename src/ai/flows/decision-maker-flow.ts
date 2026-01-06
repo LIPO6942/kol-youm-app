@@ -45,11 +45,20 @@ const makeDecisionFlow = ai.defineFlow(
 
         if (!primaryKey) return "Aucune liste de lieux disponible pour cette catégorie.";
 
-        const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[aeiouy]/g, "_").trim();
+        // Improved normalization for phonetic variations in Tunisian dialect
+        const normalize = (s: string) => s.toLowerCase()
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove accents
+          .replace(/[ei]/g, "1") // Merge common phonetic variations
+          .replace(/[aoe]/g, "2")
+          .replace(/y/g, "1")
+          .replace(/u/g, "3")
+          .replace(/\W/g, "") // Remove special chars
+          .trim();
+
         const normalizedQuery = query ? normalize(query) : "";
 
-        let context = `LISTE DES LIEUX DISPONIBLES (Classés par zone) :\n`;
-        let exactMatchesContext = `CORRESPONDANCES EXACTES DANS LA BASE (Priorité #1) :\n`;
+        let context = `--- LISTE GLOBALE DES LIEUX (Format: Nom [Plats]) ---\n`;
+        let exactMatchesContext = `--- CORRESPONDANCES DÉTECTÉES DANS LA BASE (Priorité Maximale) ---\n`;
         let hasExactMatches = false;
         let hasPlaces = false;
 
@@ -59,46 +68,46 @@ const makeDecisionFlow = ai.defineFlow(
           if (fallbackKey && data[fallbackKey]) {
             places = [...places, ...data[fallbackKey]];
           }
-          places = Array.from(new Set(places));
+          places = Array.from(new Set(places)).filter(p => p && p.trim() !== "");
 
           const specialtiesMap = data.specialties || {};
           const zoneName = data.zone || doc.id;
 
-          if (Array.isArray(places) && places.length > 0) {
+          if (places.length > 0) {
             const placesWithSpecialties = places.map(p => {
               const sList: string[] = specialtiesMap[p] || [];
 
-              // Check for fuzzy match if query exists
               let isExactDishMatch = false;
               if (normalizedQuery) {
-                isExactDishMatch = sList.some(s => normalize(s) === normalizedQuery || normalize(s).includes(normalizedQuery) || normalizedQuery.includes(normalize(s)));
+                isExactDishMatch = sList.some(s => {
+                  const ns = normalize(s);
+                  return ns === normalizedQuery || ns.includes(normalizedQuery) || normalizedQuery.includes(ns);
+                });
               }
 
-              const dishInfo = sList.length > 0 ? ` (DISHES: ${sList.join(', ')})` : '';
-              const placeEntry = `${p}${dishInfo}`;
-
               if (isExactDishMatch) {
-                exactMatchesContext += `- ${p} (Zone: ${zoneName}, Plats: ${sList.join(', ')})\n`;
+                exactMatchesContext += `LIEU: ${p}\nZONE: ${zoneName}\nPLATS_CONFIRMÉS: ${sList.join(', ')}\n\n`;
                 hasExactMatches = true;
               }
 
-              return placeEntry;
+              return `${p} [${sList.join(', ')}]`;
             });
 
-            context += `ZONE: ${zoneName}\nLIEUX: ${placesWithSpecialties.join(', ')}\n---\n`;
+            context += `ZONE: ${zoneName}\nLIEUX: ${placesWithSpecialties.join(' | ')}\n\n`;
             hasPlaces = true;
           }
         });
 
         if (!hasPlaces) {
-          return `Aucun lieu trouvé pour la catégorie "${category}".`;
+          return `Aucun établissement trouvé pour la catégorie "${category}".`;
         }
 
-        return (hasExactMatches ? exactMatchesContext + "\n" : "") + context;
+        const finalContext = (hasExactMatches ? exactMatchesContext + "\n" : "") + context;
+        return finalContext;
 
       } catch (error) {
         console.error(`Error fetching places context:`, error);
-        return "";
+        return "Erreur technique lors de la récupération des lieux.";
       }
     }
 
@@ -126,24 +135,20 @@ DONNÉES DE RÉFÉRENCE (Utilise UNIQUEMENT ces lieux) :
 
 CONTRAINTES UTILISATEUR :
 - Catégorie : "{{category}}"
-- Recherche spécifique / Plat : "{{#if query}}{{query}}{{else}}Aucun{{/if}}"
-- Zones souhaitées : {{#if zones.length}}{{#each zones}}{{this}}, {{/each}}{{else}}Toutes zones acceptées{{/if}}
+- Recherche spécifique (Plat) : "{{#if query}}{{query}}{{else}}Aucune{{/if}}"
+- Zones souhaitées : {{#if zones.length}}{{#each zones}}{{this}}, {{/each}}{{else}}Toutes{{/if}}
 
-TES INSTRUCTIONS CRITIQUES :
-1. PRIORITÉ ABSOLUE : Si la section "CORRESPONDANCES EXACTES DANS LA BASE" est présente dans placesContext, tu DOIS choisir tes suggestions PARMI CES LIEUX en priorité.
-2. RECHERCHE PAR PLAT : Si l'utilisateur cherche "{{query}}" :
-   - Ignore le nom des enseignes (ex: ne suggère pas une Pizzeria juste parce qu'il y a "Pizza" dans le nom si elle n'a pas "Pizza" dans ses DISHES).
-   - FIE-TOI UNIQUEMENT aux plats listés dans "DISHES" ou dans la section "CORRESPONDANCES EXACTES".
-   - Si aucune correspondance n'est trouvée dans les données fournies, refuse de suggérer un lieu au hasard pour ce plat spécifique.
-3. JUSTIFICATION : Dans la description de chaque suggestion, tu DOIS mentionner explicitement le plat trouvé (ex: "J'ai choisi cet endroit car il propose d'excellents {{query}} selon notre base").
-4. SÉLECTION : Propose 2 lieux.
-
-Règle d'or : N'invente pas de plats pour un lieu s'ils ne sont pas dans les données fournies.
+TES INSTRUCTIONS CRITIQUES (ZÉRO HALLUCINATION) :
+1. VÉRIFICATION STRICTE : Tu DOIS suggérer uniquement des établissements présents dans les DONNÉES DE RÉFÉRENCE. Il est formellement interdit d'inventer un lieu.
+2. PRIORITÉ AUX MATCHS : Si la section "CORRESPONDANCES DÉTECTÉES" est présente, choisis tes suggestions EXCLUSIVEMENT dans cette section.
+3. NOM vs PLAT : Ne confonds pas le nom du plat avec le nom de l'établissement. Si tu ne trouves pas de lieu proposant "{{query}}" dans la liste, ne suggère rien.
+4. CAS D'ABSENCE : Si "{{query}}" est spécifié et que tu ne trouves aucune correspondance réelle dans les "PLATS_CONFIRMÉS" ou les listes fournies, retourne un JSON vide : {"suggestions": []}. Ne propose jamais un lieu au hasard pour un plat spécifique.
+5. DESCRIPTION : Justifie ton choix en citant le plat trouvé dans la base (ex: "Sélectionné car il propose des {{query}} confirmés dans notre base").
 `
       );
     }
 
-    if (placesContext.startsWith('Aucun lieu')) {
+    if (placesContext.includes('Aucun établissement')) {
       return { suggestions: [] };
     }
 
@@ -165,18 +170,19 @@ Règle d'or : N'invente pas de plats pour un lieu s'ils ne sont pas dans les don
       console.log("[AI Flow] AI returned 0 suggestions. Attempting manual fallback.");
 
       function fallbackSelection(context: string, zones?: string[], query?: string): Suggestion[] {
-        const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[aeiouy]/g, "_").trim();
+        const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[ei]/g, "1").replace(/[aoe]/g, "2").trim();
         const normalizedQuery = query ? normalize(query) : "";
 
-        const zoneBlocks = context.split('---');
+        const zoneBlocks = context.split('ZONE: ').slice(1);
         let allPlaces: { name: string, zone: string, isMatch: boolean }[] = [];
 
         for (const block of zoneBlocks) {
-          const zoneMatch = block.match(/ZONE: (.*)\n/);
-          const placesMatch = block.match(/LIEUX: (.*)\n/);
-          if (zoneMatch && placesMatch) {
-            const zone = zoneMatch[1].trim();
-            const placesRaw = placesMatch[1].split(',').map(p => p.trim()).filter(p => p);
+          const lines = block.split('\n');
+          const zone = lines[0].trim();
+          const lieuxLine = lines.find(l => l.startsWith('LIEUX: '));
+
+          if (lieuxLine) {
+            const placesRaw = lieuxLine.replace('LIEUX: ', '').split(' | ').map(p => p.trim());
 
             let isZoneMatch = true;
             if (zones && zones.length > 0) {
@@ -185,8 +191,9 @@ Règle d'or : N'invente pas de plats pour un lieu s'ils ne sont pas dans les don
 
             if (isZoneMatch) {
               placesRaw.forEach(p => {
+                const name = p.split(' [')[0];
                 const isDishMatch = normalizedQuery ? normalize(p).includes(normalizedQuery) : false;
-                allPlaces.push({ name: p.split(' (DISHES:')[0], zone: zone, isMatch: isDishMatch });
+                allPlaces.push({ name, zone, isMatch: isDishMatch });
               });
             }
           }
@@ -195,7 +202,7 @@ Règle d'or : N'invente pas de plats pour un lieu s'ils ne sont pas dans les don
         if (allPlaces.length === 0) return [];
         let candidates = allPlaces.filter(p => p.isMatch);
         if (candidates.length === 0) {
-          if (query) return []; // If searching for a specific dish and found nothing, better to return nothing
+          if (query) return []; // If searching for a specific dish and found nothing, return nothing to be strict
           candidates = allPlaces;
         }
 
@@ -203,7 +210,7 @@ Règle d'or : N'invente pas de plats pour un lieu s'ils ne sont pas dans les don
         return selected.map(p => ({
           placeName: p.name,
           description: p.isMatch
-            ? `Recommandé pour ses ${query} ! (Sélection validée)`
+            ? `Recommandé pour ses ${query} ! (Sélection validée par base de données)`
             : `Un super endroit à découvrir à ${p.zone} !`,
           location: p.zone,
           googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ' ' + p.zone + ' Tunis')}`
