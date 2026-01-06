@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -82,7 +82,7 @@ export default function DecisionMaker() {
 
 
   // Assisted selection data
-  const [allPlaces, setAllPlaces] = useState<{ name: string; category: string; zone: string }[]>([]);
+  const [allPlaces, setAllPlaces] = useState<{ name: string; category: string; zone: string; specialties: string[] }[]>([]);
   const [isFetchingPlaces, setIsFetchingPlaces] = useState(false);
 
   useEffect(() => {
@@ -92,7 +92,7 @@ export default function DecisionMaker() {
         const response = await fetch('/api/places-database-firestore');
         const result = await response.json();
         if (result.success && result.data.zones) {
-          const flatPlaces: { name: string; category: string; zone: string }[] = [];
+          const flatPlaces: { name: string; category: string; zone: string; specialties: string[] }[] = [];
           result.data.zones.forEach((zone: any) => {
             Object.entries(zone.categories).forEach(([catKey, places]: [string, any]) => {
               // Map Firestore keys to UI labels
@@ -105,8 +105,14 @@ export default function DecisionMaker() {
                 shopping: 'Shopping'
               };
               const categoryLabel = labelMap[catKey] || catKey;
+              const specialtiesMap = zone.specialties || {};
               places.forEach((name: string) => {
-                flatPlaces.push({ name, category: categoryLabel, zone: zone.zone });
+                flatPlaces.push({
+                  name,
+                  category: categoryLabel,
+                  zone: zone.zone,
+                  specialties: specialtiesMap[name] || []
+                });
               });
             });
           });
@@ -324,11 +330,13 @@ export default function DecisionMaker() {
     const [selectedPlace, setSelectedPlace] = useState("");
     const [selectedCat, setSelectedCat] = useState("Café");
     const [searchQuery, setSearchQuery] = useState("");
+    const [orderedItem, setOrderedItem] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
 
     const filteredSuggestions = useMemo(() => {
       if (!searchQuery) return [];
       return allPlaces
-        .filter(p =>
+        .filter((p: { name: string; category: string; zone: string; specialties: string[] }) =>
           p.category === selectedCat &&
           p.name.toLowerCase().includes(searchQuery.toLowerCase())
         )
@@ -340,16 +348,50 @@ export default function DecisionMaker() {
       if (!placeToSave) return;
       if (!user) return;
 
-      await addVisitLog(user.uid, {
-        placeName: placeToSave,
-        category: selectedCat,
-        date: Date.now()
-      });
+      setIsSaving(true);
+      try {
+        // Enregistrer la visite
+        await addVisitLog(user.uid, {
+          placeName: placeToSave,
+          category: selectedCat,
+          date: Date.now(),
+          orderedItem: orderedItem.trim() || undefined
+        });
 
-      toast({ title: "Visite ajoutée", description: `${placeToSave} a été ajouté à vos statistiques.` });
-      setOpen(false);
-      setSelectedPlace("");
-      setSearchQuery("");
+        // Si une nouvelle spécialité a été entrée, l'ajouter à la base de données du lieu
+        if (orderedItem.trim()) {
+          const trimmedItem = orderedItem.trim();
+          const placeData = allPlaces.find((p: { name: string; category: string; zone: string; specialties: string[] }) => p.name === placeToSave);
+
+          if (placeData) {
+            const existingSpecialties = placeData.specialties || [];
+            if (!existingSpecialties.some((s: string) => s.toLowerCase() === trimmedItem.toLowerCase())) {
+              // Appeler l'API pour mettre à jour les spécialités du lieu
+              try {
+                await fetch('/api/places-database-firestore', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    action: 'update',
+                    zone: placeData.zone,
+                    specialties: { [placeData.name]: [...existingSpecialties, trimmedItem] }
+                  })
+                });
+              } catch (e) {
+                console.error("Erreur lors de l'ajout de la spécialité au lieu", e);
+              }
+            }
+          }
+        }
+
+        toast({ title: "Visite ajoutée", description: `${placeToSave} a été ajouté à vos statistiques.` });
+        setOpen(false);
+        setSelectedPlace("");
+        setSearchQuery("");
+        setOrderedItem("");
+      } finally {
+        setIsSaving(false);
+      }
     };
 
     return (
@@ -369,7 +411,7 @@ export default function DecisionMaker() {
             <div className="space-y-2">
               <Label>Catégorie</Label>
               <div className="flex flex-wrap gap-2">
-                {outingOptions.map(opt => (
+                {outingOptions.map((opt: (typeof outingOptions)[0]) => (
                   <Badge
                     key={opt.id}
                     variant={selectedCat === opt.label ? "default" : "outline"}
@@ -389,7 +431,7 @@ export default function DecisionMaker() {
               <Input
                 placeholder="Ex: Café Matignon..."
                 value={selectedPlace || searchQuery}
-                onChange={(e) => {
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                   setSearchQuery(e.target.value);
                   setSelectedPlace("");
                 }}
@@ -398,7 +440,7 @@ export default function DecisionMaker() {
                 <Card className="absolute z-50 w-full mt-1 shadow-lg border-primary/20">
                   <ScrollArea className="h-auto max-h-[200px]">
                     <div className="p-1">
-                      {filteredSuggestions.map((p, idx) => (
+                      {filteredSuggestions.map((p: { name: string; category: string; zone: string; specialties: string[] }, idx: number) => (
                         <div
                           key={idx}
                           className="p-2 hover:bg-accent rounded-sm cursor-pointer text-sm flex items-center gap-2"
@@ -416,9 +458,35 @@ export default function DecisionMaker() {
                 </Card>
               )}
             </div>
+
+            <div className="space-y-2">
+              <Label>Qu'avez-vous commandé ? (Optionnel)</Label>
+              <Input
+                placeholder="Ex: Chapati, Café crème, Pizza..."
+                value={orderedItem}
+                onChange={(e) => setOrderedItem(e.target.value)}
+              />
+              {(selectedPlace || searchQuery) && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {allPlaces.find((p: { name: string }) => p.name === (selectedPlace || searchQuery))?.specialties.map((s: string, idx: number) => (
+                    <Badge
+                      key={idx}
+                      variant="outline"
+                      className="cursor-pointer hover:bg-primary/5 text-[10px] bg-white text-muted-foreground"
+                      onClick={() => setOrderedItem(s)}
+                    >
+                      {s}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleSave} disabled={!(selectedPlace || searchQuery)}>Enregistrer la visite</Button>
+            <Button onClick={handleSave} disabled={!(selectedPlace || searchQuery) || isSaving}>
+              {isSaving ? <RotateCw className="h-4 w-4 animate-spin mr-2" /> : null}
+              Enregistrer la visite
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -428,32 +496,38 @@ export default function DecisionMaker() {
   const VisitHistoryList = ({ placeName, dates }: { placeName: string; dates: number[] }) => {
     const [editingDateId, setEditingDateId] = useState<string | null>(null);
     const [editedDate, setEditedDate] = useState<string>('');
+    const [editedDish, setEditedDish] = useState<string>('');
 
-    const handleEditClick = (date: number, visitId: string) => {
-      setEditingDateId(visitId);
+    const handleEditClick = (visit: VisitLog) => {
+      setEditingDateId(visit.id);
       // Convert timestamp to datetime-local format (YYYY-MM-DDThh:mm)
-      const dateObj = new Date(date);
+      const dateObj = new Date(visit.date);
       const year = dateObj.getFullYear();
       const month = String(dateObj.getMonth() + 1).padStart(2, '0');
       const day = String(dateObj.getDate()).padStart(2, '0');
       const hours = String(dateObj.getHours()).padStart(2, '0');
       const minutes = String(dateObj.getMinutes()).padStart(2, '0');
       setEditedDate(`${year}-${month}-${day}T${hours}:${minutes}`);
+      setEditedDish(visit.orderedItem || '');
     };
 
-    const handleSaveDate = async (visitId: string) => {
-      if (!user || !editedDate) return;
+    const handleSaveVisit = async (visitId: string) => {
+      if (!user) return;
 
-      const newTimestamp = new Date(editedDate).getTime();
-      await updateVisitLog(user.uid, visitId, newTimestamp);
+      const updates: { date?: number; orderedItem?: string } = {};
+      if (editedDate) updates.date = new Date(editedDate).getTime();
+      updates.orderedItem = editedDish.trim() || undefined;
+
+      await updateVisitLog(user.uid, visitId, updates);
 
       toast({
-        title: "Date modifiée",
-        description: "La date de visite a été mise à jour avec succès."
+        title: "Visite modifiée",
+        description: "Les informations de visite ont été mises à jour."
       });
 
       setEditingDateId(null);
       setEditedDate('');
+      setEditedDish('');
     };
 
     const handleCancelEdit = () => {
@@ -464,8 +538,9 @@ export default function DecisionMaker() {
     return (
       <ScrollArea className="h-[300px] pr-4">
         <div className="space-y-3">
-          {dates.sort((a, b) => b - a).map((date, idx) => {
-            const visitId = userProfile?.visits?.find(v => v.placeName === placeName && v.date === date)?.id;
+          {dates.sort((a: number, b: number) => b - a).map((date: number, idx: number) => {
+            const visit = userProfile?.visits?.find((v: VisitLog) => v.placeName === placeName && v.date === date);
+            const visitId = visit?.id;
             if (!visitId) return null;
 
             const isEditing = editingDateId === visitId;
@@ -477,21 +552,32 @@ export default function DecisionMaker() {
               )}>
                 {isEditing ? (
                   <>
-                    <div className="flex items-center gap-2 flex-1">
-                      <Calendar className="h-4 w-4 text-primary flex-shrink-0" />
-                      <Input
-                        type="datetime-local"
-                        value={editedDate}
-                        onChange={(e) => setEditedDate(e.target.value)}
-                        className="h-8 text-sm"
-                      />
+                    <div className="flex flex-col gap-2 flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-primary flex-shrink-0" />
+                        <Input
+                          type="datetime-local"
+                          value={editedDate}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditedDate(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <UtensilsCrossed className="h-4 w-4 text-primary flex-shrink-0" />
+                        <Input
+                          placeholder="Plat commandé..."
+                          value={editedDish}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditedDish(e.target.value)}
+                          className="h-8 text-sm"
+                        />
+                      </div>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex flex-col gap-1">
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-100"
-                        onClick={() => handleSaveDate(visitId)}
+                        onClick={() => handleSaveVisit(visitId)}
                       >
                         ✓
                       </Button>
@@ -508,11 +594,19 @@ export default function DecisionMaker() {
                 ) : (
                   <>
                     <div
-                      className="flex items-center gap-3 text-sm flex-1 cursor-pointer hover:text-primary transition-colors"
-                      onClick={() => handleEditClick(date, visitId)}
+                      className="flex flex-col gap-1 flex-1 cursor-pointer hover:text-primary transition-colors"
+                      onClick={() => handleEditClick(visit)}
                     >
-                      <Calendar className="h-4 w-4 text-primary" />
-                      <span>{new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                      <div className="flex items-center gap-3 text-sm">
+                        <Calendar className="h-4 w-4 text-primary" />
+                        <span>{new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      {visit.orderedItem && (
+                        <div className="flex items-center gap-2 pl-7">
+                          <UtensilsCrossed className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-[11px] font-medium text-muted-foreground">{visit.orderedItem}</span>
+                        </div>
+                      )}
                     </div>
                     <Button
                       variant="ghost"
@@ -551,8 +645,8 @@ export default function DecisionMaker() {
     return (
       <ScrollArea className="h-[60vh] -mx-6 px-6">
         <div className="space-y-3 pb-6">
-          {sortedVisits.map((visit) => {
-            const cat = outingOptions.find(o => o.label === visit.category) || {
+          {sortedVisits.map((visit: VisitLog) => {
+            const cat = outingOptions.find((o: (typeof outingOptions)[0]) => o.label === visit.category) || {
               icon: MapPin,
               colorClass: "text-slate-600",
               bgClass: "bg-slate-100",
@@ -571,10 +665,16 @@ export default function DecisionMaker() {
                       {new Date(visit.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-0.5">
                     <p className={cn("text-xs font-bold", cat.colorClass)}>
                       {cat.label}
                     </p>
+                    {visit.orderedItem && (
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 italic">
+                        <UtensilsCrossed className="h-2.5 w-2.5" />
+                        {visit.orderedItem}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -646,7 +746,7 @@ export default function DecisionMaker() {
           </h3>
           <div className="grid gap-3">
             {stats.byPlace.length > 0 ? (
-              stats.byPlace.slice(0, 5).map(([name, data]) => (
+              stats.byPlace.slice(0, 5).map(([name, data]: [string, { count: number; category: string; dates: number[] }]) => (
                 <Dialog key={name}>
                   <DialogTrigger asChild>
                     <Card className="hover:border-primary/50 transition-all duration-300 cursor-pointer group hover:shadow-md hover:bg-muted/30">
@@ -659,14 +759,14 @@ export default function DecisionMaker() {
                             <p className="font-medium text-base sm:text-lg font-headline tracking-tight group-hover:text-primary transition-colors duration-300 truncate">
                               {name}
                               <span className="text-xs text-blue-600 ml-1 sm:ml-2 font-normal">
-                                {allPlaces.find(p => p.name === name)?.zone || ''}
+                                {allPlaces.find((p: { name: string }) => p.name === name)?.zone || ''}
                               </span>
                             </p>
                             <p className="text-xs text-muted-foreground font-medium">{data.category}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <Badge variant="secondary" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
+                          <Badge variant="secondary" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300 bg-secondary text-secondary-foreground">
                             {data.count}
                           </Badge>
                           <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform duration-300" />
@@ -739,7 +839,7 @@ export default function DecisionMaker() {
 
         <Carousel setApi={setCarouselApi} className="w-full max-w-xs mx-auto">
           <CarouselContent>
-            {suggestions.map((suggestion, index) => {
+            {suggestions.map((suggestion: Suggestion, index: number) => {
               const Icon = outingOptions.find(o => o.id === selectedCategory.id)?.icon || MapPin;
               return (
                 <CarouselItem key={index}>
@@ -825,12 +925,12 @@ export default function DecisionMaker() {
           </div>
           <CollapsibleContent>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 border rounded-md">
-              {zones.sort().map(zone => (
+              {zones.sort().map((zone: string) => (
                 <div key={zone} className="flex items-center space-x-2">
                   <Checkbox
                     id={zone}
                     checked={selectedZones.includes(zone)}
-                    onCheckedChange={(checked) => handleZoneChange(zone, !!checked)}
+                    onCheckedChange={(checked: boolean | 'indeterminate') => handleZoneChange(zone, !!checked)}
                   />
                   <Label
                     htmlFor={zone}
@@ -845,7 +945,7 @@ export default function DecisionMaker() {
         </Collapsible>
 
         <div className="grid gap-4 grid-cols-2 md:grid-cols-3">
-          {outingOptions.map((option) => {
+          {outingOptions.map((option: (typeof outingOptions)[0]) => {
             const Icon = option.icon;
             return (
               <div

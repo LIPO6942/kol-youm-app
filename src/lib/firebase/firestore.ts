@@ -30,6 +30,7 @@ export type VisitLog = {
     placeName: string;
     category: string;
     date: number; // timestamp
+    orderedItem?: string;
 };
 
 export type UserProfile = {
@@ -330,7 +331,7 @@ export async function addVisitLog(uid: string, visit: Omit<VisitLog, 'id'>) {
     }
 }
 
-export async function updateVisitLog(uid: string, visitId: string, newDate: number) {
+export async function updateVisitLog(uid: string, visitId: string, updates: { date?: number; orderedItem?: string }) {
     const localProfile = await getUserFromDb(uid);
     if (!localProfile) return;
 
@@ -340,7 +341,7 @@ export async function updateVisitLog(uid: string, visitId: string, newDate: numb
     const userRef = doc(firestoreDb, 'users', uid);
 
     // Remove the old visit and add the updated one
-    const updatedVisit = { ...visitToUpdate, date: newDate };
+    const updatedVisit = { ...visitToUpdate, ...updates };
     await updateDoc(userRef, {
         visits: arrayRemove(visitToUpdate)
     });

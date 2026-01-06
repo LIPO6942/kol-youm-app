@@ -270,8 +270,8 @@ export default function SettingsPage() {
     if (placesDatabase && databaseMode && placesDatabase.zones.length > 0) {
       // Si aucune zone n'est sélectionnée, sélectionner la première zone avec des catégories
       if (!selectedZone) {
-        const firstZoneWithCategories = placesDatabase.zones.find(zone =>
-          Object.keys(zone.categories).some(cat =>
+        const firstZoneWithCategories = placesDatabase.zones.find((zone: ZoneData) =>
+          Object.keys(zone.categories).some((cat: string) =>
             (zone.categories[cat as keyof CategoryPlaces]?.length || 0) > 0
           )
         );
@@ -427,7 +427,7 @@ export default function SettingsPage() {
   };
 
   const handleRemovePlaceFromEditing = (placeToRemove: string) => {
-    setEditedPlaces(editedPlaces.filter(p => p !== placeToRemove));
+    setEditedPlaces(editedPlaces.filter((p: string) => p !== placeToRemove));
   };
 
   // Obtenir toutes les zones disponibles
@@ -439,7 +439,7 @@ export default function SettingsPage() {
   // Obtenir les catégories disponibles pour une zone spécifique
   const getCategoriesForZone = (zone: string) => {
     if (!placesDatabase) return {};
-    const zoneData = placesDatabase.zones.find(z => z.zone === zone);
+    const zoneData = placesDatabase.zones.find((z: ZoneData) => z.zone === zone);
     return zoneData?.categories || {};
   };
 
@@ -472,10 +472,15 @@ export default function SettingsPage() {
   const getSpecialtiesForPlace = (zone: string, placeName: string): string[] => {
     if (!placesDatabase) return [];
     const zoneData = placesDatabase.zones.find((z: ZoneData) => z.zone === zone);
-    return zoneData?.specialties?.[placeName] || [];
+    if (!zoneData || !zoneData.specialties) return [];
+
+    const trimmedName = placeName.trim();
+    // Essayer avec le nom tel quel et le nom trimé
+    return zoneData.specialties[trimmedName] || zoneData.specialties[placeName] || [];
   };
 
   const handleUpdateSpecialties = async (zone: string, placeName: string, specialties: string[]) => {
+    const trimmedPlaceName = placeName.trim();
     try {
       const response = await fetch('/api/places-database-firestore', {
         method: 'POST',
@@ -483,7 +488,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           action: 'update',
           zone,
-          specialties: { [placeName]: specialties }
+          specialties: { [trimmedPlaceName]: specialties }
         })
       });
 
@@ -522,8 +527,8 @@ export default function SettingsPage() {
     let totalPlaces = 0;
     const categoriesSet = new Set<string>();
 
-    placesDatabase.zones.forEach(zone => {
-      Object.keys(zone.categories).forEach(cat => {
+    placesDatabase.zones.forEach((zone: ZoneData) => {
+      Object.keys(zone.categories).forEach((cat: string) => {
         const places = zone.categories[cat as keyof CategoryPlaces] || [];
         if (places.length > 0) {
           categoriesSet.add(cat);
@@ -965,9 +970,9 @@ export default function SettingsPage() {
                   {placesDatabase && placesDatabase.zones.length > 0 && (
                     <>
                       {/* Sélecteurs Zone et Catégorie */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <div>
-                          <h4 className="text-base font-medium mb-3">Sélectionner une zone</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Zone</Label>
                           <Select value={selectedZone} onValueChange={(value) => {
                             setSelectedZone(value);
                             // Sélectionner automatiquement la première catégorie disponible dans cette zone
@@ -981,7 +986,7 @@ export default function SettingsPage() {
                               }
                             }
                           }}>
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger className="w-full bg-background">
                               <SelectValue placeholder="Choisir une zone" />
                             </SelectTrigger>
                             <SelectContent>
@@ -993,36 +998,36 @@ export default function SettingsPage() {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div>
-                          <h4 className="text-base font-medium mb-3">Sélectionner une catégorie</h4>
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Catégorie</Label>
                           <Select
                             value={selectedCategory}
                             onValueChange={setSelectedCategory}
                             disabled={!selectedZone}
                           >
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger className="w-full bg-background">
                               <SelectValue placeholder={selectedZone ? "Choisir une catégorie" : "Sélectionnez d'abord une zone"} />
                             </SelectTrigger>
                             <SelectContent>
                               {selectedZone ? (
                                 <>
                                   <SelectItem value="cafes">
-                                    Cafés ({getPlacesForZoneAndCategory(selectedZone, 'cafes').length} lieux)
+                                    Cafés ({getPlacesForZoneAndCategory(selectedZone, 'cafes').length})
                                   </SelectItem>
                                   <SelectItem value="restaurants">
-                                    Restaurants ({getPlacesForZoneAndCategory(selectedZone, 'restaurants').length} lieux)
+                                    Restaurants ({getPlacesForZoneAndCategory(selectedZone, 'restaurants').length})
                                   </SelectItem>
                                   <SelectItem value="fastFoods">
-                                    Fast Food ({getPlacesForZoneAndCategory(selectedZone, 'fastFoods').length} lieux)
+                                    Fast Food ({getPlacesForZoneAndCategory(selectedZone, 'fastFoods').length})
                                   </SelectItem>
                                   <SelectItem value="brunch">
-                                    Brunch ({getPlacesForZoneAndCategory(selectedZone, 'brunch').length} lieux)
+                                    Brunch ({getPlacesForZoneAndCategory(selectedZone, 'brunch').length})
                                   </SelectItem>
                                   <SelectItem value="balade">
-                                    Balade ({getPlacesForZoneAndCategory(selectedZone, 'balade').length} lieux)
+                                    Balade ({getPlacesForZoneAndCategory(selectedZone, 'balade').length})
                                   </SelectItem>
                                   <SelectItem value="shopping">
-                                    Shopping ({getPlacesForZoneAndCategory(selectedZone, 'shopping').length} lieux)
+                                    Shopping ({getPlacesForZoneAndCategory(selectedZone, 'shopping').length})
                                   </SelectItem>
                                 </>
                               ) : (
@@ -1169,7 +1174,7 @@ export default function SettingsPage() {
                                 <div className="space-y-1">
                                   {/* Ajout rapide de lieu */}
                                   {(newPlaceName !== null) && (
-                                    <div className="flex gap-2 p-2 border rounded bg-blue-50">
+                                    <div className="flex flex-col sm:flex-row gap-2 p-3 border rounded bg-blue-50/50 mb-3 animate-in fade-in zoom-in-95 duration-200">
                                       <Input
                                         placeholder="Nom du nouveau lieu..."
                                         value={newPlaceName || ''}
@@ -1179,112 +1184,124 @@ export default function SettingsPage() {
                                             handleAddPlaceToZoneCategory(selectedZone, selectedCategory);
                                           }
                                         }}
-                                        className="flex-1"
+                                        className="flex-1 bg-white"
                                       />
-                                      <Button
-                                        size="sm"
-                                        onClick={() => handleAddPlaceToZoneCategory(selectedZone, selectedCategory)}
-                                        disabled={!newPlaceName || !newPlaceName.trim()}
-                                      >
-                                        <Plus className="h-3 w-3 mr-1" />
-                                        Ajouter
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => setNewPlaceName(null)}
-                                      >
-                                        <X className="h-3 w-3" />
-                                      </Button>
+                                      <div className="flex gap-2">
+                                        <Button
+                                          size="sm"
+                                          className="flex-1 sm:flex-none"
+                                          onClick={() => handleAddPlaceToZoneCategory(selectedZone, selectedCategory)}
+                                          disabled={!newPlaceName || !newPlaceName.trim()}
+                                        >
+                                          <Plus className="h-4 w-4 mr-2" />
+                                          Ajouter
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-9 w-9 p-0"
+                                          onClick={() => setNewPlaceName(null)}
+                                        >
+                                          <X className="h-4 w-4" />
+                                        </Button>
+                                      </div>
                                     </div>
                                   )}
 
                                   {/* Liste des lieux */}
-                                  <div className="grid grid-cols-1 gap-2">
+                                  <div className="grid grid-cols-1 gap-3">
                                     {getPlacesForZoneAndCategory(selectedZone, selectedCategory).map((place, index) => {
                                       const specialties = getSpecialtiesForPlace(selectedZone, place);
                                       const isEditingThis = editingSpecialties === place;
 
                                       return (
-                                        <div key={index} className="flex flex-col border rounded p-3 bg-card hover:bg-muted/30 transition-colors group">
-                                          <div className="flex items-center justify-between gap-2 overflow-hidden">
-                                            <div className="flex items-center gap-2 flex-1 overflow-hidden">
-                                              <span className="text-sm font-medium truncate">{place}</span>
-                                              <div className="flex flex-wrap gap-1">
+                                        <div key={index} className="flex flex-col border rounded p-3 sm:p-4 bg-card hover:border-blue-200 transition-all group shadow-sm">
+                                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 overflow-hidden">
+                                            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                                              <span className="text-sm font-semibold truncate">{place}</span>
+                                              <div className="flex flex-wrap gap-1.5">
                                                 {specialties.map((s, idx) => (
-                                                  <Badge key={idx} variant="outline" className="text-[10px] px-1 py-0 h-4 bg-blue-50/50 border-blue-200 text-blue-700">
+                                                  <Badge key={idx} variant="secondary" className="text-[10px] sm:text-xs px-2 py-0 h-5 bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100 transition-colors">
                                                     {s}
                                                   </Badge>
                                                 ))}
+                                                {specialties.length === 0 && !isEditingThis && (
+                                                  <span className="text-[10px] text-muted-foreground italic">Aucun plat défini</span>
+                                                )}
                                               </div>
                                             </div>
-                                            <div className="flex items-center gap-1">
+                                            <div className="flex items-center gap-2 self-end sm:self-auto pt-2 sm:pt-0 border-t sm:border-0 w-full sm:w-auto mt-2 sm:mt-0">
                                               <Button
                                                 size="sm"
-                                                variant="ghost"
+                                                variant={isEditingThis ? "default" : "outline"}
                                                 onClick={() => {
                                                   setEditingSpecialties(isEditingThis ? null : place);
                                                   setCurrentSpecialties(specialties);
                                                 }}
-                                                className={cn("h-7 px-2", isEditingThis && "text-blue-600 bg-blue-50")}
+                                                className={cn("h-8 flex-1 sm:flex-none px-3 text-xs", isEditingThis && "bg-blue-600 hover:bg-blue-700")}
                                               >
-                                                <UtensilsCrossed className="h-3.5 w-3.5 mr-1" />
-                                                <span className="text-xs">Plats</span>
+                                                <UtensilsCrossed className="h-3.5 w-3.5 mr-2" />
+                                                Modifier Plats
                                               </Button>
                                               <Button
                                                 size="sm"
                                                 variant="ghost"
                                                 onClick={() => handleRemovePlaceFromZoneCategory(selectedZone, place, selectedCategory)}
-                                                className="text-red-500 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="text-red-500 h-8 w-8 p-0 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"
                                               >
-                                                <Trash2 className="h-3.5 w-3.5" />
+                                                <Trash2 className="h-4 w-4" />
                                               </Button>
                                             </div>
                                           </div>
 
                                           {/* Éditeur de spécialités */}
                                           {isEditingThis && (
-                                            <div className="mt-3 pt-3 border-t space-y-3 animate-in slide-in-from-top-2 duration-200">
-                                              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Spécialités / Plats servis</p>
-                                              <div className="flex gap-2">
-                                                <Input
-                                                  placeholder="Ex: chapati, malfouf..."
-                                                  className="h-8 text-sm"
-                                                  onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                      const val = e.currentTarget.value.trim();
-                                                      if (val && !currentSpecialties.includes(val)) {
-                                                        const next = [...currentSpecialties, val];
-                                                        setCurrentSpecialties(next);
-                                                        e.currentTarget.value = '';
+                                            <div className="mt-4 pt-4 border-t space-y-4 animate-in slide-in-from-top-2 duration-300">
+                                              <div className="flex flex-col gap-2">
+                                                <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ajouter une spécialité</Label>
+                                                <div className="flex gap-2">
+                                                  <Input
+                                                    placeholder="Ex: chapati, malfouf..."
+                                                    className="h-9 text-sm focus-visible:ring-blue-500"
+                                                    onKeyDown={(e) => {
+                                                      if (e.key === 'Enter') {
+                                                        const val = e.currentTarget.value.trim();
+                                                        if (val && !currentSpecialties.some(s => s.toLowerCase() === val.toLowerCase())) {
+                                                          setCurrentSpecialties([...currentSpecialties, val]);
+                                                          e.currentTarget.value = '';
+                                                        }
                                                       }
-                                                    }
-                                                  }}
-                                                />
-                                                <Button
-                                                  size="sm"
-                                                  className="h-8 h-8"
-                                                  onClick={() => handleUpdateSpecialties(selectedZone, place, currentSpecialties)}
-                                                >
-                                                  <Save className="h-3.5 w-3.5 mr-1" />
-                                                  Sauver
-                                                </Button>
+                                                    }}
+                                                  />
+                                                  <Button
+                                                    size="sm"
+                                                    className="h-9 px-4 bg-green-600 hover:bg-green-700"
+                                                    onClick={() => handleUpdateSpecialties(selectedZone, place, currentSpecialties)}
+                                                  >
+                                                    <Save className="h-4 w-4 mr-2" />
+                                                    Enregistrer
+                                                  </Button>
+                                                </div>
                                               </div>
-                                              <div className="flex flex-wrap gap-1.5">
-                                                {currentSpecialties.map((s, idx) => (
-                                                  <Badge key={idx} variant="secondary" className="pr-1 gap-1 py-0 h-6 text-xs bg-muted border">
-                                                    {s}
-                                                    <button
-                                                      onClick={() => setCurrentSpecialties(currentSpecialties.filter(item => item !== s))}
-                                                      className="hover:text-red-500 rounded-full hover:bg-red-50 p-0.5"
-                                                    >
-                                                      <X className="h-2.5 w-2.5" />
-                                                    </button>
-                                                  </Badge>
-                                                ))}
-                                                {currentSpecialties.length === 0 && (
-                                                  <span className="text-xs text-muted-foreground italic">Aucun plat défini</span>
-                                                )}
+
+                                              <div className="space-y-2">
+                                                <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Liste actuelle</Label>
+                                                <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-muted/20 min-h-[40px]">
+                                                  {currentSpecialties.map((s, idx) => (
+                                                    <Badge key={idx} variant="secondary" className="pl-3 pr-1 gap-2 py-1 h-7 text-xs bg-white border-blue-200">
+                                                      {s}
+                                                      <button
+                                                        onClick={() => setCurrentSpecialties(currentSpecialties.filter(item => item !== s))}
+                                                        className="hover:text-red-600 rounded-full hover:bg-red-50 p-1 transition-colors"
+                                                      >
+                                                        <X className="h-3 w-3" />
+                                                      </button>
+                                                    </Badge>
+                                                  ))}
+                                                  {currentSpecialties.length === 0 && (
+                                                    <span className="text-xs text-muted-foreground italic py-1">Appuyez sur Entrée pour ajouter un plat</span>
+                                                  )}
+                                                </div>
                                               </div>
                                             </div>
                                           )}
