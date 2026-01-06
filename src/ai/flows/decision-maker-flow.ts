@@ -63,12 +63,18 @@ const makeDecisionFlow = ai.defineFlow(
           places = Array.from(new Set(places));
 
           const specialtiesMap = data.specialties || {};
+          // Normalize specialtiesMap keys for robust lookup
+          const normalizedSpecialties: Record<string, string[]> = {};
+          Object.keys(specialtiesMap).forEach(key => {
+            normalizedSpecialties[key.trim().toLowerCase()] = specialtiesMap[key];
+          });
 
           if (Array.isArray(places) && places.length > 0) {
             const zoneName = data.zone || doc.id;
             const placesWithSpecialties = places.map(p => {
-              const sList = specialtiesMap[p] || [];
-              return sList.length > 0 ? `${p} (Spécialités: ${sList.join(', ')})` : p;
+              const trimmedP = p.trim().toLowerCase();
+              const sList = normalizedSpecialties[trimmedP] || [];
+              return sList.length > 0 ? `${p} (DISHES: ${sList.join(', ')})` : p;
             });
 
             // Simplified format for better AI parsing, used by fallback too
@@ -122,14 +128,14 @@ CONTRAINTES UTILISATEUR :
 TES INSTRUCTIONS :
 1. ANALYSE : Trouve tous les lieux listés sous les zones demandées. 
 2. FILTRE PAR PLAT : Si une recherche spécifique "{{query}}" est fournie :
-   - Priorité ABSOLUE aux lieux qui ont explicitement "{{query}}" listé dans leurs "Spécialités" dans le contexte fourni.
-   - Si aucune correspondance exacte n'est trouvée dans les Spécialités, utilise tes connaissances sur Tunis pour identifier PARMI LA LISTE DES LIEUX FOURNIE ceux qui sont les plus réputés pour ce plat. 
+   - Tu DOIS donner la priorité absolue aux lieux qui ont "{{query}}" listé dans leurs "DISHES" (Spécialités) dans le contexte fourni ci-dessus. C'est ton critère de choix principal.
+   - Si et seulement si aucune correspondance n'est trouvée dans les "DISHES", utilise tes connaissances sur Tunis pour identifier PARMI LA LISTE DES LIEUX FOURNIE ceux qui sont les plus réputés pour ce plat. 
 3. SÉLECTION : Choisis 2 lieux qui correspondent au mieux à la requête. Si aucune requête n'est fournie, choisis au hasard parmi les correspondances de zone. Utilise le nombre {{randomNumber}} pour varier ton choix.
 4. RETOUR : Retourne UNIQUEMENT le JSON avec les 2 suggestions.
 
 Règles d'or :
 - Tu DOIS rester fidèle à la LISTE DES LIEUX DISPONIBLES fournie dans placesContext. N'invente pas de nouveaux noms d'enseignes.
-- Si un lieu a une spécialité qui correspond à "{{query}}", mentionne-le EXPLICITEMENT dans la description.
+- Si un lieu a une spécialité qui correspond à "{{query}}", mentionne-le EXPLICITEMENT dans la description (ex: "Réputé pour ses {{query}}").
 `
       );
     }
@@ -158,29 +164,32 @@ Règles d'or :
     if (combinedSuggestions.length === 0) {
       console.log("[AI Flow] AI returned 0 suggestions. Attempting manual fallback.");
 
-      function fallbackSelection(context: string, zones?: string[]): Suggestion[] {
+      function fallbackSelection(context: string, zones?: string[], query?: string): Suggestion[] {
         const zoneBlocks = context.split('---');
-        let allPlaces: { name: string, zone: string }[] = [];
+        let allPlaces: { name: string, zone: string, isMatch: boolean }[] = [];
 
         for (const block of zoneBlocks) {
           const zoneMatch = block.match(/ZONE: (.*)\n/);
           const placesMatch = block.match(/LIEUX: (.*)\n/);
           if (zoneMatch && placesMatch) {
             const zone = zoneMatch[1].trim();
-            const places = placesMatch[1].split(',').map(p => p.trim()).filter(p => p);
+            const placesRaw = placesMatch[1].split(',').map(p => p.trim()).filter(p => p);
 
             // Filter by requested zones (fuzzy)
-            let isMatch = true;
+            let isZoneMatch = true;
             if (zones && zones.length > 0) {
-              isMatch = zones.some(z => {
+              isZoneMatch = zones.some(z => {
                 const z1 = z.toLowerCase().replace(/nord|sud|est|ouest/g, '').trim();
                 const z2 = zone.toLowerCase().replace(/nord|sud|est|ouest/g, '').trim();
                 return zone.toLowerCase().includes(z.toLowerCase()) || z.toLowerCase().includes(zone.toLowerCase()) || z1.includes(z2) || z2.includes(z1);
               });
             }
 
-            if (isMatch) {
-              places.forEach(p => allPlaces.push({ name: p, zone: zone }));
+            if (isZoneMatch) {
+              placesRaw.forEach(p => {
+                const isDishMatch = query ? p.toLowerCase().includes(query.toLowerCase()) : false;
+                allPlaces.push({ name: p.split(' (DISHES:')[0], zone: zone, isMatch: isDishMatch });
+              });
             }
           }
         }
@@ -192,19 +201,25 @@ Règles d'or :
 
         if (allPlaces.length === 0) return [];
 
+        // Prioritize matches
+        let candidates = allPlaces.filter(p => p.isMatch);
+        if (candidates.length === 0) candidates = allPlaces;
+
         // Randomly select 2
-        const shuffled = allPlaces.sort(() => 0.5 - Math.random());
+        const shuffled = candidates.sort(() => 0.5 - Math.random());
         const selected = shuffled.slice(0, 2);
 
         return selected.map(p => ({
           placeName: p.name,
-          description: `Un super endroit à découvrir à ${p.zone} ! (Suggestion Automatique)`,
+          description: p.isMatch
+            ? `Un excellent choix pour vos envies de ${query} ! (Suggestion Automatique)`
+            : `Un super endroit à découvrir à ${p.zone} ! (Suggestion Automatique)`,
           location: p.zone,
           googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ' ' + p.zone + ' Tunis')}`
         }));
       }
 
-      combinedSuggestions = fallbackSelection(placesContext, input.zones);
+      combinedSuggestions = fallbackSelection(placesContext, input.zones, input.query);
     }
 
     return { suggestions: combinedSuggestions };
