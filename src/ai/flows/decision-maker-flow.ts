@@ -23,10 +23,9 @@ const makeDecisionFlow = ai.defineFlow(
   async input => {
 
     // Dynamic Fetching Logic
-    async function getPlacesContext(category: string): Promise<string> {
-      console.log(`[AI Flow] Fetching places for category: ${category}`);
+    async function getPlacesContext(category: string, query?: string): Promise<string> {
+      console.log(`[AI Flow] Fetching places for category: ${category}, query: ${query}`);
       try {
-        // Use the shared client to ensure same DB instance/config as the frontend
         const { db } = await import('@/lib/firebase/client');
         const { collection, getDocs } = await import('firebase/firestore');
 
@@ -46,42 +45,48 @@ const makeDecisionFlow = ai.defineFlow(
 
         if (!primaryKey) return "Aucune liste de lieux disponible pour cette catégorie.";
 
-        // Begin context with a summary header for debugging
+        const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[aeiouy]/g, "_").trim();
+        const normalizedQuery = query ? normalize(query) : "";
+
         let context = `LISTE DES LIEUX DISPONIBLES (Classés par zone) :\n`;
+        let exactMatchesContext = `CORRESPONDANCES EXACTES DANS LA BASE (Priorité #1) :\n`;
+        let hasExactMatches = false;
         let hasPlaces = false;
-        let totalPlacesFound = 0;
-        let debugZoneCount = 0;
 
         zonesSnapshot.forEach(doc => {
           const data = doc.data();
-          // Merge primary and fallback keys if they exist
           let places: string[] = data[primaryKey] || [];
           if (fallbackKey && data[fallbackKey]) {
             places = [...places, ...data[fallbackKey]];
           }
-          // Deduplicate
           places = Array.from(new Set(places));
 
           const specialtiesMap = data.specialties || {};
-          // Normalize specialtiesMap keys for robust lookup
-          const normalizedSpecialties: Record<string, string[]> = {};
-          Object.keys(specialtiesMap).forEach(key => {
-            normalizedSpecialties[key.trim().toLowerCase()] = specialtiesMap[key];
-          });
+          const zoneName = data.zone || doc.id;
 
           if (Array.isArray(places) && places.length > 0) {
-            const zoneName = data.zone || doc.id;
             const placesWithSpecialties = places.map(p => {
-              const trimmedP = p.trim().toLowerCase();
-              const sList = normalizedSpecialties[trimmedP] || [];
-              return sList.length > 0 ? `${p} (DISHES: ${sList.join(', ')})` : p;
+              const sList: string[] = specialtiesMap[p] || [];
+
+              // Check for fuzzy match if query exists
+              let isExactDishMatch = false;
+              if (normalizedQuery) {
+                isExactDishMatch = sList.some(s => normalize(s) === normalizedQuery || normalize(s).includes(normalizedQuery) || normalizedQuery.includes(normalize(s)));
+              }
+
+              const dishInfo = sList.length > 0 ? ` (DISHES: ${sList.join(', ')})` : '';
+              const placeEntry = `${p}${dishInfo}`;
+
+              if (isExactDishMatch) {
+                exactMatchesContext += `- ${p} (Zone: ${zoneName}, Plats: ${sList.join(', ')})\n`;
+                hasExactMatches = true;
+              }
+
+              return placeEntry;
             });
 
-            // Simplified format for better AI parsing, used by fallback too
             context += `ZONE: ${zoneName}\nLIEUX: ${placesWithSpecialties.join(', ')}\n---\n`;
             hasPlaces = true;
-            totalPlacesFound += places.length;
-            debugZoneCount++;
           }
         });
 
@@ -89,15 +94,15 @@ const makeDecisionFlow = ai.defineFlow(
           return `Aucun lieu trouvé pour la catégorie "${category}".`;
         }
 
-        return context;
+        return (hasExactMatches ? exactMatchesContext + "\n" : "") + context;
 
       } catch (error) {
-        console.error(`Error fetching places context for category ${category}:`, error);
+        console.error(`Error fetching places context:`, error);
         return "";
       }
     }
 
-    const placesContext = await getPlacesContext(input.category);
+    const placesContext = await getPlacesContext(input.category, input.query);
 
 
     if (!makeDecisionPrompt) {
@@ -123,26 +128,22 @@ CONTRAINTES UTILISATEUR :
 - Catégorie : "{{category}}"
 - Recherche spécifique / Plat : "{{#if query}}{{query}}{{else}}Aucun{{/if}}"
 - Zones souhaitées : {{#if zones.length}}{{#each zones}}{{this}}, {{/each}}{{else}}Toutes zones acceptées{{/if}}
-- À éviter (déjà vus) : {{#if seenPlaceNames}}{{#each seenPlaceNames}}{{this}}, {{/each}}{{else}}Aucun{{/if}}
 
-TES INSTRUCTIONS :
-1. ANALYSE : Trouve tous les lieux listés sous les zones demandées. 
-2. FILTRE PAR PLAT : Si une recherche spécifique "{{query}}" est fournie :
-   - Tu DOIS donner la priorité absolue aux lieux qui ont "{{query}}" listé dans leurs "DISHES" (Spécialités) dans le contexte fourni ci-dessus. C'est ton critère de choix principal.
-   - Si et seulement si aucune correspondance n'est trouvée dans les "DISHES", utilise tes connaissances sur Tunis pour identifier PARMI LA LISTE DES LIEUX FOURNIE ceux qui sont les plus réputés pour ce plat. 
-3. SÉLECTION : Choisis 2 lieux qui correspondent au mieux à la requête. Si aucune requête n'est fournie, choisis au hasard parmi les correspondances de zone. Utilise le nombre {{randomNumber}} pour varier ton choix.
-4. RETOUR : Retourne UNIQUEMENT le JSON avec les 2 suggestions.
+TES INSTRUCTIONS CRITIQUES :
+1. PRIORITÉ ABSOLUE : Si la section "CORRESPONDANCES EXACTES DANS LA BASE" est présente dans placesContext, tu DOIS choisir tes suggestions PARMI CES LIEUX en priorité.
+2. RECHERCHE PAR PLAT : Si l'utilisateur cherche "{{query}}" :
+   - Ignore le nom des enseignes (ex: ne suggère pas une Pizzeria juste parce qu'il y a "Pizza" dans le nom si elle n'a pas "Pizza" dans ses DISHES).
+   - FIE-TOI UNIQUEMENT aux plats listés dans "DISHES" ou dans la section "CORRESPONDANCES EXACTES".
+   - Si aucune correspondance n'est trouvée dans les données fournies, refuse de suggérer un lieu au hasard pour ce plat spécifique.
+3. JUSTIFICATION : Dans la description de chaque suggestion, tu DOIS mentionner explicitement le plat trouvé (ex: "J'ai choisi cet endroit car il propose d'excellents {{query}} selon notre base").
+4. SÉLECTION : Propose 2 lieux.
 
-Règles d'or :
-- Tu DOIS rester fidèle à la LISTE DES LIEUX DISPONIBLES fournie dans placesContext. N'invente pas de nouveaux noms d'enseignes.
-- Si un lieu a une spécialité qui correspond à "{{query}}", mentionne-le EXPLICITEMENT dans la description (ex: "Réputé pour ses {{query}}").
+Règle d'or : N'invente pas de plats pour un lieu s'ils ne sont pas dans les données fournies.
 `
       );
     }
 
-    // Pass context to prompt
-    // If we have a debug error, skip the AI generation to avoid waste/confusion
-    if (placesContext.startsWith('DEBUG_ERROR:') || placesContext.startsWith('Aucun lieu')) {
+    if (placesContext.startsWith('Aucun lieu')) {
       return { suggestions: [] };
     }
 
@@ -160,11 +161,13 @@ Règles d'or :
     }
 
     // --- MANUAL FALLBACK MECHANISM ---
-    // If AI returns nothing but we have data, picking manually.
     if (combinedSuggestions.length === 0) {
       console.log("[AI Flow] AI returned 0 suggestions. Attempting manual fallback.");
 
       function fallbackSelection(context: string, zones?: string[], query?: string): Suggestion[] {
+        const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[aeiouy]/g, "_").trim();
+        const normalizedQuery = query ? normalize(query) : "";
+
         const zoneBlocks = context.split('---');
         let allPlaces: { name: string, zone: string, isMatch: boolean }[] = [];
 
@@ -175,45 +178,33 @@ Règles d'or :
             const zone = zoneMatch[1].trim();
             const placesRaw = placesMatch[1].split(',').map(p => p.trim()).filter(p => p);
 
-            // Filter by requested zones (fuzzy)
             let isZoneMatch = true;
             if (zones && zones.length > 0) {
-              isZoneMatch = zones.some(z => {
-                const z1 = z.toLowerCase().replace(/nord|sud|est|ouest/g, '').trim();
-                const z2 = zone.toLowerCase().replace(/nord|sud|est|ouest/g, '').trim();
-                return zone.toLowerCase().includes(z.toLowerCase()) || z.toLowerCase().includes(zone.toLowerCase()) || z1.includes(z2) || z2.includes(z1);
-              });
+              isZoneMatch = zones.some(z => zone.toLowerCase().includes(z.toLowerCase()) || z.toLowerCase().includes(zone.toLowerCase()));
             }
 
             if (isZoneMatch) {
               placesRaw.forEach(p => {
-                const isDishMatch = query ? p.toLowerCase().includes(query.toLowerCase()) : false;
+                const isDishMatch = normalizedQuery ? normalize(p).includes(normalizedQuery) : false;
                 allPlaces.push({ name: p.split(' (DISHES:')[0], zone: zone, isMatch: isDishMatch });
               });
             }
           }
         }
 
-        // Filter seen places
-        if (input.seenPlaceNames && input.seenPlaceNames.length > 0) {
-          allPlaces = allPlaces.filter(p => !input.seenPlaceNames!.includes(p.name));
+        if (allPlaces.length === 0) return [];
+        let candidates = allPlaces.filter(p => p.isMatch);
+        if (candidates.length === 0) {
+          if (query) return []; // If searching for a specific dish and found nothing, better to return nothing
+          candidates = allPlaces;
         }
 
-        if (allPlaces.length === 0) return [];
-
-        // Prioritize matches
-        let candidates = allPlaces.filter(p => p.isMatch);
-        if (candidates.length === 0) candidates = allPlaces;
-
-        // Randomly select 2
-        const shuffled = candidates.sort(() => 0.5 - Math.random());
-        const selected = shuffled.slice(0, 2);
-
+        const selected = candidates.sort(() => 0.5 - Math.random()).slice(0, 2);
         return selected.map(p => ({
           placeName: p.name,
           description: p.isMatch
-            ? `Un excellent choix pour vos envies de ${query} ! (Suggestion Automatique)`
-            : `Un super endroit à découvrir à ${p.zone} ! (Suggestion Automatique)`,
+            ? `Recommandé pour ses ${query} ! (Sélection validée)`
+            : `Un super endroit à découvrir à ${p.zone} !`,
           location: p.zone,
           googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name + ' ' + p.zone + ' Tunis')}`
         }));
