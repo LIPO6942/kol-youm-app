@@ -44,6 +44,7 @@ interface CategoryPlaces {
 interface ZoneData {
   zone: string;
   categories: CategoryPlaces;
+  specialties?: Record<string, string[]>;
 }
 
 interface PlacesDatabase {
@@ -84,7 +85,8 @@ export async function GET() {
           brunch: data.brunch || [],
           balade: data.balade || [],
           shopping: data.shopping || []
-        }
+        },
+        specialties: data.specialties || {}
       } as ZoneData;
     });
 
@@ -108,9 +110,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { action, zone, places, category, initFromLocal } = await request.json();
+    const { action, zone, places, category, specialties, initFromLocal } = await request.json();
 
-    console.log('Firestore API Request:', { action, zone, places: places?.length, category, initFromLocal });
+    console.log('Firestore API Request:', { action, zone, places: places?.length, category, hasSpecialties: !!specialties, initFromLocal });
 
     if (action === 'init' && initFromLocal) {
       // Initialiser Firestore avec les données du fichier local
@@ -294,17 +296,23 @@ export async function POST(request: NextRequest) {
         if (!zoneData.shopping) zoneData.shopping = [];
       }
 
-      // Mettre à jour la catégorie spécifique
-      // Normaliser le nom de la catégorie
-      const categoryKey = category === 'cafés' || category === 'Café' || category === 'cafes' ? 'cafes' :
-        category === 'restaurant' || category === 'Restaurant' || category === 'restaurants' ? 'restaurants' :
-          category === 'fast-food' || category === 'Fast Food' || category === 'fastFoods' || category === 'fastfoods' ? 'fastFoods' :
-            category === 'Brunch' || category === 'brunch' ? 'brunch' :
-              category === 'Balade' || category === 'balade' ? 'balade' :
-                category === 'Shopping' || category === 'shopping' ? 'shopping' :
-                  category.toLowerCase();
+      if (category) {
+        // Mettre à jour la catégorie spécifique
+        // Normaliser le nom de la catégorie
+        const categoryKey = category === 'cafés' || category === 'Café' || category === 'cafes' ? 'cafes' :
+          category === 'restaurant' || category === 'Restaurant' || category === 'restaurants' ? 'restaurants' :
+            category === 'fast-food' || category === 'Fast Food' || category === 'fastFoods' || category === 'fastfoods' ? 'fastFoods' :
+              category === 'Brunch' || category === 'brunch' ? 'brunch' :
+                category === 'Balade' || category === 'balade' ? 'balade' :
+                  category === 'Shopping' || category === 'shopping' ? 'shopping' :
+                    category.toLowerCase();
 
-      zoneData[categoryKey] = places;
+        zoneData[categoryKey] = places;
+      }
+
+      if (specialties) {
+        zoneData.specialties = { ...(zoneData.specialties || {}), ...specialties };
+      }
 
       // Sauvegarder dans Firestore
       await setDoc(doc(db, 'zones', zoneId), zoneData);

@@ -16,14 +16,14 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, User, UserSquare, UploadCloud, MapPin, Plus, Trash2, Edit2, Save, X, Database, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
   age: z.coerce.number().min(13, { message: 'Vous devez avoir au moins 13 ans.' }).max(120, { message: 'Âge invalide.' }).optional().or(z.literal('')),
@@ -61,6 +61,7 @@ interface CategoryPlaces {
 interface ZoneData {
   zone: string;
   categories: CategoryPlaces;
+  specialties?: Record<string, string[]>;
 }
 
 interface PlacesDatabase {
@@ -222,6 +223,8 @@ export default function SettingsPage() {
   const [newPlaceName, setNewPlaceName] = useState<string | null>(null);
   const [selectedZone, setSelectedZone] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('cafes');
+  const [editingSpecialties, setEditingSpecialties] = useState<string | null>(null); // placeName
+  const [currentSpecialties, setCurrentSpecialties] = useState<string[]>([]);
 
   // Charger la base de données des lieux
   const loadPlacesDatabase = async () => {
@@ -464,6 +467,38 @@ export default function SettingsPage() {
       'shopping': 'Shopping'
     };
     return names[category] || category.charAt(0).toUpperCase() + category.slice(1);
+  };
+
+  const getSpecialtiesForPlace = (zone: string, placeName: string): string[] => {
+    if (!placesDatabase) return [];
+    const zoneData = placesDatabase.zones.find((z: ZoneData) => z.zone === zone);
+    return zoneData?.specialties?.[placeName] || [];
+  };
+
+  const handleUpdateSpecialties = async (zone: string, placeName: string, specialties: string[]) => {
+    try {
+      const response = await fetch('/api/places-database-firestore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update',
+          zone,
+          specialties: { [placeName]: specialties }
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setEditingSpecialties(null);
+        loadPlacesDatabase();
+        toast({
+          title: 'Spécialités mises à jour',
+          description: `Les plats pour ${placeName} ont été enregistrés`
+        });
+      }
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Erreur lors de la mise à jour des plats' });
+    }
   };
 
   // Obtenir toutes les catégories disponibles (toutes les zones confondues)
@@ -1165,20 +1200,97 @@ export default function SettingsPage() {
                                   )}
 
                                   {/* Liste des lieux */}
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
-                                    {getPlacesForZoneAndCategory(selectedZone, selectedCategory).map((place, index) => (
-                                      <div key={index} className="flex items-center justify-between p-2 border rounded hover:bg-muted/50 group">
-                                        <span className="text-sm truncate">{place}</span>
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          onClick={() => handleRemovePlaceFromZoneCategory(selectedZone, place, selectedCategory)}
-                                          className="text-red-500 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                          <Trash2 className="h-3 w-3" />
-                                        </Button>
-                                      </div>
-                                    ))}
+                                  <div className="grid grid-cols-1 gap-2">
+                                    {getPlacesForZoneAndCategory(selectedZone, selectedCategory).map((place, index) => {
+                                      const specialties = getSpecialtiesForPlace(selectedZone, place);
+                                      const isEditingThis = editingSpecialties === place;
+
+                                      return (
+                                        <div key={index} className="flex flex-col border rounded p-3 bg-card hover:bg-muted/30 transition-colors group">
+                                          <div className="flex items-center justify-between gap-2 overflow-hidden">
+                                            <div className="flex items-center gap-2 flex-1 overflow-hidden">
+                                              <span className="text-sm font-medium truncate">{place}</span>
+                                              <div className="flex flex-wrap gap-1">
+                                                {specialties.map((s, idx) => (
+                                                  <Badge key={idx} variant="outline" className="text-[10px] px-1 py-0 h-4 bg-blue-50/50 border-blue-200 text-blue-700">
+                                                    {s}
+                                                  </Badge>
+                                                ))}
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => {
+                                                  setEditingSpecialties(isEditingThis ? null : place);
+                                                  setCurrentSpecialties(specialties);
+                                                }}
+                                                className={cn("h-7 px-2", isEditingThis && "text-blue-600 bg-blue-50")}
+                                              >
+                                                <UtensilsCrossed className="h-3.5 w-3.5 mr-1" />
+                                                <span className="text-xs">Plats</span>
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => handleRemovePlaceFromZoneCategory(selectedZone, place, selectedCategory)}
+                                                className="text-red-500 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                              >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                              </Button>
+                                            </div>
+                                          </div>
+
+                                          {/* Éditeur de spécialités */}
+                                          {isEditingThis && (
+                                            <div className="mt-3 pt-3 border-t space-y-3 animate-in slide-in-from-top-2 duration-200">
+                                              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Spécialités / Plats servis</p>
+                                              <div className="flex gap-2">
+                                                <Input
+                                                  placeholder="Ex: chapati, malfouf..."
+                                                  className="h-8 text-sm"
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                      const val = e.currentTarget.value.trim();
+                                                      if (val && !currentSpecialties.includes(val)) {
+                                                        const next = [...currentSpecialties, val];
+                                                        setCurrentSpecialties(next);
+                                                        e.currentTarget.value = '';
+                                                      }
+                                                    }
+                                                  }}
+                                                />
+                                                <Button
+                                                  size="sm"
+                                                  className="h-8 h-8"
+                                                  onClick={() => handleUpdateSpecialties(selectedZone, place, currentSpecialties)}
+                                                >
+                                                  <Save className="h-3.5 w-3.5 mr-1" />
+                                                  Sauver
+                                                </Button>
+                                              </div>
+                                              <div className="flex flex-wrap gap-1.5">
+                                                {currentSpecialties.map((s, idx) => (
+                                                  <Badge key={idx} variant="secondary" className="pr-1 gap-1 py-0 h-6 text-xs bg-muted border">
+                                                    {s}
+                                                    <button
+                                                      onClick={() => setCurrentSpecialties(currentSpecialties.filter(item => item !== s))}
+                                                      className="hover:text-red-500 rounded-full hover:bg-red-50 p-0.5"
+                                                    >
+                                                      <X className="h-2.5 w-2.5" />
+                                                    </button>
+                                                  </Badge>
+                                                ))}
+                                                {currentSpecialties.length === 0 && (
+                                                  <span className="text-xs text-muted-foreground italic">Aucun plat défini</span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                   {getPlacesForZoneAndCategory(selectedZone, selectedCategory).length === 0 && (
                                     <div className="text-center py-4">

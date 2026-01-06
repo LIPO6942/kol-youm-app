@@ -30,9 +30,10 @@ function LoginForm() {
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace('/stylek');
+      const nextUrl = searchParams.get('next');
+      router.replace(nextUrl || '/stylek');
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, searchParams]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),

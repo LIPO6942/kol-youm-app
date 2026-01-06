@@ -30,7 +30,9 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace('/stylek');
+      const searchParams = new URLSearchParams(window.location.search);
+      const nextUrl = searchParams.get('next');
+      router.replace(nextUrl || '/stylek');
     }
   }, [user, loading, router]);
 

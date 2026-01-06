@@ -1,4 +1,4 @@
-import {z} from 'genkit';
+import { z } from 'genkit';
 
 export const MakeDecisionInputSchema = z.object({
   category: z
@@ -11,6 +11,7 @@ export const MakeDecisionInputSchema = z.object({
     .describe('The city where the user is, for context. e.g. "Tunis"'),
   zones: z.array(z.string()).optional().describe('A list of specific zones to filter the suggestions, e.g. ["La Marsa", "Gammarth"].'),
   seenPlaceNames: z.array(z.string()).optional().describe('A list of place names the user has already seen, to avoid duplicates.'),
+  query: z.string().optional().describe('An optional search query or dish name to filter suggestions, e.g. "chapati", "lablabi".'),
 });
 export type MakeDecisionInput = z.infer<typeof MakeDecisionInputSchema>;
 

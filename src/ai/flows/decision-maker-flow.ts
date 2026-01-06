@@ -55,17 +55,24 @@ const makeDecisionFlow = ai.defineFlow(
         zonesSnapshot.forEach(doc => {
           const data = doc.data();
           // Merge primary and fallback keys if they exist
-          let places = data[primaryKey] || [];
+          let places: string[] = data[primaryKey] || [];
           if (fallbackKey && data[fallbackKey]) {
             places = [...places, ...data[fallbackKey]];
           }
           // Deduplicate
           places = Array.from(new Set(places));
 
+          const specialtiesMap = data.specialties || {};
+
           if (Array.isArray(places) && places.length > 0) {
             const zoneName = data.zone || doc.id;
+            const placesWithSpecialties = places.map(p => {
+              const sList = specialtiesMap[p] || [];
+              return sList.length > 0 ? `${p} (Spécialités: ${sList.join(', ')})` : p;
+            });
+
             // Simplified format for better AI parsing, used by fallback too
-            context += `ZONE: ${zoneName}\nLIEUX: ${places.join(', ')}\n---\n`;
+            context += `ZONE: ${zoneName}\nLIEUX: ${placesWithSpecialties.join(', ')}\n---\n`;
             hasPlaces = true;
             totalPlacesFound += places.length;
             debugZoneCount++;
@@ -95,9 +102,9 @@ const makeDecisionFlow = ai.defineFlow(
             category: z.string(),
             city: z.string(),
             zones: z.array(z.string()).optional(),
-            seenPlaceNames: z.array(z.string()).optional(),
             placesContext: z.string(),
             randomNumber: z.number().optional(),
+            query: z.string().optional(),
           }),
           outputSchema: MakeDecisionOutputSchema,
         },
@@ -108,18 +115,21 @@ DONNÉES DE RÉFÉRENCE (Utilise UNIQUEMENT ces lieux) :
 
 CONTRAINTES UTILISATEUR :
 - Catégorie : "{{category}}"
+- Recherche spécifique / Plat : "{{#if query}}{{query}}{{else}}Aucun{{/if}}"
 - Zones souhaitées : {{#if zones.length}}{{#each zones}}{{this}}, {{/each}}{{else}}Toutes zones acceptées{{/if}}
 - À éviter (déjà vus) : {{#if seenPlaceNames}}{{#each seenPlaceNames}}{{this}}, {{/each}}{{else}}Aucun{{/if}}
 
 TES INSTRUCTIONS :
-1. ANALYSE : Trouve tous les lieux listés sous les zones demandées. Si une zone demandée n'est pas écrite exactement pareil (ex: "Ain Zaghouan" vs "Ain Zaghouan Nord"), accepte la correspondance si c'est pertinent.
-2. SÉLECTION : Choisis 2 lieux au hasard parmi les correspondances. Utilise le nombre {{randomNumber}} pour varier ton choix.
-3. RETOUR : Retourne UNIQUEMENT le JSON avec les 2 suggestions.
+1. ANALYSE : Trouve tous les lieux listés sous les zones demandées. 
+2. FILTRE PAR PLAT : Si une recherche spécifique "{{query}}" est fournie :
+   - Priorité ABSOLUE aux lieux qui ont explicitement "{{query}}" listé dans leurs "Spécialités" dans le contexte fourni.
+   - Si aucune correspondance exacte n'est trouvée dans les Spécialités, utilise tes connaissances sur Tunis pour identifier PARMI LA LISTE DES LIEUX FOURNIE ceux qui sont les plus réputés pour ce plat. 
+3. SÉLECTION : Choisis 2 lieux qui correspondent au mieux à la requête. Si aucune requête n'est fournie, choisis au hasard parmi les correspondances de zone. Utilise le nombre {{randomNumber}} pour varier ton choix.
+4. RETOUR : Retourne UNIQUEMENT le JSON avec les 2 suggestions.
 
 Règles d'or :
-- Si tu trouves des lieux dans la zone demandée, tu DOIS en suggérer (ne renvoie pas vide).
-- Si tu ne trouves RIEN dans la zone demandée, cherche dans les zones voisines ou retourne une liste vide.
-- Invente une description courte pour chaque lieu si tu n'en as pas, mais le nom du lieu et la zone doivent être exacts.
+- Tu DOIS rester fidèle à la LISTE DES LIEUX DISPONIBLES fournie dans placesContext. N'invente pas de nouveaux noms d'enseignes.
+- Si un lieu a une spécialité qui correspond à "{{query}}", mentionne-le EXPLICITEMENT dans la description.
 `
       );
     }

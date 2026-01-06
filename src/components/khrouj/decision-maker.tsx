@@ -80,35 +80,6 @@ export default function DecisionMaker() {
   const { user, userProfile } = useAuth();
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
 
-  // Deep Linking Logic
-  const searchParams = useSearchParams();
-  const hasAutoTriggered = useRef(false);
-
-  useEffect(() => {
-    if (user && !hasAutoTriggered.current) {
-      const categoryParam = searchParams.get('category');
-      if (categoryParam) {
-        // Normalize input: lowercase and remove trailing 's' to handle plurals
-        const normalizedParam = categoryParam.toLowerCase().replace(/s$/, '');
-
-        const targetOption = outingOptions.find(opt =>
-          opt.id === categoryParam ||
-          opt.id === normalizedParam ||
-          opt.label.toLowerCase() === normalizedParam
-        );
-
-        if (targetOption) {
-          hasAutoTriggered.current = true;
-          handleCategorySelect(targetOption);
-          // Optional: Display a visual feedback
-          toast({
-            title: "Suggestion Automatique",
-            description: `Recherche de ${targetOption.label}s pour votre plat...`,
-          });
-        }
-      }
-    }
-  }, [user, searchParams]);
 
   // Assisted selection data
   const [allPlaces, setAllPlaces] = useState<{ name: string; category: string; zone: string }[]>([]);
@@ -174,7 +145,7 @@ export default function DecisionMaker() {
     console.error(error);
   };
 
-  const fetchSuggestions = useCallback(async (category: (typeof outingOptions)[0], zones: string[]) => {
+  const fetchSuggestions = useCallback(async (category: (typeof outingOptions)[0], zones: string[], query?: string) => {
     setIsLoading(true);
     setSuggestions([]); // Clear old suggestions immediately
 
@@ -192,6 +163,7 @@ export default function DecisionMaker() {
         city: 'Tunis',
         zones: zones.length > 0 ? zones : undefined,
         seenPlaceNames: combinedSeenPlaces,
+        query: query,
       });
 
       const newPlaceNames = response.suggestions.map(s => s.placeName);
@@ -218,6 +190,45 @@ export default function DecisionMaker() {
     setSelectedCategory(category);
     fetchSuggestions(category, selectedZones);
   };
+
+  // Deep Linking Logic
+  const searchParams = useSearchParams();
+  const hasAutoTriggered = useRef(false);
+
+  useEffect(() => {
+    if (user && !hasAutoTriggered.current) {
+      const categoryParam = searchParams.get('category');
+      const queryParam = searchParams.get('query');
+
+      if (categoryParam || queryParam) {
+        // Default to fast-food if only query is provided
+        const normalizedCategory = (categoryParam || 'fast-food').toLowerCase().replace(/s$/, '');
+
+        const targetOption = outingOptions.find(opt =>
+          opt.id === normalizedCategory ||
+          opt.label.toLowerCase() === normalizedCategory
+        );
+
+        if (targetOption) {
+          hasAutoTriggered.current = true;
+          // Reset session memory and set state
+          setSeenSuggestions([]);
+          setSelectedCategory(targetOption);
+
+          // Fetch with query if present
+          fetchSuggestions(targetOption, selectedZones, queryParam || undefined);
+
+          toast({
+            title: "Suggestion Automatique",
+            description: queryParam
+              ? `Recherche de ${targetOption.label}s pour : ${queryParam}...`
+              : `Recherche de ${targetOption.label}s pour votre plat...`,
+          });
+        }
+      }
+    }
+  }, [user, searchParams, fetchSuggestions, selectedZones]);
+
 
   const handleZoneChange = (zone: string, checked: boolean) => {
     setSelectedZones(prevSelectedZones => {
