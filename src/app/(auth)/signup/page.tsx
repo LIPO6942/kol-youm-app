@@ -1,6 +1,4 @@
-'use client';
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
@@ -8,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
+import { useAuth } from '@/hooks/use-auth';
 import { createUserProfile } from '@/lib/firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,9 +21,16 @@ const formSchema = z.object({
 });
 
 export default function SignupPage() {
+  const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace('/stylek');
+    }
+  }, [user, loading, router]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -40,7 +46,7 @@ export default function SignupPage() {
     } catch (error: any) {
       console.error("Signup Error Full Details:", error);
       let description = "Une erreur inattendue s'est produite. Veuillez réessayer.";
-      
+
       if (error.code) {
         switch (error.code) {
           case 'auth/email-already-in-use':
@@ -53,21 +59,21 @@ export default function SignupPage() {
             description = "Le mot de passe est trop faible. Il doit contenir au moins 6 caractères.";
             break;
           case 'permission-denied':
-             description = "Permission refusée. Vos règles de sécurité Firestore n'autorisent probablement pas un nouvel utilisateur à créer son propre profil. Veuillez les vérifier.";
-             break;
+            description = "Permission refusée. Vos règles de sécurité Firestore n'autorisent probablement pas un nouvel utilisateur à créer son propre profil. Veuillez les vérifier.";
+            break;
           case 'auth/network-request-failed':
-             description = "Erreur de réseau. Votre domaine Vercel est-il bien autorisé dans les paramètres d'authentification Firebase ?";
-             break;
+            description = "Erreur de réseau. Votre domaine Vercel est-il bien autorisé dans les paramètres d'authentification Firebase ?";
+            break;
           case 'auth/api-key-not-valid':
-             description = "La clé d'API Firebase n'est pas valide. Vérifiez vos variables d'environnement sur Vercel.";
-             break;
+            description = "La clé d'API Firebase n'est pas valide. Vérifiez vos variables d'environnement sur Vercel.";
+            break;
           default:
             // For any other error, show the technical details to help debug
             description = `Erreur technique: ${error.code}. Veuillez vérifier la configuration de votre projet Firebase.`;
             break;
         }
       } else {
-         description = `Une erreur inattendue est survenue: ${error.message || 'Veuillez vérifier la console.'}`;
+        description = `Une erreur inattendue est survenue: ${error.message || 'Veuillez vérifier la console.'}`;
       }
 
       toast({
@@ -121,11 +127,11 @@ export default function SignupPage() {
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Créer un compte
             </Button>
-             <p className="text-sm text-muted-foreground">
-                Vous avez déjà un compte ?{' '}
-                <Link href="/login" className="font-semibold text-primary hover:underline">
-                    Connectez-vous
-                </Link>
+            <p className="text-sm text-muted-foreground">
+              Vous avez déjà un compte ?{' '}
+              <Link href="/login" className="font-semibold text-primary hover:underline">
+                Connectez-vous
+              </Link>
             </p>
           </CardFooter>
         </form>
