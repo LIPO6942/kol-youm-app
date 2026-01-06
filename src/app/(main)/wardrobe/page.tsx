@@ -21,6 +21,30 @@ const categoryConfig = {
 
 const styleFilters = ['Tout', 'Décontracté', 'Professionnel', 'Chic', 'Sportif'];
 
+function ColorDot({ color }: { color: { name: string; hex: string } }) {
+    const [showName, setShowName] = useState(false);
+    return (
+        <div
+            className="flex flex-col items-center gap-1 cursor-pointer group"
+            onClick={(e) => {
+                e.stopPropagation();
+                setShowName(!showName);
+            }}
+        >
+            <div
+                className="w-8 h-8 rounded-full border-2 border-white shadow-lg transition-transform group-hover:scale-110"
+                style={{ backgroundColor: color.hex }}
+                title={color.name}
+            />
+            {showName && (
+                <span className="text-[10px] text-white bg-black/60 px-1.5 py-0.5 rounded-md backdrop-blur-sm animate-in fade-in zoom-in duration-200">
+                    {color.name}
+                </span>
+            )}
+        </div>
+    );
+}
+
 export default function WardrobePage() {
     const { user, userProfile, forceProfileRefresh } = useAuth();
     const { toast } = useToast();
@@ -129,11 +153,21 @@ export default function WardrobePage() {
                                                     </div>
                                                 </DialogTrigger>
 
-                                                <DialogContent className="p-0 border-0 max-w-2xl bg-transparent shadow-none">
+                                                <DialogContent className="p-0 border-0 max-w-2xl bg-transparent shadow-none overflow-visible">
                                                     <DialogHeader>
                                                         <DialogTitle className="sr-only">Aperçu de la pièce: {item.style} {item.type}</DialogTitle>
                                                     </DialogHeader>
-                                                    <Image src={item.photoDataUri} alt={`Aperçu de ${item.style} ${item.type}`} width={1024} height={1024} className="object-contain rounded-lg w-full h-auto" />
+                                                    <div className="relative group">
+                                                        <Image src={item.photoDataUri} alt={`Aperçu de ${item.style} ${item.type}`} width={1024} height={1024} className="object-contain rounded-lg w-full h-auto shadow-2xl" />
+
+                                                        {item.matchingColors && item.matchingColors.length > 0 && (
+                                                            <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 flex gap-3 p-3 bg-black/40 rounded-2xl backdrop-blur-md border border-white/20">
+                                                                {item.matchingColors.map((color, idx) => (
+                                                                    <ColorDot key={idx} color={color} />
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </DialogContent>
                                             </Dialog>
 

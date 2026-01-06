@@ -39,7 +39,10 @@ export async function POST(request: Request) {
 
         const genderContext = gender === 'Femme' ? "This is for a woman's outfit. Prefer feminine and vibrant color palettes." : "This is for a man's outfit. Prefer stylish and modern color combinations.";
 
-        const prompt = `You are an expert fashion stylist. Analyze the clothing item in the image. ${genderContext} Identify its dominant color. Then, suggest exactly 5 matching colors to create a highly stylish and modern outfit. Avoid suggesting only neutrals like black, white, and gray; instead, include at least 2 vibrant or interesting colors that complement the piece. Return strictly a JSON object with this structure: { "dominantColor": "ColorName", "matches": [{ "name": "Name1", "hex": "#Hex1" }, { "name": "Name2", "hex": "#Hex2" }, { "name": "Name3", "hex": "#Hex3" }, { "name": "Name4", "hex": "#Hex4" }, { "name": "Name5", "hex": "#Hex5" }] }. Do not include markdown formatting or explanation.`;
+        const prompt = `Analyze the clothing item in the image. ${genderContext}
+        Identify its dominant color. Then, suggest exactly 5 complementary matching colors for a stylish outfit.
+        Return ONLY a JSON object with this exact structure: { "dominantColor": "ColorName", "matches": [{ "name": "Name1", "hex": "#Hex1" }, { "name": "Name2", "hex": "#Hex2" }, { "name": "Name3", "hex": "#Hex3" }, { "name": "Name4", "hex": "#Hex4" }, { "name": "Name5", "hex": "#Hex5" }] }.
+        Do not include markdown formatting or any text outside the JSON.`;
 
         const response = await fetch(url, {
             method: "POST",
@@ -70,7 +73,7 @@ export async function POST(request: Request) {
         let jsonResponse;
         try {
             // Clean up markdown code blocks if present
-            description = description.replace(/```json/g, '').replace(/```/g, '');
+            description = description.replace(/```json/g, '').replace(/```/g, '').trim();
 
             // Find JSON-like structure in the response
             const jsonMatch = description.match(/\{[\s\S]*\}/);
@@ -85,18 +88,31 @@ export async function POST(request: Request) {
                 throw new Error("No JSON found");
             }
         } catch (e) {
-            console.warn("Failed to parse LLaVA JSON, using fallback.", e);
-            // Fallback if AI fails to give JSON
-            jsonResponse = {
-                dominantColor: "Non détecté",
-                matches: [
-                    { name: "Sable", hex: "#C2B280" },
-                    { name: "Terracotta", hex: "#E2725B" },
-                    { name: "Bleu Pétrole", hex: "#005F6A" },
-                    { name: "Beige", hex: "#F5F5DC" },
-                    { name: "Vert Olive", hex: "#808000" }
-                ]
-            };
+            console.warn("Failed to parse LLaVA JSON, using randomized fallback.", e);
+
+            // Randomized Fallback to ensure diversity if AI fails
+            const fallbacks = [
+                {
+                    dominantColor: "Neutre",
+                    matches: [
+                        { name: "Sable", hex: "#C2B280" }, { name: "Terracotta", hex: "#E2725B" }, { name: "Bleu Pétrole", hex: "#005F6A" }, { name: "Beige", hex: "#F5F5DC" }, { name: "Vert Olive", hex: "#808000" }
+                    ]
+                },
+                {
+                    dominantColor: "Foncé",
+                    matches: [
+                        { name: "Gris Ardoise", hex: "#708090" }, { name: "Bordeaux", hex: "#800020" }, { name: "Moutarde", hex: "#FFDB58" }, { name: "Marine", hex: "#000080" }, { name: "Écru", hex: "#F5F5DC" }
+                    ]
+                },
+                {
+                    dominantColor: "Vif",
+                    matches: [
+                        { name: "Corail", hex: "#FF7F50" }, { name: "Turquoise", hex: "#40E0D0" }, { name: "Jaune Citron", hex: "#FFF700" }, { name: "Blanc Pur", hex: "#FFFFFF" }, { name: "Rose Poudre", hex: "#FFD1DC" }
+                    ]
+                }
+            ];
+
+            jsonResponse = fallbacks[Math.floor(Math.random() * fallbacks.length)];
         }
 
         return NextResponse.json({
