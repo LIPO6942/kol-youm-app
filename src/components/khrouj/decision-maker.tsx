@@ -724,7 +724,7 @@ export default function DecisionMaker() {
               <GlobalHistoryList />
             </DialogContent>
           </Dialog>
-          {outingOptions.slice(0, 3).map(opt => (
+          {outingOptions.slice(0, 4).map(opt => (
             <Card key={opt.id} className={cn(
               "transition-all duration-300 cursor-default border group",
               opt.bgClass,
