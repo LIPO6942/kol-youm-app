@@ -72,8 +72,22 @@ export async function POST(request: NextRequest) {
         const userId = userDoc.id;
 
         // 4.5. CORRECTION AUTOMATIQUE DE LA CATÉGORIE
-        // On vérifie si le lieu existe dans notre base pour forcer la bonne catégorie
-        let finalCategory = category;
+
+        // Normalisation préventive de la catégorie entrante (Fallback)
+        const normalizeCategoryInput = (cat: string) => {
+            if (!cat) return 'Autre';
+            const lower = cat.toLowerCase().trim();
+            if (lower.includes('fast') || lower === 'fastfoods' || lower === 'fastfood') return 'Fast Food';
+            if (lower === 'cafe' || lower === 'café' || lower === 'cafes' || lower === 'cafés') return 'Café';
+            if (lower === 'restaurant' || lower === 'restaurants') return 'Restaurant';
+            if (lower === 'brunch' || lower === 'brunchs') return 'Brunch';
+            // Garder la valeur originale si pas de match évident, en mettant la première lettre en majuscule
+            return cat.charAt(0).toUpperCase() + cat.slice(1);
+        };
+
+        let finalCategory = normalizeCategoryInput(category);
+
+        // On vérifie si le lieu existe dans notre base pour forcer la bonne catégorie (Source de vérité)
         try {
             const zonesSnap = await getDocs(collection(db, 'zones'));
             const normalizedPlace = placeName.trim().toLowerCase();
@@ -100,12 +114,12 @@ export async function POST(request: NextRequest) {
                 }
                 // Ajouter d'autres catégories si nécessaire
             }
-            if (finalCategory !== category) {
-                console.log(`[External Visit API] Category corrected for ${placeName}: ${category} -> ${finalCategory}`);
+            if (finalCategory !== category && finalCategory !== normalizeCategoryInput(category)) {
+                console.log(`[External Visit API] Category corrected by DB for ${placeName}: ${category} -> ${finalCategory}`);
             }
         } catch (catError) {
             console.error('[External Visit API] Error checking category:', catError);
-            // On continue avec la catégorie fournie en cas d'erreur
+            // On conserve finalCategory qui a été normalisé au début
         }
 
         // 5. Préparer l'objet visite
