@@ -90,6 +90,55 @@ export async function POST(request: NextRequest) {
 
         console.log(`[External Visit API] Successfully added visit for ${userEmail} at ${placeName}`);
 
+        // 7. Synchroniser le plat dans la base globale (Spécialités)
+        if (dishName && placeName) {
+            try {
+                const zonesSnap = await getDocs(collection(db, 'zones'));
+
+                const normalizedPlace = placeName.trim().toLowerCase();
+                let targetZoneDoc = null;
+                let currentSpecialties: Record<string, string[]> = {};
+
+                // Parcourir les zones pour trouver le lieu
+                for (const zoneDoc of zonesSnap.docs) {
+                    const data = zoneDoc.data();
+                    const allPlacesInZone = [
+                        ...(data.cafes || []),
+                        ...(data.restaurants || []),
+                        ...(data.fastFoods || []),
+                        ...(data.brunch || []),
+                        ...(data.balade || []),
+                        ...(data.shopping || [])
+                    ].map(p => p.toLowerCase());
+
+                    if (allPlacesInZone.includes(normalizedPlace)) {
+                        targetZoneDoc = zoneDoc;
+                        currentSpecialties = data.specialties || {};
+                        break;
+                    }
+                }
+
+                if (targetZoneDoc) {
+                    const placeKey = Object.keys(currentSpecialties).find(k => k.toLowerCase() === normalizedPlace) || placeName;
+                    const existingDishList = currentSpecialties[placeKey] || [];
+
+                    if (!existingDishList.some(d => d.toLowerCase() === dishName.trim().toLowerCase())) {
+                        const updatedSpecialties = {
+                            ...currentSpecialties,
+                            [placeKey]: [...existingDishList, dishName.trim()]
+                        };
+
+                        await updateDoc(doc(db, 'zones', targetZoneDoc.id), {
+                            specialties: updatedSpecialties
+                        });
+                        console.log(`[External Visit API] Specialty added for ${placeName}: ${dishName}`);
+                    }
+                }
+            } catch (pError) {
+                console.error('[External Visit API] Failed to sync global specialty:', pError);
+            }
+        }
+
         return NextResponse.json({
             success: true,
             message: "Visite ajoutée au tableau visits",
