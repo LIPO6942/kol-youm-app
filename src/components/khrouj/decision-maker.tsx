@@ -181,7 +181,7 @@ export default function DecisionMaker() {
       setSeenSuggestions(updatedSeenSuggestions);
 
       if (newPlaceNames.length > 0) {
-        await updateUserProfile(user.uid, { seenKhroujSuggestions: updatedSeenSuggestions });
+        await updateUserProfile(user.uid, { seenKhroujSuggestions: updatedSeenSuggestions } as any);
       }
 
     } catch (error: any) {
@@ -238,10 +238,10 @@ export default function DecisionMaker() {
 
 
   const handleZoneChange = (zone: string, checked: boolean) => {
-    setSelectedZones(prevSelectedZones => {
+    setSelectedZones((prevSelectedZones: string[]) => {
       const newSelectedZones = checked
         ? [...prevSelectedZones, zone]
-        : prevSelectedZones.filter(z => z !== zone);
+        : prevSelectedZones.filter((z: string) => z !== zone);
       return newSelectedZones;
     });
   };
@@ -300,30 +300,64 @@ export default function DecisionMaker() {
     const defaultStats = {
       total: 0,
       byCategory: {} as Record<string, number>,
-      byPlace: [] as [string, { count: number; category: string; dates: number[] }][]
+      byPlace: [] as [string, { count: number; category: string; dates: number[]; zone?: string }][],
+      byZone: {} as Record<string, { count: number; uniquePlaces: Set<string>; totalInDb: number }>
     };
 
     if (!userProfile?.visits) return defaultStats;
 
     const visits = userProfile.visits;
     const byCategory: Record<string, number> = {};
-    const byPlaceMap: Record<string, { count: number; category: string; dates: number[] }> = {};
+    const byPlaceMap: Record<string, { count: number; category: string; dates: number[]; zone?: string }> = {};
+    const byZone: Record<string, { count: number; uniquePlaces: Set<string>; totalInDb: number }> = {};
 
-    visits.forEach(v => {
+    // Initialize zones from DB to show completion even if 0 visits
+    const zoneCountsInDb: Record<string, number> = {};
+    allPlaces.forEach((p: any) => {
+      if (p.zone) {
+        zoneCountsInDb[p.zone] = (zoneCountsInDb[p.zone] || 0) + 1;
+      }
+    });
+
+    Object.keys(zoneCountsInDb).forEach((z: string) => {
+      byZone[z] = { count: 0, uniquePlaces: new Set(), totalInDb: zoneCountsInDb[z] };
+    });
+
+    visits.forEach((v: VisitLog) => {
+      // Category stats
       byCategory[v.category] = (byCategory[v.category] || 0) + 1;
+
+      // Place stats
       if (!byPlaceMap[v.placeName]) {
-        byPlaceMap[v.placeName] = { count: 0, category: v.category, dates: [] };
+        const placeDetails = allPlaces.find((p: any) => p.name === v.placeName);
+        byPlaceMap[v.placeName] = {
+          count: 0,
+          category: v.category,
+          dates: [],
+          zone: placeDetails?.zone
+        };
       }
       byPlaceMap[v.placeName].count++;
       byPlaceMap[v.placeName].dates.push(v.date);
+
+      // Zone stats
+      const zone = byPlaceMap[v.placeName].zone;
+      if (zone) {
+        if (!byZone[zone]) {
+          byZone[zone] = { count: 0, uniquePlaces: new Set(), totalInDb: zoneCountsInDb[zone] || 0 };
+        }
+        byZone[zone].count++;
+        byZone[zone].uniquePlaces.add(v.placeName);
+      }
     });
 
     return {
       total: visits.length,
       byCategory,
-      byPlace: Object.entries(byPlaceMap).sort((a, b) => b[1].count - a[1].count)
+      byPlace: Object.entries(byPlaceMap).sort((a, b) => b[1].count - a[1].count),
+      byZone
     };
-  }, [userProfile?.visits]);
+  }, [userProfile?.visits, allPlaces]);
 
 
   const ManualVisitForm = () => {
@@ -686,9 +720,74 @@ export default function DecisionMaker() {
     );
   };
 
+  const ZoneExploration = () => {
+    const sortedZones = Object.entries(stats.byZone)
+      .filter(([_, data]) => data.totalInDb > 0 || data.count > 0)
+      .sort((a, b) => b[1].count - a[1].count);
+
+    if (sortedZones.length === 0) return null;
+
+    return (
+      <div className="space-y-4">
+        <h3 className="text-xl font-bold font-headline text-foreground tracking-tight flex items-center gap-2">
+          <MapPin className="h-5 w-5 text-primary" />
+          Explorateur de Quartiers
+        </h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {sortedZones.map(([zone, data]: [string, any]) => {
+            const completionRate = Math.min(100, Math.round((data.uniquePlaces.size / data.totalInDb) * 100)) || 0;
+            const visitPercent = Math.round((data.count / stats.total) * 100);
+
+            // Creative status badges
+            let status = { label: "Touriste", color: "bg-blue-100 text-blue-700" };
+            if (visitPercent > 30) status = { label: "Maire", color: "bg-red-100 text-red-700" };
+            else if (completionRate > 50) status = { label: "Connaisseur", color: "bg-green-100 text-green-700" };
+            else if (data.count > 5) status = { label: "Habitué", color: "bg-purple-100 text-purple-700" };
+
+            return (
+              <Card key={zone} className="overflow-hidden border-none bg-gradient-to-br from-white to-muted/30 shadow-sm hover:shadow-md transition-all duration-300 group">
+                <CardContent className="p-4 relative">
+                  <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <Building2 className="h-16 w-16" />
+                  </div>
+
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h4 className="font-bold text-lg font-headline truncate max-w-[150px]">{zone}</h4>
+                      <TypedBadge className={cn("text-[10px] uppercase tracking-tighter", status.color)}>
+                        {status.label}
+                      </TypedBadge>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-primary">{visitPercent}%</p>
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">des sorties</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-[11px] font-medium">
+                      <span className="text-muted-foreground">Découverte</span>
+                      <span>{data.uniquePlaces.size} / {data.totalInDb} spots</span>
+                    </div>
+                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary transition-all duration-1000 ease-out"
+                        style={{ width: `${completionRate}%` }}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const StatsDashboard = () => {
     return (
-      <div className="space-y-6 animate-in fade-in-50">
+      <div className="space-y-8 animate-in fade-in-50">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => setView('search')}>
@@ -701,6 +800,7 @@ export default function DecisionMaker() {
           </div>
         </div>
 
+        {/* Global Overview Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Dialog>
             <DialogTrigger asChild>
@@ -740,6 +840,10 @@ export default function DecisionMaker() {
           ))}
         </div>
 
+        {/* NEW: Zone Exploration Section */}
+        <ZoneExploration />
+
+        {/* Top Places */}
         <div className="space-y-4">
           <h3 className="text-xl font-bold font-headline text-foreground tracking-tight flex items-center gap-2">
             <History className="h-5 w-5 text-primary" />
@@ -747,7 +851,7 @@ export default function DecisionMaker() {
           </h3>
           <div className="grid gap-3">
             {stats.byPlace.length > 0 ? (
-              stats.byPlace.slice(0, 5).map(([name, data]: [string, { count: number; category: string; dates: number[] }]) => (
+              stats.byPlace.slice(0, 5).map(([name, data]: [string, { count: number; category: string; dates: number[]; zone?: string }]) => (
                 <Dialog key={name}>
                   <DialogTrigger asChild>
                     <Card className="hover:border-primary/50 transition-all duration-300 cursor-pointer group hover:shadow-md hover:bg-muted/30">
@@ -760,7 +864,7 @@ export default function DecisionMaker() {
                             <p className="font-medium text-base sm:text-lg font-headline tracking-tight group-hover:text-primary transition-colors duration-300 truncate">
                               {name}
                               <span className="text-xs text-blue-600 ml-1 sm:ml-2 font-normal">
-                                {allPlaces.find((p: { name: string }) => p.name === name)?.zone || ''}
+                                {data.zone || ''}
                               </span>
                             </p>
                             <p className="text-xs text-muted-foreground font-medium">{data.category}</p>
