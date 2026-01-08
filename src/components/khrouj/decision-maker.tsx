@@ -301,7 +301,8 @@ export default function DecisionMaker() {
       total: 0,
       byCategory: {} as Record<string, number>,
       byPlace: [] as [string, { count: number; category: string; dates: number[]; zone?: string }][],
-      byZone: {} as Record<string, { count: number; uniquePlaces: Set<string>; totalInDb: number }>
+      byZone: {} as Record<string, { count: number; uniquePlaces: Set<string>; totalInDb: number }>,
+      qgDuMois: null as { name: string; count: number; category: string } | null
     };
 
     if (!userProfile?.visits) return defaultStats;
@@ -310,6 +311,19 @@ export default function DecisionMaker() {
     const byCategory: Record<string, number> = {};
     const byPlaceMap: Record<string, { count: number; category: string; dates: number[]; zone?: string }> = {};
     const byZone: Record<string, { count: number; uniquePlaces: Set<string>; totalInDb: number }> = {};
+
+    // QG du Mois Logic (Last 30 days)
+    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    const recentCounts: Record<string, number> = {};
+    visits.filter(v => v.date >= thirtyDaysAgo).forEach(v => {
+      recentCounts[v.placeName] = (recentCounts[v.placeName] || 0) + 1;
+    });
+    const qgEntry = Object.entries(recentCounts).sort((a, b) => b[1] - a[1])[0];
+    let qgDuMois = null;
+    if (qgEntry) {
+      const p = visits.find(v => v.placeName === qgEntry[0]);
+      qgDuMois = { name: qgEntry[0], count: qgEntry[1], category: p?.category || 'Autre' };
+    }
 
     // Initialize zones from DB to show completion even if 0 visits
     const zoneCountsInDb: Record<string, number> = {};
@@ -355,7 +369,8 @@ export default function DecisionMaker() {
       total: visits.length,
       byCategory,
       byPlace: Object.entries(byPlaceMap).sort((a, b) => b[1].count - a[1].count),
-      byZone
+      byZone,
+      qgDuMois
     };
   }, [userProfile?.visits, allPlaces]);
 
@@ -720,68 +735,114 @@ export default function DecisionMaker() {
     );
   };
 
-  const ZoneExploration = () => {
+  const ZoneExplorationDialog = () => {
     const sortedZones = Object.entries(stats.byZone)
       .filter(([_, data]) => data.totalInDb > 0 || data.count > 0)
       .sort((a, b) => b[1].count - a[1].count);
 
-    if (sortedZones.length === 0) return null;
-
     return (
-      <div className="space-y-4">
-        <h3 className="text-xl font-bold font-headline text-foreground tracking-tight flex items-center gap-2">
-          <MapPin className="h-5 w-5 text-primary" />
-          Explorateur de Quartiers
-        </h3>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {sortedZones.map(([zone, data]: [string, any]) => {
-            const completionRate = Math.min(100, Math.round((data.uniquePlaces.size / data.totalInDb) * 100)) || 0;
-            const visitPercent = Math.round((data.count / stats.total) * 100);
+      <Dialog>
+        <DialogTrigger asChild>
+          <Card className="bg-blue-50 border-blue-200 group hover:border-blue-400 transition-all duration-300 cursor-pointer overflow-hidden relative">
+            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+              <MapPin className="h-7 w-7 mb-2 text-blue-600 group-hover:scale-110 transition-transform duration-300" />
+              <span className="text-xs font-bold text-blue-800">Quartiers</span>
+              <span className="text-[9px] text-blue-600 uppercase tracking-tighter font-semibold">Discovery</span>
+              <div className="absolute -bottom-1 -right-1 opacity-10">
+                <MapPin className="h-10 w-10 text-blue-900" />
+              </div>
+            </CardContent>
+          </Card>
+        </DialogTrigger>
+        <DialogContent className="max-w-md w-[95%] rounded-2xl max-h-[85vh] overflow-hidden flex flex-col p-4 sm:p-6">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-xl font-bold font-headline flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-primary" />
+              Exploration & QG
+            </DialogTitle>
+            <DialogDescription>
+              Vos habitudes par quartier et votre spot favori.
+            </DialogDescription>
+          </DialogHeader>
 
-            // Creative status badges
-            let status = { label: "Touriste", color: "bg-blue-100 text-blue-700" };
-            if (visitPercent > 30) status = { label: "Maire", color: "bg-red-100 text-red-700" };
-            else if (completionRate > 50) status = { label: "Connaisseur", color: "bg-green-100 text-green-700" };
-            else if (data.count > 5) status = { label: "Habitué", color: "bg-purple-100 text-purple-700" };
+          <ScrollArea className="flex-1 pr-2 mt-2">
+            <div className="space-y-6 pb-4">
+              {/* QG DU MOIS */}
+              {stats.qgDuMois && (
+                <div className="space-y-2">
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <History className="h-3 w-3" /> Le QG du Mois
+                  </h4>
+                  <Card className="bg-gradient-to-br from-amber-500 to-orange-600 border-none text-white shadow-lg overflow-hidden relative group">
+                    <div className="absolute top-0 right-0 p-3 opacity-20 group-hover:scale-125 transition-transform duration-500">
+                      <UtensilsCrossed className="h-12 w-12 rotate-12" />
+                    </div>
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <TypedBadge className="bg-white/20 hover:bg-white/30 text-white border-none text-[8px] uppercase tracking-tighter mb-1 h-4 px-1">
+                            30 derniers jours
+                          </TypedBadge>
+                          <h5 className="text-xl font-bold font-headline leading-tight mb-0.5">{stats.qgDuMois.name}</h5>
+                          <p className="text-orange-100 text-[10px] font-medium opacity-90">{stats.qgDuMois.category}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-3xl font-black leading-none">{stats.qgDuMois.count}</p>
+                          <p className="text-[10px] uppercase font-bold opacity-70">Visites</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
 
-            return (
-              <Card key={zone} className="overflow-hidden border-none bg-gradient-to-br from-white to-muted/30 shadow-sm hover:shadow-md transition-all duration-300 group">
-                <CardContent className="p-4 relative">
-                  <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
-                    <Building2 className="h-16 w-16" />
-                  </div>
+              {/* ZONES */}
+              <div className="space-y-2">
+                <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                  <Building2 className="h-3 w-3" /> Stats par Quartier
+                </h4>
+                <div className="grid gap-2">
+                  {sortedZones.map(([zone, data]: [string, any]) => {
+                    const completionRate = Math.min(100, Math.round((data.uniquePlaces.size / data.totalInDb) * 100)) || 0;
+                    const visitPercent = Math.round((data.count / stats.total) * 100);
 
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h4 className="font-bold text-lg font-headline truncate max-w-[150px]">{zone}</h4>
-                      <TypedBadge className={cn("text-[10px] uppercase tracking-tighter", status.color)}>
-                        {status.label}
-                      </TypedBadge>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-primary">{visitPercent}%</p>
-                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">des sorties</p>
-                    </div>
-                  </div>
+                    let status = { label: "Touriste", color: "bg-blue-100/80 text-blue-700" };
+                    if (visitPercent > 30) status = { label: "Maire", color: "bg-red-100/80 text-red-700" };
+                    else if (completionRate > 50) status = { label: "Connaisseur", color: "bg-green-100/80 text-green-700" };
+                    else if (data.count > 5) status = { label: "Habitué", color: "bg-purple-100/80 text-purple-700" };
 
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-[11px] font-medium">
-                      <span className="text-muted-foreground">Découverte</span>
-                      <span>{data.uniquePlaces.size} / {data.totalInDb} spots</span>
-                    </div>
-                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary transition-all duration-1000 ease-out"
-                        style={{ width: `${completionRate}%` }}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </div>
+                    return (
+                      <div key={zone} className="p-2.5 rounded-xl border bg-muted/20 hover:bg-white hover:border-primary/20 transition-all duration-300">
+                        <div className="flex justify-between items-center mb-1.5">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <span className="font-bold text-xs truncate max-w-[120px]">{zone}</span>
+                            <TypedBadge className={cn("text-[7px] h-3.5 px-1 uppercase font-black flex-shrink-0 border-none", status.color)}>
+                              {status.label}
+                            </TypedBadge>
+                          </div>
+                          <span className="text-[11px] font-bold text-primary">{visitPercent}%</span>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[9px] font-medium text-muted-foreground">
+                            <span>Découverte</span>
+                            <span>{data.uniquePlaces.size} / {data.totalInDb} spots</span>
+                          </div>
+                          <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-primary transition-all duration-700"
+                              style={{ width: `${completionRate}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     );
   };
 
@@ -801,13 +862,13 @@ export default function DecisionMaker() {
         </div>
 
         {/* Global Overview Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
           <Dialog>
             <DialogTrigger asChild>
               <Card className="bg-primary/5 border-primary/20 group hover:border-primary/40 transition-all duration-300 cursor-pointer">
                 <CardContent className="p-4 flex flex-col items-center justify-center text-center">
                   <span className="text-3xl font-bold text-primary group-hover:scale-110 transition-transform duration-300">{stats.total}</span>
-                  <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Total Sorties</span>
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Total</span>
                 </CardContent>
               </Card>
             </DialogTrigger>
@@ -824,6 +885,10 @@ export default function DecisionMaker() {
               <GlobalHistoryList />
             </DialogContent>
           </Dialog>
+
+          {/* New Location Dialog Icon */}
+          <ZoneExplorationDialog />
+
           {outingOptions.slice(0, 4).map(opt => (
             <Card key={opt.id} className={cn(
               "transition-all duration-300 cursor-default border group",
@@ -834,14 +899,11 @@ export default function DecisionMaker() {
               <CardContent className="p-4 flex flex-col items-center justify-center text-center">
                 <opt.icon className={cn("h-6 w-6 mb-2 group-hover:scale-110 transition-transform duration-300", opt.colorClass)} />
                 <span className={cn("text-xl font-bold", opt.colorClass)}>{stats.byCategory[opt.label] || 0}</span>
-                <span className="text-xs text-muted-foreground font-medium">{opt.label}s</span>
+                <span className="text-[10px] text-muted-foreground font-medium">{opt.label}s</span>
               </CardContent>
             </Card>
           ))}
         </div>
-
-        {/* NEW: Zone Exploration Section */}
-        <ZoneExploration />
 
         {/* Top Places */}
         <div className="space-y-4">
