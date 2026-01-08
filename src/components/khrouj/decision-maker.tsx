@@ -754,7 +754,7 @@ export default function DecisionMaker() {
             </CardContent>
           </Card>
         </DialogTrigger>
-        <DialogContent className="max-w-md w-[95%] rounded-2xl max-h-[85vh] overflow-hidden flex flex-col p-4 sm:p-6">
+        <DialogContent className="max-w-md w-[95%] rounded-2xl max-h-[85vh] overflow-hidden grid grid-rows-[auto_1fr] p-4 sm:p-6">
           <DialogHeader className="pb-2">
             <DialogTitle className="text-xl font-bold font-headline flex items-center gap-2">
               <MapPin className="h-5 w-5 text-primary" />
@@ -765,7 +765,7 @@ export default function DecisionMaker() {
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 pr-2 mt-2">
+          <ScrollArea className="min-h-0 pr-2 mt-2">
             <div className="space-y-6 pb-4">
               {/* QG DU MOIS */}
               {stats.qgDuMois && (
