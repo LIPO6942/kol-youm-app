@@ -40,7 +40,7 @@ function addDismissedTitle(title: string) {
       const next = [title, ...cur].slice(0, 300);
       window.localStorage.setItem(DISMISSED_KEY, JSON.stringify(next));
     }
-  } catch {}
+  } catch { }
 }
 
 const handleAiError = (error: any, toast: any) => {
@@ -94,19 +94,20 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isClient, setIsClient] = useState(false);
   const initialFetchDone = useRef(false);
-  
+
   // État pour le filtre d'année
   const [yearRange, setYearRange] = useState<[number, number]>([1997, new Date().getFullYear()]);
-  
+  const [tempYearRange, setTempYearRange] = useState<[number, number]>([1997, new Date().getFullYear()]);
+
   // Hooks d'authentification et toast
   const { user, userProfile, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  
+
   // Vérification du côté client
   useEffect(() => {
     setIsClient(true);
   }, []);
-  
+
   useEffect(() => {
     if (!isClient || authLoading) {
       setIsLoading(false);
@@ -121,7 +122,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        
+
         // Appel à l'API TMDB pour récupérer des vrais films
         const response = await fetch('/api/tmdb-suggest', {
           method: 'POST',
@@ -183,7 +184,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
 
     try {
       console.log('handleSwipe appelé avec:', { direction, user: !!user, currentIndex, movieTitle: movies[currentIndex]?.title });
-      
+
       // Enregistrer le film comme vu
       if (direction === 'left') {
         console.log('Ajout aux films vus...');
@@ -192,10 +193,10 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         if (!currentUser) {
           throw new Error('Utilisateur non connecté');
         }
-        
+
         const token = await currentUser.getIdToken();
         console.log('Token obtenu:', token.substring(0, 20) + '...');
-        
+
         // Ajouter aux films vus
         const response = await fetch('/api/user/movies/seen', {
           method: 'POST',
@@ -210,13 +211,13 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         });
 
         console.log('Response seen:', response.status, response.statusText);
-        
+
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Erreur response:', errorText);
           throw new Error('Impossible d\'enregistrer le film comme vu');
         }
-        
+
         const result = await response.json();
         console.log('Result seen:', result);
       } else {
@@ -226,10 +227,10 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         if (!currentUser) {
           throw new Error('Utilisateur non connecté');
         }
-        
+
         const token = await currentUser.getIdToken();
         console.log('Token obtenu:', token.substring(0, 20) + '...');
-        
+
         // Ajouter à la liste à voir
         const response = await fetch('/api/user/movies/watchlist', {
           method: 'POST',
@@ -244,13 +245,13 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         });
 
         console.log('Response watchlist:', response.status, response.statusText);
-        
+
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Erreur response:', errorText);
           throw new Error('Impossible d\'ajouter le film à la liste');
         }
-        
+
         const result = await response.json();
         console.log('Result watchlist:', result);
       }
@@ -343,8 +344,8 @@ export default function MovieSwiper({ genre }: { genre: string }) {
           <p className="text-muted-foreground mb-4">
             Vous avez parcouru tous les films disponibles dans cette catégorie.
           </p>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => {
               setCurrentIndex(0);
               // Ici, vous pourriez recharger d'autres films si nécessaire
@@ -364,11 +365,12 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         {/* Filtre d'année */}
         <div className="mb-4 p-4 bg-card rounded-lg border">
           <Label className="text-sm font-medium mb-2 block">
-            Période : {yearRange[0]} - {yearRange[1]}
+            Période : {tempYearRange[0]} - {tempYearRange[1]}
           </Label>
           <Slider
-            value={yearRange}
-            onValueChange={(value) => setYearRange(value as [number, number])}
+            value={tempYearRange}
+            onValueChange={(value) => setTempYearRange(value as [number, number])}
+            onValueCommit={(value) => setYearRange(value as [number, number])}
             min={1970}
             max={new Date().getFullYear()}
             step={1}
@@ -379,7 +381,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
             <span>{new Date().getFullYear()}</span>
           </div>
         </div>
-        
+
         <Card className="h-[550px] flex flex-col">
           <CardHeader>
             <div className="flex items-start justify-between">
@@ -396,7 +398,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
               </div>
             </div>
           </CardHeader>
-          
+
           <CardContent className="flex-grow flex flex-col">
             <div className="space-y-4">
               <div>
@@ -405,9 +407,9 @@ export default function MovieSwiper({ genre }: { genre: string }) {
                   {currentMovie.synopsis || 'Aucune description disponible'}
                 </p>
               </div>
-              
+
               <div className="h-px bg-border my-2" />
-              
+
               {currentMovie.actors && currentMovie.actors.length > 0 && (
                 <div>
                   <h4 className="font-semibold text-sm mb-1">Acteurs principaux</h4>
@@ -416,13 +418,13 @@ export default function MovieSwiper({ genre }: { genre: string }) {
                   </p>
                 </div>
               )}
-              
+
               {currentMovie.country && (
                 <div className="text-sm text-muted-foreground">
                   <span className="font-medium">Pays :</span> {currentMovie.country}
                 </div>
               )}
-              
+
               {currentMovie.wikipediaUrl && (
                 <div>
                   <a
@@ -437,29 +439,29 @@ export default function MovieSwiper({ genre }: { genre: string }) {
               )}
             </div>
           </CardContent>
-          
+
           <CardFooter className="p-4 pt-0 grid grid-cols-3 gap-4">
-            <Button 
-              variant="outline" 
-              size="lg" 
+            <Button
+              variant="outline"
+              size="lg"
               className="border-destructive text-destructive hover:bg-destructive/10 h-14"
               onClick={() => handleSwipe('left')}
             >
               <Eye className="h-6 w-6" />
             </Button>
-            
-            <Button 
-              variant="outline" 
-              size="lg" 
+
+            <Button
+              variant="outline"
+              size="lg"
               className="h-14"
               onClick={handleSkip}
             >
               <X className="h-6 w-6" />
             </Button>
-            
-            <Button 
-              variant="default" 
-              size="lg" 
+
+            <Button
+              variant="default"
+              size="lg"
               className="h-14"
               onClick={() => handleSwipe('right')}
             >

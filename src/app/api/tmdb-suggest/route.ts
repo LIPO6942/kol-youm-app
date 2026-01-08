@@ -204,7 +204,10 @@ async function fetchCountryMovies(params: {
   url.searchParams.set('primary_release_date.gte', `${yMin}-01-01`)
   url.searchParams.set('primary_release_date.lte', `${yMax}-12-31`)
   if (genre && genre.trim()) {
-    // Optionally: map genre name to TMDB genre IDs. Skipped for now.
+    const genreId = mapGenreToId(genre)
+    if (genreId) {
+      url.searchParams.set('with_genres', genreId)
+    }
   }
 
   const headers: Record<string, string> = {}
@@ -212,7 +215,7 @@ async function fetchCountryMovies(params: {
   const res = await fetch(url.toString(), { headers })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(`TMDB discover failed: ${res.status} ${text?.slice(0,200)}`)
+    throw new Error(`TMDB discover failed: ${res.status} ${text?.slice(0, 200)}`)
   }
   const data = await res.json()
   return data?.results || []
@@ -341,6 +344,33 @@ async function normalizeTitle(
   return currentTitle
 }
 
+// Map French friendly genre labels to TMDB genre IDs
+function mapGenreToId(genre: string): string | null {
+  const map: Record<string, string> = {
+    'Action': '28',
+    'Aventure': '12',
+    'Animation': '16',
+    'Comédie': '35',
+    'Crime': '80',
+    'Documentaire': '99',
+    'Drame': '18',
+    'Famille': '10751',
+    'Fantastique': '14',
+    'Histoire': '36',
+    'Horreur': '27',
+    'Musique': '10402',
+    'Mystère': '9648',
+    'Romance': '10749',
+    'Science-Fiction': '878',
+    'Téléfilm': '10770',
+    'Thriller': '53',
+    'Guerre': '10752',
+    'Western': '37',
+    'Historique': '36',
+  }
+  return map[genre] || null
+}
+
 // Try to find a reliable Wikipedia URL for a movie (prefer FR, fallback EN)
 async function findWikipediaUrl(title: string, year: number): Promise<string> {
   const tryLang = async (lang: 'fr' | 'en') => {
@@ -420,8 +450,12 @@ export async function POST(req: NextRequest) {
     const results: any[] = []
     for (const code of poolCodes) {
       try {
-        const page1 = await fetchCountryMovies({ apiKey, bearer, countryCode: code, yearRange, minRating, genre, page: 1 })
-        const page2 = await fetchCountryMovies({ apiKey, bearer, countryCode: code, yearRange, minRating, genre, page: 2 })
+        // Fetch from random pages (1rd to 5th) to ensure variety
+        const randomPageA = Math.floor(Math.random() * 5) + 1
+        const randomPageB = Math.floor(Math.random() * 5) + 1
+
+        const page1 = await fetchCountryMovies({ apiKey, bearer, countryCode: code, yearRange, minRating, genre, page: randomPageA })
+        const page2 = await fetchCountryMovies({ apiKey, bearer, countryCode: code, yearRange, minRating, genre, page: randomPageB })
         results.push(...page1, ...page2)
       } catch (e) {
         // continue other countries
