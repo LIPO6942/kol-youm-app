@@ -816,17 +816,17 @@ export default function DecisionMaker() {
                       const config: Record<string, { label: string, icon: LucideIcon, color: string, bg: string }> = {
                         'Café': { label: 'Maître Espresso', icon: Coffee, color: 'text-amber-700', bg: 'bg-amber-50' },
                         'Restaurant': { label: 'Grand Gourmet', icon: UtensilsCrossed, color: 'text-red-700', bg: 'bg-red-50' },
-                        'Fast Food': { label: 'Expert Street-Food', icon: Sandwich, color: 'text-orange-700', bg: 'bg-orange-50' },
+                        'Fast Food': { label: 'Héros du Tacos', icon: Sandwich, color: 'text-orange-700', bg: 'bg-orange-50' },
                         'Brunch': { label: 'Fan du Dimanche', icon: Sun, color: 'text-yellow-700', bg: 'bg-yellow-50' },
-                        'Balade': { label: 'Grand Marcheur', icon: Mountain, color: 'text-green-700', bg: 'bg-green-50' },
-                        'Shopping': { label: 'Fashionista Local', icon: ShoppingBag, color: 'text-pink-700', bg: 'bg-pink-50' },
+                        'Pizza': { label: 'Maître Pizza', icon: Pizza, color: 'text-red-600', bg: 'bg-red-50' },
+                        'Burger': { label: 'Pro du Burger', icon: Sandwich, color: 'text-orange-700', bg: 'bg-orange-50' },
                       };
 
                       return config[topCat] || { label: "Citadin Curieux", icon: Compass, color: "text-blue-600", bg: "bg-blue-50" };
                     };
 
                     const getTier = () => {
-                      if (visitPercent > 30) return { label: "Maire", icon: Crown, color: "text-red-700", bg: "bg-red-100", border: "border-red-200", glow: "shadow-[0_0_10px_rgba(239,68,68,0.2)]" };
+                      if (visitPercent > 30) return { label: "Maire", icon: Crown, color: "text-amber-700", bg: "bg-amber-100", border: "border-amber-400", glow: "shadow-[0_0_12px_rgba(251,191,36,0.3)]", isMayor: true };
                       if (completionRate > 70) return { label: "Diamant", icon: Zap, color: "text-cyan-700", bg: "bg-cyan-50", border: "border-cyan-200" };
                       if (completionRate > 40) return { label: "Or", icon: Star, color: "text-yellow-700", bg: "bg-yellow-50", border: "border-yellow-200" };
                       if (data.count > 5) return { label: "Argent", icon: Award, color: "text-slate-700", bg: "bg-slate-50", border: "border-slate-200" };
@@ -838,27 +838,28 @@ export default function DecisionMaker() {
 
                     return (
                       <div key={zone} className={cn(
-                        "p-3 rounded-xl border bg-card/50 hover:bg-white hover:shadow-md transition-all duration-300",
+                        "p-2.5 rounded-xl border bg-card/50 hover:bg-white hover:shadow-md transition-all duration-300",
                         tier.border,
-                        tier.glow
+                        tier.glow,
+                        (tier as any).isMayor && "bg-gradient-to-br from-amber-50 to-white"
                       )}>
-                        <div className="flex justify-between items-start mb-2">
+                        <div className="flex justify-between items-start gap-1 mb-2">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-bold text-sm truncate">{zone}</span>
-                              <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tighter", tier.bg, tier.color, "border", tier.border)}>
-                                <tier.icon className="h-2.5 w-2.5" />
+                            <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                              <span className="font-bold text-xs truncate max-w-[80px] sm:max-w-none">{zone}</span>
+                              <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-tighter border shrink-0", tier.bg, tier.color, tier.border)}>
+                                <tier.icon className="h-2 w-2" />
                                 {tier.label}
                               </div>
                             </div>
-                            <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded-lg w-fit", persona.bg)}>
-                              <persona.icon className={cn("h-3 w-3", persona.color)} />
-                              <span className={cn("text-[9px] font-bold", persona.color)}>{persona.label}</span>
+                            <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded-lg w-fit shrink-0", persona.bg)}>
+                              <persona.icon className={cn("h-2.5 w-2.5", persona.color)} />
+                              <span className={cn("text-[8px] font-bold", persona.color)}>{persona.label}</span>
                             </div>
                           </div>
-                          <div className="flex flex-col items-end">
-                            <span className="text-xs font-black text-primary">{visitPercent}%</span>
-                            <span className="text-[8px] text-muted-foreground font-medium uppercase tracking-tighter">Attractivité</span>
+                          <div className="flex flex-col items-end shrink-0">
+                            <span className="text-[10px] font-black text-primary leading-none uppercase">{visitPercent}%</span>
+                            <span className="text-[6px] text-muted-foreground font-medium uppercase tracking-tighter">Pop.</span>
                           </div>
                         </div>
 
