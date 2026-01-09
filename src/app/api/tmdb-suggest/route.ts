@@ -556,6 +556,15 @@ export async function POST(req: NextRequest) {
           const enDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, 'en-US')
           synopsis = (enDetails?.overview || m.overview || '').trim()
         }
+        // Limit synopsis length and add ellipsis if needed
+        const truncate = (text: string, max: number = 180) => {
+          if (text.length <= max) return text
+          const truncated = text.slice(0, max)
+          const lastSpace = truncated.lastIndexOf(' ')
+          return (lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated) + '...'
+        }
+        synopsis = truncate(synopsis)
+
         // Country name from details (prefer FR names), fallback to origin_country code
         let country = (m as any)?._countryName || ''
         const frCountries = (frDetails as any)?.production_countries
