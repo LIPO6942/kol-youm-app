@@ -183,26 +183,35 @@ async function fetchCountryMovies(params: {
   minRating: number,
   genre?: string,
   page?: number,
+  voteCountOverride?: number,
 }) {
-  const { apiKey, bearer, countryCode, yearRange, minRating, genre, page = 1 } = params
+  const { apiKey, bearer, countryCode, yearRange, minRating, genre, page = 1, voteCountOverride } = params
   const url = new URL(`${TMDB_API_BASE}/discover/movie`)
   if (apiKey) url.searchParams.set('api_key', apiKey)
   url.searchParams.set('with_origin_country', countryCode)
   url.searchParams.set('language', 'fr-FR')
-  url.searchParams.set('vote_count.gte', '1000')
+
+  // Adaptive vote count: newer movies have fewer votes
+  let [yMin, yMax] = yearRange
+  const CURRENT_YEAR = new Date().getFullYear()
+  const isRecent = yMax >= CURRENT_YEAR - 1
+  const defaultVoteCount = isRecent ? 50 : 500
+  url.searchParams.set('vote_count.gte', String(voteCountOverride ?? defaultVoteCount))
+
   url.searchParams.set('include_adult', 'false')
   url.searchParams.set('include_video', 'false')
   url.searchParams.set('vote_average.gte', String(minRating || 0))
   url.searchParams.set('with_release_type', '3|2') // Theatrical | Digital
   url.searchParams.set('page', String(page))
+  url.searchParams.set('sort_by', 'popularity.desc')
+
   // Year bounds
-  let [yMin, yMax] = yearRange
-  const CURRENT = new Date().getFullYear()
   if (!Number.isFinite(yMin) || yMin < 1900) yMin = 1990
-  if (!Number.isFinite(yMax) || yMax > CURRENT) yMax = CURRENT
+  if (!Number.isFinite(yMax) || yMax > CURRENT_YEAR) yMax = CURRENT_YEAR
   if (yMin > yMax) [yMin, yMax] = [yMax, yMin]
   url.searchParams.set('primary_release_date.gte', `${yMin}-01-01`)
   url.searchParams.set('primary_release_date.lte', `${yMax}-12-31`)
+
   if (genre && genre.trim()) {
     const genreId = mapGenreToId(genre)
     if (genreId) {
@@ -218,7 +227,7 @@ async function fetchCountryMovies(params: {
     throw new Error(`TMDB discover failed: ${res.status} ${text?.slice(0, 200)}`)
   }
   const data = await res.json()
-  return data?.results || []
+  return data || { results: [], total_pages: 0 }
 }
 
 async function fetchTopCast(apiKeyOrBearer: { apiKey?: string; bearer?: string }, tmdbId: number): Promise<string[]> {
@@ -450,13 +459,26 @@ export async function POST(req: NextRequest) {
     const results: any[] = []
     for (const code of poolCodes) {
       try {
-        // Fetch from random pages (1rd to 5th) to ensure variety
-        const randomPageA = Math.floor(Math.random() * 5) + 1
-        const randomPageB = Math.floor(Math.random() * 5) + 1
+        // 1. Initial discovery to get total pages
+        const firstTry = await fetchCountryMovies({ apiKey, bearer, countryCode: code, yearRange, minRating, genre, page: 1 })
+        let resultsForCode = firstTry.results || []
+        const totalPages = firstTry.total_pages || 1
 
-        const page1 = await fetchCountryMovies({ apiKey, bearer, countryCode: code, yearRange, minRating, genre, page: randomPageA })
-        const page2 = await fetchCountryMovies({ apiKey, bearer, countryCode: code, yearRange, minRating, genre, page: randomPageB })
-        results.push(...page1, ...page2)
+        // 2. Fetch from random pages within a reasonable limit (top 10 pages for quality)
+        if (totalPages > 1) {
+          const maxPagePool = Math.min(totalPages, 10)
+          const randomPageA = Math.floor(Math.random() * (maxPagePool - 1)) + 2 // Start from page 2 if possible
+          const extraResults = await fetchCountryMovies({ apiKey, bearer, countryCode: code, yearRange, minRating, genre, page: randomPageA })
+          resultsForCode.push(...(extraResults.results || []))
+        }
+
+        // 3. Fallback: If still nothing, try with zero vote count threshold
+        if (resultsForCode.length === 0) {
+          const fallback = await fetchCountryMovies({ apiKey, bearer, countryCode: code, yearRange, minRating, genre, page: 1, voteCountOverride: 0 })
+          resultsForCode = fallback.results || []
+        }
+
+        results.push(...resultsForCode)
       } catch (e) {
         // continue other countries
       }
