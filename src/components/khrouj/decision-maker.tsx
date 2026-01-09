@@ -807,34 +807,102 @@ export default function DecisionMaker() {
                     const completionRate = Math.min(100, Math.round((data.uniquePlaces.size / data.totalInDb) * 100)) || 0;
                     const visitPercent = Math.round((data.count / stats.total) * 100);
 
+                    const difficultyStars = Math.min(3, Math.ceil(data.totalInDb / 10));
+                    const densityFactor = Math.max(1, data.totalInDb / 12);
+
                     const getPersona = () => {
                       const counts = data.categoryCounts;
                       if (!counts || Object.keys(counts).length === 0) return { label: "Explorateur", icon: Compass, color: "text-blue-600", bg: "bg-blue-50" };
 
                       const topCat = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+                      const catCount = counts[topCat];
 
-                      const config: Record<string, { label: string, icon: LucideIcon, color: string, bg: string }> = {
-                        'Café': { label: 'Maître Espresso', icon: Coffee, color: 'text-amber-700', bg: 'bg-amber-50' },
-                        'Restaurant': { label: 'Grand Gourmet', icon: UtensilsCrossed, color: 'text-red-700', bg: 'bg-red-50' },
-                        'Fast Food': { label: 'Héros du Tacos', icon: Sandwich, color: 'text-orange-700', bg: 'bg-orange-50' },
-                        'Brunch': { label: 'Fan du Dimanche', icon: Sun, color: 'text-yellow-700', bg: 'bg-yellow-50' },
-                        'Pizza': { label: 'Maître Pizza', icon: Pizza, color: 'text-red-600', bg: 'bg-red-50' },
-                        'Burger': { label: 'Pro du Burger', icon: Sandwich, color: 'text-orange-700', bg: 'bg-orange-50' },
+                      // Identify level (1-5) scaled by density
+                      let level = 1;
+                      if (catCount >= Math.round(21 * densityFactor)) level = 5;
+                      else if (catCount >= Math.round(11 * densityFactor)) level = 4;
+                      else if (catCount >= Math.round(6 * densityFactor)) level = 3;
+                      else if (catCount >= Math.round(3 * densityFactor)) level = 2;
+
+                      // Detect specialty keyword
+                      let specialty = "";
+                      const specialtyKeywords = ['Tacos', 'Pizza', 'Burger', 'Shawarma', 'Sushi', 'Pasta', 'Crêpe', 'Glace', 'Sandwich', 'Kebab', 'Libanais', 'Chinois'];
+                      const placesInZone = Array.from(data.uniquePlaces as Set<string>);
+                      for (const kw of specialtyKeywords) {
+                        if (placesInZone.some(p => p.toLowerCase().includes(kw.toLowerCase()))) {
+                          specialty = kw;
+                          break;
+                        }
+                      }
+
+                      const configs: Record<string, { icon: LucideIcon, color: string, bg: string, titles: string[] }> = {
+                        'Café': {
+                          icon: Coffee, color: 'text-amber-700', bg: 'bg-amber-50',
+                          titles: [
+                            `Amateur de ${specialty || 'Café'}`,
+                            `Pro du ${specialty || 'Café'}`,
+                            `Expert du ${specialty || 'Café'}`,
+                            `Maître du ${specialty || 'Café'}`,
+                            `Dieu de la Caféine ⚡`
+                          ]
+                        },
+                        'Restaurant': {
+                          icon: UtensilsCrossed, color: 'text-red-700', bg: 'bg-red-50',
+                          titles: [
+                            `Amateur de ${specialty || 'Restos'}`,
+                            `Pro de la Gastronomie`,
+                            `Expert des Saveurs`,
+                            `Maître Chef des Lieux`,
+                            `Empereur Culinaire 👑`
+                          ]
+                        },
+                        'Fast Food': {
+                          icon: Sandwich, color: 'text-orange-700', bg: 'bg-orange-50',
+                          titles: [
+                            `Amateur de ${specialty || 'Snacks'}`,
+                            `Pro du ${specialty || 'Fast-Food'}`,
+                            `Expert du ${specialty || 'Comptoir'}`,
+                            `Maître du ${specialty || 'Street-Food'}`,
+                            `Légende du ${specialty || 'Gras'} 🏆`
+                          ]
+                        },
+                        'Brunch': {
+                          icon: Sun, color: 'text-yellow-700', bg: 'bg-yellow-50',
+                          titles: [
+                            `Amateur de Brunch`,
+                            `Pro du Dimanche`,
+                            `Expert du Petit-Déj`,
+                            `Maître du Brunch`,
+                            `Légende du Matin ☀️`
+                          ]
+                        },
                       };
 
-                      return config[topCat] || { label: "Citadin Curieux", icon: Compass, color: "text-blue-600", bg: "bg-blue-50" };
+                      const config = configs[topCat] || { icon: Compass, color: "text-blue-600", bg: "bg-blue-50", titles: ["Citadin Curieux", "Citadin Actif", "Habitant de Zone", "Expert Local", "Légende du Quartier"] };
+                      return { label: config.titles[level - 1], icon: config.icon, color: config.color, bg: config.bg };
                     };
 
                     const getTier = () => {
-                      if (visitPercent > 30) return { label: "Maire", icon: Crown, color: "text-amber-700", bg: "bg-amber-100", border: "border-amber-400", glow: "shadow-[0_0_12px_rgba(251,191,36,0.3)]", isMayor: true };
-                      if (completionRate > 70) return { label: "Diamant", icon: Zap, color: "text-cyan-700", bg: "bg-cyan-50", border: "border-cyan-200" };
-                      if (completionRate > 40) return { label: "Or", icon: Star, color: "text-yellow-700", bg: "bg-yellow-50", border: "border-yellow-200" };
-                      if (data.count > 5) return { label: "Argent", icon: Award, color: "text-slate-700", bg: "bg-slate-50", border: "border-slate-200" };
+                      const requiredForMayor = Math.round(30 * Math.max(1, data.totalInDb / 15));
+                      if (visitPercent > requiredForMayor) return { label: "Maire", icon: Crown, color: "text-amber-700", bg: "bg-amber-100", border: "border-amber-400", glow: "shadow-[0_0_12px_rgba(251,191,36,0.3)]", isMayor: true };
+                      if (completionRate > 85) return { label: "Diamant", icon: Zap, color: "text-cyan-700", bg: "bg-cyan-50", border: "border-cyan-200" };
+                      if (completionRate > 60) return { label: "Or", icon: Star, color: "text-yellow-700", bg: "bg-yellow-50", border: "border-yellow-200" };
+                      if (data.count > Math.round(8 * densityFactor)) return { label: "Argent", icon: Award, color: "text-slate-700", bg: "bg-slate-50", border: "border-slate-200" };
                       return { label: "Bronze", icon: Compass, color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200" };
+                    };
+
+                    const getDiscoveryBadge = () => {
+                      if (completionRate >= 100) return { label: "Légende Locale", color: "text-purple-700", bg: "bg-purple-100", border: "border-purple-200" };
+                      if (completionRate >= 75) return { label: "Conquérant", color: "text-red-700", bg: "bg-red-100", border: "border-red-200" };
+                      if (completionRate >= 50) return { label: "Cartographe", color: "text-indigo-700", bg: "bg-indigo-100", border: "border-indigo-200" };
+                      if (completionRate >= 25) return { label: "Éclaireur", color: "text-emerald-700", bg: "bg-emerald-100", border: "border-emerald-200" };
+                      if (data.count >= 1) return { label: "Pionnier", color: "text-slate-600", bg: "bg-slate-100", border: "border-slate-200" };
+                      return null;
                     };
 
                     const persona = getPersona();
                     const tier = getTier();
+                    const discoveryBadge = getDiscoveryBadge();
 
                     return (
                       <div key={zone} className={cn(
@@ -847,10 +915,20 @@ export default function DecisionMaker() {
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
                               <span className="font-bold text-xs truncate max-w-[80px] sm:max-w-none">{zone}</span>
+                              <div className="flex items-center gap-0.5 ml-1">
+                                {[...Array(difficultyStars)].map((_, i) => (
+                                  <Star key={i} className="h-1.5 w-1.5 text-amber-400 fill-amber-400" />
+                                ))}
+                              </div>
                               <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-tighter border shrink-0", tier.bg, tier.color, tier.border)}>
                                 <tier.icon className="h-2 w-2" />
                                 {tier.label}
                               </div>
+                              {discoveryBadge && (
+                                <div className={cn("px-1.5 py-0.5 rounded-full text-[6px] font-bold uppercase tracking-widest border shrink-0", discoveryBadge.bg, discoveryBadge.color, discoveryBadge.border)}>
+                                  {discoveryBadge.label}
+                                </div>
+                              )}
                             </div>
                             <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded-lg w-fit shrink-0", persona.bg)}>
                               <persona.icon className={cn("h-2.5 w-2.5", persona.color)} />
