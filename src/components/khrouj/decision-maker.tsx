@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { Suggestion } from '@/ai/flows/decision-maker-flow.types';
-import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2 } from 'lucide-react';
+import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2, Crown, Compass, Award, Home, Zap, Star } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile, addVisitLog, deleteVisitLog, updateVisitLog, type VisitLog } from '@/lib/firebase/firestore';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
@@ -301,7 +301,7 @@ export default function DecisionMaker() {
       total: 0,
       byCategory: {} as Record<string, number>,
       byPlace: [] as [string, { count: number; category: string; dates: number[]; zone?: string }][],
-      byZone: {} as Record<string, { count: number; uniquePlaces: Set<string>; totalInDb: number }>,
+      byZone: {} as Record<string, { count: number; uniquePlaces: Set<string>; totalInDb: number; categoryCounts: Record<string, number> }>,
       qgDuMois: null as { name: string; count: number; category: string } | null
     };
 
@@ -310,7 +310,7 @@ export default function DecisionMaker() {
     const visits = userProfile.visits;
     const byCategory: Record<string, number> = {};
     const byPlaceMap: Record<string, { count: number; category: string; dates: number[]; zone?: string }> = {};
-    const byZone: Record<string, { count: number; uniquePlaces: Set<string>; totalInDb: number }> = {};
+    const byZone: Record<string, { count: number; uniquePlaces: Set<string>; totalInDb: number; categoryCounts: Record<string, number> }> = {};
 
     // QG du Mois Logic (Last 30 days)
     const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
@@ -334,7 +334,7 @@ export default function DecisionMaker() {
     });
 
     Object.keys(zoneCountsInDb).forEach((z: string) => {
-      byZone[z] = { count: 0, uniquePlaces: new Set(), totalInDb: zoneCountsInDb[z] };
+      byZone[z] = { count: 0, uniquePlaces: new Set(), totalInDb: zoneCountsInDb[z], categoryCounts: {} };
     });
 
     visits.forEach((v: VisitLog) => {
@@ -358,10 +358,11 @@ export default function DecisionMaker() {
       const zone = byPlaceMap[v.placeName].zone;
       if (zone) {
         if (!byZone[zone]) {
-          byZone[zone] = { count: 0, uniquePlaces: new Set(), totalInDb: zoneCountsInDb[zone] || 0 };
+          byZone[zone] = { count: 0, uniquePlaces: new Set(), totalInDb: zoneCountsInDb[zone] || 0, categoryCounts: {} };
         }
         byZone[zone].count++;
         byZone[zone].uniquePlaces.add(v.placeName);
+        byZone[zone].categoryCounts[v.category] = (byZone[zone].categoryCounts[v.category] || 0) + 1;
       }
     });
 
@@ -806,30 +807,72 @@ export default function DecisionMaker() {
                     const completionRate = Math.min(100, Math.round((data.uniquePlaces.size / data.totalInDb) * 100)) || 0;
                     const visitPercent = Math.round((data.count / stats.total) * 100);
 
-                    let status = { label: "Touriste", color: "bg-blue-100/80 text-blue-700" };
-                    if (visitPercent > 30) status = { label: "Maire", color: "bg-red-100/80 text-red-700" };
-                    else if (completionRate > 50) status = { label: "Connaisseur", color: "bg-green-100/80 text-green-700" };
-                    else if (data.count > 5) status = { label: "Habitué", color: "bg-purple-100/80 text-purple-700" };
+                    const getPersona = () => {
+                      const counts = data.categoryCounts;
+                      if (!counts || Object.keys(counts).length === 0) return { label: "Explorateur", icon: Compass, color: "text-blue-600", bg: "bg-blue-50" };
+
+                      const topCat = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+
+                      const config: Record<string, { label: string, icon: LucideIcon, color: string, bg: string }> = {
+                        'Café': { label: 'Maître Espresso', icon: Coffee, color: 'text-amber-700', bg: 'bg-amber-50' },
+                        'Restaurant': { label: 'Grand Gourmet', icon: UtensilsCrossed, color: 'text-red-700', bg: 'bg-red-50' },
+                        'Fast Food': { label: 'Expert Street-Food', icon: Sandwich, color: 'text-orange-700', bg: 'bg-orange-50' },
+                        'Brunch': { label: 'Fan du Dimanche', icon: Sun, color: 'text-yellow-700', bg: 'bg-yellow-50' },
+                        'Balade': { label: 'Grand Marcheur', icon: Mountain, color: 'text-green-700', bg: 'bg-green-50' },
+                        'Shopping': { label: 'Fashionista Local', icon: ShoppingBag, color: 'text-pink-700', bg: 'bg-pink-50' },
+                      };
+
+                      return config[topCat] || { label: "Citadin Curieux", icon: Compass, color: "text-blue-600", bg: "bg-blue-50" };
+                    };
+
+                    const getTier = () => {
+                      if (visitPercent > 30) return { label: "Maire", icon: Crown, color: "text-red-700", bg: "bg-red-100", border: "border-red-200", glow: "shadow-[0_0_10px_rgba(239,68,68,0.2)]" };
+                      if (completionRate > 70) return { label: "Diamant", icon: Zap, color: "text-cyan-700", bg: "bg-cyan-50", border: "border-cyan-200" };
+                      if (completionRate > 40) return { label: "Or", icon: Star, color: "text-yellow-700", bg: "bg-yellow-50", border: "border-yellow-200" };
+                      if (data.count > 5) return { label: "Argent", icon: Award, color: "text-slate-700", bg: "bg-slate-50", border: "border-slate-200" };
+                      return { label: "Bronze", icon: Compass, color: "text-blue-700", bg: "bg-blue-50", border: "border-blue-200" };
+                    };
+
+                    const persona = getPersona();
+                    const tier = getTier();
 
                     return (
-                      <div key={zone} className="p-2.5 rounded-xl border bg-muted/20 hover:bg-white hover:border-primary/20 transition-all duration-300">
-                        <div className="flex justify-between items-center mb-1.5">
-                          <div className="flex items-center gap-2 overflow-hidden">
-                            <span className="font-bold text-xs truncate max-w-[120px]">{zone}</span>
-                            <TypedBadge className={cn("text-[7px] h-3.5 px-1 uppercase font-black flex-shrink-0 border-none", status.color)}>
-                              {status.label}
-                            </TypedBadge>
+                      <div key={zone} className={cn(
+                        "p-3 rounded-xl border bg-card/50 hover:bg-white hover:shadow-md transition-all duration-300",
+                        tier.border,
+                        tier.glow
+                      )}>
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-bold text-sm truncate">{zone}</span>
+                              <div className={cn("flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tighter", tier.bg, tier.color, "border", tier.border)}>
+                                <tier.icon className="h-2.5 w-2.5" />
+                                {tier.label}
+                              </div>
+                            </div>
+                            <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded-lg w-fit", persona.bg)}>
+                              <persona.icon className={cn("h-3 w-3", persona.color)} />
+                              <span className={cn("text-[9px] font-bold", persona.color)}>{persona.label}</span>
+                            </div>
                           </div>
-                          <span className="text-[11px] font-bold text-primary">{visitPercent}%</span>
+                          <div className="flex flex-col items-end">
+                            <span className="text-xs font-black text-primary">{visitPercent}%</span>
+                            <span className="text-[8px] text-muted-foreground font-medium uppercase tracking-tighter">Attractivité</span>
+                          </div>
                         </div>
+
                         <div className="space-y-1">
                           <div className="flex justify-between text-[9px] font-medium text-muted-foreground">
                             <span>Découverte</span>
                             <span>{data.uniquePlaces.size} / {data.totalInDb} spots</span>
                           </div>
-                          <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                          <div className="h-1.5 w-full bg-muted/30 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-primary transition-all duration-700"
+                              className={cn("h-full transition-all duration-700",
+                                completionRate > 70 ? "bg-cyan-500" :
+                                  completionRate > 40 ? "bg-yellow-500" : "bg-primary"
+                              )}
                               style={{ width: `${completionRate}%` }}
                             />
                           </div>
