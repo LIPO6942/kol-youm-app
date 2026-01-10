@@ -355,15 +355,20 @@ export default function DecisionMaker() {
       'Pizza': { keywords: ['pizza'], emoji: '🍕' },
       'Burger': { keywords: ['burger'], emoji: '🍔' },
       'Tacos': { keywords: ['tacos'], emoji: '🌮' },
-      'Sandwich': { keywords: ['sandwich', 'libanais', 'snack', 'baguette'], emoji: '🌯' },
+      'Ma9loub': { keywords: ['ma9loub', 'makloub'], emoji: '🥙' },
+      'Mlawi': { keywords: ['mlawi'], emoji: '🌯' },
+      'Chapati': { keywords: ['chapati'], emoji: '🥪' },
+      'Baguette Farcie': { keywords: ['baguette farcie', 'baguette'], emoji: '🥖' },
       'Pasta': { keywords: ['pasta', 'spaghetti', 'penne', 'pâte'], emoji: '🍝' },
       'Sushi': { keywords: ['sushi', 'maki', 'california'], emoji: '🍣' },
-      'Café': { keywords: ['café', 'coffee', 'expresso', 'cappuccino', 'latte'], emoji: '☕' },
+      'Café': { keywords: ['café', 'coffee', 'expresso', 'cappuccino', 'latte', 'direct'], emoji: '☕' },
       'Brunch': { keywords: ['brunch', 'oeuf', 'pancake', 'benedict'], emoji: '🍳' },
-      'Dessert': { keywords: ['crêpe', 'gaufre', 'glace', 'cake', 'pâtisserie', 'chocolat'], emoji: '🍰' },
-      'Tunisien': { keywords: ['ma9loub', 'mlawi', 'chapati', 'fricassé', 'ojja', 'couscous'], emoji: '🥙' },
-      'Salade': { keywords: ['salade', 'healthy', 'bowl'], emoji: '🥗' },
-      'Viande': { keywords: ['grillade', 'steak', 'entrecôte', 'kebab', 'chawarma'], emoji: '🍖' },
+      'Crêpe/Gaufre': { keywords: ['crêpe', 'gaufre', 'crepe'], emoji: '🥞' },
+      'Glace/Dessert': { keywords: ['glace', 'cake', 'pâtisserie', 'chocolat', 'donut'], emoji: '🍦' },
+      'Libanais': { keywords: ['libanais', 'chawarma', 'shawarma', 'falafel'], emoji: '🌯' },
+      'Salade/Bowl': { keywords: ['salade', 'healthy', 'bowl'], emoji: '🥗' },
+      'Grillade': { keywords: ['grillade', 'steak', 'entrecôte', 'kebab'], emoji: '🍖' },
+      'Plat Tunisien': { keywords: ['fricassé', 'ojja', 'couscous', 'lablabi', 'kammounia'], emoji: '🇹🇳' },
     };
 
     // QG du Mois Logic (Last 30 days)
@@ -395,28 +400,42 @@ export default function DecisionMaker() {
       // Category stats
       byCategory[v.category] = (byCategory[v.category] || 0) + 1;
 
-      // Specialty stats
-      let detectedSpecialty = false;
+      // Specialty stats logic
       const processSpecialty = (text: string) => {
-        const textLower = text.toLowerCase();
+        const textLower = text.toLowerCase().trim();
+        if (!textLower) return;
+
+        let matched = false;
+        // 1. Try Map with keywords (Group by main specialty)
         for (const [sName, sData] of Object.entries(specialtyMap)) {
           if (sData.keywords.some(kw => textLower.includes(kw))) {
             if (!bySpecialty[sName]) bySpecialty[sName] = { count: 0, topPlaces: {}, emoji: sData.emoji };
             bySpecialty[sName].count++;
             bySpecialty[sName].topPlaces[v.placeName] = (bySpecialty[sName].topPlaces[v.placeName] || 0) + 1;
-            detectedSpecialty = true;
+            matched = true;
+            break;
           }
+        }
+
+        // 2. Fallback: Catch-all for unique dishes
+        if (!matched) {
+          const formattedName = textLower.charAt(0).toUpperCase() + textLower.slice(1);
+          if (!bySpecialty[formattedName]) {
+            bySpecialty[formattedName] = { count: 0, topPlaces: {}, emoji: '🍽️' };
+          }
+          bySpecialty[formattedName].count++;
+          bySpecialty[formattedName].topPlaces[v.placeName] = (bySpecialty[formattedName].topPlaces[v.placeName] || 0) + 1;
         }
       };
 
       if (v.orderedItem) {
         processSpecialty(v.orderedItem);
-      }
-
-      // Fallback: If no dish was recorded, check the place's known specialties in our DB
-      const placeData = allPlaces.find(p => p.name === v.placeName);
-      if (!detectedSpecialty && placeData && placeData.specialties) {
-        placeData.specialties.forEach((spec: string) => processSpecialty(spec));
+      } else {
+        // Fallback: If no dish was recorded, check the place's known specialties
+        const placeData = allPlaces.find(p => p.name === v.placeName);
+        if (placeData && placeData.specialties) {
+          placeData.specialties.forEach((spec: string) => processSpecialty(spec));
+        }
       }
 
       // Place stats
@@ -1219,7 +1238,7 @@ export default function DecisionMaker() {
               <SpecialtyMasteryDialog />
             </div>
           </div>
-          <div className="pl-10">
+          <div className="flex justify-center w-full">
             <ManualVisitForm />
           </div>
         </div>
