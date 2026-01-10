@@ -1111,17 +1111,29 @@ export default function DecisionMaker() {
     const specialtyThemes: Record<string, { gradient: string; tint: string }> = {
       'Pizza': { gradient: 'from-orange-500/20 to-red-500/20', tint: 'text-orange-600' },
       'Burger': { gradient: 'from-amber-600/20 to-orange-600/20', tint: 'text-amber-700' },
-      'Tacos': { gradient: 'from-yellow-500/20 to-amber-600/20', tint: 'text-amber-800' },
-      'Sandwich': { gradient: 'from-orange-400/20 to-yellow-500/20', tint: 'text-orange-700' },
-      'Pasta': { gradient: 'from-red-400/20 to-orange-400/20', tint: 'text-red-700' },
+      'Tacos': { gradient: 'from-yellow-400/20 to-amber-500/20', tint: 'text-amber-800' },
+      'Sandwich': { gradient: 'from-orange-300/20 to-yellow-400/20', tint: 'text-orange-700' },
+      'Pasta': { gradient: 'from-red-400/20 to-rose-500/20', tint: 'text-red-700' },
       'Sushi': { gradient: 'from-emerald-400/20 to-cyan-500/20', tint: 'text-emerald-700' },
-      'Brunch': { gradient: 'from-yellow-400/20 to-orange-300/20', tint: 'text-yellow-700' },
-      'Dessert': { gradient: 'from-pink-400/20 to-rose-500/20', tint: 'text-pink-700' },
-      'Tunisien': { gradient: 'from-red-600/20 to-primary/20', tint: 'text-primary' },
-      'Salade': { gradient: 'from-green-400/20 to-emerald-500/20', tint: 'text-green-700' },
-      'Viande': { gradient: 'from-rose-700/20 to-red-800/20', tint: 'text-rose-900' },
-      'Chapati': { gradient: 'from-orange-400/20 to-orange-600/20', tint: 'text-orange-800' },
-      'Mlawi': { gradient: 'from-amber-400/20 to-amber-600/20', tint: 'text-amber-900' },
+      'Brunch': { gradient: 'from-yellow-300/20 to-orange-400/20', tint: 'text-yellow-700' },
+      'Dessert': { gradient: 'from-pink-300/20 to-rose-400/20', tint: 'text-pink-700' },
+      'Tunisien': { gradient: 'from-red-500/20 to-primary/20', tint: 'text-primary' },
+      'Salade': { gradient: 'from-green-300/20 to-emerald-400/20', tint: 'text-green-700' },
+      'Viande': { gradient: 'from-rose-600/20 to-red-700/20', tint: 'text-rose-800' },
+      'Chapati': { gradient: 'from-orange-200 to-orange-400/40', tint: 'text-orange-800' },
+      'Mlawi': { gradient: 'from-amber-200 to-amber-500/40', tint: 'text-amber-900' },
+      'Poulet': { gradient: 'from-orange-400/20 to-red-400/20', tint: 'text-orange-700' },
+      'Petit Déj': { gradient: 'from-blue-100 to-cyan-300/30', tint: 'text-blue-700' },
+      'Baguette Farcie': { gradient: 'from-yellow-200 to-amber-400/30', tint: 'text-amber-800' },
+      'Kaffteji': { gradient: 'from-red-300/20 to-orange-400/20', tint: 'text-red-700' },
+    };
+
+    const getTier = (count: number) => {
+      if (count >= 30) return { label: 'Légende', icon: '👑', color: 'text-amber-600', bg: 'bg-amber-100', border: 'border-amber-300', next: null, nextIcon: null };
+      if (count >= 15) return { label: 'Maître', icon: '🔥', color: 'text-orange-600', bg: 'bg-orange-100', border: 'border-orange-300', next: 30, nextIcon: '👑', nextLabel: 'Légende' };
+      if (count >= 7) return { label: 'Expert', icon: '🥇', color: 'text-yellow-700', bg: 'bg-yellow-50', border: 'border-yellow-200', next: 15, nextIcon: '🔥', nextLabel: 'Maître' };
+      if (count >= 3) return { label: 'Fan', icon: '🥈', color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200', next: 7, nextIcon: '🥇', nextLabel: 'Expert' };
+      return { label: 'Amateur', icon: '🥉', color: 'text-orange-800/60', bg: 'bg-orange-50/50', border: 'border-orange-100', next: 3, nextIcon: '🥈', nextLabel: 'Fan' };
     };
 
     const handleUpdateImage = async () => {
@@ -1180,15 +1192,8 @@ export default function DecisionMaker() {
                     const displayEmoji = customImage || data.emoji;
                     const isUrl = displayEmoji.startsWith('http') || displayEmoji.startsWith('/') || displayEmoji.startsWith('data:');
 
-                    const getTier = (count: number) => {
-                      if (count >= 30) return { label: 'Légende', icon: '👑', color: 'text-amber-600', bg: 'bg-amber-100', border: 'border-amber-300', next: null };
-                      if (count >= 15) return { label: 'Maître', icon: '🔥', color: 'text-orange-600', bg: 'bg-orange-100', border: 'border-orange-300', next: 30 };
-                      if (count >= 7) return { label: 'Expert', icon: '🥇', color: 'text-yellow-700', bg: 'bg-yellow-50', border: 'border-yellow-200', next: 15 };
-                      if (count >= 3) return { label: 'Fan', icon: '🥈', color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200', next: 7 };
-                      return { label: 'Amateur', icon: '🥉', color: 'text-orange-800/60', bg: 'bg-orange-50/50', border: 'border-orange-100', next: 3 };
-                    };
                     const tier = getTier(data.count);
-                    const theme = specialtyThemes[name] || { gradient: 'from-muted to-muted/50', tint: 'text-foreground' };
+                    const theme = specialtyThemes[name] || { gradient: 'from-blue-50/50 to-indigo-100/50', tint: 'text-blue-700' };
                     const top3 = Object.entries(data.topPlaces)
                       .sort((a, b) => b[1] - a[1])
                       .slice(0, 3);
@@ -1208,8 +1213,8 @@ export default function DecisionMaker() {
                           "border-transparent hover:border-white shadow-sm"
                         )}
                       >
-                        <div className="absolute top-2 right-4 text-[10px] font-black opacity-10 group-hover:opacity-20 transition-opacity">
-                          {tier.label === 'Légende' ? 'DEITY' : 'MASTER'}
+                        <div className="absolute top-2 right-4 text-[9px] font-black opacity-10 group-hover:opacity-20 transition-opacity uppercase tracking-widest">
+                          {tier.nextLabel || 'MAX'}
                         </div>
 
                         <div className="h-16 w-16 mb-3 transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 flex items-center justify-center drop-shadow-md">
@@ -1230,8 +1235,13 @@ export default function DecisionMaker() {
                         {/* Progress Bar */}
                         <div className="w-full mt-4 space-y-1">
                           <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-tighter opacity-60 px-1">
-                            <span>{data.count} Plats</span>
-                            {tier.next && <span>Goal: {tier.next}</span>}
+                            <span>{data.count} {data.count > 1 ? 'Plats' : 'Plat'}</span>
+                            {tier.next && (
+                              <div className="flex items-center gap-1">
+                                <span>Goal: {tier.next}</span>
+                                <span>{tier.nextIcon}</span>
+                              </div>
+                            )}
                           </div>
                           <div className="h-1.5 w-full bg-black/5 rounded-full overflow-hidden p-[1px]">
                             <div
@@ -1239,6 +1249,11 @@ export default function DecisionMaker() {
                               style={{ width: `${progress}%` }}
                             />
                           </div>
+                          {tier.nextLabel && (
+                            <p className="text-[7px] text-center font-bold opacity-40 uppercase tracking-tighter">
+                              Prochain : {tier.nextLabel}
+                            </p>
+                          )}
                         </div>
 
                         {/* Bottom Info Expanded on Hover or subtle hint */}
