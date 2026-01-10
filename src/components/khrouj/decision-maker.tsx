@@ -80,6 +80,7 @@ export default function DecisionMaker() {
   const { toast } = useToast();
   const { user, userProfile } = useAuth();
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
+  const [showAllFrequent, setShowAllFrequent] = useState(false);
 
 
   // Assisted selection data
@@ -375,7 +376,15 @@ export default function DecisionMaker() {
     return {
       total: visits.length,
       byCategory,
-      byPlace: Object.entries(byPlaceMap).sort((a, b) => b[1].count - a[1].count),
+      byPlace: Object.entries(byPlaceMap).sort((a, b) => {
+        if (b[1].count !== a[1].count) {
+          return b[1].count - a[1].count;
+        }
+        // Tie-breaker: most recent visit date
+        const maxA = Math.max(...a[1].dates);
+        const maxB = Math.max(...b[1].dates);
+        return maxB - maxA;
+      }),
       byZone,
       qgDuMois
     };
@@ -712,14 +721,14 @@ export default function DecisionMaker() {
             };
 
             return (
-              <div key={visit.id} className="group flex items-center gap-3 p-3 rounded-xl border bg-card/50 hover:bg-white hover:shadow-md hover:border-primary/20 transition-all duration-300">
+              <div key={visit.id} className="group flex items-center gap-3 p-3 rounded-xl border bg-card/50 hover:bg-white hover:shadow-md hover:border-primary/20 transition-all duration-300 relative overflow-hidden">
                 <div className={cn("h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 transition-transform duration-300 group-hover:scale-110", cat.bgClass)}>
                   <cat.icon className={cn("h-5 w-5", cat.colorClass)} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <p className="font-bold text-sm sm:text-base truncate text-foreground/90 group-hover:text-primary transition-colors">{visit.placeName}</p>
-                    <TypedBadge variant="outline" className="text-[10px] h-5 px-1.5 font-normal bg-background/50 text-muted-foreground whitespace-nowrap">
+                    <TypedBadge variant="outline" className="text-[10px] h-5 px-1.5 font-normal bg-background/50 text-muted-foreground whitespace-nowrap group-hover:opacity-0 transition-opacity">
                       {new Date(visit.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
                     </TypedBadge>
                   </div>
@@ -734,6 +743,23 @@ export default function DecisionMaker() {
                       </p>
                     )}
                   </div>
+                </div>
+
+                {/* Safe Delete Button - Only visible on hover/group-hover */}
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-full"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!user) return;
+                      await deleteVisitLog(user.uid, visit.id);
+                      toast({ title: "Visite supprimée" });
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             );
@@ -821,7 +847,7 @@ export default function DecisionMaker() {
                       const counts = data.categoryCounts;
                       if (!counts || Object.keys(counts).length === 0) return { label: "Explorateur", icon: Compass, color: "text-blue-600", bg: "bg-blue-50" };
 
-                      const topCat = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+                      const topCat = Object.entries(counts).sort((a: any, b: any) => b[1] - a[1])[0][0];
                       const catCount = counts[topCat];
 
                       // Identify level (1-5) scaled by density
@@ -1042,43 +1068,55 @@ export default function DecisionMaker() {
           </h3>
           <div className="grid gap-3">
             {stats.byPlace.length > 0 ? (
-              stats.byPlace.slice(0, 5).map(([name, data]: [string, { count: number; category: string; dates: number[]; zone?: string }]) => (
-                <Dialog key={name}>
-                  <DialogTrigger asChild>
-                    <Card className="hover:border-primary/50 transition-all duration-300 cursor-pointer group hover:shadow-md hover:bg-muted/30">
-                      <CardContent className="p-3 sm:p-4 flex items-center justify-between gap-3 sm:gap-4">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="p-1.5 sm:p-2 bg-muted rounded-full group-hover:bg-primary/10 transition-colors duration-300 flex-shrink-0">
-                            <MapPin className="h-4 w-4 text-red-500 group-hover:text-primary transition-colors duration-300" />
+              <>
+                {(showAllFrequent ? stats.byPlace : stats.byPlace.slice(0, 5)).map(([name, data]: [string, { count: number; category: string; dates: number[]; zone?: string }]) => (
+                  <Dialog key={name}>
+                    <DialogTrigger asChild>
+                      <Card className="hover:border-primary/50 transition-all duration-300 cursor-pointer group hover:shadow-md hover:bg-muted/30">
+                        <CardContent className="p-3 sm:p-4 flex items-center justify-between gap-3 sm:gap-4">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="p-1.5 sm:p-2 bg-muted rounded-full group-hover:bg-primary/10 transition-colors duration-300 flex-shrink-0">
+                              <MapPin className="h-4 w-4 text-red-500 group-hover:text-primary transition-colors duration-300" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-base sm:text-lg font-headline tracking-tight group-hover:text-primary transition-colors duration-300 truncate">
+                                {name}
+                                <span className="text-xs text-blue-600 ml-1 sm:ml-2 font-normal">
+                                  {data.zone || ''}
+                                </span>
+                              </p>
+                              <p className="text-xs text-muted-foreground font-medium">{data.category}</p>
+                            </div>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-base sm:text-lg font-headline tracking-tight group-hover:text-primary transition-colors duration-300 truncate">
-                              {name}
-                              <span className="text-xs text-blue-600 ml-1 sm:ml-2 font-normal">
-                                {data.zone || ''}
-                              </span>
-                            </p>
-                            <p className="text-xs text-muted-foreground font-medium">{data.category}</p>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <TypedBadge variant="secondary" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300 bg-secondary text-secondary-foreground">
+                              {data.count}
+                            </TypedBadge>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform duration-300" />
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <TypedBadge variant="secondary" className="group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300 bg-secondary text-secondary-foreground">
-                            {data.count}
-                          </TypedBadge>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform duration-300" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle className="text-2xl font-bold font-headline">{name}</DialogTitle>
-                      <DialogDescription>Historique de vos visites à cet endroit. Cliquez sur une date pour la modifier.</DialogDescription>
-                    </DialogHeader>
-                    <VisitHistoryList placeName={name} dates={data.dates} />
-                  </DialogContent>
-                </Dialog>
-              ))
+                        </CardContent>
+                      </Card>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle className="text-2xl font-bold font-headline">{name}</DialogTitle>
+                        <DialogDescription>Historique de vos visites à cet endroit. Cliquez sur une date pour la modifier.</DialogDescription>
+                      </DialogHeader>
+                      <VisitHistoryList placeName={name} dates={data.dates} />
+                    </DialogContent>
+                  </Dialog>
+                ))}
+                {stats.byPlace.length > 5 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-muted-foreground hover:text-primary transition-colors mt-2"
+                    onClick={() => setShowAllFrequent(!showAllFrequent)}
+                  >
+                    {showAllFrequent ? "Voir moins" : `Voir les ${stats.byPlace.length - 5} autres lieux`}
+                  </Button>
+                )}
+              </>
             ) : (
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground space-y-2">
