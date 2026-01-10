@@ -555,9 +555,15 @@ export default function DecisionMaker() {
     return (
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-2 w-full sm:w-auto border-primary/20 hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 group">
-            <Plus className="h-4 w-4 text-primary group-hover:scale-125 transition-transform duration-300" />
-            <span className="font-medium">Ajout <span className="hidden sm:inline">manuel</span></span>
+          <Button
+            className="group relative h-12 w-full sm:w-64 overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-indigo-600 p-px font-bold text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-95"
+          >
+            <span className="relative flex h-full w-full items-center justify-center gap-2 rounded-[14px] bg-background/10 backdrop-blur-sm transition-colors group-hover:bg-background/0">
+              <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-white/20 text-white group-hover:rotate-90 transition-transform duration-500">
+                <Plus className="h-4 w-4 stroke-[3]" />
+              </div>
+              <span className="tracking-tight text-sm">Ajouter une pépite</span>
+            </span>
           </Button>
         </DialogTrigger>
         <DialogContent>
