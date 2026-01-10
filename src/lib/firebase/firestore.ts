@@ -53,6 +53,8 @@ export type UserProfile = {
     // Tfarrej preferences
     preferredCountries?: string[];
     preferredMinRating?: number;
+    // Atlas des Saveurs
+    specialtyImages?: Record<string, string>; // Map of specialty name to image URL or emoji
     // These are stored ONLY in IndexedDB for privacy
     fullBodyPhotoUrl?: string; // This will also be a Cloudinary URL
     closeupPhotoUrl?: string; // This will also be a Cloudinary URL
@@ -379,4 +381,24 @@ export async function deleteVisitLog(uid: string, visitId: string) {
         visits: (localProfile.visits || []).filter(v => v.id !== visitId)
     };
     await storeUserInDb(uid, updatedProfile);
+}
+
+export async function updateSpecialtyImage(uid: string, specialtyName: string, imageUrl: string) {
+    const userRef = doc(firestoreDb, 'users', uid);
+    const updatePath = `specialtyImages.${specialtyName}`;
+    await updateDoc(userRef, {
+        [updatePath]: imageUrl
+    });
+
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = {
+            ...localProfile,
+            specialtyImages: {
+                ...(localProfile.specialtyImages || {}),
+                [specialtyName]: imageUrl
+            }
+        };
+        await storeUserInDb(uid, updatedProfile);
+    }
 }

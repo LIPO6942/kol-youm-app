@@ -11,7 +11,7 @@ import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { Suggestion } from '@/ai/flows/decision-maker-flow.types';
 import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2, Crown, Compass, Award, Home, Zap, Star } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { updateUserProfile, addVisitLog, deleteVisitLog, updateVisitLog, type VisitLog } from '@/lib/firebase/firestore';
+import { updateUserProfile, addVisitLog, deleteVisitLog, updateVisitLog, updateSpecialtyImage, type VisitLog } from '@/lib/firebase/firestore';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -357,18 +357,20 @@ export default function DecisionMaker() {
       'Tacos': { keywords: ['tacos'], emoji: '🌮' },
       'Ma9loub': { keywords: ['ma9loub', 'makloub'], emoji: '🥙' },
       'Mlawi': { keywords: ['mlawi'], emoji: '🌯' },
-      'Chapati': { keywords: ['chapati'], emoji: '🥪' },
+      'Chapati': { keywords: ['chapati', 'croque', 'sandwich rond'], emoji: '🥪' },
+      'Kaffteji': { keywords: ['kafteji', 'kaffteji'], emoji: '🥘' },
+      'Lablebi': { keywords: ['lablebi', 'lablabi'], emoji: '🍲' },
+      'Couscous': { keywords: ['couscous'], emoji: '🍚' },
       'Baguette Farcie': { keywords: ['baguette farcie', 'baguette'], emoji: '🥖' },
       'Pasta': { keywords: ['pasta', 'spaghetti', 'penne', 'pâte'], emoji: '🍝' },
       'Sushi': { keywords: ['sushi', 'maki', 'california'], emoji: '🍣' },
-      'Café': { keywords: ['café', 'coffee', 'expresso', 'cappuccino', 'latte', 'direct'], emoji: '☕' },
       'Brunch': { keywords: ['brunch', 'oeuf', 'pancake', 'benedict'], emoji: '🍳' },
       'Crêpe/Gaufre': { keywords: ['crêpe', 'gaufre', 'crepe'], emoji: '🥞' },
       'Glace/Dessert': { keywords: ['glace', 'cake', 'pâtisserie', 'chocolat', 'donut'], emoji: '🍦' },
       'Libanais': { keywords: ['libanais', 'chawarma', 'shawarma', 'falafel'], emoji: '🌯' },
       'Salade/Bowl': { keywords: ['salade', 'healthy', 'bowl'], emoji: '🥗' },
       'Grillade': { keywords: ['grillade', 'steak', 'entrecôte', 'kebab'], emoji: '🍖' },
-      'Plat Tunisien': { keywords: ['fricassé', 'ojja', 'couscous', 'lablabi', 'kammounia'], emoji: '🇹🇳' },
+      'Plat Tunisien': { keywords: ['fricassé', 'ojja', 'kammounia'], emoji: '🇹🇳' },
     };
 
     // QG du Mois Logic (Last 30 days)
@@ -428,13 +430,16 @@ export default function DecisionMaker() {
         }
       };
 
-      if (v.orderedItem) {
-        processSpecialty(v.orderedItem);
-      } else {
-        // Fallback: If no dish was recorded, check the place's known specialties
-        const placeData = allPlaces.find(p => p.name === v.placeName);
-        if (placeData && placeData.specialties) {
-          placeData.specialties.forEach((spec: string) => processSpecialty(spec));
+      // Specialty stats logic - Only count for Restaurant, Brunch, and Fast Food
+      if (['Restaurant', 'Brunch', 'Fast Food'].includes(v.category)) {
+        if (v.orderedItem) {
+          processSpecialty(v.orderedItem);
+        } else {
+          // Fallback: If no dish was recorded, check the place's known specialties
+          const placeData = allPlaces.find(p => p.name === v.placeName);
+          if (placeData && placeData.specialties) {
+            placeData.specialties.forEach((spec: string) => processSpecialty(spec));
+          }
         }
       }
 
@@ -1100,6 +1105,8 @@ export default function DecisionMaker() {
 
   const SpecialtyMasteryDialog = () => {
     const sortedSpecialties = Object.entries(stats.bySpecialty).sort((a, b) => b[1].count - a[1].count);
+    const [editingSpecialty, setEditingSpecialty] = useState<{ name: string, current: string } | null>(null);
+    const [newVal, setNewVal] = useState('');
 
     const specialtyThemes: Record<string, { gradient: string; tint: string }> = {
       'Pizza': { gradient: 'from-orange-500/20 to-red-500/20', tint: 'text-orange-600' },
@@ -1108,12 +1115,25 @@ export default function DecisionMaker() {
       'Sandwich': { gradient: 'from-orange-400/20 to-yellow-500/20', tint: 'text-orange-700' },
       'Pasta': { gradient: 'from-red-400/20 to-orange-400/20', tint: 'text-red-700' },
       'Sushi': { gradient: 'from-emerald-400/20 to-cyan-500/20', tint: 'text-emerald-700' },
-      'Café': { gradient: 'from-amber-800/20 to-orange-900/20', tint: 'text-amber-900' },
       'Brunch': { gradient: 'from-yellow-400/20 to-orange-300/20', tint: 'text-yellow-700' },
       'Dessert': { gradient: 'from-pink-400/20 to-rose-500/20', tint: 'text-pink-700' },
       'Tunisien': { gradient: 'from-red-600/20 to-primary/20', tint: 'text-primary' },
       'Salade': { gradient: 'from-green-400/20 to-emerald-500/20', tint: 'text-green-700' },
       'Viande': { gradient: 'from-rose-700/20 to-red-800/20', tint: 'text-rose-900' },
+      'Chapati': { gradient: 'from-orange-400/20 to-orange-600/20', tint: 'text-orange-800' },
+      'Mlawi': { gradient: 'from-amber-400/20 to-amber-600/20', tint: 'text-amber-900' },
+    };
+
+    const handleUpdateImage = async () => {
+      if (!user || !editingSpecialty) return;
+      try {
+        await updateSpecialtyImage(user.uid, editingSpecialty.name, newVal.trim());
+        toast({ title: "Atlas mis à jour", description: `L'image pour ${editingSpecialty.name} a été modifiée.` });
+        setEditingSpecialty(null);
+        setNewVal('');
+      } catch (error) {
+        console.error(error);
+      }
     };
 
     return (
@@ -1148,7 +1168,7 @@ export default function DecisionMaker() {
               {sortedSpecialties.length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
                   <div className="h-20 w-20 bg-muted/30 rounded-full flex items-center justify-center animate-pulse">
-                    <Coffee className="h-10 w-10 opacity-30" />
+                    <History className="h-10 w-10 opacity-30" />
                   </div>
                   <p className="text-lg font-bold tracking-tight">Votre atlas est vide...</p>
                   <p className="text-sm px-10">Notez vos plats lors de vos prochaines sorties pour débloquer des badges !</p>
@@ -1156,6 +1176,10 @@ export default function DecisionMaker() {
               ) : (
                 <div className="grid grid-cols-2 gap-4">
                   {sortedSpecialties.map(([name, data]) => {
+                    const customImage = userProfile?.specialtyImages?.[name];
+                    const displayEmoji = customImage || data.emoji;
+                    const isUrl = displayEmoji.startsWith('http') || displayEmoji.startsWith('/') || displayEmoji.startsWith('data:');
+
                     const getTier = (count: number) => {
                       if (count >= 30) return { label: 'Légende', icon: '👑', color: 'text-amber-600', bg: 'bg-amber-100', border: 'border-amber-300', next: null };
                       if (count >= 15) return { label: 'Maître', icon: '🔥', color: 'text-orange-600', bg: 'bg-orange-100', border: 'border-orange-300', next: 30 };
@@ -1174,6 +1198,10 @@ export default function DecisionMaker() {
                     return (
                       <div
                         key={name}
+                        onClick={() => {
+                          setEditingSpecialty({ name, current: displayEmoji });
+                          setNewVal(displayEmoji);
+                        }}
                         className={cn(
                           "group p-4 rounded-[2rem] border-2 bg-gradient-to-br transition-all duration-500 hover:scale-[1.03] hover:shadow-xl cursor-pointer relative overflow-hidden flex flex-col items-center",
                           theme.gradient,
@@ -1181,11 +1209,15 @@ export default function DecisionMaker() {
                         )}
                       >
                         <div className="absolute top-2 right-4 text-[10px] font-black opacity-10 group-hover:opacity-20 transition-opacity">
-                          MASTER
+                          {tier.label === 'Légende' ? 'DEITY' : 'MASTER'}
                         </div>
 
-                        <div className="text-5xl mb-3 transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 drop-shadow-md">
-                          {data.emoji}
+                        <div className="h-16 w-16 mb-3 transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 flex items-center justify-center drop-shadow-md">
+                          {isUrl ? (
+                            <img src={displayEmoji} alt={name} className="h-full w-full object-contain" />
+                          ) : (
+                            <span className="text-5xl">{displayEmoji}</span>
+                          )}
                         </div>
 
                         <h5 className="font-black text-sm uppercase tracking-wider mb-1 text-foreground/80">{name}</h5>
@@ -1226,6 +1258,44 @@ export default function DecisionMaker() {
               )}
             </div>
           </ScrollArea>
+
+          {/* Edit Dialog */}
+          <Dialog open={!!editingSpecialty} onOpenChange={(open) => !open && setEditingSpecialty(null)}>
+            <DialogContent className="sm:max-w-[400px]">
+              <DialogHeader>
+                <DialogTitle>Personnaliser {editingSpecialty?.name}</DialogTitle>
+                <DialogDescription>
+                  Entrez un emoji ou l'URL d'une image (3D, photo, sticker...).
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4 space-y-4">
+                <div className="flex flex-col gap-2">
+                  <Label>Emoji ou URL Image</Label>
+                  <Input
+                    value={newVal}
+                    onChange={(e) => setNewVal(e.target.value)}
+                    placeholder="🍔 ou https://site.com/image.png"
+                  />
+                </div>
+                {newVal && (
+                  <div className="flex flex-col items-center gap-2 pt-2">
+                    <Label className="text-[10px] uppercase font-bold opacity-50">Aperçu</Label>
+                    <div className="h-20 w-20 flex items-center justify-center bg-muted/30 rounded-2xl overflow-hidden border">
+                      {(newVal.startsWith('http') || newVal.startsWith('/') || newVal.startsWith('data:')) ? (
+                        <img src={newVal} alt="Aperçu" className="h-full w-full object-contain" />
+                      ) : (
+                        <span className="text-5xl">{newVal}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditingSpecialty(null)}>Annuler</Button>
+                <Button onClick={handleUpdateImage}>Enregistrer</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </DialogContent>
       </Dialog>
     );
