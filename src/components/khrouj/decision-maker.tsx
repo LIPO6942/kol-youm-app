@@ -108,11 +108,12 @@ export default function DecisionMaker() {
               const categoryLabel = labelMap[catKey] || catKey;
               const specialtiesMap = zone.specialties || {};
               places.forEach((name: string) => {
+                const cleanedName = name.split('[')[0].trim();
                 flatPlaces.push({
-                  name,
+                  name: cleanedName,
                   category: categoryLabel,
                   zone: zone.zone,
-                  specialties: specialtiesMap[name] || []
+                  specialties: specialtiesMap[name] || [] // Keep original name for specialty lookup if necessary or use cleaned if appropriate
                 });
               });
             });
@@ -255,17 +256,22 @@ export default function DecisionMaker() {
     }
   };
 
+  const cleanPlaceName = (name: string) => {
+    return name.split('[')[0].trim();
+  };
+
   const handleVisit = async (suggestion: Suggestion) => {
     if (!user) return;
     try {
+      const cleanedName = cleanPlaceName(suggestion.placeName);
       await addVisitLog(user.uid, {
-        placeName: suggestion.placeName,
+        placeName: cleanedName,
         category: selectedCategory?.label || 'Autre',
         date: Date.now()
       });
       toast({
         title: "C'est noté !",
-        description: `Visite à ${suggestion.placeName} enregistrée. Profitez bien !`,
+        description: `Visite à ${cleanedName} enregistrée. Profitez bien !`,
       });
       // Redirect to Maps
       window.open(suggestion.googleMapsUrl, '_blank', 'noopener,noreferrer');
@@ -401,9 +407,10 @@ export default function DecisionMaker() {
 
       setIsSaving(true);
       try {
+        const cleanedName = cleanPlaceName(placeToSave);
         // Enregistrer la visite
         await addVisitLog(user.uid, {
-          placeName: placeToSave,
+          placeName: cleanedName,
           category: selectedCat,
           date: Date.now(),
           orderedItem: orderedItem.trim() || undefined
@@ -412,7 +419,7 @@ export default function DecisionMaker() {
         // Si une nouvelle spécialité a été entrée, l'ajouter à la base de données du lieu
         if (orderedItem.trim()) {
           const trimmedItem = orderedItem.trim();
-          const placeData = allPlaces.find((p: { name: string; category: string; zone: string; specialties: string[] }) => p.name === placeToSave);
+          const placeData = allPlaces.find((p: { name: string; category: string; zone: string; specialties: string[] }) => p.name === cleanedName);
 
           if (placeData) {
             const existingSpecialties = placeData.specialties || [];

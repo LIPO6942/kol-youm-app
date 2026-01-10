@@ -140,10 +140,11 @@ CONTRAINTES UTILISATEUR :
 
 TES INSTRUCTIONS CRITIQUES (ZÉRO HALLUCINATION) :
 1. VÉRIFICATION STRICTE : Tu DOIS suggérer uniquement des établissements présents dans les DONNÉES DE RÉFÉRENCE. Il est formellement interdit d'inventer un lieu.
-2. PRIORITÉ AUX MATCHS : Si la section "CORRESPONDANCES DÉTECTÉES" est présente, choisis tes suggestions EXCLUSIVEMENT dans cette section.
-3. NOM vs PLAT : Ne confonds pas le nom du plat avec le nom de l'établissement. Si tu ne trouves pas de lieu proposant "{{query}}" dans la liste, ne suggère rien.
-4. CAS D'ABSENCE : Si "{{query}}" est spécifié et que tu ne trouves aucune correspondance réelle dans les "PLATS_CONFIRMÉS" ou les listes fournies, retourne un JSON vide : {"suggestions": []}. Ne propose jamais un lieu au hasard pour un plat spécifique.
-5. DESCRIPTION : Justifie ton choix en citant le plat trouvé dans la base (ex: "Sélectionné car il propose des {{query}} confirmés dans notre base").
+2. NOM PROPRE : Retourne UNIQUEMENT le nom de l'établissement dans le champ "placeName". Ne réécris pas les spécialités entre crochets ou la zone dans ce champ (ex: utilise "L'Arrivage" et non "L'Arrivage [Brunch]").
+3. PRIORITÉ AUX MATCHS : Si la section "CORRESPONDANCES DÉTECTÉES" est présente, choisis tes suggestions EXCLUSIVEMENT dans cette section.
+4. NOM vs PLAT : Ne confonds pas le nom du plat avec le nom de l'établissement. Si tu ne trouves pas de lieu proposant "{{query}}" dans la liste, ne suggère rien.
+5. CAS D'ABSENCE : Si "{{query}}" est spécifié et que tu ne trouves aucune correspondance réelle dans les "PLATS_CONFIRMÉS" ou les listes fournies, retourne un JSON vide : {"suggestions": []}. Ne propose jamais un lieu au hasard pour un plat spécifique.
+6. DESCRIPTION : Justifie ton choix en citant le plat trouvé dans la base (ex: "Sélectionné car il propose des {{query}} confirmés dans notre base").
 `
       );
     }
