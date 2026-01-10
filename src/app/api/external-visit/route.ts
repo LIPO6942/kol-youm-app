@@ -85,42 +85,30 @@ export async function POST(request: NextRequest) {
             return cat.charAt(0).toUpperCase() + cat.slice(1);
         };
 
-        let finalCategory = normalizeCategoryInput(category);
-
-        // On vérifie si le lieu existe dans notre base pour forcer la bonne catégorie (Source de vérité)
+        // 4.5. DÉTECTION MULTI-CATÉGORIES
+        let possibleCategories: string[] = [];
         try {
             const zonesSnap = await getDocs(collection(db, 'zones'));
             const normalizedPlace = placeName.trim().toLowerCase();
 
             for (const zoneDoc of zonesSnap.docs) {
                 const data = zoneDoc.data();
-
-                // Vérifier dans chaque catégorie
-                if (data.restaurants?.map((p: string) => p.toLowerCase()).includes(normalizedPlace)) {
-                    finalCategory = 'Restaurant';
-                    break;
-                }
-                if (data.cafes?.map((p: string) => p.toLowerCase()).includes(normalizedPlace)) {
-                    finalCategory = 'Café';
-                    break;
-                }
-                if (data.fastFoods?.map((p: string) => p.toLowerCase()).includes(normalizedPlace)) {
-                    finalCategory = 'Fast Food';
-                    break;
-                }
-                if (data.brunch?.map((p: string) => p.toLowerCase()).includes(normalizedPlace)) {
-                    finalCategory = 'Brunch';
-                    break;
-                }
-                // Ajouter d'autres catégories si nécessaire
-            }
-            if (finalCategory !== category && finalCategory !== normalizeCategoryInput(category)) {
-                console.log(`[External Visit API] Category corrected by DB for ${placeName}: ${category} -> ${finalCategory}`);
+                if (data.restaurants?.map((p: string) => p.toLowerCase()).includes(normalizedPlace)) possibleCategories.push('Restaurant');
+                if (data.cafes?.map((p: string) => p.toLowerCase()).includes(normalizedPlace)) possibleCategories.push('Café');
+                if (data.fastFoods?.map((p: string) => p.toLowerCase()).includes(normalizedPlace)) possibleCategories.push('Fast Food');
+                if (data.brunch?.map((p: string) => p.toLowerCase()).includes(normalizedPlace)) possibleCategories.push('Brunch');
             }
         } catch (catError) {
-            console.error('[External Visit API] Error checking category:', catError);
-            // On conserve finalCategory qui a été normalisé au début
+            console.error('[External Visit API] Error checking categories:', catError);
         }
+
+        // Si aucune catégorie trouvée via DB, on utilise celle reçue et normalisée
+        if (possibleCategories.length === 0) {
+            possibleCategories = [normalizeCategoryInput(category)];
+        }
+
+        const isAmbiguous = possibleCategories.length > 1;
+        const finalCategory = isAmbiguous ? possibleCategories[0] : possibleCategories[0];
 
         // 5. Préparer l'objet visite
         const visitId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -128,9 +116,11 @@ export async function POST(request: NextRequest) {
             id: visitId,
             placeName: placeName,
             category: finalCategory,
-            date: date, // Utilise le timestamp reçu
+            date: date,
             orderedItem: dishName || '',
-            source: 'momenty' // Information de provenance interne
+            source: 'momenty',
+            isPending: isAmbiguous,
+            possibleCategories: isAmbiguous ? possibleCategories : undefined
         };
 
         // 6. Ajouter la visite au tableau 'visits' de l'utilisateur

@@ -31,6 +31,9 @@ export type VisitLog = {
     category: string;
     date: number; // timestamp
     orderedItem?: string;
+    source?: 'momenty' | 'app';
+    isPending?: boolean;
+    possibleCategories?: string[];
 };
 
 export type UserProfile = {

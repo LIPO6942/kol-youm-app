@@ -81,6 +81,36 @@ export default function DecisionMaker() {
   const { user, userProfile } = useAuth();
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
   const [showAllFrequent, setShowAllFrequent] = useState(false);
+  const [pendingVisit, setPendingVisit] = useState<VisitLog | null>(null);
+
+  // Check for pending visits from Momenty
+  useEffect(() => {
+    if (userProfile?.visits) {
+      const pending = userProfile.visits.find(v => v.isPending);
+      if (pending) {
+        setPendingVisit(pending);
+      } else {
+        setPendingVisit(null);
+      }
+    }
+  }, [userProfile?.visits]);
+
+  const resolvePendingVisit = async (category: string) => {
+    if (!user || !pendingVisit) return;
+    try {
+      await updateVisitLog(user.uid, pendingVisit.id, {
+        category,
+        isPending: false
+      } as any);
+      toast({
+        title: "Catégorie confirmée",
+        description: `Votre visite à ${pendingVisit.placeName} est classée en ${category}.`,
+      });
+      setPendingVisit(null);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
 
   // Assisted selection data
@@ -1277,7 +1307,6 @@ export default function DecisionMaker() {
             </div>
           </CollapsibleContent>
         </Collapsible>
-
         <div className="grid gap-4 grid-cols-2 md:grid-cols-3">
           {outingOptions.map((option: (typeof outingOptions)[0]) => {
             const Icon = option.icon;
@@ -1300,6 +1329,42 @@ export default function DecisionMaker() {
           })}
         </div>
       </CardContent>
-    </Card >
+
+      <Dialog open={!!pendingVisit} onOpenChange={(open) => !open && setPendingVisit(null)}>
+        <DialogContent className="sm:max-w-md rounded-3xl">
+          <DialogHeader className="items-center text-center">
+            <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mb-4 animate-bounce">
+              <MapPin className="h-8 w-8 text-primary" />
+            </div>
+            <DialogTitle className="text-2xl font-black font-headline tracking-tight">Où avez-vous mangé ?</DialogTitle>
+            <DialogDescription className="text-base font-medium">
+              Le lieu <span className="text-primary font-bold">"{pendingVisit?.placeName}"</span> appartient à plusieurs catégories. Choisissez celle qui convient pour cette sortie :
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-4">
+            {pendingVisit?.possibleCategories?.map((catLabel) => {
+              const option = outingOptions.find(o => o.label === catLabel) || outingOptions[0];
+              const Icon = option.icon;
+              return (
+                <Button
+                  key={catLabel}
+                  variant="outline"
+                  className={cn(
+                    "flex flex-col items-center justify-center h-28 gap-2 rounded-2xl border-2 transition-all duration-300 hover:scale-105 active:scale-95",
+                    option.bgClass,
+                    option.hoverClass,
+                    "border-muted hover:border-primary/50"
+                  )}
+                  onClick={() => resolvePendingVisit(catLabel)}
+                >
+                  <Icon className={cn("h-7 w-7", option.colorClass)} />
+                  <span className={cn("font-bold text-sm", option.colorClass)}>{catLabel}</span>
+                </Button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
   );
 }
