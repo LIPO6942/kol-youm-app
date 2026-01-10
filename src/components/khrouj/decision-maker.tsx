@@ -396,15 +396,27 @@ export default function DecisionMaker() {
       byCategory[v.category] = (byCategory[v.category] || 0) + 1;
 
       // Specialty stats
-      if (v.orderedItem) {
-        const itemLower = v.orderedItem.toLowerCase();
+      let detectedSpecialty = false;
+      const processSpecialty = (text: string) => {
+        const textLower = text.toLowerCase();
         for (const [sName, sData] of Object.entries(specialtyMap)) {
-          if (sData.keywords.some(kw => itemLower.includes(kw))) {
+          if (sData.keywords.some(kw => textLower.includes(kw))) {
             if (!bySpecialty[sName]) bySpecialty[sName] = { count: 0, topPlaces: {}, emoji: sData.emoji };
             bySpecialty[sName].count++;
             bySpecialty[sName].topPlaces[v.placeName] = (bySpecialty[sName].topPlaces[v.placeName] || 0) + 1;
+            detectedSpecialty = true;
           }
         }
+      };
+
+      if (v.orderedItem) {
+        processSpecialty(v.orderedItem);
+      }
+
+      // Fallback: If no dish was recorded, check the place's known specialties in our DB
+      const placeData = allPlaces.find(p => p.name === v.placeName);
+      if (!detectedSpecialty && placeData && placeData.specialties) {
+        placeData.specialties.forEach((spec: string) => processSpecialty(spec));
       }
 
       // Place stats
@@ -1064,74 +1076,123 @@ export default function DecisionMaker() {
   const SpecialtyMasteryDialog = () => {
     const sortedSpecialties = Object.entries(stats.bySpecialty).sort((a, b) => b[1].count - a[1].count);
 
+    const specialtyThemes: Record<string, { gradient: string; tint: string }> = {
+      'Pizza': { gradient: 'from-orange-500/20 to-red-500/20', tint: 'text-orange-600' },
+      'Burger': { gradient: 'from-amber-600/20 to-orange-600/20', tint: 'text-amber-700' },
+      'Tacos': { gradient: 'from-yellow-500/20 to-amber-600/20', tint: 'text-amber-800' },
+      'Sandwich': { gradient: 'from-orange-400/20 to-yellow-500/20', tint: 'text-orange-700' },
+      'Pasta': { gradient: 'from-red-400/20 to-orange-400/20', tint: 'text-red-700' },
+      'Sushi': { gradient: 'from-emerald-400/20 to-cyan-500/20', tint: 'text-emerald-700' },
+      'Café': { gradient: 'from-amber-800/20 to-orange-900/20', tint: 'text-amber-900' },
+      'Brunch': { gradient: 'from-yellow-400/20 to-orange-300/20', tint: 'text-yellow-700' },
+      'Dessert': { gradient: 'from-pink-400/20 to-rose-500/20', tint: 'text-pink-700' },
+      'Tunisien': { gradient: 'from-red-600/20 to-primary/20', tint: 'text-primary' },
+      'Salade': { gradient: 'from-green-400/20 to-emerald-500/20', tint: 'text-green-700' },
+      'Viande': { gradient: 'from-rose-700/20 to-red-800/20', tint: 'text-rose-900' },
+    };
+
     return (
       <Dialog>
         <DialogTrigger asChild>
-          <Card className="bg-orange-50 border-orange-200 group hover:border-orange-400 transition-all duration-300 cursor-pointer overflow-hidden relative">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-              <UtensilsCrossed className="h-7 w-7 mb-2 text-orange-600 group-hover:scale-110 transition-transform duration-300" />
-              <span className="text-xs font-bold text-orange-800">Saveurs</span>
-              <span className="text-[9px] text-orange-600 uppercase tracking-tighter font-semibold">Mastery</span>
-              <div className="absolute -bottom-1 -right-1 opacity-10">
-                <UtensilsCrossed className="h-10 w-10 text-orange-900" />
-              </div>
-            </CardContent>
-          </Card>
+          <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full bg-orange-50 text-orange-600 hover:bg-orange-100 transition-all duration-300 shadow-sm border border-orange-100">
+            <UtensilsCrossed className="h-5 w-5" />
+          </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-md w-[95%] rounded-2xl max-h-[85vh] overflow-hidden grid grid-rows-[auto_1fr] p-4 sm:p-6">
-          <DialogHeader className="pb-2">
-            <DialogTitle className="text-xl font-bold font-headline flex items-center gap-2 text-orange-700">
-              <UtensilsCrossed className="h-5 w-5" />
-              Atlas des Saveurs
-            </DialogTitle>
-            <DialogDescription>
-              Votre progression culinaire par spécialité.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-md w-[95%] rounded-[2.5rem] max-h-[85vh] overflow-hidden grid grid-rows-[auto_1fr] p-0 border-none shadow-2xl">
+          <div className="bg-gradient-to-br from-orange-500 to-amber-600 p-8 pb-12 text-white relative overflow-hidden">
+            <div className="absolute right-[-20px] top-[-20px] opacity-10 rotate-12">
+              <UtensilsCrossed className="h-40 w-40" />
+            </div>
+            <DialogHeader className="relative z-10">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
+                  <UtensilsCrossed className="h-6 w-6 text-white" />
+                </div>
+                <DialogTitle className="text-3xl font-black font-headline tracking-tight text-white">
+                  Atlas des Saveurs
+                </DialogTitle>
+              </div>
+              <DialogDescription className="text-orange-50 text-base font-medium opacity-90">
+                Vous avez découvert <span className="text-white font-black">{sortedSpecialties.length} types</span> de saveurs !
+              </DialogDescription>
+            </DialogHeader>
+          </div>
 
-          <ScrollArea className="min-h-0 pr-2 mt-2">
-            <div className="space-y-4 pb-4">
+          <ScrollArea className="bg-white -mt-8 rounded-t-[2.5rem] relative z-20">
+            <div className="p-6 space-y-6 pb-10">
               {sortedSpecialties.length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground flex flex-col items-center gap-2">
-                  <Coffee className="h-10 w-10 opacity-20" />
-                  <p className="text-sm font-medium">Commencez à noter vos plats pour remplir l'atlas !</p>
+                <div className="text-center py-16 text-muted-foreground flex flex-col items-center gap-4">
+                  <div className="h-20 w-20 bg-muted/30 rounded-full flex items-center justify-center animate-pulse">
+                    <Coffee className="h-10 w-10 opacity-30" />
+                  </div>
+                  <p className="text-lg font-bold tracking-tight">Votre atlas est vide...</p>
+                  <p className="text-sm px-10">Notez vos plats lors de vos prochaines sorties pour débloquer des badges !</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   {sortedSpecialties.map(([name, data]) => {
                     const getTier = (count: number) => {
-                      if (count >= 30) return { label: 'Légende', icon: '👑', color: 'text-amber-600', bg: 'bg-amber-100', border: 'border-amber-300' };
-                      if (count >= 15) return { label: 'Maître', icon: '🔥', color: 'text-orange-600', bg: 'bg-orange-100', border: 'border-orange-300' };
-                      if (count >= 7) return { label: 'Expert', icon: '🥇', color: 'text-yellow-700', bg: 'bg-yellow-50', border: 'border-yellow-200' };
-                      if (count >= 3) return { label: 'Fan', icon: '🥈', color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' };
-                      return { label: 'Amateur', icon: '🥉', color: 'text-orange-800/60', bg: 'bg-orange-50/50', border: 'border-orange-100' };
+                      if (count >= 30) return { label: 'Légende', icon: '👑', color: 'text-amber-600', bg: 'bg-amber-100', border: 'border-amber-300', next: null };
+                      if (count >= 15) return { label: 'Maître', icon: '🔥', color: 'text-orange-600', bg: 'bg-orange-100', border: 'border-orange-300', next: 30 };
+                      if (count >= 7) return { label: 'Expert', icon: '🥇', color: 'text-yellow-700', bg: 'bg-yellow-50', border: 'border-yellow-200', next: 15 };
+                      if (count >= 3) return { label: 'Fan', icon: '🥈', color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200', next: 7 };
+                      return { label: 'Amateur', icon: '🥉', color: 'text-orange-800/60', bg: 'bg-orange-50/50', border: 'border-orange-100', next: 3 };
                     };
                     const tier = getTier(data.count);
+                    const theme = specialtyThemes[name] || { gradient: 'from-muted to-muted/50', tint: 'text-foreground' };
                     const top3 = Object.entries(data.topPlaces)
                       .sort((a, b) => b[1] - a[1])
                       .slice(0, 3);
 
+                    const progress = tier.next ? Math.min(100, (data.count / tier.next) * 100) : 100;
+
                     return (
-                      <div key={name} className={cn("p-3 rounded-2xl border bg-white flex flex-col items-center text-center gap-1 transition-all duration-300 hover:scale-[1.02] shadow-sm", tier.border)}>
-                        <div className="text-4xl mb-1 drop-shadow-sm">{data.emoji}</div>
-                        <h5 className="font-bold text-sm tracking-tight">{name}</h5>
-                        <div className={cn("px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tighter flex items-center gap-1", tier.bg, tier.color)}>
+                      <div
+                        key={name}
+                        className={cn(
+                          "group p-4 rounded-[2rem] border-2 bg-gradient-to-br transition-all duration-500 hover:scale-[1.03] hover:shadow-xl cursor-pointer relative overflow-hidden flex flex-col items-center",
+                          theme.gradient,
+                          "border-transparent hover:border-white shadow-sm"
+                        )}
+                      >
+                        <div className="absolute top-2 right-4 text-[10px] font-black opacity-10 group-hover:opacity-20 transition-opacity">
+                          MASTER
+                        </div>
+
+                        <div className="text-5xl mb-3 transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 drop-shadow-md">
+                          {data.emoji}
+                        </div>
+
+                        <h5 className="font-black text-sm uppercase tracking-wider mb-1 text-foreground/80">{name}</h5>
+
+                        <div className={cn("px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-sm bg-white/70 backdrop-blur-sm", tier.color)}>
                           <span>{tier.icon}</span>
                           {tier.label}
                         </div>
-                        <div className="mt-2 w-full pt-2 border-t border-dashed">
-                          <p className="text-[7px] text-muted-foreground uppercase font-black tracking-widest mb-1">Top Spots</p>
-                          <div className="space-y-1">
-                            {top3.map(([pName, count]) => (
-                              <div key={pName} className="flex justify-between items-center text-[9px] font-medium">
-                                <span className="truncate flex-1 text-left pr-1">{pName}</span>
-                                <span className="text-primary font-bold shrink-0">{count}</span>
-                              </div>
-                            ))}
+
+                        {/* Progress Bar */}
+                        <div className="w-full mt-4 space-y-1">
+                          <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-tighter opacity-60 px-1">
+                            <span>{data.count} Plats</span>
+                            {tier.next && <span>Goal: {tier.next}</span>}
+                          </div>
+                          <div className="h-1.5 w-full bg-black/5 rounded-full overflow-hidden p-[1px]">
+                            <div
+                              className={cn("h-full rounded-full transition-all duration-1000 ease-out", theme.tint.replace('text', 'bg'))}
+                              style={{ width: `${progress}%` }}
+                            />
                           </div>
                         </div>
-                        <div className="mt-2 text-[10px] font-black text-primary">
-                          {data.count} <span className="opacity-60">Visites</span>
+
+                        {/* Bottom Info Expanded on Hover or subtle hint */}
+                        <div className="mt-4 w-full pt-3 border-t border-black/5 flex flex-col gap-1.5">
+                          <p className="text-[7px] text-muted-foreground uppercase font-black tracking-[0.2em] mb-0.5 opacity-50">Top Spots</p>
+                          {top3.map(([pName, count], idx) => (
+                            <div key={pName} className="flex justify-between items-center text-[9px] font-bold">
+                              <span className="truncate flex-1 text-left pr-1 opacity-70 italic">#{idx + 1} {pName}</span>
+                              <span className={cn("font-black shrink-0", theme.tint)}>{count}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     );
@@ -1148,16 +1209,17 @@ export default function DecisionMaker() {
   const StatsDashboard = () => {
     return (
       <div className="space-y-8 animate-in fade-in-50">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => setView('search')}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-3xl font-bold font-headline text-foreground tracking-tight">Mes Habitudes</h2>
+            <div className="flex items-center gap-2">
+              <SpecialtyMasteryDialog />
+            </div>
           </div>
-          <div className="w-full sm:w-auto">
-            <ManualVisitForm />
-          </div>
+          <ManualVisitForm />
         </div>
 
         {/* Global Overview Cards */}
@@ -1185,9 +1247,8 @@ export default function DecisionMaker() {
             </DialogContent>
           </Dialog>
 
-          {/* Location & Specialty Dialogs */}
+          {/* Location Dialog */}
           <ZoneExplorationDialog />
-          <SpecialtyMasteryDialog />
 
           {outingOptions.slice(0, 4).map(opt => (
             <Card key={opt.id} className={cn(
