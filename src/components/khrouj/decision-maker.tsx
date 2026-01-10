@@ -1208,18 +1208,20 @@ export default function DecisionMaker() {
 
   const StatsDashboard = () => {
     return (
-      <div className="space-y-8 animate-in fade-in-50">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => setView('search')}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <h2 className="text-3xl font-bold font-headline text-foreground tracking-tight">Mes Habitudes</h2>
+      <div className="space-y-6 animate-in fade-in-50">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={() => setView('search')} className="h-8 w-8">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <h2 className="text-2xl font-bold font-headline text-foreground tracking-tight">Mes Habitudes</h2>
               <SpecialtyMasteryDialog />
             </div>
           </div>
-          <ManualVisitForm />
+          <div className="pl-10">
+            <ManualVisitForm />
+          </div>
         </div>
 
         {/* Global Overview Cards */}
