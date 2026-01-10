@@ -339,6 +339,7 @@ export default function DecisionMaker() {
       byCategory: {} as Record<string, number>,
       byPlace: [] as [string, { count: number; category: string; dates: number[]; zone?: string }][],
       byZone: {} as Record<string, { count: number; uniquePlaces: Set<string>; totalInDb: number; categoryCounts: Record<string, number> }>,
+      bySpecialty: {} as Record<string, { count: number; topPlaces: Record<string, number>; emoji: string }>,
       qgDuMois: null as { name: string; count: number; category: string } | null
     };
 
@@ -348,6 +349,22 @@ export default function DecisionMaker() {
     const byCategory: Record<string, number> = {};
     const byPlaceMap: Record<string, { count: number; category: string; dates: number[]; zone?: string }> = {};
     const byZone: Record<string, { count: number; uniquePlaces: Set<string>; totalInDb: number; categoryCounts: Record<string, number> }> = {};
+    const bySpecialty: Record<string, { count: number; topPlaces: Record<string, number>; emoji: string }> = {};
+
+    const specialtyMap: Record<string, { keywords: string[], emoji: string }> = {
+      'Pizza': { keywords: ['pizza'], emoji: '🍕' },
+      'Burger': { keywords: ['burger'], emoji: '🍔' },
+      'Tacos': { keywords: ['tacos'], emoji: '🌮' },
+      'Sandwich': { keywords: ['sandwich', 'libanais', 'snack', 'baguette'], emoji: '🌯' },
+      'Pasta': { keywords: ['pasta', 'spaghetti', 'penne', 'pâte'], emoji: '🍝' },
+      'Sushi': { keywords: ['sushi', 'maki', 'california'], emoji: '🍣' },
+      'Café': { keywords: ['café', 'coffee', 'expresso', 'cappuccino', 'latte'], emoji: '☕' },
+      'Brunch': { keywords: ['brunch', 'oeuf', 'pancake', 'benedict'], emoji: '🍳' },
+      'Dessert': { keywords: ['crêpe', 'gaufre', 'glace', 'cake', 'pâtisserie', 'chocolat'], emoji: '🍰' },
+      'Tunisien': { keywords: ['ma9loub', 'mlawi', 'chapati', 'fricassé', 'ojja', 'couscous'], emoji: '🥙' },
+      'Salade': { keywords: ['salade', 'healthy', 'bowl'], emoji: '🥗' },
+      'Viande': { keywords: ['grillade', 'steak', 'entrecôte', 'kebab', 'chawarma'], emoji: '🍖' },
+    };
 
     // QG du Mois Logic (Last 30 days)
     const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
@@ -377,6 +394,18 @@ export default function DecisionMaker() {
     visits.forEach((v: VisitLog) => {
       // Category stats
       byCategory[v.category] = (byCategory[v.category] || 0) + 1;
+
+      // Specialty stats
+      if (v.orderedItem) {
+        const itemLower = v.orderedItem.toLowerCase();
+        for (const [sName, sData] of Object.entries(specialtyMap)) {
+          if (sData.keywords.some(kw => itemLower.includes(kw))) {
+            if (!bySpecialty[sName]) bySpecialty[sName] = { count: 0, topPlaces: {}, emoji: sData.emoji };
+            bySpecialty[sName].count++;
+            bySpecialty[sName].topPlaces[v.placeName] = (bySpecialty[sName].topPlaces[v.placeName] || 0) + 1;
+          }
+        }
+      }
 
       // Place stats
       if (!byPlaceMap[v.placeName]) {
@@ -416,6 +445,7 @@ export default function DecisionMaker() {
         return maxB - maxA;
       }),
       byZone,
+      bySpecialty,
       qgDuMois
     };
   }, [userProfile?.visits, allPlaces]);
@@ -1031,6 +1061,90 @@ export default function DecisionMaker() {
     );
   };
 
+  const SpecialtyMasteryDialog = () => {
+    const sortedSpecialties = Object.entries(stats.bySpecialty).sort((a, b) => b[1].count - a[1].count);
+
+    return (
+      <Dialog>
+        <DialogTrigger asChild>
+          <Card className="bg-orange-50 border-orange-200 group hover:border-orange-400 transition-all duration-300 cursor-pointer overflow-hidden relative">
+            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+              <UtensilsCrossed className="h-7 w-7 mb-2 text-orange-600 group-hover:scale-110 transition-transform duration-300" />
+              <span className="text-xs font-bold text-orange-800">Saveurs</span>
+              <span className="text-[9px] text-orange-600 uppercase tracking-tighter font-semibold">Mastery</span>
+              <div className="absolute -bottom-1 -right-1 opacity-10">
+                <UtensilsCrossed className="h-10 w-10 text-orange-900" />
+              </div>
+            </CardContent>
+          </Card>
+        </DialogTrigger>
+        <DialogContent className="max-w-md w-[95%] rounded-2xl max-h-[85vh] overflow-hidden grid grid-rows-[auto_1fr] p-4 sm:p-6">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="text-xl font-bold font-headline flex items-center gap-2 text-orange-700">
+              <UtensilsCrossed className="h-5 w-5" />
+              Atlas des Saveurs
+            </DialogTitle>
+            <DialogDescription>
+              Votre progression culinaire par spécialité.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="min-h-0 pr-2 mt-2">
+            <div className="space-y-4 pb-4">
+              {sortedSpecialties.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground flex flex-col items-center gap-2">
+                  <Coffee className="h-10 w-10 opacity-20" />
+                  <p className="text-sm font-medium">Commencez à noter vos plats pour remplir l'atlas !</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {sortedSpecialties.map(([name, data]) => {
+                    const getTier = (count: number) => {
+                      if (count >= 30) return { label: 'Légende', icon: '👑', color: 'text-amber-600', bg: 'bg-amber-100', border: 'border-amber-300' };
+                      if (count >= 15) return { label: 'Maître', icon: '🔥', color: 'text-orange-600', bg: 'bg-orange-100', border: 'border-orange-300' };
+                      if (count >= 7) return { label: 'Expert', icon: '🥇', color: 'text-yellow-700', bg: 'bg-yellow-50', border: 'border-yellow-200' };
+                      if (count >= 3) return { label: 'Fan', icon: '🥈', color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' };
+                      return { label: 'Amateur', icon: '🥉', color: 'text-orange-800/60', bg: 'bg-orange-50/50', border: 'border-orange-100' };
+                    };
+                    const tier = getTier(data.count);
+                    const top3 = Object.entries(data.topPlaces)
+                      .sort((a, b) => b[1] - a[1])
+                      .slice(0, 3);
+
+                    return (
+                      <div key={name} className={cn("p-3 rounded-2xl border bg-white flex flex-col items-center text-center gap-1 transition-all duration-300 hover:scale-[1.02] shadow-sm", tier.border)}>
+                        <div className="text-4xl mb-1 drop-shadow-sm">{data.emoji}</div>
+                        <h5 className="font-bold text-sm tracking-tight">{name}</h5>
+                        <div className={cn("px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tighter flex items-center gap-1", tier.bg, tier.color)}>
+                          <span>{tier.icon}</span>
+                          {tier.label}
+                        </div>
+                        <div className="mt-2 w-full pt-2 border-t border-dashed">
+                          <p className="text-[7px] text-muted-foreground uppercase font-black tracking-widest mb-1">Top Spots</p>
+                          <div className="space-y-1">
+                            {top3.map(([pName, count]) => (
+                              <div key={pName} className="flex justify-between items-center text-[9px] font-medium">
+                                <span className="truncate flex-1 text-left pr-1">{pName}</span>
+                                <span className="text-primary font-bold shrink-0">{count}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="mt-2 text-[10px] font-black text-primary">
+                          {data.count} <span className="opacity-60">Visites</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
   const StatsDashboard = () => {
     return (
       <div className="space-y-8 animate-in fade-in-50">
@@ -1071,8 +1185,9 @@ export default function DecisionMaker() {
             </DialogContent>
           </Dialog>
 
-          {/* New Location Dialog Icon */}
+          {/* Location & Specialty Dialogs */}
           <ZoneExplorationDialog />
+          <SpecialtyMasteryDialog />
 
           {outingOptions.slice(0, 4).map(opt => (
             <Card key={opt.id} className={cn(
