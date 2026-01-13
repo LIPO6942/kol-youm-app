@@ -22,6 +22,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 const TypedBadge = Badge as any;
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { getWeekendHQ, getCulinaryPassport } from '@/lib/khrouj-stats-utils';
+import { WeekendHQCard } from './weekend-hq-card';
+import { CulinaryPassport } from './culinary-passport';
 
 const outingOptions: { id: string; label: string; icon: LucideIcon; description: string, colorClass: string, bgClass: string, hoverClass: string, selectedClass: string }[] = [
   { id: 'fast-food', label: 'Fast Food', icon: Sandwich, description: "Rapide et gourmand", colorClass: 'text-orange-700', bgClass: 'bg-orange-50', hoverClass: 'hover:bg-orange-100', selectedClass: 'border-orange-500 bg-orange-100' },
@@ -340,7 +343,10 @@ export default function DecisionMaker() {
       byPlace: [] as [string, { count: number; category: string; dates: number[]; zone?: string }][],
       byZone: {} as Record<string, { count: number; uniquePlaces: Set<string>; totalInDb: number; categoryCounts: Record<string, number> }>,
       bySpecialty: {} as Record<string, { count: number; topPlaces: Record<string, number>; emoji: string }>,
-      qgDuMois: null as { name: string; count: number; category: string } | null
+      bySpecialty: {} as Record<string, { count: number; topPlaces: Record<string, number>; emoji: string }>,
+      qgDuMois: null as { name: string; count: number; category: string } | null,
+      weekendHQ: null as ReturnType<typeof getWeekendHQ>,
+      passportStats: [] as ReturnType<typeof getCulinaryPassport>
     };
 
     if (!userProfile?.visits) return defaultStats;
@@ -482,7 +488,10 @@ export default function DecisionMaker() {
       }),
       byZone,
       bySpecialty,
-      qgDuMois
+      bySpecialty,
+      qgDuMois,
+      weekendHQ: getWeekendHQ(visits),
+      passportStats: getCulinaryPassport(visits)
     };
   }, [userProfile?.visits, allPlaces]);
 
@@ -1333,6 +1342,14 @@ export default function DecisionMaker() {
             <ManualVisitForm />
           </div>
         </div>
+
+        {/* Intelligence Section */}
+        {(stats.weekendHQ || stats.passportStats.length > 0) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-bottom-5 duration-500 delay-150">
+            {stats.weekendHQ && <WeekendHQCard hq={stats.weekendHQ} />}
+            {stats.passportStats.length > 0 && <CulinaryPassport stats={stats.passportStats} />}
+          </div>
+        )}
 
         {/* Global Overview Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
