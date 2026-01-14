@@ -23,18 +23,21 @@ export type CategoryStat = {
 const normalize = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
 const CUISINE_MAP: Record<string, string[]> = {
-    'Tunisien': ['lablebi', 'kefteji', 'mloukhia', 'couscous', 'brik', 'fricasse', 'chapati', 'ma9loub', 'makloub', 'baguette farcie', 'libanais', 'chawarma', 'sahn tounsi', 'ojja'],
-    'Italien': ['pizza', 'pates', 'pasta', 'lasagne', 'risotto', 'tiramisu', 'spaghetti'],
-    'Américain': ['burger', 'cheeseburger', 'fries', 'hot dog', 'wings', 'nuggets', 'milkshake'],
-    'Asiatique': ['sushi', 'ramen', 'noodles', 'wok', 'chinois', 'thai', 'nem', 'riz cantonnais'],
-    'Français': ['crepe', 'croissant', 'omelette', 'quiche', 'fromage', 'baguette'],
-    'Café': ['cafe', 'coffee', 'capucin', 'express', 'the', 'jus', 'croissant'], // Fallback for cafes
+    'Tunisien': ['lablebi', 'kefteji', 'mloukhia', 'couscous', 'brik', 'fricasse', 'chapati', 'ma9loub', 'makloub', 'baguette farcie', 'libanais', 'chawarma', 'sahn tounsi', 'ojja', 'tunisien', 'tunisian'],
+    'Italien': ['pizza', 'pates', 'pasta', 'lasagne', 'risotto', 'tiramisu', 'spaghetti', 'italien', 'italian'],
+    'Américain': ['burger', 'cheeseburger', 'fries', 'hot dog', 'wings', 'nuggets', 'milkshake', 'fast food', 'fast-food', 'americain', 'american', 'brunch', 'pancake', 'bagel'],
+    'Asiatique': ['sushi', 'ramen', 'noodles', 'wok', 'chinois', 'thai', 'nem', 'riz cantonnais', 'asie', 'asian', 'jap'],
+    'Français': ['crepe', 'croissant', 'omelette', 'quiche', 'fromage', 'baguette', 'francais', 'french', 'raclette', 'fondue', 'tartiflette', 'bistro', 'steak frites'],
+    'Mexicain': ['tacos', 'burrito', 'quesadilla', 'fajita', 'nachos', 'guacamole', 'mexicain', 'mexican', 'chili'],
 };
 
-function detectCuisine(visit: VisitLog): string {
+function detectCuisine(visit: VisitLog): string | null {
     const item = normalize(visit.orderedItem || "");
     const possibleCats = (visit.possibleCategories || []).map(normalize);
     const cat = normalize(visit.category || "");
+
+    // 0. Explicit exclusion/skip for "Café" (handled in QG, not Passport)
+    if (cat.includes('cafe')) return null;
 
     // 1. Check Ordered Item Keywords
     for (const [cuisine, keywords] of Object.entries(CUISINE_MAP)) {
@@ -42,20 +45,17 @@ function detectCuisine(visit: VisitLog): string {
     }
 
     // 2. Check Category Explicitly
-    // Add exact matches if your categories are already "Italien", etc.
-    const cuisineNames = Object.keys(CUISINE_MAP).map(normalize);
-    for (const c of cuisineNames) {
-        if (cat.includes(c) || possibleCats.some(pc => pc.includes(c))) {
-            // Find original key
-            return Object.keys(CUISINE_MAP).find(k => normalize(k) === c) || c;
+    for (const [cuisine, keywords] of Object.entries(CUISINE_MAP)) {
+        if (keywords.some(k => cat.includes(k) || possibleCats.some(pc => pc.includes(k)))) {
+            return cuisine;
         }
     }
 
-    // 3. Special Case: Fast Food often implies Tunisian/American depending on context,
-    // but without specific item we might default to broader category or keep original.
+    // 3. Fallbacks
+    if (cat.includes('fast-food') || cat.includes('fast food')) return 'Américain';
+    if (cat.includes('brunch')) return 'Américain'; // Broad generalization, but effective for cleaning data
 
-    // If no specific cuisine detected, return original category formatted
-    return visit.category ? (visit.category.charAt(0).toUpperCase() + visit.category.slice(1)) : "Autre";
+    return null; // Return null if it's just "Restaurant" with no info, or "Café"
 }
 
 export function getWeekendHQ(visits: VisitLog[] = []): WeekendHQResult {
@@ -125,13 +125,10 @@ export function getCulinaryPassport(visits: VisitLog[] = []): CategoryStat[] {
     let totalCategorized = 0;
 
     visits.forEach(visit => {
-        // Detect Cuisine/Nation instead of just Category
+        // Detect Cuisine/Nation
         const cuisine = detectCuisine(visit);
 
-        // Skip "Café" from Culinary Passport? Usually yes, it's about food.
-        // Or keep it if user wants to see "Café" as a slice.
-        // If user explicitly asked for "Nationnalités", Café might be separate.
-        // But let's keep it for completeness unless it overwhelms.
+        if (!cuisine) return; // Skip if unrecognized or Cafe
 
         if (!cuisineStats[cuisine]) {
             cuisineStats[cuisine] = { count: 0, places: {}, lastVisit: 0 };

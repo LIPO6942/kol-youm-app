@@ -22,8 +22,8 @@ export function CulinaryPassport({ stats }: CulinaryPassportProps) {
     const chartData = stats.filter(s => s.percentage > 0);
 
     // Find a category to highlight for "Missing Insight"
-    // E.g., a top 5 category not visited in > 30 days
-    const missingInsight = stats.slice(0, 5).find(s => s.daysSinceLastVisit > 30);
+    // E.g., a top 5 category not visited in > 10 days
+    const missingInsight = stats.slice(0, 5).find(s => s.daysSinceLastVisit > 10);
 
     if (stats.length === 0) return null;
 
