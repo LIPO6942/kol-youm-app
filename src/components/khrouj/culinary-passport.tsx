@@ -121,10 +121,23 @@ export function CulinaryPassport({ stats }: CulinaryPassportProps) {
                         {activeCategory?.topPlaces.map((place, idx) => (
                             <div key={place.name} className="flex items-center justify-between p-3 bg-muted/40 rounded-xl border border-transparent hover:border-primary/20 hover:bg-white transition-all">
                                 <div className="flex items-center gap-3">
-                                    <span className="font-black text-2xl text-slate-200">#{idx + 1}</span>
+                                    <span className={`font-black text-2xl ${idx === 0 ? 'text-amber-500' :
+                                            idx === 1 ? 'text-slate-400' :
+                                                idx === 2 ? 'text-orange-600' :
+                                                    'text-slate-200'
+                                        }`}>
+                                        #{idx + 1}
+                                    </span>
                                     <div>
                                         <p className="font-bold text-sm leading-tight">{place.name}</p>
-                                        <p className="text-[10px] text-muted-foreground">{place.count} fois</p>
+                                        <div className="flex flex-col">
+                                            <p className="text-[10px] text-muted-foreground">{place.count} fois</p>
+                                            {place.specialties.length > 0 && (
+                                                <p className="text-[9px] text-muted-foreground/70 font-medium italic">
+                                                    {place.specialties.join(', ')}
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                                 {idx === 0 && <span className="text-lg">🏆</span>}

@@ -13,7 +13,7 @@ export type CategoryStat = {
     category: string;
     count: number;
     percentage: number;
-    topPlaces: { name: string; count: number }[];
+    topPlaces: { name: string; count: number; specialties: string[] }[];
     lastVisit: number;
     // For insights
     daysSinceLastVisit: number;
@@ -24,9 +24,11 @@ const normalize = (str: string) => str.toLowerCase().normalize("NFD").replace(/[
 
 const CUISINE_MAP: Record<string, string[]> = {
     'Tunisien': ['lablebi', 'kefteji', 'mloukhia', 'couscous', 'brik', 'fricasse', 'chapati', 'ma9loub', 'makloub', 'baguette farcie', 'libanais', 'chawarma', 'sahn tounsi', 'ojja', 'tunisien', 'tunisian'],
+    'Thaïlandaise': ['thai', 'pad thai', 'tom yum', 'curry vert', 'massaman', 'som tam'],
+    'Japonaise': ['sushi', 'ramen', 'maki', 'sashimi', 'tempura', 'yakitori', 'takoyaki', 'wasabi', 'jap', 'gyoza', 'tonkatsu'],
+    'Chinoise': ['chinois', 'chinese', 'nem', 'riz cantonnais', 'wok', 'dim sum', 'canard laque', 'bao', 'spring rolls'],
     'Italien': ['pizza', 'pates', 'pasta', 'lasagne', 'risotto', 'tiramisu', 'spaghetti', 'italien', 'italian'],
     'Américain': ['burger', 'cheeseburger', 'fries', 'hot dog', 'wings', 'nuggets', 'milkshake', 'fast food', 'fast-food', 'americain', 'american', 'brunch', 'pancake', 'bagel'],
-    'Asiatique': ['sushi', 'ramen', 'noodles', 'wok', 'chinois', 'thai', 'nem', 'riz cantonnais', 'asie', 'asian', 'jap'],
     'Français': ['crepe', 'croissant', 'omelette', 'quiche', 'fromage', 'baguette', 'francais', 'french', 'raclette', 'fondue', 'tartiflette', 'bistro', 'steak frites'],
     'Mexicain': ['tacos', 'burrito', 'quesadilla', 'fajita', 'nachos', 'guacamole', 'mexicain', 'mexican', 'chili'],
 };
@@ -118,7 +120,7 @@ export function getCulinaryPassport(visits: VisitLog[] = []): CategoryStat[] {
 
     const cuisineStats: Record<string, {
         count: number;
-        places: Record<string, number>;
+        places: Record<string, { count: number; items: Record<string, number> }>;
         lastVisit: number
     }> = {};
 
@@ -135,7 +137,18 @@ export function getCulinaryPassport(visits: VisitLog[] = []): CategoryStat[] {
         }
 
         cuisineStats[cuisine].count += 1;
-        cuisineStats[cuisine].places[visit.placeName] = (cuisineStats[cuisine].places[visit.placeName] || 0) + 1;
+
+        if (!cuisineStats[cuisine].places[visit.placeName]) {
+            cuisineStats[cuisine].places[visit.placeName] = { count: 0, items: {} };
+        }
+
+        cuisineStats[cuisine].places[visit.placeName].count += 1;
+
+        if (visit.orderedItem) {
+            const item = visit.orderedItem.trim();
+            cuisineStats[cuisine].places[visit.placeName].items[item] = (cuisineStats[cuisine].places[visit.placeName].items[item] || 0) + 1;
+        }
+
         if (visit.date > cuisineStats[cuisine].lastVisit) {
             cuisineStats[cuisine].lastVisit = visit.date;
         }
@@ -147,14 +160,26 @@ export function getCulinaryPassport(visits: VisitLog[] = []): CategoryStat[] {
     const stats: CategoryStat[] = Object.entries(cuisineStats).map(([cat, data]) => {
         // Convert places map to sorted array
         const sortedPlaces = Object.entries(data.places)
-            .sort((a, b) => b[1] - a[1])
+            .sort((a, b) => b[1].count - a[1].count)
             .slice(0, 3) // Top 3
-            .map(([name, count]) => ({ name, count }));
+            .map(([name, placeData]) => {
+                // Get top 2 specialties for this place
+                const specialties = Object.entries(placeData.items)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 2)
+                    .map(([itemName]) => itemName);
+
+                return {
+                    name,
+                    count: placeData.count,
+                    specialties
+                };
+            });
 
         const daysSinceLastVisit = Math.floor((now - data.lastVisit) / (1000 * 60 * 60 * 24));
 
         return {
-            category: cat, // Now this is "Italien", "Tunisien", etc.
+            category: cat,
             count: data.count,
             percentage: totalCategorized > 0 ? Math.round((data.count / totalCategorized) * 100) : 0,
             topPlaces: sortedPlaces,
