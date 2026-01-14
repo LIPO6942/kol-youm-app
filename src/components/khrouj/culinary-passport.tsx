@@ -39,6 +39,11 @@ export function CulinaryPassport({ stats }: CulinaryPassportProps) {
                             <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
                                 Passeport Culinaire
                             </CardTitle>
+                            {missingInsight && (
+                                <p className="text-[10px] font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500 animate-pulse mt-0.5">
+                                    🔥 {missingInsight.daysSinceLastVisit} jours sans {missingInsight.category} !
+                                </p>
+                            )}
                             <div className="flex gap-2 mt-1">
                                 {stats.slice(0, 3).map(s => (
                                     <span key={s.category} className="text-[10px] font-medium bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-full">
@@ -94,19 +99,7 @@ export function CulinaryPassport({ stats }: CulinaryPassportProps) {
                     </div>
 
                     {/* Insight Banner */}
-                    {missingInsight && (
-                        <div className="mt-2 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50 rounded-xl p-3 flex items-start gap-3">
-                            <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
-                            <div>
-                                <p className="text-xs font-bold text-red-700 dark:text-red-300">
-                                    Hé ! Ça fait {missingInsight.daysSinceLastVisit} jours sans {missingInsight.category} !
-                                </p>
-                                <p className="text-[10px] text-red-600/80 dark:text-red-400/80 mt-0.5">
-                                    Tu avais adoré "{missingInsight.topPlaces[0]?.name}". On y retourne ?
-                                </p>
-                            </div>
-                        </div>
-                    )}
+
                 </CardContent>
             </Card>
 
