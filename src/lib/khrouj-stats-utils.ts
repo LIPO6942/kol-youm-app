@@ -13,6 +13,10 @@ export type CategoryStat = {
     category: string;
     count: number;
     percentage: number;
+    topPlaces: { name: string; count: number }[];
+    lastVisit: number;
+    // For insights
+    daysSinceLastVisit: number;
 };
 
 export function getWeekendHQ(visits: VisitLog[] = []): WeekendHQResult {
@@ -21,11 +25,14 @@ export function getWeekendHQ(visits: VisitLog[] = []): WeekendHQResult {
     const placeStats: Record<string, { weekend: number; total: number; lastDate: number }> = {};
 
     visits.forEach(visit => {
+        // FILTER: ONLY CAFES
+        if (visit.category !== 'Café') return;
+
         const date = new Date(visit.date);
         const day = date.getDay(); // 0 = Sunday, 6 = Saturday
         const isWeekend = day === 0 || day === 6;
 
-        const placeLower = visit.placeName.trim(); // Normalize simply by trim, can be more robust if needed
+        const placeLower = visit.placeName.trim();
 
         if (!placeStats[placeLower]) {
             placeStats[placeLower] = { weekend: 0, total: 0, lastDate: 0 };
@@ -43,14 +50,13 @@ export function getWeekendHQ(visits: VisitLog[] = []): WeekendHQResult {
     let bestHQ: WeekendHQResult = null;
 
     Object.entries(placeStats).forEach(([name, stats]) => {
-        // Threshold: Must have at least 2 weekend visits and predominantly weekend (e.g. > 50%)
-        // Adjust threshold as needed. For small data, even 1 might be enough, but let's say minimum 2 total visits.
-        if (stats.total < 2) return;
+        // Threshold: Min 2 weekend visits
+        if (stats.weekend < 2) return;
 
         const percentage = (stats.weekend / stats.total) * 100;
 
-        // Definition of "Weekend HQ": Mostly visited on weekends (> 50%)
-        if (percentage >= 50 && stats.weekend > 0) {
+        // Definition: Mostly visited on weekends (> 50%)
+        if (percentage >= 50) {
             if (!bestHQ || stats.weekend > bestHQ.weekendVisits) {
                 bestHQ = {
                     placeName: name,
@@ -70,26 +76,51 @@ export function getWeekendHQ(visits: VisitLog[] = []): WeekendHQResult {
 export function getCulinaryPassport(visits: VisitLog[] = []): CategoryStat[] {
     if (!visits.length) return [];
 
-    const categoryCounts: Record<string, number> = {};
+    const categoryStats: Record<string, {
+        count: number;
+        places: Record<string, number>;
+        lastVisit: number
+    }> = {};
+
     let totalCategorized = 0;
 
     visits.forEach(visit => {
-        // Fallback for empty category? "Autre"?
-        // normalize category
         let cat = visit.category?.trim() || "Autre";
-        // Capitalize first letter
+        // Capitalize
         cat = cat.charAt(0).toUpperCase() + cat.slice(1).toLowerCase();
 
-        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+        if (!categoryStats[cat]) {
+            categoryStats[cat] = { count: 0, places: {}, lastVisit: 0 };
+        }
+
+        categoryStats[cat].count += 1;
+        categoryStats[cat].places[visit.placeName] = (categoryStats[cat].places[visit.placeName] || 0) + 1;
+        if (visit.date > categoryStats[cat].lastVisit) {
+            categoryStats[cat].lastVisit = visit.date;
+        }
         totalCategorized++;
     });
 
-    const stats: CategoryStat[] = Object.entries(categoryCounts).map(([cat, count]) => ({
-        category: cat,
-        count,
-        percentage: totalCategorized > 0 ? Math.round((count / totalCategorized) * 100) : 0
-    }));
+    const now = Date.now();
 
-    // Sort by count desc
+    const stats: CategoryStat[] = Object.entries(categoryStats).map(([cat, data]) => {
+        // Convert places map to sorted array
+        const sortedPlaces = Object.entries(data.places)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3) // Top 3
+            .map(([name, count]) => ({ name, count }));
+
+        const daysSinceLastVisit = Math.floor((now - data.lastVisit) / (1000 * 60 * 60 * 24));
+
+        return {
+            category: cat,
+            count: data.count,
+            percentage: totalCategorized > 0 ? Math.round((data.count / totalCategorized) * 100) : 0,
+            topPlaces: sortedPlaces,
+            lastVisit: data.lastVisit,
+            daysSinceLastVisit
+        };
+    });
+
     return stats.sort((a, b) => b.count - a.count);
 }

@@ -1343,14 +1343,6 @@ export default function DecisionMaker() {
           </div>
         </div>
 
-        {/* Intelligence Section */}
-        {(stats.weekendHQ || stats.passportStats.length > 0) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-bottom-5 duration-500 delay-150">
-            {stats.weekendHQ && <WeekendHQCard hq={stats.weekendHQ} />}
-            {stats.passportStats.length > 0 && <CulinaryPassport stats={stats.passportStats} />}
-          </div>
-        )}
-
         {/* Global Overview Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
           <Dialog>
@@ -1463,6 +1455,14 @@ export default function DecisionMaker() {
             )}
           </div>
         </div>
+
+        {/* Intelligence Section - Moved below Top Places */}
+        {(stats.weekendHQ || stats.passportStats.length > 0) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-bottom-5 duration-500 delay-150 mt-4">
+            {stats.weekendHQ && <WeekendHQCard hq={stats.weekendHQ} />}
+            {stats.passportStats.length > 0 && <CulinaryPassport stats={stats.passportStats} />}
+          </div>
+        )}
       </div>
     );
   };

@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { WeekendHQResult } from '@/lib/khrouj-stats-utils';
-import { PartyPopper, CalendarDays, MapPin } from 'lucide-react';
+import { PartyPopper, CalendarDays, MapPin, Coffee } from 'lucide-react';
 
 interface WeekendHQCardProps {
     hq: WeekendHQResult;
@@ -21,14 +21,14 @@ export function WeekendHQCard({ hq }: WeekendHQCardProps) {
             <CardHeader className="pb-2">
                 <div className="flex justify-between items-start">
                     <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 mb-2 group-hover:scale-110 transition-transform duration-500">
-                        <CalendarDays className="h-6 w-6 text-white" />
+                        <Coffee className="h-6 w-6 text-white" />
                     </div>
                     <Badge variant="secondary" className="bg-white/80 backdrop-blur-sm text-indigo-700 dark:bg-slate-800/80 dark:text-indigo-300 shadow-sm">
                         {hq.percentage}% le week-end
                     </Badge>
                 </div>
                 <CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
-                    Ton QG du Weekend
+                    Ton QG "Café" du Weekend
                 </CardTitle>
             </CardHeader>
 
