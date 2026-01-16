@@ -45,6 +45,7 @@ export type UserProfile = {
     createdAt: any;
     // These lists are synced via Firestore
     seenMovieTitles?: string[];
+    rejectedMovieTitles?: string[];
     moviesToWatch?: string[];
     seenKhroujSuggestions?: string[];
     wardrobe?: WardrobeItem[];
@@ -67,6 +68,7 @@ export async function createUserProfile(uid: string, data: { email: string | nul
         personalizationComplete: false,
         createdAt: serverTimestamp(),
         seenMovieTitles: [],
+        rejectedMovieTitles: [],
         moviesToWatch: [],
         seenKhroujSuggestions: [],
         wardrobe: [],
@@ -90,7 +92,7 @@ export async function updateUserProfile(uid: string, data: Partial<Omit<UserProf
         if (key === 'fullBodyPhotoUrl' || key === 'closeupPhotoUrl') {
             localData[key] = (data as any)[key];
         } else {
-            if (key === 'seenMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions' || key === 'wardrobe' || key === 'places') {
+            if (key === 'seenMovieTitles' || key === 'rejectedMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions' || key === 'wardrobe' || key === 'places') {
                 firestoreData[key] = arrayUnion(...(data as any)[key]);
             } else {
                 firestoreData[key] = (data as any)[key];
@@ -110,6 +112,9 @@ export async function updateUserProfile(uid: string, data: Partial<Omit<UserProf
 
         if (data.seenMovieTitles) {
             updatedProfile.seenMovieTitles = Array.from(new Set([...(localProfile.seenMovieTitles || []), ...data.seenMovieTitles]));
+        }
+        if (data.rejectedMovieTitles) {
+            updatedProfile.rejectedMovieTitles = Array.from(new Set([...(localProfile.rejectedMovieTitles || []), ...data.rejectedMovieTitles]));
         }
         if (data.moviesToWatch) {
             updatedProfile.moviesToWatch = Array.from(new Set([...(localProfile.moviesToWatch || []), ...data.moviesToWatch]));
@@ -261,7 +266,24 @@ export async function removeMovieFromSeenList(uid: string, movieTitle: string) {
     }
 }
 
-export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' | 'seenMovieTitles' | 'seenKhroujSuggestions' | 'wardrobe') {
+export async function rejectMovie(uid: string, movieTitle: string) {
+    const userRef = doc(firestoreDb, "users", uid);
+
+    await setDoc(userRef, {
+        rejectedMovieTitles: arrayUnion(movieTitle)
+    }, { merge: true });
+
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = {
+            ...localProfile,
+            rejectedMovieTitles: Array.from(new Set([...(localProfile.rejectedMovieTitles || []), movieTitle]))
+        };
+        await storeUserInDb(uid, updatedProfile);
+    }
+}
+
+export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' | 'seenMovieTitles' | 'rejectedMovieTitles' | 'seenKhroujSuggestions' | 'wardrobe') {
     const userRef = doc(firestoreDb, 'users', uid);
     const firestoreUpdate: any = {};
     firestoreUpdate[listName] = [];

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { auth } from '@/lib/firebase/client';
+import { rejectMovie } from '@/lib/firebase/firestore';
 
 // Client-side filtering util
 function applyFilters(list: MovieSuggestion[] = [], opts: { minRating: number; countries: string[]; yearRange: [number, number] }) {
@@ -135,6 +136,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
             minRating: userProfile.preferredMinRating || 6, // Utiliser la note minimale
             count: 10,
             seenMovieTitles: userProfile?.seenMovieTitles || [],
+            rejectedMovieTitles: userProfile?.rejectedMovieTitles || [],
             genre: genre === 'Historique' ? undefined : genre,
           }),
         });
@@ -272,17 +274,20 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     }
   }, [user, currentIndex, movies, toast]);
 
-  const handleSkip = useCallback(() => {
+  const handleSkip = useCallback(async () => {
     if (currentIndex >= movies.length) return;
     const movie = movies[currentIndex];
 
     try {
-      // Ici, vous pourriez ajouter la logique pour ignorer le film
-      // Par exemple : await skipMovie(user.uid, movie.id);
+      if (user) {
+        await rejectMovie(user.uid, movie.title);
+      } else {
+        addDismissedTitle(movie.title); // Fallback local storage if not logged in (legacy)
+      }
 
       toast({
         title: 'Film ignoré',
-        description: `Vous avez ignoré "${movie.title}"`
+        description: `Vous avez ignoré "${movie.title}". Il ne vous sera plus proposé.`
       });
 
       setCurrentIndex(prev => prev + 1);
@@ -294,7 +299,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         description: 'Impossible d\'ignorer ce film pour le moment.'
       });
     }
-  }, [currentIndex, movies, toast]);
+  }, [currentIndex, movies, toast, user]);
 
   // Gestion des raccourcis clavier
   useEffect(() => {

@@ -111,9 +111,14 @@ function MovieListContent({
                   <div key={`${movieTitle}-${index}`} className="flex flex-col p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded group">
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium break-words" style={{ wordBreak: 'break-word' }}>
-                          {movieTitle}
-                        </h4>
+                        <div className="flex items-start gap-3">
+                          <div className="flex-shrink-0 mt-1">
+                            <Film className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <h4 className="text-sm font-medium break-words leading-tight" style={{ wordBreak: 'break-word' }}>
+                            {movieTitle}
+                          </h4>
+                        </div>
 
                         {/* Afficher les détails pour la liste "À Voir" */}
                         {listType === 'moviesToWatch' && details && (

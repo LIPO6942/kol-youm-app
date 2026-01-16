@@ -356,6 +356,7 @@ async function normalizeTitle(
 // Map French friendly genre labels to TMDB genre IDs
 function mapGenreToId(genre: string): string | null {
   const map: Record<string, string> = {
+    // Standard genres
     'Action': '28',
     'Aventure': '12',
     'Animation': '16',
@@ -376,6 +377,11 @@ function mapGenreToId(genre: string): string | null {
     'Guerre': '10752',
     'Western': '37',
     'Historique': '36',
+
+    // Custom Categories (using pipe | for OR logic in TMDB)
+    'Mind-Blow': '878|9648|53', // Sci-Fi OR Mystery OR Thriller
+    'Suspense & Thriller': '53|9648|80', // Thriller OR Mystery OR Crime
+    'Découverte': '', // No specific genre filter (random)
   }
   return map[genre] || null
 }
@@ -417,13 +423,20 @@ async function findWikipediaUrl(title: string, year: number): Promise<string> {
         // try next query/lang
       }
     }
-    // Fallback: open search page prioritizing "Title film" (no year)
-    return `https://${lang}.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(`${title} film`)}`
+    // Fallback: search page but try to be more specific
+    const fallbackQuery = `${title} (${year}) film`;
+    return `https://${lang}.wikipedia.org/w/index.php?search=${encodeURIComponent(fallbackQuery)}&title=Spécial:Recherche&go=Lire`;
   }
+
+  // Try FR first, if not found or unsure, try EN
   const fr = await tryLang('fr')
-  if (fr) return fr
+  if (fr && !fr.includes('Special:Search')) return fr
+
   const en = await tryLang('en')
-  return en
+  if (en && !en.includes('Special:Search')) return en
+
+  // If both failed to find a direct page, return the FR search page as ultimate fallback
+  return fr || `https://fr.wikipedia.org/w/index.php?search=${encodeURIComponent(title + " film")}&title=Spécial:Recherche`;
 }
 
 export async function POST(req: NextRequest) {
@@ -441,6 +454,7 @@ export async function POST(req: NextRequest) {
       minRating = 6,
       count = 7,
       seenMovieTitles = [],
+      rejectedMovieTitles = [],
       genre,
     } = body as {
       countries?: string[]
@@ -448,6 +462,7 @@ export async function POST(req: NextRequest) {
       minRating?: number
       count?: number
       seenMovieTitles?: string[]
+      rejectedMovieTitles?: string[]
       genre?: string
     }
 
@@ -484,8 +499,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Dedupe by title and exclude seen
-    const seenSet = new Set((seenMovieTitles || []).map((t: string) => (t || '').toLowerCase().trim()))
+    // Dedupe by title and exclude seen AND rejected
+    const seenSet = new Set([
+      ...(seenMovieTitles || []).map((t: string) => (t || '').toLowerCase().trim()),
+      ...(rejectedMovieTitles || []).map((t: string) => (t || '').toLowerCase().trim())
+    ]);
     const unique = [] as any[]
     const titleSet = new Set<string>()
     for (const r of results) {
