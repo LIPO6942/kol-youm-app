@@ -635,6 +635,8 @@ export async function POST(req: NextRequest) {
         titleStr = await normalizeTitle({ apiKey, bearer }, m.id, titleStr)
         // Build Wikipedia URL using Wikipedia search API
         const wikipediaUrl = await findWikipediaUrl(titleStr, year)
+        // Build poster URL if available
+        const posterUrl = m.poster_path ? `https://image.tmdb.org/t/p/w185${m.poster_path}` : null
         return {
           id: String(m.id),
           title: titleStr,
@@ -645,6 +647,7 @@ export async function POST(req: NextRequest) {
           wikipediaUrl,
           genre: genre || (m.genre_ids && m.genre_ids.length ? String(m.genre_ids[0]) : ''),
           country,
+          posterUrl,
         }
       }))
       out.push(...data)

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader2, Eye, X, RotateCcw } from 'lucide-react';
+import { Loader2, Eye, X, RotateCcw, ChevronRight, Film } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { auth } from '@/lib/firebase/client';
 import { rejectMovie } from '@/lib/firebase/firestore';
+import Image from 'next/image';
 
 // Client-side filtering util
 function applyFilters(list: MovieSuggestion[] = [], opts: { minRating: number; countries: string[]; yearRange: [number, number] }) {
@@ -79,6 +80,7 @@ interface MovieSuggestion {
   actors?: string[];
   country?: string;
   wikipediaUrl?: string;
+  posterUrl?: string;
 }
 
 // Composant de chargement
@@ -159,6 +161,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
           actors: movie.actors || [],
           country: movie.country || 'Inconnu',
           wikipediaUrl: movie.wikipediaUrl,
+          posterUrl: movie.posterUrl,
         }));
 
         setMovies(movies);
@@ -274,7 +277,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     }
   }, [user, currentIndex, movies, toast]);
 
-  const handleSkip = useCallback(async () => {
+  const handleReject = useCallback(async () => {
     if (currentIndex >= movies.length) return;
     const movie = movies[currentIndex];
 
@@ -287,7 +290,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
 
       toast({
         title: 'Film ignoré',
-        description: `Vous avez ignoré "${movie.title}". Il ne vous sera plus proposé.`
+        description: `"${movie.title}" ne vous sera plus proposé.`
       });
 
       setCurrentIndex(prev => prev + 1);
@@ -301,6 +304,18 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     }
   }, [currentIndex, movies, toast, user]);
 
+  // New: Skip to next without any action
+  const handleSkipNext = useCallback(() => {
+    if (currentIndex >= movies.length - 1) {
+      toast({
+        title: 'Fin des suggestions',
+        description: 'Vous avez parcouru tous les films disponibles.'
+      });
+      return;
+    }
+    setCurrentIndex(prev => prev + 1);
+  }, [currentIndex, movies.length, toast]);
+
   // Gestion des raccourcis clavier
   useEffect(() => {
     if (!isClient) return;
@@ -311,16 +326,19 @@ export default function MovieSwiper({ genre }: { genre: string }) {
 
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        handleSkip();
+        handleReject();
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
         handleSwipe('right');
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        handleSkipNext();
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isClient, handleSkip, handleSwipe]);
+  }, [isClient, handleReject, handleSwipe, handleSkipNext]);
 
   // État de chargement ou utilisateur non connecté
   if (!isClient || authLoading || isLoading) {
@@ -387,11 +405,35 @@ export default function MovieSwiper({ genre }: { genre: string }) {
           </div>
         </div>
 
-        <Card className="h-[550px] flex flex-col">
-          <CardHeader>
+        <Card className="flex flex-col">
+          {/* Movie Poster */}
+          <div className="relative w-full aspect-[2/3] max-h-[300px] overflow-hidden rounded-t-lg bg-muted">
+            {currentMovie.posterUrl ? (
+              <Image
+                src={currentMovie.posterUrl}
+                alt={currentMovie.title}
+                fill
+                className="object-cover"
+                sizes="(max-width: 640px) 100vw, 400px"
+                priority
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/20">
+                <Film className="h-16 w-16 text-muted-foreground" />
+              </div>
+            )}
+            {/* Gradient overlay for text readability */}
+            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/70 to-transparent" />
+            {/* Movie counter */}
+            <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
+              {currentIndex + 1} / {movies.length}
+            </div>
+          </div>
+
+          <CardHeader className="pb-2">
             <div className="flex items-start justify-between">
               <div>
-                <CardTitle>{currentMovie.title} ({currentMovie.year})</CardTitle>
+                <CardTitle className="text-lg">{currentMovie.title} ({currentMovie.year})</CardTitle>
                 <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
                   <span className="flex items-center">
                     <span className="text-yellow-500 mr-1">★</span>
@@ -404,25 +446,14 @@ export default function MovieSwiper({ genre }: { genre: string }) {
             </div>
           </CardHeader>
 
-          <CardContent className="flex-grow flex flex-col">
-            <div className="space-y-4">
+          <CardContent className="flex-grow pt-0">
+            <div className="space-y-3">
               <div>
                 <h4 className="font-semibold text-sm mb-1">Synopsis</h4>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground line-clamp-4">
                   {currentMovie.synopsis || 'Aucune description disponible'}
                 </p>
               </div>
-
-              <div className="h-px bg-border my-2" />
-
-              {currentMovie.actors && currentMovie.actors.length > 0 && (
-                <div>
-                  <h4 className="font-semibold text-sm mb-1">Acteurs principaux</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {currentMovie.actors.join(', ')}
-                  </p>
-                </div>
-              )}
 
               {currentMovie.country && (
                 <div className="text-sm text-muted-foreground">
@@ -445,33 +476,57 @@ export default function MovieSwiper({ genre }: { genre: string }) {
             </div>
           </CardContent>
 
-          <CardFooter className="p-4 pt-0 grid grid-cols-3 gap-4">
-            <Button
-              variant="outline"
-              size="lg"
-              className="border-destructive text-destructive hover:bg-destructive/10 h-14"
-              onClick={() => handleSwipe('left')}
-            >
-              <Eye className="h-6 w-6" />
-            </Button>
+          <CardFooter className="p-4 pt-0">
+            {/* Row 1: Main actions */}
+            <div className="w-full grid grid-cols-4 gap-2">
+              {/* Déjà vu */}
+              <Button
+                variant="outline"
+                size="lg"
+                className="border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950 h-12 flex flex-col items-center justify-center gap-0.5"
+                onClick={() => handleSwipe('left')}
+                title="Marquer comme vu"
+              >
+                <Eye className="h-5 w-5" />
+                <span className="text-[10px]">Vu</span>
+              </Button>
 
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-14"
-              onClick={handleSkip}
-            >
-              <X className="h-6 w-6" />
-            </Button>
+              {/* A voir */}
+              <Button
+                variant="default"
+                size="lg"
+                className="h-12 flex flex-col items-center justify-center gap-0.5"
+                onClick={() => handleSwipe('right')}
+                title="Ajouter à ma liste"
+              >
+                <span className="text-lg font-bold">+</span>
+                <span className="text-[10px]">À voir</span>
+              </Button>
 
-            <Button
-              variant="default"
-              size="lg"
-              className="h-14"
-              onClick={() => handleSwipe('right')}
-            >
-              <span className="text-xl">+</span>
-            </Button>
+              {/* Suivant (passer sans action) */}
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-12 flex flex-col items-center justify-center gap-0.5"
+                onClick={handleSkipNext}
+                title="Film suivant"
+              >
+                <ChevronRight className="h-5 w-5" />
+                <span className="text-[10px]">Suivant</span>
+              </Button>
+
+              {/* Ne plus suggérer */}
+              <Button
+                variant="outline"
+                size="lg"
+                className="border-destructive text-destructive hover:bg-destructive/10 h-12 flex flex-col items-center justify-center gap-0.5"
+                onClick={handleReject}
+                title="Ne plus suggérer"
+              >
+                <X className="h-5 w-5" />
+                <span className="text-[10px]">Ignorer</span>
+              </Button>
+            </div>
           </CardFooter>
         </Card>
       </div>
