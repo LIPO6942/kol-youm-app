@@ -96,6 +96,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
   const [movies, setMovies] = useState<MovieSuggestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isClient, setIsClient] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const initialFetchDone = useRef(false);
 
   // État pour le filtre d'année
@@ -111,6 +112,72 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     setIsClient(true);
   }, []);
 
+  // Function to load movies
+  const loadMovies = useCallback(async (append: boolean = false) => {
+    if (!user || !userProfile) return;
+
+    try {
+      if (append) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoading(true);
+      }
+
+      const response = await fetch('/api/tmdb-suggest', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          countries: userProfile.preferredCountries || [],
+          yearRange: yearRange,
+          minRating: userProfile.preferredMinRating || 6,
+          count: 10,
+          seenMovieTitles: userProfile?.seenMovieTitles || [],
+          rejectedMovieTitles: userProfile?.rejectedMovieTitles || [],
+          genre: genre === 'Historique' ? undefined : genre,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur lors du chargement des films');
+      }
+
+      const data = await response.json();
+      const fetchedMovies = data.movies || [];
+
+      const newMovies: MovieSuggestion[] = fetchedMovies.map((movie: any) => ({
+        id: movie.id,
+        title: movie.title,
+        year: movie.year,
+        rating: movie.rating,
+        genre: genre || 'Général',
+        synopsis: movie.synopsis || 'Synopsis non disponible.',
+        actors: movie.actors || [],
+        country: movie.country || 'Inconnu',
+        wikipediaUrl: movie.wikipediaUrl,
+        posterUrl: movie.posterUrl,
+      }));
+
+      if (append) {
+        setMovies(prev => [...prev, ...newMovies]);
+      } else {
+        setMovies(newMovies);
+        setCurrentIndex(0);
+      }
+    } catch (error) {
+      console.error('Erreur de chargement:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Impossible de charger les films',
+      });
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+    }
+  }, [user, userProfile, yearRange, genre, toast]);
+
   useEffect(() => {
     if (!isClient || authLoading) {
       setIsLoading(false);
@@ -122,64 +189,15 @@ export default function MovieSwiper({ genre }: { genre: string }) {
       return;
     }
 
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
+    loadMovies(false);
+  }, [isClient, authLoading, user, userProfile, loadMovies]);
 
-        // Appel à l'API TMDB pour récupérer des vrais films
-        const response = await fetch('/api/tmdb-suggest', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            countries: userProfile.preferredCountries || [], // Utiliser les pays préférés
-            yearRange: yearRange, // Utiliser le filtre d'année
-            minRating: userProfile.preferredMinRating || 6, // Utiliser la note minimale
-            count: 10,
-            seenMovieTitles: userProfile?.seenMovieTitles || [],
-            rejectedMovieTitles: userProfile?.rejectedMovieTitles || [],
-            genre: genre === 'Historique' ? undefined : genre,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Erreur lors du chargement des films');
-        }
-
-        const data = await response.json();
-        const fetchedMovies = data.movies || [];
-
-        // Transformer les données pour correspondre à l'interface MovieSuggestion
-        const movies: MovieSuggestion[] = fetchedMovies.map((movie: any) => ({
-          id: movie.id,
-          title: movie.title,
-          year: movie.year,
-          rating: movie.rating,
-          genre: genre || 'Général',
-          synopsis: movie.synopsis || 'Synopsis non disponible.',
-          actors: movie.actors || [],
-          country: movie.country || 'Inconnu',
-          wikipediaUrl: movie.wikipediaUrl,
-          posterUrl: movie.posterUrl,
-        }));
-
-        setMovies(movies);
-        setCurrentIndex(0); // Réinitialiser l'index quand on recharge
-      } catch (error) {
-        console.error('Erreur de chargement:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Erreur',
-          description: 'Impossible de charger les films',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
-  }, [isClient, authLoading, user, userProfile, toast, genre, yearRange]);
+  // Load more when getting close to end
+  useEffect(() => {
+    if (movies.length > 0 && currentIndex >= movies.length - 2 && !isLoadingMore) {
+      loadMovies(true);
+    }
+  }, [currentIndex, movies.length, isLoadingMore, loadMovies]);
 
   const handleSwipe = useCallback(async (direction: 'left' | 'right') => {
     if (!user || currentIndex >= movies.length) return;
@@ -188,21 +206,11 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     const movie = movies[currentIndex];
 
     try {
-      console.log('handleSwipe appelé avec:', { direction, user: !!user, currentIndex, movieTitle: movies[currentIndex]?.title });
-
-      // Enregistrer le film comme vu
       if (direction === 'left') {
-        console.log('Ajout aux films vus...');
-        // Récupérer le token Firebase
         const currentUser = auth.currentUser;
-        if (!currentUser) {
-          throw new Error('Utilisateur non connecté');
-        }
+        if (!currentUser) throw new Error('Utilisateur non connecté');
 
         const token = await currentUser.getIdToken();
-        console.log('Token obtenu:', token.substring(0, 20) + '...');
-
-        // Ajouter aux films vus
         const response = await fetch('/api/user/movies/seen', {
           method: 'POST',
           headers: {
@@ -215,28 +223,12 @@ export default function MovieSwiper({ genre }: { genre: string }) {
           }),
         });
 
-        console.log('Response seen:', response.status, response.statusText);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Erreur response:', errorText);
-          throw new Error('Impossible d\'enregistrer le film comme vu');
-        }
-
-        const result = await response.json();
-        console.log('Result seen:', result);
+        if (!response.ok) throw new Error('Impossible d\'enregistrer le film comme vu');
       } else {
-        console.log('Ajout à la liste à voir...');
-        // Récupérer le token Firebase
         const currentUser = auth.currentUser;
-        if (!currentUser) {
-          throw new Error('Utilisateur non connecté');
-        }
+        if (!currentUser) throw new Error('Utilisateur non connecté');
 
         const token = await currentUser.getIdToken();
-        console.log('Token obtenu:', token.substring(0, 20) + '...');
-
-        // Ajouter à la liste à voir
         const response = await fetch('/api/user/movies/watchlist', {
           method: 'POST',
           headers: {
@@ -249,16 +241,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
           }),
         });
 
-        console.log('Response watchlist:', response.status, response.statusText);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Erreur response:', errorText);
-          throw new Error('Impossible d\'ajouter le film à la liste');
-        }
-
-        const result = await response.json();
-        console.log('Result watchlist:', result);
+        if (!response.ok) throw new Error('Impossible d\'ajouter le film à la liste');
       }
 
       toast({
@@ -285,7 +268,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
       if (user) {
         await rejectMovie(user.uid, movie.title);
       } else {
-        addDismissedTitle(movie.title); // Fallback local storage if not logged in (legacy)
+        addDismissedTitle(movie.title);
       }
 
       toast({
@@ -304,17 +287,9 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     }
   }, [currentIndex, movies, toast, user]);
 
-  // New: Skip to next without any action
   const handleSkipNext = useCallback(() => {
-    if (currentIndex >= movies.length - 1) {
-      toast({
-        title: 'Fin des suggestions',
-        description: 'Vous avez parcouru tous les films disponibles.'
-      });
-      return;
-    }
     setCurrentIndex(prev => prev + 1);
-  }, [currentIndex, movies.length, toast]);
+  }, []);
 
   // Gestion des raccourcis clavier
   useEffect(() => {
@@ -340,12 +315,10 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isClient, handleReject, handleSwipe, handleSkipNext]);
 
-  // État de chargement ou utilisateur non connecté
   if (!isClient || authLoading || isLoading) {
     return <LoadingState />;
   }
 
-  // Si l'utilisateur n'est pas connecté
   if (!user || !userProfile) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -365,17 +338,14 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         <Card className="w-full max-w-sm h-[300px] flex flex-col items-center justify-center text-center p-6">
           <h3 className="text-xl font-semibold mb-2">C'est tout pour le moment !</h3>
           <p className="text-muted-foreground mb-4">
-            Vous avez parcouru tous les films disponibles dans cette catégorie.
+            Vous avez parcouru tous les films disponibles.
           </p>
           <Button
             variant="outline"
-            onClick={() => {
-              setCurrentIndex(0);
-              // Ici, vous pourriez recharger d'autres films si nécessaire
-            }}
+            onClick={() => loadMovies(false)}
           >
             <RotateCcw className="mr-2 h-4 w-4" />
-            Réinitialiser
+            Charger plus de films
           </Button>
         </Card>
       </div>
@@ -406,47 +376,45 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         </div>
 
         <Card className="flex flex-col">
-          {/* Movie Poster */}
-          <div className="relative w-full aspect-[2/3] max-h-[300px] overflow-hidden rounded-t-lg bg-muted">
-            {currentMovie.posterUrl ? (
-              <Image
-                src={currentMovie.posterUrl}
-                alt={currentMovie.title}
-                fill
-                className="object-cover"
-                sizes="(max-width: 640px) 100vw, 400px"
-                priority
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/20">
-                <Film className="h-16 w-16 text-muted-foreground" />
-              </div>
-            )}
-            {/* Gradient overlay for text readability */}
-            <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/70 to-transparent" />
-            {/* Movie counter */}
-            <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
-              {currentIndex + 1} / {movies.length}
-            </div>
-          </div>
-
           <CardHeader className="pb-2">
-            <div className="flex items-start justify-between">
-              <div>
-                <CardTitle className="text-lg">{currentMovie.title} ({currentMovie.year})</CardTitle>
+            <div className="flex items-start gap-3">
+              {/* Miniature poster */}
+              <div className="flex-shrink-0 w-16 h-24 rounded-md overflow-hidden bg-muted relative">
+                {currentMovie.posterUrl ? (
+                  <Image
+                    src={currentMovie.posterUrl}
+                    alt={currentMovie.title}
+                    fill
+                    className="object-cover"
+                    sizes="64px"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Film className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <CardTitle className="text-base leading-tight">{currentMovie.title}</CardTitle>
                 <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                  <span className="flex items-center">
-                    <span className="text-yellow-500 mr-1">★</span>
-                    {currentMovie.rating?.toFixed(1)}/10
-                  </span>
+                  <span>{currentMovie.year}</span>
                   <span>•</span>
-                  <span>{currentMovie.genre}</span>
+                  <span className="flex items-center">
+                    <span className="text-yellow-500 mr-0.5">★</span>
+                    {currentMovie.rating?.toFixed(1)}
+                  </span>
                 </div>
+                {currentMovie.country && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {currentMovie.country}
+                  </div>
+                )}
               </div>
             </div>
           </CardHeader>
 
-          <CardContent className="flex-grow pt-0">
+          <CardContent className="pt-2">
             <div className="space-y-3">
               <div>
                 <h4 className="font-semibold text-sm mb-1">Synopsis</h4>
@@ -455,80 +423,79 @@ export default function MovieSwiper({ genre }: { genre: string }) {
                 </p>
               </div>
 
-              {currentMovie.country && (
-                <div className="text-sm text-muted-foreground">
-                  <span className="font-medium">Pays :</span> {currentMovie.country}
-                </div>
-              )}
-
               {currentMovie.wikipediaUrl && (
-                <div>
-                  <a
-                    href={currentMovie.wikipediaUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:text-blue-800 underline"
-                  >
-                    En savoir plus sur Wikipedia
-                  </a>
-                </div>
+                <a
+                  href={currentMovie.wikipediaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:text-blue-800 underline inline-block"
+                >
+                  En savoir plus →
+                </a>
               )}
             </div>
           </CardContent>
 
-          <CardFooter className="p-4 pt-0">
-            {/* Row 1: Main actions */}
+          <CardFooter className="p-4 pt-2">
             <div className="w-full grid grid-cols-4 gap-2">
               {/* Déjà vu */}
               <Button
                 variant="outline"
-                size="lg"
-                className="border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950 h-12 flex flex-col items-center justify-center gap-0.5"
+                size="sm"
+                className="border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950 h-11 flex flex-col items-center justify-center gap-0.5"
                 onClick={() => handleSwipe('left')}
                 title="Marquer comme vu"
               >
-                <Eye className="h-5 w-5" />
-                <span className="text-[10px]">Vu</span>
+                <Eye className="h-4 w-4" />
+                <span className="text-[9px]">Vu</span>
               </Button>
 
               {/* A voir */}
               <Button
                 variant="default"
-                size="lg"
-                className="h-12 flex flex-col items-center justify-center gap-0.5"
+                size="sm"
+                className="h-11 flex flex-col items-center justify-center gap-0.5"
                 onClick={() => handleSwipe('right')}
                 title="Ajouter à ma liste"
               >
-                <span className="text-lg font-bold">+</span>
-                <span className="text-[10px]">À voir</span>
+                <span className="text-lg font-bold leading-none">+</span>
+                <span className="text-[9px]">À voir</span>
               </Button>
 
-              {/* Suivant (passer sans action) */}
+              {/* Suivant */}
               <Button
                 variant="outline"
-                size="lg"
-                className="h-12 flex flex-col items-center justify-center gap-0.5"
+                size="sm"
+                className="h-11 flex flex-col items-center justify-center gap-0.5"
                 onClick={handleSkipNext}
                 title="Film suivant"
               >
-                <ChevronRight className="h-5 w-5" />
-                <span className="text-[10px]">Suivant</span>
+                <ChevronRight className="h-4 w-4" />
+                <span className="text-[9px]">Suivant</span>
               </Button>
 
               {/* Ne plus suggérer */}
               <Button
                 variant="outline"
-                size="lg"
-                className="border-destructive text-destructive hover:bg-destructive/10 h-12 flex flex-col items-center justify-center gap-0.5"
+                size="sm"
+                className="border-destructive text-destructive hover:bg-destructive/10 h-11 flex flex-col items-center justify-center gap-0.5"
                 onClick={handleReject}
                 title="Ne plus suggérer"
               >
-                <X className="h-5 w-5" />
-                <span className="text-[10px]">Ignorer</span>
+                <X className="h-4 w-4" />
+                <span className="text-[9px]">Ignorer</span>
               </Button>
             </div>
           </CardFooter>
         </Card>
+
+        {/* Loading more indicator */}
+        {isLoadingMore && (
+          <div className="flex items-center justify-center mt-4 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            Chargement de plus de films...
+          </div>
+        )}
       </div>
     </div>
   );
