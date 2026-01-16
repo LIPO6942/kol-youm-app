@@ -36,6 +36,15 @@ export type VisitLog = {
     possibleCategories?: string[];
 };
 
+export type SeenMovie = {
+    title: string;
+    viewedAt: number; // timestamp of when the movie was watched
+    addedAt: number; // timestamp of when it was added to the list
+    posterUrl?: string;
+    year?: number;
+    rating?: number;
+};
+
 export type UserProfile = {
     uid: string;
     email: string | null;
@@ -45,6 +54,7 @@ export type UserProfile = {
     createdAt: any;
     // These lists are synced via Firestore
     seenMovieTitles?: string[];
+    seenMoviesData?: SeenMovie[]; // New: detailed seen movies with dates
     rejectedMovieTitles?: string[];
     moviesToWatch?: string[];
     seenKhroujSuggestions?: string[];
@@ -260,7 +270,46 @@ export async function removeMovieFromSeenList(uid: string, movieTitle: string) {
     if (localProfile) {
         const updatedProfile = {
             ...localProfile,
-            seenMovieTitles: (localProfile.seenMovieTitles || []).filter(t => t !== movieTitle)
+            seenMovieTitles: (localProfile.seenMovieTitles || []).filter(t => t !== movieTitle),
+            seenMoviesData: (localProfile.seenMoviesData || []).filter(m => m.title !== movieTitle)
+        };
+        await storeUserInDb(uid, updatedProfile);
+    }
+}
+
+// Add a movie to seen list with viewing date (for manual entry)
+export async function addSeenMovieWithDate(
+    uid: string,
+    movie: {
+        title: string;
+        viewedAt: number;
+        posterUrl?: string;
+        year?: number;
+        rating?: number;
+    }
+) {
+    const userRef = doc(firestoreDb, "users", uid);
+
+    const seenMovie: SeenMovie = {
+        title: movie.title,
+        viewedAt: movie.viewedAt,
+        addedAt: Date.now(),
+        posterUrl: movie.posterUrl,
+        year: movie.year,
+        rating: movie.rating,
+    };
+
+    await setDoc(userRef, {
+        seenMovieTitles: arrayUnion(movie.title),
+        seenMoviesData: arrayUnion(seenMovie)
+    }, { merge: true });
+
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = {
+            ...localProfile,
+            seenMovieTitles: Array.from(new Set([...(localProfile.seenMovieTitles || []), movie.title])),
+            seenMoviesData: [...(localProfile.seenMoviesData || []).filter(m => m.title !== movie.title), seenMovie]
         };
         await storeUserInDb(uid, updatedProfile);
     }
