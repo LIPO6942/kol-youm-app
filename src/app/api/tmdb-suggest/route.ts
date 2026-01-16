@@ -425,18 +425,21 @@ async function findWikipediaUrl(title: string, year: number): Promise<string> {
     }
     // Fallback: search page but try to be more specific
     const fallbackQuery = `${title} (${year}) film`;
-    return `https://${lang}.wikipedia.org/w/index.php?search=${encodeURIComponent(fallbackQuery)}&title=Spécial:Recherche&go=Lire`;
+    // Force "go=Go" to attempt direct navigation if page exists, otherwise show search results
+    return `https://${lang}.wikipedia.org/w/index.php?search=${encodeURIComponent(fallbackQuery)}&title=Spécial:Recherche&go=Go`;
   }
 
-  // Try FR first, if not found or unsure, try EN
+  // Try FR first, if not found or unsure, try EN. 
+  // We prefer using the search fallback if the direct page isn't confidently found.
   const fr = await tryLang('fr')
-  if (fr && !fr.includes('Special:Search')) return fr
+  if (fr && !fr.includes('Special:Search') && !fr.includes('Spécial:Recherche')) return fr
 
   const en = await tryLang('en')
-  if (en && !en.includes('Special:Search')) return en
+  if (en && !en.includes('Special:Search') && !en.includes('Spécial:Recherche')) return en
 
-  // If both failed to find a direct page, return the FR search page as ultimate fallback
-  return fr || `https://fr.wikipedia.org/w/index.php?search=${encodeURIComponent(title + " film")}&title=Spécial:Recherche`;
+  // STRICT FALLBACK: Return the FR search page with "Title (Year) film"
+  // This is what the user explicitly requested to ensure they land on something useful.
+  return `https://fr.wikipedia.org/w/index.php?search=${encodeURIComponent(`${title} (${year}) film`)}&title=Spécial:Recherche&go=Go`;
 }
 
 export async function POST(req: NextRequest) {
@@ -470,32 +473,59 @@ export async function POST(req: NextRequest) {
     const codes = Array.from(new Set((countries as string[]).map(mapCountryLabelToCode).filter(Boolean))) as string[]
     const poolCodes = codes.length ? codes : ['US', 'GB', 'FR', 'IT', 'JP', 'KR']
 
-    // Fetch multiple pages modestly to diversify
+    // Fetch multiple pages randomly across years to ensure diversity
     const results: any[] = []
-    for (const code of poolCodes) {
+
+    // Strategy: Pick random years within the range and fetch from them
+    const [yMin, yMax] = yearRange;
+    // Ensure valid range
+    const startYear = Math.max(1888, Math.min(yMin, yMax));
+    const endYear = Math.min(new Date().getFullYear(), Math.max(yMin, yMax));
+
+    // How many distinct fetch attempts to make?
+    // We want 'count' movies. Let's try to get more candidates.
+    const numberOfFetches = 5;
+
+    for (let i = 0; i < numberOfFetches; i++) {
+      const randomYear = Math.floor(Math.random() * (endYear - startYear + 1)) + startYear;
+      // Random country from preference pool
+      const randomCountry = poolCodes[Math.floor(Math.random() * poolCodes.length)];
+
       try {
-        // 1. Initial discovery to get total pages
-        const firstTry = await fetchCountryMovies({ apiKey, bearer, countryCode: code, yearRange, minRating, genre, page: 1 })
-        let resultsForCode = firstTry.results || []
-        const totalPages = firstTry.total_pages || 1
+        // Fetch specifically for this year and country
+        const yearSpecificRange: [number, number] = [randomYear, randomYear];
 
-        // 2. Fetch from random pages within a reasonable limit (top 10 pages for quality)
-        if (totalPages > 1) {
-          const maxPagePool = Math.min(totalPages, 10)
-          const randomPageA = Math.floor(Math.random() * (maxPagePool - 1)) + 2 // Start from page 2 if possible
-          const extraResults = await fetchCountryMovies({ apiKey, bearer, countryCode: code, yearRange, minRating, genre, page: randomPageA })
-          resultsForCode.push(...(extraResults.results || []))
+        // Try a few pages for variety (1, 2, or 3)
+        const randomPage = Math.floor(Math.random() * 3) + 1;
+
+        const fetchResult = await fetchCountryMovies({
+          apiKey,
+          bearer,
+          countryCode: randomCountry,
+          yearRange: yearSpecificRange,
+          minRating,
+          genre,
+          page: randomPage
+        });
+
+        if (fetchResult.results && fetchResult.results.length > 0) {
+          results.push(...fetchResult.results);
+        } else {
+          // If specific year empty, try wider range around that year (+- 2 years)
+          const widerRange: [number, number] = [randomYear - 2, randomYear + 2];
+          const fallbackResult = await fetchCountryMovies({
+            apiKey,
+            bearer,
+            countryCode: randomCountry,
+            yearRange: widerRange,
+            minRating,
+            genre,
+            page: 1
+          });
+          results.push(...(fallbackResult.results || []));
         }
-
-        // 3. Fallback: If still nothing, try with zero vote count threshold
-        if (resultsForCode.length === 0) {
-          const fallback = await fetchCountryMovies({ apiKey, bearer, countryCode: code, yearRange, minRating, genre, page: 1, voteCountOverride: 0 })
-          resultsForCode = fallback.results || []
-        }
-
-        results.push(...resultsForCode)
       } catch (e) {
-        // continue other countries
+        console.error(`Error gathering movies for ${randomYear}/${randomCountry}:`, e);
       }
     }
 
