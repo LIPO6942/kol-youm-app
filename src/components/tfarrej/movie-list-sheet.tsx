@@ -478,12 +478,7 @@ function MovieListContent({
                 </h4>
                 {details && (
                   <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
-                    {details.rating && (
-                      <div className="flex items-center gap-0.5 flex-shrink-0">
-                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        <span className="font-medium">{details.rating}/10</span>
-                      </div>
-                    )}
+                    {/* Rating hidden for seen list/compact view */}
                     {details.year && (
                       <Badge variant="secondary" className="px-1.5 py-0 text-[10px] h-5 flex-shrink-0">
                         {details.year}
@@ -582,27 +577,36 @@ function MovieListContent({
             className="object-cover"
             sizes="(max-width: 640px) 80px, 100px"
           />
+        ) : isOld ? (
+          <div className="w-full h-full flex flex-col items-center justify-center p-2 bg-gradient-to-br from-primary/10 to-primary/5 text-center border-2 border-transparent hover:border-primary/20 transition-all">
+            <Film className="h-5 w-5 text-primary mb-1 opacity-50" />
+            <p className="text-[10px] sm:text-xs font-semibold leading-tight line-clamp-3 text-foreground/90">
+              {movieTitle}
+            </p>
+          </div>
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/20">
             <Film className="h-8 w-8 text-muted-foreground" />
           </div>
         )}
 
-        {/* Overlay with title */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="absolute bottom-0 left-0 right-0 p-2">
-            <p className="text-[10px] text-white font-medium line-clamp-2 leading-tight">{movieTitle}</p>
-            {details?.year && (
-              <p className="text-[9px] text-white/70">{details.year}</p>
-            )}
-            {viewedAt && (
-              <p className="text-[8px] text-white/60 flex items-center gap-0.5 mt-0.5">
-                <Calendar className="h-2 w-2" />
-                {formatViewedDate(viewedAt)}
-              </p>
-            )}
+        {/* Overlay with title - Only for non-text tiles (images) */}
+        {!isOld && (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute bottom-0 left-0 right-0 p-2">
+              <p className="text-[10px] text-white font-medium line-clamp-2 leading-tight">{movieTitle}</p>
+              {details?.year && (
+                <p className="text-[9px] text-white/70">{details.year}</p>
+              )}
+              {viewedAt && (
+                <p className="text-[8px] text-white/60 flex items-center gap-0.5 mt-0.5">
+                  <Calendar className="h-2 w-2" />
+                  {formatViewedDate(viewedAt)}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Action buttons on hover */}
         <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
