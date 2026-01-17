@@ -243,9 +243,16 @@ export async function deletePlace(uid: string, placeToDelete: PlaceItem) {
 export async function moveMovieFromWatchlistToSeen(uid: string, movieTitle: string) {
     const userRef = doc(firestoreDb, "users", uid);
 
+    const seenMovie: SeenMovie = {
+        title: movieTitle,
+        viewedAt: Date.now(),
+        addedAt: Date.now(),
+    };
+
     await setDoc(userRef, {
         moviesToWatch: arrayRemove(movieTitle),
-        seenMovieTitles: arrayUnion(movieTitle)
+        seenMovieTitles: arrayUnion(movieTitle),
+        seenMoviesData: arrayUnion(seenMovie)
     }, { merge: true });
 
     const localProfile = await getUserFromDb(uid);
@@ -253,7 +260,8 @@ export async function moveMovieFromWatchlistToSeen(uid: string, movieTitle: stri
         const updatedProfile = {
             ...localProfile,
             moviesToWatch: (localProfile.moviesToWatch || []).filter(t => t !== movieTitle),
-            seenMovieTitles: Array.from(new Set([...(localProfile.seenMovieTitles || []), movieTitle]))
+            seenMovieTitles: Array.from(new Set([...(localProfile.seenMovieTitles || []), movieTitle])),
+            seenMoviesData: [...(localProfile.seenMoviesData || []).filter(m => m.title !== movieTitle), seenMovie]
         };
         await storeUserInDb(uid, updatedProfile);
     }
