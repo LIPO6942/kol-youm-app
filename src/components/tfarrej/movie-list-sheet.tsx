@@ -453,7 +453,7 @@ function MovieListContent({
     const isOld = listType === 'seenMovieTitles' && isOlderThanSixMonths(movieTitle);
 
     return (
-      <div key={`${movieTitle}-${index}`} className="flex flex-col p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded group">
+      <div key={`${movieTitle}-${index}`} className="relative flex flex-col p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded group">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <div className="flex items-start gap-3">
@@ -493,6 +493,12 @@ function MovieListContent({
                 {details && (
                   <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
                     {/* Rating hidden for seen list/compact view */}
+                    {listType !== 'seenMovieTitles' && details.rating && (
+                      <div className="flex items-center gap-0.5 flex-shrink-0">
+                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                        <span className="font-medium">{details.rating}/10</span>
+                      </div>
+                    )}
                     {!isOld && details.year && (
                       <Badge variant="secondary" className="px-1.5 py-0 text-[10px] h-5 flex-shrink-0">
                         {details.year}
@@ -526,7 +532,7 @@ function MovieListContent({
             </div>
           </div>
 
-          <div className="flex-shrink-0 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+          <div className="flex-shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2">
             {listType === 'moviesToWatch' && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -623,7 +629,7 @@ function MovieListContent({
         )}
 
         {/* Action buttons on hover */}
-        <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           {listType === 'moviesToWatch' && (
             <Button
               variant="secondary"
