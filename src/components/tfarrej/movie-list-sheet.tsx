@@ -472,8 +472,8 @@ function MovieListContent({
                   <Film className="h-5 w-5 text-muted-foreground" />
                 </div>
               )}
-              <div className="flex-1">
-                <h4 className="text-sm font-medium break-words leading-tight" style={{ wordBreak: 'break-word' }}>
+              <div className="flex-1 min-w-0 pr-2">
+                <h4 className="text-[11px] sm:text-xs font-medium truncate tracking-tight leading-none" title={movieTitle}>
                   {movieTitle}
                 </h4>
                 {details && (
@@ -632,7 +632,7 @@ function MovieListContent({
   };
 
   return (
-    <div className="relative flex-grow flex flex-col gap-3">
+    <div className="relative flex-1 flex flex-col gap-3 overflow-hidden h-full">
       {isUpdating && <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
 
       {/* Search and Filter Bar */}
