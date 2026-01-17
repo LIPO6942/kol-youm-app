@@ -473,9 +473,23 @@ function MovieListContent({
                 </div>
               )}
               <div className="flex-1 min-w-0 pr-2">
-                <h4 className="text-[11px] sm:text-xs font-medium truncate tracking-tight leading-none" title={movieTitle}>
-                  {movieTitle}
-                </h4>
+                <div className="flex items-center gap-1.5 overflow-hidden">
+                  <h4 className="text-[11px] sm:text-xs font-medium truncate tracking-tight leading-none" title={movieTitle}>
+                    {movieTitle}
+                  </h4>
+                  {isOld && details?.wikipediaUrl && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-4 w-4 p-0 flex-shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => window.open(details.wikipediaUrl, '_blank')}
+                      title="Wikipedia"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      <span className="sr-only">Wikipedia</span>
+                    </Button>
+                  )}
+                </div>
                 {details && (
                   <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
                     {/* Rating hidden for seen list/compact view */}
@@ -489,7 +503,7 @@ function MovieListContent({
                         {details.country}
                       </Badge>
                     )}
-                    {details.wikipediaUrl && (
+                    {details.wikipediaUrl && !isOld && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -579,7 +593,7 @@ function MovieListContent({
           />
         ) : isOld ? (
           <div className="w-full h-full flex flex-col items-center justify-center p-2 bg-gradient-to-br from-primary/10 to-primary/5 text-center border-2 border-transparent hover:border-primary/20 transition-all">
-            <Film className="h-5 w-5 text-primary mb-1 opacity-50" />
+            <Film className="h-3 w-3 text-primary mb-1 opacity-50" />
             <p className="text-[10px] sm:text-xs font-semibold leading-tight line-clamp-3 text-foreground/90">
               {movieTitle}
             </p>
