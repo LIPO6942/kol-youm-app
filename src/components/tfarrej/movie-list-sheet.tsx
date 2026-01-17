@@ -978,36 +978,10 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
         <SheetContent className="flex flex-col w-[95%] sm:max-w-[90%] [&>button]:!w-8 [&>button]:!h-8 [&>button>svg]:!w-5 [&>button>svg]:!h-5">
           <SheetHeader>
             <div className="flex justify-between items-start">
-              <div className="pr-4">
+              <div>
                 <SheetTitle>{title}</SheetTitle>
                 <SheetDescription>{description}</SheetDescription>
               </div>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" disabled={isClearing}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                    <span className="sr-only">Vider la liste</span>
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Êtes-vous sûr(e) ?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Cette action est irréversible et videra complètement la liste "{title}".
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Annuler</AlertDialogCancel>
-                    <AlertDialogAction
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      onClick={handleClearList}
-                      disabled={isClearing}
-                    >
-                      Confirmer
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
             </div>
           </SheetHeader>
           <MovieListContent
