@@ -458,18 +458,18 @@ function MovieListContent({
           <div className="flex-1 min-w-0">
             <div className="flex items-start gap-3">
               {!isOld && details?.posterUrl ? (
-                <div className="flex-shrink-0 w-10 h-14 relative rounded overflow-hidden bg-muted">
+                <div className="flex-shrink-0 w-8 h-12 relative rounded overflow-hidden bg-muted">
                   <Image
                     src={details.posterUrl}
                     alt={movieTitle}
                     fill
                     className="object-cover"
-                    sizes="40px"
+                    sizes="32px"
                   />
                 </div>
               ) : (
-                <div className="flex-shrink-0 w-10 h-14 rounded bg-muted flex items-center justify-center">
-                  <Film className="h-5 w-5 text-muted-foreground" />
+                <div className={`flex-shrink-0 rounded bg-muted flex items-center justify-center ${isOld ? 'w-6 h-6' : 'w-8 h-12'}`}>
+                  <Film className={`${isOld ? 'h-3 w-3' : 'h-4 w-4'} text-muted-foreground`} />
                 </div>
               )}
               <div className="flex-1 min-w-0 pr-2">
@@ -479,12 +479,12 @@ function MovieListContent({
                 {details && (
                   <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
                     {/* Rating hidden for seen list/compact view */}
-                    {details.year && (
+                    {!isOld && details.year && (
                       <Badge variant="secondary" className="px-1.5 py-0 text-[10px] h-5 flex-shrink-0">
                         {details.year}
                       </Badge>
                     )}
-                    {details.country && (
+                    {!isOld && details.country && (
                       <Badge variant="outline" className="px-1.5 py-0 text-[10px] h-5 truncate max-w-[80px]">
                         {details.country}
                       </Badge>
