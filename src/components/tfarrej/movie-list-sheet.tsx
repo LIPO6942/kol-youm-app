@@ -522,7 +522,7 @@ function MovieListContent({
             </div>
           </div>
 
-          <div className="flex-shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-2 right-2">
+          <div className="flex-shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2">
             {listType === 'moviesToWatch' && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -619,7 +619,7 @@ function MovieListContent({
         )}
 
         {/* Action buttons on hover */}
-        <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           {listType === 'moviesToWatch' && (
             <Button
               variant="secondary"

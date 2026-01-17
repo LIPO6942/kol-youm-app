@@ -25,9 +25,10 @@ import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { getAge } from '@/lib/age-utils';
 
 const formSchema = z.object({
-  age: z.coerce.number().min(13, { message: 'Vous devez avoir au moins 13 ans.' }).max(120, { message: 'Âge invalide.' }).optional().or(z.literal('')),
+  birthdate: z.string().optional(),
 });
 
 const COUNTRIES = [
@@ -553,13 +554,13 @@ export default function SettingsPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      age: userProfile?.age || '',
+      birthdate: userProfile?.birthdate || '',
     },
   });
 
   useEffect(() => {
     if (userProfile) {
-      form.reset({ age: userProfile.age || '' });
+      form.reset({ birthdate: userProfile.birthdate || '' });
       setTfarrejSettings({
         preferredCountries: userProfile.preferredCountries || [],
         preferredMinRating: userProfile.preferredMinRating || 6
@@ -694,14 +695,13 @@ export default function SettingsPage() {
 
     setIsLoading(true);
     try {
-      const ageValue = values.age === '' ? undefined : Number(values.age);
-      // We only send the age to Firestore, photos are handled locally
-      await updateUserProfile(user.uid, { age: ageValue });
+      // Save birthdate to Firestore
+      await updateUserProfile(user.uid, { birthdate: values.birthdate || undefined });
       toast({
         title: 'Profil mis à jour !',
         description: 'Vos informations ont été enregistrées avec succès.',
       });
-      form.reset({ age: ageValue }, { keepValues: true }); // Reset dirty state
+      form.reset({ birthdate: values.birthdate }, { keepValues: true }); // Reset dirty state
     } catch (error) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de sauvegarder vos informations.' });
       console.error(error);
@@ -781,12 +781,19 @@ export default function SettingsPage() {
 
                   <FormField
                     control={form.control}
-                    name="age"
+                    name="birthdate"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Âge</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="Ex: 28" {...field} className="max-w-xs" />
+                          <div className="space-y-2">
+                            <Input type="date" {...field} className="max-w-xs" />
+                            {field.value && (
+                              <p className="text-sm text-muted-foreground">
+                                Âge actuel : {getAge({ birthdate: field.value })} ans
+                              </p>
+                            )}
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>

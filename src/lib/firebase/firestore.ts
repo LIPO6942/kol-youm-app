@@ -49,7 +49,8 @@ export type UserProfile = {
     uid: string;
     email: string | null;
     gender?: 'Homme' | 'Femme';
-    age?: number;
+    age?: number; // Deprecated: use birthdate instead
+    birthdate?: string; // Format: YYYY-MM-DD
     personalizationComplete: boolean;
     createdAt: any;
     // These lists are synced via Firestore
