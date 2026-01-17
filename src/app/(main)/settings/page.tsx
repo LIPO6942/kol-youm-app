@@ -567,6 +567,15 @@ export default function SettingsPage() {
     }
   }, [userProfile, form]);
 
+
+  // Handle URL tab parameter
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'tfarrej' || tab === 'khrouj' || tab === 'profile') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
   const handleCountryChange = (country: string, checked: boolean) => {
     setTfarrejSettings(prev => ({
       ...prev,
