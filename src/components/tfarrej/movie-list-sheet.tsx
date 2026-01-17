@@ -477,7 +477,7 @@ function MovieListContent({
                   <h4 className="text-[11px] sm:text-xs font-medium truncate tracking-tight leading-none" title={movieTitle}>
                     {movieTitle}
                   </h4>
-                  {isOld && details?.wikipediaUrl && (
+                  {details?.wikipediaUrl && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -508,16 +508,6 @@ function MovieListContent({
                       <Badge variant="outline" className="px-1.5 py-0 text-[10px] h-5 truncate max-w-[80px]">
                         {details.country}
                       </Badge>
-                    )}
-                    {details.wikipediaUrl && !isOld && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-5 w-5 p-0 flex-shrink-0"
-                        onClick={() => window.open(details.wikipediaUrl, '_blank')}
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                      </Button>
                     )}
                   </div>
                 )}
@@ -985,7 +975,7 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
     <>
       <Sheet>
         <SheetTrigger asChild>{trigger}</SheetTrigger>
-        <SheetContent className="flex flex-col w-[95%] sm:max-w-[90%]">
+        <SheetContent className="flex flex-col w-[95%] sm:max-w-[90%] [&>button]:!w-8 [&>button]:!h-8 [&>button>svg]:!w-5 [&>button>svg]:!h-5">
           <SheetHeader>
             <div className="flex justify-between items-start">
               <div className="pr-4">
