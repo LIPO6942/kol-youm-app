@@ -846,13 +846,12 @@ export default function DecisionMaker() {
                   <div className="flex flex-col gap-0.5">
                     <p className={cn("text-xs font-bold", cat.colorClass)}>
                       {cat.label}
+                      {visit.orderedItem && (
+                        <span className="text-muted-foreground font-medium ml-1 text-[11px]">
+                          - {visit.orderedItem}
+                        </span>
+                      )}
                     </p>
-                    {visit.orderedItem && (
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 italic">
-                        <UtensilsCrossed className="h-2.5 w-2.5" />
-                        {visit.orderedItem}
-                      </p>
-                    )}
                   </div>
                 </div>
 
