@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown } from "lucide-react";
+import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { moveMovieFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate } from '@/lib/firebase/firestore';
@@ -22,12 +22,12 @@ import Image from 'next/image';
 
 // Default Poster Styles
 const DEFAULT_POSTERS = [
-  { id: 'gradient-1', name: 'Sunset', className: 'bg-gradient-to-br from-orange-400 to-pink-600' },
-  { id: 'gradient-2', name: 'Ocean', className: 'bg-gradient-to-br from-blue-400 to-emerald-600' },
-  { id: 'gradient-3', name: 'Berry', className: 'bg-gradient-to-br from-purple-500 to-indigo-600' },
-  { id: 'gradient-4', name: 'Night', className: 'bg-gradient-to-br from-slate-700 to-slate-900' },
-  { id: 'gradient-5', name: 'Lemon', className: 'bg-gradient-to-br from-yellow-300 to-amber-500' },
-  { id: 'gradient-6', name: 'Mint', className: 'bg-gradient-to-br from-emerald-300 to-teal-500' },
+  { id: 'icon-popcorn', name: 'Popcorn', className: 'bg-red-600', icon: Tv }, // Using Tv as fallback for Popcorn/Screen
+  { id: 'icon-ticket', name: 'Ticket', className: 'bg-blue-600', icon: Ticket },
+  { id: 'icon-clapper', name: 'Clapper', className: 'bg-emerald-600', icon: Clapperboard },
+  { id: 'icon-camera', name: 'Camera', className: 'bg-purple-600', icon: Video },
+  { id: 'icon-reel', name: 'Reel', className: 'bg-yellow-500', icon: Disc },
+  { id: 'icon-star', name: 'Star', className: 'bg-slate-700', icon: Star },
 ];
 
 interface MovieDetails {
@@ -303,21 +303,25 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
               <div className="space-y-2">
                 <Label>Style de l'affiche</Label>
                 <div className="grid grid-cols-6 gap-2">
-                  {DEFAULT_POSTERS.map((poster) => (
-                    <button
-                      key={poster.id}
-                      onClick={() => setManualPosterVariant(poster.id)}
-                      className={`h-12 w-full rounded-md ${poster.className} relative border-2 transition-all ${manualPosterVariant === poster.id ? 'border-primary ring-2 ring-primary ring-offset-1' : 'border-transparent hover:scale-105'
-                        }`}
-                      title={poster.name}
-                    >
-                      {manualPosterVariant === poster.id && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Check className="h-4 w-4 text-white drop-shadow-md" />
-                        </div>
-                      )}
-                    </button>
-                  ))}
+                  {DEFAULT_POSTERS.map((poster) => {
+                    const Icon = poster.icon;
+                    return (
+                      <button
+                        key={poster.id}
+                        onClick={() => setManualPosterVariant(poster.id)}
+                        className={`h-12 w-full rounded-md ${poster.className} relative border-2 transition-all flex items-center justify-center ${manualPosterVariant === poster.id ? 'border-primary ring-2 ring-primary ring-offset-1' : 'border-transparent hover:scale-105'
+                          }`}
+                        title={poster.name}
+                      >
+                        <Icon className="h-5 w-5 text-white/90" />
+                        {manualPosterVariant === poster.id && (
+                          <div className="absolute -top-2 -right-2 bg-primary rounded-full p-0.5">
+                            <Check className="h-3 w-3 text-white" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -595,11 +599,12 @@ function MovieListContent({
     if (posterUrl && posterUrl.startsWith('default:')) {
       const variantId = posterUrl.split(':')[1];
       const variant = DEFAULT_POSTERS.find(p => p.id === variantId) || DEFAULT_POSTERS[0];
+      const Icon = variant.icon;
 
       return (
         <div className={`w-full h-full ${variant.className} flex flex-col items-center justify-center p-1 text-center`}>
-          <Film className={`h-4 w-4 text-white/50 mb-1 ${isOld ? 'hidden' : ''}`} />
-          {!isOld && <p className="text-[8px] text-white font-semibold line-clamp-3 leading-tight uppercase tracking-wider">{title}</p>}
+          <Icon className={`${isOld ? 'h-3 w-3' : 'h-8 w-8'} text-white/90 mb-1`} />
+          {!isOld && <p className="text-[9px] text-white font-medium line-clamp-2 leading-tight drop-shadow-sm">{title}</p>}
         </div>
       );
     }
