@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import React from 'react';
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger,
 } from "@/components/ui/sheet";
@@ -98,21 +99,37 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
     return () => clearTimeout(timer);
   }, [searchQuery, searchTMDb, isManualMode]);
 
-  const handleAdd = async () => {
+  const handleAdd = async (e?: React.MouseEvent) => {
+    // Prevent default just in case it's triggered inside a form somehow
+    if (e) e.preventDefault();
+
+    console.log('handleAdd clicked', { isManualMode, manualTitle, manualYear, selectedMovie });
+
     if (isManualMode) {
-      if (!manualTitle.trim()) return;
+      if (!manualTitle.trim()) {
+        console.warn('Manual title empty');
+        return;
+      }
+
       setIsAdding(true);
       try {
+        console.log('Processing manual add...');
+        const yearInt = manualYear ? parseInt(manualYear, 10) : null;
         const pseudoMovie: SearchResult = {
           id: -Date.now(), // Negative ID to avoid collision
           title: manualTitle,
           originalTitle: manualTitle,
-          year: manualYear ? parseInt(manualYear, 10) : null,
+          year: !isNaN(yearInt!) ? yearInt : null, // Handle NaN if parseInt fails
           rating: 0,
           posterUrl: null
         };
+
+        console.log('Calling onAdd with', pseudoMovie);
         await onAdd(pseudoMovie, new Date(viewedDate));
+        console.log('onAdd completed');
         resetAndClose();
+      } catch (err) {
+        console.error('Error in handleAdd (manual):', err);
       } finally {
         setIsAdding(false);
       }
@@ -122,6 +139,8 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
       try {
         await onAdd(selectedMovie, new Date(viewedDate));
         resetAndClose();
+      } catch (err) {
+        console.error('Error in handleAdd (search):', err);
       } finally {
         setIsAdding(false);
       }
@@ -1026,17 +1045,28 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
   };
 
   const handleAddMovieManually = async (movie: SearchResult, viewedAt: Date) => {
-    if (!user) return;
+    console.log('handleAddMovieManually called', { movie, viewedAt, userUid: user?.uid });
 
-    await addSeenMovieWithDate(user.uid, {
-      title: movie.title,
-      viewedAt: viewedAt.getTime(),
-      posterUrl: movie.posterUrl || undefined,
-      year: movie.year || undefined,
-      rating: movie.rating || undefined,
-    });
+    if (!user) {
+      console.error('No user found in handleAddMovieManually');
+      toast({ variant: 'destructive', title: "Erreur", description: "Vous devez être connecté." });
+      return;
+    }
 
-    toast({ title: `"${movie.title}" ajouté aux films vus.` });
+    try {
+      await addSeenMovieWithDate(user.uid, {
+        title: movie.title,
+        viewedAt: viewedAt.getTime(),
+        posterUrl: movie.posterUrl || undefined,
+        year: movie.year || undefined,
+        rating: movie.rating || undefined,
+      });
+
+      toast({ title: `"${movie.title}" ajouté aux films vus.` });
+    } catch (error) {
+      console.error('Error in handleAddMovieManually:', error);
+      toast({ variant: 'destructive', title: "Erreur", description: "Impossible d'ajouter le film." });
+    }
   };
 
   return (
