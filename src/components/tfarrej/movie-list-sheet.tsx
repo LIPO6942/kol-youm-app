@@ -14,11 +14,16 @@ import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, 
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { moveMovieFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate } from '@/lib/firebase/firestore';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import Image from 'next/image';
+
+// Default Poster Styles
+const DEFAULT_POSTERS = [
+  { id: 'gradient-1', name: 'Sunset', className: 'bg-gradient-to-br from-orange-400 to-pink-600' },
+  { id: 'gradient-2', name: 'Ocean', className: 'bg-gradient-to-br from-blue-400 to-emerald-600' },
+  { id: 'gradient-3', name: 'Berry', className: 'bg-gradient-to-br from-purple-500 to-indigo-600' },
+  { id: 'gradient-4', name: 'Night', className: 'bg-gradient-to-br from-slate-700 to-slate-900' },
+  { id: 'gradient-5', name: 'Lemon', className: 'bg-gradient-to-br from-yellow-300 to-amber-500' },
+  { id: 'gradient-6', name: 'Mint', className: 'bg-gradient-to-br from-emerald-300 to-teal-500' },
+];
 
 interface MovieDetails {
   title: string;
@@ -47,7 +52,6 @@ interface MovieListSheetProps {
 }
 
 // Add Movie Dialog Component
-// Add Movie Dialog Component
 function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
   onAdd: (movie: SearchResult, viewedAt: Date) => Promise<void>;
   isOpen: boolean;
@@ -64,6 +68,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
   const [isManualMode, setIsManualMode] = useState(false);
   const [manualTitle, setManualTitle] = useState('');
   const [manualYear, setManualYear] = useState('');
+  const [manualPosterVariant, setManualPosterVariant] = useState(DEFAULT_POSTERS[0].id);
 
   // Search TMDb
   const searchTMDb = useCallback(async (query: string) => {
@@ -121,7 +126,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
           originalTitle: manualTitle,
           year: !isNaN(yearInt!) ? yearInt : null, // Handle NaN if parseInt fails
           rating: 0,
-          posterUrl: null
+          posterUrl: `default:${manualPosterVariant}`
         };
 
         console.log('Calling onAdd with', pseudoMovie);
@@ -154,6 +159,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
     setIsManualMode(false);
     setManualTitle('');
     setManualYear('');
+    setManualPosterVariant(DEFAULT_POSTERS[0].id);
     setViewedDate(new Date().toISOString().split('T')[0]);
     onOpenChange(false);
   };
@@ -288,6 +294,28 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
                   autoFocus
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label>Style de l'affiche</Label>
+                <div className="grid grid-cols-6 gap-2">
+                  {DEFAULT_POSTERS.map((poster) => (
+                    <button
+                      key={poster.id}
+                      onClick={() => setManualPosterVariant(poster.id)}
+                      className={`h-12 w-full rounded-md ${poster.className} relative border-2 transition-all ${manualPosterVariant === poster.id ? 'border-primary ring-2 ring-primary ring-offset-1' : 'border-transparent hover:scale-105'
+                        }`}
+                      title={poster.name}
+                    >
+                      {manualPosterVariant === poster.id && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Check className="h-4 w-4 text-white drop-shadow-md" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="manualYear">Année de sortie (optionnel)</Label>
                 <Input
@@ -364,7 +392,33 @@ function MovieListContent({
 
   const movieTitles = userProfile?.[listType];
   const seenMoviesData = userProfile?.seenMoviesData;
-  const sortedMovieTitles = movieTitles ? [...movieTitles].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' })) : [];
+
+  // Sort movies: Recent First (for seen list), Alphabetical otherwise
+  const sortedMovieTitles = useMemo(() => {
+    if (!movieTitles) return [];
+
+    if (listType === 'seenMovieTitles' && seenMoviesData) {
+      // Create a map for fast lookup
+      const movieMap = new Map(seenMoviesData.map(m => [m.title, m]));
+
+      return [...movieTitles].sort((a, b) => {
+        const movieA = movieMap.get(a);
+        const movieB = movieMap.get(b);
+
+        // If viewedAt is available, use it (descending: newest first)
+        const dateA = movieA?.viewedAt || 0;
+        const dateB = movieB?.viewedAt || 0;
+
+        if (dateA !== dateB) return dateB - dateA;
+
+        // Fallback to title if dates are equal or missing
+        return a.localeCompare(b, 'fr', { sensitivity: 'base' });
+      });
+    }
+
+    // Default alphabetical sort for watchlist
+    return [...movieTitles].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+  }, [movieTitles, listType, seenMoviesData]);
 
   // Helper function to check if a movie is older than 6 months
   const isOlderThanSixMonths = useCallback((movieTitle: string) => {
@@ -531,11 +585,45 @@ function MovieListContent({
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
+  // Render Poster Helper
+  const renderPoster = (posterUrl: string | undefined | null, title: string, isOld: boolean = false) => {
+    if (posterUrl && posterUrl.startsWith('default:')) {
+      const variantId = posterUrl.split(':')[1];
+      const variant = DEFAULT_POSTERS.find(p => p.id === variantId) || DEFAULT_POSTERS[0];
+
+      return (
+        <div className={`w-full h-full ${variant.className} flex flex-col items-center justify-center p-1 text-center`}>
+          <Film className={`h-4 w-4 text-white/50 mb-1 ${isOld ? 'hidden' : ''}`} />
+          {!isOld && <p className="text-[8px] text-white font-semibold line-clamp-3 leading-tight uppercase tracking-wider">{title}</p>}
+        </div>
+      );
+    }
+
+    if (!isOld && posterUrl) {
+      return (
+        <Image
+          src={posterUrl}
+          alt={title}
+          fill
+          className="object-cover"
+          sizes="32px"
+        />
+      );
+    }
+
+    return (
+      <div className={`flex-shrink-0 rounded bg-muted flex items-center justify-center ${isOld ? 'w-6 h-6' : 'w-full h-full'}`}>
+        <Film className={`${isOld ? 'h-3 w-3' : 'h-4 w-4'} text-muted-foreground`} />
+      </div>
+    );
+  };
+
   // Render a movie item in list view
   const renderListItem = (movieTitle: string, index: number) => {
     const details = movieDetails[movieTitle];
     const seenData = seenMoviesData?.find(m => m.title === movieTitle);
     const viewedAt = details?.viewedAt || seenData?.viewedAt;
+    const posterUrl = details?.posterUrl || seenData?.posterUrl;
 
     const isOld = listType === 'seenMovieTitles' && isOlderThanSixMonths(movieTitle);
 
@@ -544,21 +632,10 @@ function MovieListContent({
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <div className="flex items-start gap-3">
-              {!isOld && details?.posterUrl ? (
-                <div className="flex-shrink-0 w-8 h-12 relative rounded overflow-hidden bg-muted">
-                  <Image
-                    src={details.posterUrl}
-                    alt={movieTitle}
-                    fill
-                    className="object-cover"
-                    sizes="32px"
-                  />
-                </div>
-              ) : (
-                <div className={`flex-shrink-0 rounded bg-muted flex items-center justify-center ${isOld ? 'w-6 h-6' : 'w-8 h-12'}`}>
-                  <Film className={`${isOld ? 'h-3 w-3' : 'h-4 w-4'} text-muted-foreground`} />
-                </div>
-              )}
+              <div className={`flex-shrink-0 ${isOld ? 'w-6 h-6' : 'w-8 h-12'} relative rounded overflow-hidden bg-muted`}>
+                {renderPoster(posterUrl, movieTitle, isOld)}
+              </div>
+
               <div className="flex-1 min-w-0 pr-2">
                 <div className="flex items-center gap-1.5 overflow-hidden">
                   <h4 className="text-[11px] sm:text-xs font-medium truncate tracking-tight leading-none" title={movieTitle}>
@@ -657,6 +734,7 @@ function MovieListContent({
     const details = movieDetails[movieTitle];
     const seenData = seenMoviesData?.find(m => m.title === movieTitle);
     const viewedAt = details?.viewedAt || seenData?.viewedAt;
+    const posterUrl = details?.posterUrl || seenData?.posterUrl;
 
     const isOld = listType === 'seenMovieTitles' && isOlderThanSixMonths(movieTitle);
 
@@ -666,29 +744,10 @@ function MovieListContent({
         className="group relative aspect-[2/3] rounded-lg overflow-hidden bg-muted cursor-pointer hover:ring-2 hover:ring-primary transition-all"
         title={`${movieTitle}${viewedAt ? ` - Vu le ${formatViewedDate(viewedAt)}` : ''}`}
       >
-        {!isOld && details?.posterUrl ? (
-          <Image
-            src={details.posterUrl}
-            alt={movieTitle}
-            fill
-            className="object-cover"
-            sizes="(max-width: 640px) 80px, 100px"
-          />
-        ) : isOld ? (
-          <div className="w-full h-full flex flex-col items-center justify-center p-2 bg-gradient-to-br from-primary/10 to-primary/5 text-center border-2 border-transparent hover:border-primary/20 transition-all">
-            <Film className="h-3 w-3 text-primary mb-1 opacity-50" />
-            <p className="text-[10px] sm:text-xs font-semibold leading-tight line-clamp-3 text-foreground/90">
-              {movieTitle}
-            </p>
-          </div>
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/20">
-            <Film className="h-8 w-8 text-muted-foreground" />
-          </div>
-        )}
+        {renderPoster(posterUrl, movieTitle, isOld)}
 
-        {/* Overlay with title - Only for non-text tiles (images) */}
-        {!isOld && (
+        {/* Overlay with title - Only for non-text tiles (images) and NOT defaults who already have text */}
+        {!isOld && (!posterUrl || !posterUrl.startsWith('default:')) && (
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
             <div className="absolute bottom-0 left-0 right-0 p-2">
               <p className="text-[10px] text-white font-medium line-clamp-2 leading-tight">{movieTitle}</p>
@@ -731,6 +790,7 @@ function MovieListContent({
       </div>
     );
   };
+
 
   return (
     <div className="relative flex-1 flex flex-col gap-3 overflow-hidden h-full">
