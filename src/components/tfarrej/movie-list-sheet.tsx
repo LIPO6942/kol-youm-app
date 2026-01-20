@@ -14,6 +14,11 @@ import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, 
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { moveMovieFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate } from '@/lib/firebase/firestore';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import Image from 'next/image';
 
 // Default Poster Styles
 const DEFAULT_POSTERS = [
