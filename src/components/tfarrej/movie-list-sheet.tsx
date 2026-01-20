@@ -46,6 +46,7 @@ interface MovieListSheetProps {
 }
 
 // Add Movie Dialog Component
+// Add Movie Dialog Component
 function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
   onAdd: (movie: SearchResult, viewedAt: Date) => Promise<void>;
   isOpen: boolean;
@@ -57,6 +58,11 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
   const [selectedMovie, setSelectedMovie] = useState<SearchResult | null>(null);
   const [viewedDate, setViewedDate] = useState(new Date().toISOString().split('T')[0]);
   const [isAdding, setIsAdding] = useState(false);
+
+  // Manual Mode State
+  const [isManualMode, setIsManualMode] = useState(false);
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualYear, setManualYear] = useState('');
 
   // Search TMDb
   const searchTMDb = useCallback(async (query: string) => {
@@ -81,6 +87,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
 
   // Debounce search
   useEffect(() => {
+    if (isManualMode) return;
     const timer = setTimeout(() => {
       if (searchQuery.length >= 2) {
         searchTMDb(searchQuery);
@@ -89,20 +96,35 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, searchTMDb]);
+  }, [searchQuery, searchTMDb, isManualMode]);
 
   const handleAdd = async () => {
-    if (!selectedMovie) return;
-    setIsAdding(true);
-    try {
-      await onAdd(selectedMovie, new Date(viewedDate));
-      setSearchQuery('');
-      setSearchResults([]);
-      setSelectedMovie(null);
-      setViewedDate(new Date().toISOString().split('T')[0]);
-      onOpenChange(false);
-    } finally {
-      setIsAdding(false);
+    if (isManualMode) {
+      if (!manualTitle.trim()) return;
+      setIsAdding(true);
+      try {
+        const pseudoMovie: SearchResult = {
+          id: -Date.now(), // Negative ID to avoid collision
+          title: manualTitle,
+          originalTitle: manualTitle,
+          year: manualYear ? parseInt(manualYear, 10) : null,
+          rating: 0,
+          posterUrl: null
+        };
+        await onAdd(pseudoMovie, new Date(viewedDate));
+        resetAndClose();
+      } finally {
+        setIsAdding(false);
+      }
+    } else {
+      if (!selectedMovie) return;
+      setIsAdding(true);
+      try {
+        await onAdd(selectedMovie, new Date(viewedDate));
+        resetAndClose();
+      } finally {
+        setIsAdding(false);
+      }
     }
   };
 
@@ -110,132 +132,178 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
     setSearchQuery('');
     setSearchResults([]);
     setSelectedMovie(null);
+    setIsManualMode(false);
+    setManualTitle('');
+    setManualYear('');
+    setViewedDate(new Date().toISOString().split('T')[0]);
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) resetAndClose(); else onOpenChange(open); }}>
       <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Plus className="h-5 w-5" />
-            Ajouter un film vu
+            {isManualMode ? 'Ajout manuel' : 'Ajouter un film vu'}
           </DialogTitle>
           <DialogDescription>
-            Recherchez un film et indiquez quand vous l'avez vu.
+            {isManualMode
+              ? "Entrez les détails du film manuellement."
+              : "Recherchez un film et indiquez quand vous l'avez vu."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col gap-4">
-          {/* Search Input */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Rechercher un film (FR/EN)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-              autoFocus
-            />
-          </div>
+          {!isManualMode ? (
+            <>
+              {/* Search Input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher un film (FR/EN)..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                  autoFocus
+                />
+              </div>
 
-          {/* Search Results */}
-          {(isSearching || searchResults.length > 0) && (
-            <ScrollArea className="flex-1 max-h-[250px] border rounded-lg p-2">
-              {isSearching ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                  {searchResults.map(movie => (
-                    <button
-                      key={movie.id}
-                      onClick={() => setSelectedMovie(movie)}
-                      className={`relative rounded-lg overflow-hidden aspect-[2/3] transition-all ${selectedMovie?.id === movie.id
-                        ? 'ring-2 ring-primary ring-offset-2'
-                        : 'hover:ring-2 hover:ring-muted-foreground'
-                        }`}
-                    >
-                      {movie.posterUrl ? (
+              {/* Search Results */}
+              {(isSearching || searchResults.length > 0) && (
+                <ScrollArea className="flex-1 max-h-[250px] border rounded-lg p-2">
+                  {isSearching ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {searchResults.map(movie => (
+                        <button
+                          key={movie.id}
+                          onClick={() => setSelectedMovie(movie)}
+                          className={`relative rounded-lg overflow-hidden aspect-[2/3] transition-all ${selectedMovie?.id === movie.id
+                            ? 'ring-2 ring-primary ring-offset-2'
+                            : 'hover:ring-2 hover:ring-muted-foreground'
+                            }`}
+                        >
+                          {movie.posterUrl ? (
+                            <Image
+                              src={movie.posterUrl}
+                              alt={movie.title}
+                              fill
+                              className="object-cover"
+                              sizes="80px"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-muted flex items-center justify-center">
+                              <Film className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                          )}
+                          {selectedMovie?.id === movie.id && (
+                            <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                              <Check className="h-8 w-8 text-primary" />
+                            </div>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1">
+                            <p className="text-[9px] text-white line-clamp-2 leading-tight">{movie.title}</p>
+                            {movie.year && <p className="text-[8px] text-white/70">{movie.year}</p>}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              )}
+
+              {/* Selected Movie */}
+              {selectedMovie && (
+                <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-18 rounded overflow-hidden flex-shrink-0 relative">
+                      {selectedMovie.posterUrl ? (
                         <Image
-                          src={movie.posterUrl}
-                          alt={movie.title}
-                          fill
+                          src={selectedMovie.posterUrl}
+                          alt={selectedMovie.title}
+                          width={48}
+                          height={72}
                           className="object-cover"
-                          sizes="80px"
                         />
                       ) : (
                         <div className="w-full h-full bg-muted flex items-center justify-center">
-                          <Film className="h-6 w-6 text-muted-foreground" />
+                          <Film className="h-5 w-5" />
                         </div>
                       )}
-                      {selectedMovie?.id === movie.id && (
-                        <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                          <Check className="h-8 w-8 text-primary" />
-                        </div>
-                      )}
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1">
-                        <p className="text-[9px] text-white line-clamp-2 leading-tight">{movie.title}</p>
-                        {movie.year && <p className="text-[8px] text-white/70">{movie.year}</p>}
-                      </div>
-                    </button>
-                  ))}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{selectedMovie.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedMovie.year && `${selectedMovie.year} • `}
+                        {selectedMovie.rating > 0 && `⭐ ${selectedMovie.rating}/10`}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
-            </ScrollArea>
-          )}
 
-          {/* Selected Movie & Date */}
-          {selectedMovie && (
-            <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-18 rounded overflow-hidden flex-shrink-0 relative">
-                  {selectedMovie.posterUrl ? (
-                    <Image
-                      src={selectedMovie.posterUrl}
-                      alt={selectedMovie.title}
-                      width={48}
-                      height={72}
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-muted flex items-center justify-center">
-                      <Film className="h-5 w-5" />
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{selectedMovie.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedMovie.year && `${selectedMovie.year} • `}
-                    {selectedMovie.rating > 0 && `⭐ ${selectedMovie.rating}/10`}
-                  </p>
-                </div>
+              {/* Manual Entry Toggle Link */}
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsManualMode(true)}
+                  className="text-xs text-muted-foreground hover:text-primary underline"
+                >
+                  Film introuvable ? Ajouter manuellement
+                </button>
               </div>
-
-              <div className="flex items-center gap-2">
-                <Label htmlFor="viewedDate" className="text-sm whitespace-nowrap">Vu le :</Label>
+            </>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="manualTitle">Titre du film</Label>
                 <Input
-                  id="viewedDate"
-                  type="date"
-                  value={viewedDate}
-                  onChange={(e) => setViewedDate(e.target.value)}
-                  max={new Date().toISOString().split('T')[0]}
-                  className="flex-1"
+                  id="manualTitle"
+                  placeholder="Titre du film"
+                  value={manualTitle}
+                  onChange={(e) => setManualTitle(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="manualYear">Année de sortie (optionnel)</Label>
+                <Input
+                  id="manualYear"
+                  type="number"
+                  placeholder="Ex: 2024"
+                  value={manualYear}
+                  onChange={(e) => setManualYear(e.target.value)}
                 />
               </div>
             </div>
           )}
+
+          {/* Date Picker (Common) */}
+          {(selectedMovie || isManualMode) && (
+            <div className="space-y-2">
+              <Label htmlFor="viewedDate">Vu le :</Label>
+              <Input
+                id="viewedDate"
+                type="date"
+                value={viewedDate}
+                onChange={(e) => setViewedDate(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+          )}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={resetAndClose}>
-            Annuler
+        <DialogFooter className="gap-2 sm:gap-0 mt-4">
+          <Button variant="outline" onClick={isManualMode ? () => setIsManualMode(false) : resetAndClose}>
+            {isManualMode ? 'Retour' : 'Annuler'}
           </Button>
           <Button
             onClick={handleAdd}
-            disabled={!selectedMovie || isAdding}
+            disabled={(!isManualMode && !selectedMovie) || (isManualMode && !manualTitle.trim()) || isAdding}
           >
             {isAdding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
             Ajouter
