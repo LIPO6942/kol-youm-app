@@ -299,14 +299,16 @@ export async function addSeenMovieWithDate(
 ) {
     const userRef = doc(firestoreDb, "users", uid);
 
-    const seenMovie: SeenMovie = {
+    const seenMovie: any = {
         title: movie.title,
         viewedAt: movie.viewedAt,
         addedAt: Date.now(),
-        posterUrl: movie.posterUrl,
-        year: movie.year,
-        rating: movie.rating,
     };
+
+    // Conditionally add optional fields to avoid 'undefined' values which Firestore rejects
+    if (movie.posterUrl) seenMovie.posterUrl = movie.posterUrl;
+    if (movie.year !== undefined && movie.year !== null) seenMovie.year = movie.year;
+    if (movie.rating !== undefined && movie.rating !== null) seenMovie.rating = movie.rating;
 
     await setDoc(userRef, {
         seenMovieTitles: arrayUnion(movie.title),
