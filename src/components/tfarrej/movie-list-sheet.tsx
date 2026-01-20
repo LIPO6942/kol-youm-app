@@ -201,7 +201,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
 
               {/* Search Results */}
               {(isSearching || searchResults.length > 0) && (
-                <ScrollArea className="flex-1 max-h-[250px] border rounded-lg p-2">
+                <ScrollArea className="flex-1 min-h-0 border rounded-lg p-2 bg-muted/20">
                   {isSearching ? (
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -212,7 +212,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
                         <button
                           key={movie.id}
                           onClick={() => setSelectedMovie(movie)}
-                          className={`relative rounded-lg overflow-hidden aspect-[2/3] transition-all ${selectedMovie?.id === movie.id
+                          className={`relative rounded-lg overflow-hidden aspect-[2/3] transition-all text-left ${selectedMovie?.id === movie.id
                             ? 'ring-2 ring-primary ring-offset-2'
                             : 'hover:ring-2 hover:ring-muted-foreground'
                             }`}
@@ -248,7 +248,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
 
               {/* Selected Movie */}
               {selectedMovie && (
-                <div className="space-y-3 p-3 bg-muted/50 rounded-lg">
+                <div className="space-y-3 p-3 bg-muted/50 rounded-lg flex-shrink-0">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-18 rounded overflow-hidden flex-shrink-0 relative">
                       {selectedMovie.posterUrl ? (
@@ -277,13 +277,16 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
               )}
 
               {/* Manual Entry Toggle Link */}
-              <div className="text-center pt-2">
+              <div className="text-center pt-2 flex-shrink-0">
                 <button
                   type="button"
-                  onClick={() => setIsManualMode(true)}
+                  onClick={() => {
+                    setManualTitle(searchQuery);
+                    setIsManualMode(true);
+                  }}
                   className="text-xs text-muted-foreground hover:text-primary underline"
                 >
-                  Film introuvable ? Ajouter manuellement
+                  Film introuvable ? Ajouter "{searchQuery || 'ce film'}" manuellement
                 </button>
               </div>
             </>
