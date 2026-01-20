@@ -109,6 +109,14 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
     return () => clearTimeout(timer);
   }, [searchQuery, searchTMDb, isManualMode]);
 
+  // Ensure manual title is pre-filled when switching mode
+  useEffect(() => {
+    if (isManualMode && searchQuery && !manualTitle) {
+      console.log('Auto-filling manual title with:', searchQuery);
+      setManualTitle(searchQuery);
+    }
+  }, [isManualMode, searchQuery]);
+
   const handleAdd = async (e?: React.MouseEvent) => {
     // Prevent default just in case it's triggered inside a form somehow
     if (e) e.preventDefault();
@@ -201,13 +209,13 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
 
               {/* Search Results */}
               {(isSearching || searchResults.length > 0) && (
-                <ScrollArea className="flex-1 min-h-0 border rounded-lg p-2 bg-muted/20">
+                <ScrollArea className="flex-1 h-[400px] border rounded-lg p-2 bg-muted/20">
                   {isSearching ? (
                     <div className="flex items-center justify-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                     </div>
                   ) : (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pb-4">
                       {searchResults.map(movie => (
                         <button
                           key={movie.id}
