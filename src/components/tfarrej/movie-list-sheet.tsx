@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { moveMovieFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate } from '@/lib/firebase/firestore';
+import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate } from '@/lib/firebase/firestore';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -53,14 +53,16 @@ interface MovieListSheetProps {
   trigger: React.ReactNode;
   title: string;
   description: string;
-  listType: 'moviesToWatch' | 'seenMovieTitles';
+  listType: 'moviesToWatch' | 'seenMovieTitles' | 'seriesToWatch' | 'seenSeriesTitles';
+  type?: 'movie' | 'tv';
 }
 
 // Add Movie Dialog Component
-function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
+function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie' }: {
   onAdd: (movie: SearchResult, viewedAt: Date) => Promise<void>;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  type?: 'movie' | 'tv';
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -84,7 +86,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
 
     setIsSearching(true);
     try {
-      const response = await fetch(`/api/tmdb-search?q=${encodeURIComponent(query)}`);
+      const response = await fetch(`/api/tmdb-search?q=${encodeURIComponent(query)}&type=${type}`);
       if (response.ok) {
         const data = await response.json();
         setSearchResults(data.results || []);
@@ -183,12 +185,12 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Plus className="h-5 w-5" />
-            {isManualMode ? 'Ajout manuel' : 'Ajouter un film vu'}
+            {isManualMode ? 'Ajout manuel' : `Ajouter ${type === 'movie' ? 'un film' : 'une série'} vu${type === 'tv' ? 'e' : ''}`}
           </DialogTitle>
           <DialogDescription>
             {isManualMode
-              ? "Entrez les détails du film manuellement."
-              : "Recherchez un film et indiquez quand vous l'avez vu."}
+              ? `Entrez les détails ${type === 'movie' ? 'du film' : 'de la série'} manuellement.`
+              : `Recherchez ${type === 'movie' ? 'un film' : 'une série'} et indiquez quand vous l'avez vu${type === 'tv' ? 'e' : ''}.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -199,7 +201,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Rechercher un film (FR/EN)..."
+                  placeholder={`Rechercher ${type === 'movie' ? 'un film' : 'une série'} (FR/EN)...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
@@ -294,17 +296,17 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange }: {
                   }}
                   className="text-xs text-muted-foreground hover:text-primary underline"
                 >
-                  Film introuvable ? Ajouter "{searchQuery || 'ce film'}" manuellement
+                  {type === 'movie' ? 'Film' : 'Série'} introuvable ? Ajouter "{searchQuery || (type === 'movie' ? 'ce film' : 'cette série')}" manuellement
                 </button>
               </div>
             </>
           ) : (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="manualTitle">Titre du film</Label>
+                <Label htmlFor="manualTitle">Titre {type === 'movie' ? 'du film' : 'de la série'}</Label>
                 <Input
                   id="manualTitle"
-                  placeholder="Titre du film"
+                  placeholder={`Titre ${type === 'movie' ? 'du film' : 'de la série'}`}
                   value={manualTitle}
                   onChange={(e) => setManualTitle(e.target.value)}
                   autoFocus
@@ -387,13 +389,15 @@ function MovieListContent({
   onMarkAsWatched,
   onRemove,
   isUpdating,
-  onAddManual
+  onAddManual,
+  type = 'movie'
 }: {
-  listType: 'moviesToWatch' | 'seenMovieTitles';
+  listType: 'moviesToWatch' | 'seenMovieTitles' | 'seriesToWatch' | 'seenSeriesTitles';
   onMarkAsWatched: (movieTitle: string) => Promise<void>;
   onRemove: (movieTitle: string) => Promise<void>;
   isUpdating: boolean;
   onAddManual: () => void;
+  type?: 'movie' | 'tv';
 }) {
   const { userProfile } = useAuth();
   const [movieDetails, setMovieDetails] = useState<Record<string, MovieDetails>>({});
@@ -410,14 +414,15 @@ function MovieListContent({
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [showOldMovies, setShowOldMovies] = useState(false);
 
-  const movieTitles = userProfile?.[listType];
-  const seenMoviesData = userProfile?.seenMoviesData;
+  const movieTitles = userProfile?.[listType] as string[];
+  const seenMoviesData = type === 'movie' ? userProfile?.seenMoviesData : userProfile?.seenSeriesData;
 
   // Sort movies: Recent First (for seen list), Alphabetical otherwise
   const sortedMovieTitles = useMemo(() => {
     if (!movieTitles) return [];
+    const isSeenList = listType === 'seenMovieTitles' || listType === 'seenSeriesTitles';
 
-    if (listType === 'seenMovieTitles' && seenMoviesData) {
+    if (isSeenList && seenMoviesData) {
       // Create a map for fast lookup
       const movieMap = new Map(seenMoviesData.map(m => [m.title, m]));
 
@@ -442,7 +447,7 @@ function MovieListContent({
 
   // Helper function to check if a movie is older than 6 months
   const isOlderThanSixMonths = useCallback((movieTitle: string) => {
-    const seenData = seenMoviesData?.find(m => m.title === movieTitle);
+    const seenData = seenMoviesData?.find((m: any) => m.title === movieTitle);
     const viewedAt = seenData?.viewedAt;
     if (!viewedAt) return false;
     return Date.now() - viewedAt > SIX_MONTHS_MS;
@@ -483,7 +488,8 @@ function MovieListContent({
 
   // For seen movies: split into recent and old (>6 months)
   const { recentMovies, oldMovies } = useMemo(() => {
-    if (listType !== 'seenMovieTitles') {
+    const isSeenList = listType === 'seenMovieTitles' || listType === 'seenSeriesTitles';
+    if (!isSeenList) {
       return { recentMovies: filteredMovies, oldMovies: [] as string[] };
     }
     const recent: string[] = [];
@@ -508,7 +514,7 @@ function MovieListContent({
     setIsSearching(true);
     try {
       const yearParam = yearFilter !== 'all' ? `&year=${yearFilter}` : '';
-      const response = await fetch(`/api/tmdb-search?q=${encodeURIComponent(query)}${yearParam}`);
+      const response = await fetch(`/api/tmdb-search?q=${encodeURIComponent(query)}${yearParam}&type=${type}`);
       if (response.ok) {
         const data = await response.json();
         setSearchResults(data.results || []);
@@ -552,14 +558,14 @@ function MovieListContent({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ title: movieTitle }),
+        body: JSON.stringify({ title: movieTitle, type }),
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data.movie) {
           // Also fetch poster from search API
-          const searchRes = await fetch(`/api/tmdb-search?q=${encodeURIComponent(movieTitle)}`);
+          const searchRes = await fetch(`/api/tmdb-search?q=${encodeURIComponent(movieTitle)}&type=${type}`);
           let posterUrl = seenData?.posterUrl || undefined;
           if (!posterUrl && searchRes.ok) {
             const searchData = await searchRes.json();
@@ -634,7 +640,11 @@ function MovieListContent({
 
     return (
       <div className={`flex-shrink-0 rounded bg-muted flex items-center justify-center ${isOld ? 'w-6 h-6' : 'w-full h-full'}`}>
-        <Film className={`${isOld ? 'h-3 w-3' : 'h-4 w-4'} text-muted-foreground`} />
+        {type === 'movie' ? (
+          <Film className={`${isOld ? 'h-3 w-3' : 'h-4 w-4'} text-muted-foreground`} />
+        ) : (
+          <Tv className={`${isOld ? 'h-3 w-3' : 'h-4 w-4'} text-muted-foreground`} />
+        )}
       </div>
     );
   };
@@ -678,7 +688,7 @@ function MovieListContent({
                 {details && (
                   <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
                     {/* Rating hidden for seen list/compact view */}
-                    {listType !== 'seenMovieTitles' && details.rating && (
+                    {!(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && details.rating && (
                       <div className="flex items-center gap-0.5 flex-shrink-0">
                         <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                         <span className="font-medium">{details.rating}/10</span>
@@ -697,7 +707,7 @@ function MovieListContent({
                   </div>
                 )}
                 {/* Show when the movie was watched */}
-                {listType === 'seenMovieTitles' && viewedAt && (
+                {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && viewedAt && (
                   <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                     <Calendar className="h-3 w-3" />
                     <span>Vu le {formatViewedDate(viewedAt)}</span>
@@ -708,7 +718,7 @@ function MovieListContent({
           </div>
 
           <div className="flex-shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2">
-            {listType === 'moviesToWatch' && (
+            {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -787,7 +797,7 @@ function MovieListContent({
 
         {/* Action buttons on hover */}
         <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          {listType === 'moviesToWatch' && (
+          {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && (
             <Button
               variant="secondary"
               size="icon"
@@ -1032,9 +1042,9 @@ function MovieListContent({
                   ) : (
                     <div className="col-span-full flex flex-col items-center justify-center text-center text-muted-foreground h-[40vh]">
                       {/* Empty state repeated for grid view safety */}
-                      <Film className="h-10 w-10 mb-4" />
+                      {type === 'movie' ? <Film className="h-10 w-10 mb-4" /> : <Tv className="h-10 w-10 mb-4" />}
                       {searchQuery || yearFilter !== 'all' ? (
-                        <p>Aucun film ne correspond à vos critères.</p>
+                        <p>Aucun {type === 'movie' ? 'film' : 'titre'} ne correspond à vos critères.</p>
                       ) : (
                         <p>Votre liste est vide.</p>
                       )}
@@ -1044,17 +1054,17 @@ function MovieListContent({
               )}
 
               {/* Empty state for seen list specifically if both empty */}
-              {listType === 'seenMovieTitles' && recentMovies.length === 0 && oldMovies.length === 0 && (
+              {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && recentMovies.length === 0 && oldMovies.length === 0 && (
                 <div className="flex flex-col items-center justify-center text-center text-muted-foreground h-[40vh]">
-                  <Film className="h-10 w-10 mb-4" />
+                  {type === 'movie' ? <Film className="h-10 w-10 mb-4" /> : <Tv className="h-10 w-10 mb-4" />}
                   {searchQuery || yearFilter !== 'all' ? (
-                    <p>Aucun film ne correspond à vos critères.</p>
+                    <p>Aucun {type === 'movie' ? 'film' : 'titre'} ne correspond à vos critères.</p>
                   ) : (
                     <>
                       <p>Votre liste est vide pour le moment.</p>
                       <Button variant="outline" size="sm" onClick={onAddManual} className="mt-4 gap-1">
                         <Plus className="h-4 w-4" />
-                        Ajouter un film
+                        Ajouter {type === 'movie' ? 'un film' : 'une série'}
                       </Button>
                     </>
                   )}
@@ -1068,7 +1078,7 @@ function MovieListContent({
       {/* Stats */}
       {filteredMovies.length > 0 && (
         <div className="text-xs text-muted-foreground text-center pt-2 border-t">
-          {filteredMovies.length} film{filteredMovies.length > 1 ? 's' : ''}
+          {filteredMovies.length} {type === 'movie' ? 'film' : 'série'}{filteredMovies.length > 1 ? 's' : ''}
           {(searchQuery || yearFilter !== 'all') && ` (filtré${filteredMovies.length > 1 ? 's' : ''})`}
         </div>
       )}
@@ -1076,7 +1086,7 @@ function MovieListContent({
   );
 }
 
-export function MovieListSheet({ trigger, title, description, listType }: MovieListSheetProps) {
+export function MovieListSheet({ trigger, title, description, listType, type = 'movie' }: MovieListSheetProps) {
   const { user, userProfile } = useAuth();
   const { toast } = useToast();
   const [isClearing, setIsClearing] = useState(false);
@@ -1087,11 +1097,11 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
     if (!user) return;
     setIsUpdating(true);
     try {
-      await moveMovieFromWatchlistToSeen(user.uid, movieTitle);
+      await moveItemFromWatchlistToSeen(user.uid, movieTitle, type);
       toast({ title: `"${movieTitle}" marqué comme vu.` });
     } catch (error) {
       console.error(error);
-      toast({ variant: 'destructive', title: "Erreur", description: "Impossible de mettre à jour le film." });
+      toast({ variant: 'destructive', title: "Erreur", description: "Impossible de mettre à jour le contenu." });
     } finally {
       setIsUpdating(false);
     }
@@ -1105,7 +1115,7 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
       toast({ title: `"${movieTitle}" supprimé de la liste.` });
     } catch (error) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer le film.' });
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer cet élément.' });
     } finally {
       setIsUpdating(false);
     }
@@ -1126,27 +1136,34 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
   };
 
   const handleAddMovieManually = async (movie: SearchResult, viewedAt: Date) => {
-    console.log('handleAddMovieManually called', { movie, viewedAt, userUid: user?.uid });
-
     if (!user) {
-      console.error('No user found in handleAddMovieManually');
       toast({ variant: 'destructive', title: "Erreur", description: "Vous devez être connecté." });
       return;
     }
 
     try {
-      await addSeenMovieWithDate(user.uid, {
-        title: movie.title,
-        viewedAt: viewedAt.getTime(),
-        posterUrl: movie.posterUrl || undefined,
-        year: movie.year || undefined,
-        rating: movie.rating || undefined,
-      });
+      if (type === 'movie') {
+        await addSeenMovieWithDate(user.uid, {
+          title: movie.title,
+          viewedAt: viewedAt.getTime(),
+          posterUrl: movie.posterUrl || undefined,
+          year: movie.year || undefined,
+          rating: movie.rating || undefined,
+        });
+      } else {
+        await addSeenSeriesWithDate(user.uid, {
+          title: movie.title,
+          viewedAt: viewedAt.getTime(),
+          posterUrl: movie.posterUrl || undefined,
+          year: movie.year || undefined,
+          rating: movie.rating || undefined,
+        });
+      }
 
-      toast({ title: `"${movie.title}" ajouté aux films vus.` });
+      toast({ title: `"${movie.title}" ajouté aux vus.` });
     } catch (error) {
       console.error('Error in handleAddMovieManually:', error);
-      toast({ variant: 'destructive', title: "Erreur", description: "Impossible d'ajouter le film." });
+      toast({ variant: 'destructive', title: "Erreur", description: `Impossible d'ajouter ${type === 'movie' ? 'le film' : 'la série'}.` });
     }
   };
 
@@ -1158,7 +1175,10 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
           <SheetHeader>
             <div className="flex justify-between items-start">
               <div>
-                <SheetTitle>{title}</SheetTitle>
+                <SheetTitle className="flex items-center gap-2">
+                  {type === 'movie' ? <Film className="h-5 w-5" /> : <Tv className="h-5 w-5" />}
+                  {title}
+                </SheetTitle>
                 <SheetDescription>{description}</SheetDescription>
               </div>
             </div>
@@ -1169,6 +1189,7 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
             onRemove={handleRemove}
             isUpdating={isUpdating}
             onAddManual={() => setIsAddDialogOpen(true)}
+            type={type}
           />
         </SheetContent>
       </Sheet>
@@ -1177,6 +1198,7 @@ export function MovieListSheet({ trigger, title, description, listType }: MovieL
         isOpen={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
         onAdd={handleAddMovieManually}
+        type={type}
       />
     </>
   );

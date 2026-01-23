@@ -39,14 +39,19 @@ function mapCountryLabelToCode(label: string): string | null {
 async function searchTmdbByTitle(
   apiKeyOrBearer: { apiKey?: string; bearer?: string },
   title: string,
+  type: 'movie' | 'tv' = 'movie',
   year?: number,
   language: string = 'fr-FR'
 ): Promise<any | null> {
   try {
-    const url = new URL(`${TMDB_API_BASE}/search/movie`)
+    const endpoint = type === 'movie' ? 'movie' : 'tv';
+    const url = new URL(`${TMDB_API_BASE}/search/${endpoint}`)
     url.searchParams.set('language', language)
     url.searchParams.set('query', title)
-    if (year && Number.isFinite(year)) url.searchParams.set('year', String(year))
+    if (year && Number.isFinite(year)) {
+      const yearKey = type === 'movie' ? 'year' : 'first_air_date_year';
+      url.searchParams.set(yearKey, String(year))
+    }
     if (apiKeyOrBearer.apiKey) url.searchParams.set('api_key', apiKeyOrBearer.apiKey)
     const headers: Record<string, string> = {}
     if (apiKeyOrBearer.bearer) headers['Authorization'] = `Bearer ${apiKeyOrBearer.bearer}`
@@ -74,26 +79,28 @@ async function getWikipediaSummary(lang: 'fr' | 'en', title: string): Promise<{ 
   }
 }
 
-// Collect extra movie suggestions derived from Wikipedia, enriched via TMDB (to ensure rating >= 6)
+// Collect extra suggestions derived from Wikipedia, enriched via TMDB (to ensure rating >= 6)
 async function collectWikipediaSuggestions(params: {
   apiKey?: string,
   bearer?: string,
+  type?: 'movie' | 'tv',
   genre?: string,
   yearRange: [number, number],
   count: number,
   excludeTitles: Set<string>,
 }): Promise<any[]> {
-  const { apiKey, bearer, genre, yearRange, count, excludeTitles } = params
+  const { apiKey, bearer, type = 'movie', genre, yearRange, count, excludeTitles } = params
   const [yMin, yMax] = yearRange
   const maxTries = Math.max(count * 3, 10)
   const picks: any[] = []
   const tried = new Set<string>()
   const rndYear = () => Math.floor(yMin + Math.random() * (Math.max(yMax, yMin) - yMin + 1))
   const langs: Array<'fr' | 'en'> = ['fr', 'en']
+  const term = type === 'movie' ? 'film' : 'série télévisée';
   const tryQueries = (titleLike: string, year: number) => [
-    `${titleLike} (${year}) film`,
-    `${titleLike} film (${year})`,
-    `${titleLike} film`,
+    `${titleLike} (${year}) ${term}`,
+    `${titleLike} ${term} (${year})`,
+    `${titleLike} ${term}`,
     `${titleLike}`,
   ]
   let attempts = 0
@@ -101,7 +108,7 @@ async function collectWikipediaSuggestions(params: {
     attempts++
     const year = rndYear()
     for (const lang of langs) {
-      const queries = tryQueries(genre || 'film', year)
+      const queries = tryQueries(genre || term, year)
       for (const q of queries) {
         try {
           const searchUrl = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&format=json&srnamespace=0&utf8=1&origin=*`
@@ -113,40 +120,41 @@ async function collectWikipediaSuggestions(params: {
             const key = `${lang}:${h.title}`.toLowerCase()
             if (tried.has(key)) continue
             tried.add(key)
-            // Skip non-film pages heuristically
+            // Skip non-relevant pages heuristically
             const tLower = h.title.toLowerCase()
-            if (!(tLower.includes('(film') || tLower.includes('film'))) continue
+            if (!(tLower.includes(`(${type === 'movie' ? 'film' : 'série'}`) || tLower.includes(type === 'movie' ? 'film' : 'série'))) continue
             // Get summary and resolve TMDB
             const summary = await getWikipediaSummary(lang, h.title)
-            const tmdb = await searchTmdbByTitle({ apiKey, bearer }, h.title, year, 'fr-FR')
+            const tmdb = await searchTmdbByTitle({ apiKey, bearer }, h.title, type, year, 'fr-FR')
             if (!tmdb) continue
             const rating = Number(tmdb?.vote_average || 0)
             if (rating < 6) continue
-            const tmdbYear = Number((tmdb?.release_date || '0000-00-00').substring(0, 4)) || year
+            const dateStr = type === 'movie' ? tmdb?.release_date : tmdb?.first_air_date;
+            const tmdbYear = Number((dateStr || '0000-00-00').substring(0, 4)) || year
             if (tmdbYear < yMin || tmdbYear > yMax) continue
-            const actors = await fetchTopCast({ apiKey, bearer }, tmdb.id).catch(() => [])
-            const detailsFR = await fetchMovieDetails({ apiKey, bearer }, tmdb.id, 'fr-FR')
+            const actors = await fetchTopCast({ apiKey, bearer }, tmdb.id, type).catch(() => [])
+            const detailsFR = await fetchMovieDetails({ apiKey, bearer }, tmdb.id, type, 'fr-FR')
             let synopsis = (summary?.extract || detailsFR?.overview || '').trim()
             if (!synopsis) synopsis = 'Synopsis non disponible.'
             // Country names
             let country = ''
-            const frCountries = (detailsFR as any)?.production_countries
+            const frCountries = (detailsFR as any)?.production_countries || (detailsFR as any)?.origin_country
             if (Array.isArray(frCountries) && frCountries.length) {
-              country = frCountries.map((c: any) => c?.name).filter(Boolean).join(', ')
+              country = typeof frCountries[0] === 'string' ? frCountries.join(', ') : frCountries.map((c: any) => c?.name).filter(Boolean).join(', ')
             }
             if (!country) {
-              const enDetails = await fetchMovieDetails({ apiKey, bearer }, tmdb.id, 'en-US')
-              const enCountries = (enDetails as any)?.production_countries
+              const enDetails = await fetchMovieDetails({ apiKey, bearer }, tmdb.id, type, 'en-US')
+              const enCountries = (enDetails as any)?.production_countries || (enDetails as any)?.origin_country
               if (Array.isArray(enCountries) && enCountries.length) {
-                country = enCountries.map((c: any) => c?.name).filter(Boolean).join(', ')
+                country = typeof enCountries[0] === 'string' ? enCountries.join(', ') : enCountries.map((c: any) => c?.name).filter(Boolean).join(', ')
               }
             }
-            const titleStr = (tmdb?.title || tmdb?.original_title || h.title).trim()
+            const titleStr = (tmdb?.title || tmdb?.name || tmdb?.original_title || tmdb?.original_name || h.title).trim()
             const titleKey = titleStr.toLowerCase()
             if (excludeTitles.has(titleKey)) continue
             excludeTitles.add(titleKey)
             // Resolve Wikipedia via Wikidata (IMDb) first, and detect awards
-            const ext = await fetchExternalIds({ apiKey, bearer }, tmdb.id)
+            const ext = await fetchExternalIds({ apiKey, bearer }, tmdb.id, type)
             const wd = await resolveWikidataByImdb(ext?.imdb_id)
             picks.push({
               id: String(tmdb.id),
@@ -155,7 +163,7 @@ async function collectWikipediaSuggestions(params: {
               vote_average: rating,
               vote_count: Number(tmdb?.vote_count || 0),
               release_date: String(tmdbYear) + '-01-01',
-              wikipediaUrl: wd.url || summary?.url || (await findWikipediaUrl(titleStr, tmdbYear)),
+              wikipediaUrl: wd.url || summary?.url || (await findWikipediaUrl(titleStr, tmdbYear, type)),
               origin_country: Array.isArray(tmdb?.origin_country) ? tmdb.origin_country : [],
               genre_ids: tmdb?.genre_ids,
               _actors: actors,
@@ -175,9 +183,10 @@ async function collectWikipediaSuggestions(params: {
   return picks
 }
 
-async function fetchCountryMovies(params: {
+async function fetchCountryItems(params: {
   apiKey?: string,
   bearer?: string,
+  type?: 'movie' | 'tv',
   countryCode: string,
   yearRange: [number, number],
   minRating: number,
@@ -185,8 +194,9 @@ async function fetchCountryMovies(params: {
   page?: number,
   voteCountOverride?: number,
 }) {
-  const { apiKey, bearer, countryCode, yearRange, minRating, genre, page = 1, voteCountOverride } = params
-  const url = new URL(`${TMDB_API_BASE}/discover/movie`)
+  const { apiKey, bearer, type = 'movie', countryCode, yearRange, minRating, genre, page = 1, voteCountOverride } = params
+  const endpoint = type === 'movie' ? 'movie' : 'tv';
+  const url = new URL(`${TMDB_API_BASE}/discover/${endpoint}`)
   if (apiKey) url.searchParams.set('api_key', apiKey)
   url.searchParams.set('with_origin_country', countryCode)
   url.searchParams.set('language', 'fr-FR')
@@ -195,13 +205,13 @@ async function fetchCountryMovies(params: {
   let [yMin, yMax] = yearRange
   const CURRENT_YEAR = new Date().getFullYear()
   const isRecent = yMax >= CURRENT_YEAR - 1
-  const defaultVoteCount = isRecent ? 50 : 500
+  const defaultVoteCount = isRecent ? 50 : (type === 'movie' ? 500 : 100)
   url.searchParams.set('vote_count.gte', String(voteCountOverride ?? defaultVoteCount))
 
   url.searchParams.set('include_adult', 'false')
-  url.searchParams.set('include_video', 'false')
+  if (type === 'movie') url.searchParams.set('include_video', 'false')
   url.searchParams.set('vote_average.gte', String(minRating || 0))
-  url.searchParams.set('with_release_type', '3|2') // Theatrical | Digital
+  if (type === 'movie') url.searchParams.set('with_release_type', '3|2') // Theatrical | Digital
   url.searchParams.set('page', String(page))
   url.searchParams.set('sort_by', 'popularity.desc')
 
@@ -209,11 +219,17 @@ async function fetchCountryMovies(params: {
   if (!Number.isFinite(yMin) || yMin < 1900) yMin = 1990
   if (!Number.isFinite(yMax) || yMax > CURRENT_YEAR) yMax = CURRENT_YEAR
   if (yMin > yMax) [yMin, yMax] = [yMax, yMin]
-  url.searchParams.set('primary_release_date.gte', `${yMin}-01-01`)
-  url.searchParams.set('primary_release_date.lte', `${yMax}-12-31`)
+
+  if (type === 'movie') {
+    url.searchParams.set('primary_release_date.gte', `${yMin}-01-01`)
+    url.searchParams.set('primary_release_date.lte', `${yMax}-12-31`)
+  } else {
+    url.searchParams.set('first_air_date.gte', `${yMin}-01-01`)
+    url.searchParams.set('first_air_date.lte', `${yMax}-12-31`)
+  }
 
   if (genre && genre.trim()) {
-    const genreId = mapGenreToId(genre)
+    const genreId = mapGenreToId(genre, type)
     if (genreId) {
       url.searchParams.set('with_genres', genreId)
     }
@@ -230,9 +246,10 @@ async function fetchCountryMovies(params: {
   return data || { results: [], total_pages: 0 }
 }
 
-async function fetchTopCast(apiKeyOrBearer: { apiKey?: string; bearer?: string }, tmdbId: number): Promise<string[]> {
+async function fetchTopCast(apiKeyOrBearer: { apiKey?: string; bearer?: string }, tmdbId: number, type: 'movie' | 'tv' = 'movie'): Promise<string[]> {
   try {
-    const url = new URL(`${TMDB_API_BASE}/movie/${tmdbId}/credits`)
+    const endpoint = type === 'movie' ? 'movie' : 'tv';
+    const url = new URL(`${TMDB_API_BASE}/${endpoint}/${tmdbId}/credits`)
     url.searchParams.set('language', 'fr-FR')
     if (apiKeyOrBearer.apiKey) url.searchParams.set('api_key', apiKeyOrBearer.apiKey)
     const headers: Record<string, string> = {}
@@ -247,14 +264,16 @@ async function fetchTopCast(apiKeyOrBearer: { apiKey?: string; bearer?: string }
   }
 }
 
-// Fetch TMDB movie details in a specific language to obtain overview reliably
+// Fetch TMDB movie/series details in a specific language to obtain overview reliably
 async function fetchMovieDetails(
   apiKeyOrBearer: { apiKey?: string; bearer?: string },
   tmdbId: number,
-  language: string
-): Promise<{ overview?: string; release_date?: string; title?: string; original_title?: string } | null> {
+  type: 'movie' | 'tv' = 'movie',
+  language: string = 'fr-FR'
+): Promise<{ overview?: string; release_date?: string; first_air_date?: string; title?: string; name?: string; original_title?: string; original_name?: string } | null> {
   try {
-    const url = new URL(`${TMDB_API_BASE}/movie/${tmdbId}`)
+    const endpoint = type === 'movie' ? 'movie' : 'tv';
+    const url = new URL(`${TMDB_API_BASE}/${endpoint}/${tmdbId}`)
     url.searchParams.set('language', language)
     if (apiKeyOrBearer.apiKey) url.searchParams.set('api_key', apiKeyOrBearer.apiKey)
     const headers: Record<string, string> = {}
@@ -270,10 +289,12 @@ async function fetchMovieDetails(
 // Fetch TMDB external IDs (to get imdb_id)
 async function fetchExternalIds(
   apiKeyOrBearer: { apiKey?: string; bearer?: string },
-  tmdbId: number
+  tmdbId: number,
+  type: 'movie' | 'tv' = 'movie'
 ): Promise<{ imdb_id?: string } | null> {
   try {
-    const url = new URL(`${TMDB_API_BASE}/movie/${tmdbId}/external_ids`)
+    const endpoint = type === 'movie' ? 'movie' : 'tv';
+    const url = new URL(`${TMDB_API_BASE}/${endpoint}/${tmdbId}/external_ids`)
     if (apiKeyOrBearer.apiKey) url.searchParams.set('api_key', apiKeyOrBearer.apiKey)
     const headers: Record<string, string> = {}
     if (apiKeyOrBearer.bearer) headers['Authorization'] = `Bearer ${apiKeyOrBearer.bearer}`
@@ -343,20 +364,20 @@ function isNonLatinTitle(s: string): boolean {
 async function normalizeTitle(
   apiKeyOrBearer: { apiKey?: string; bearer?: string },
   tmdbId: number,
-  currentTitle: string
+  currentTitle: string,
+  type: 'movie' | 'tv' = 'movie'
 ): Promise<string> {
   if (!currentTitle || isNonLatinTitle(currentTitle)) {
-    const en = await fetchMovieDetails(apiKeyOrBearer, tmdbId, 'en-US')
-    const candidate = (en?.title || en?.original_title || '').trim()
+    const en = await fetchMovieDetails(apiKeyOrBearer, tmdbId, type, 'en-US')
+    const candidate = (en?.title || en?.name || en?.original_title || en?.original_name || '').trim()
     if (candidate) return candidate
   }
   return currentTitle
 }
 
 // Map French friendly genre labels to TMDB genre IDs
-function mapGenreToId(genre: string): string | null {
-  const map: Record<string, string> = {
-    // Standard genres
+function mapGenreToId(genre: string, type: 'movie' | 'tv' = 'movie'): string | null {
+  const movieMap: Record<string, string> = {
     'Action': '28',
     'Aventure': '12',
     'Animation': '16',
@@ -377,31 +398,60 @@ function mapGenreToId(genre: string): string | null {
     'Guerre': '10752',
     'Western': '37',
     'Historique': '36',
-
-    // Custom Categories (using pipe | for OR logic in TMDB)
-    'Mind-Blow': '878|9648|53', // Sci-Fi OR Mystery OR Thriller
-    'Suspense & Thriller': '53|9648|80', // Thriller OR Mystery OR Crime
-    'Découverte': '', // No specific genre filter (random)
+    'Mind-Blow': '878|9648|53',
+    'Suspense & Thriller': '53|9648|80',
+    'Découverte': '',
   }
-  return map[genre] || null
+
+  const tvMap: Record<string, string> = {
+    'Action': '10759', // Action & Adventure
+    'Aventure': '10759',
+    'Animation': '16',
+    'Comédie': '35',
+    'Crime': '80',
+    'Documentaire': '99',
+    'Drame': '18',
+    'Famille': '10751',
+    'Fantastique': '10765', // Sci-Fi & Fantasy
+    'Histoire': '10768', // War & Politics
+    'Horreur': '18', // No specific horror for TV, often Drama
+    'Musique': '35', // No specific music, often Comedy
+    'Mystère': '9648',
+    'Romance': '18', // Drama often used for Romance
+    'Science-Fiction': '10765',
+    'Téléfilm': '10770',
+    'Thriller': '9648', // Mystery
+    'Guerre': '10768',
+    'Western': '37',
+    'Historique': '10768',
+    'Mind-Blow': '10765|9648',
+    'Suspense & Thriller': '9648|80',
+    'Découverte': '',
+  }
+
+  return type === 'movie' ? (movieMap[genre] || null) : (tvMap[genre] || null)
 }
 
-// Try to find a reliable Wikipedia URL for a movie (prefer FR, fallback EN)
-async function findWikipediaUrl(title: string, year: number): Promise<string> {
+// Try to find a reliable Wikipedia URL for a movie/series (prefer FR, fallback EN)
+async function findWikipediaUrl(title: string, year: number, type: 'movie' | 'tv' = 'movie'): Promise<string> {
+  const term = type === 'movie' ? 'film' : 'série télévisée';
   const tryLang = async (lang: 'fr' | 'en') => {
-    const preferFilmHit = (hits: Array<{ title: string }>) => {
-      // Prefer titles that clearly denote the film entry
+    const preferHit = (hits: Array<{ title: string }>) => {
+      // Prefer titles that clearly denote the entry
       const lower = hits.map(h => ({ ...h, t: h.title.toLowerCase() }))
-      const withYear = lower.find(h => h.t.includes('(film') && h.t.includes(String(year)))
-      if (withYear) return withYear
-      const withFilm = lower.find(h => h.t.includes('(film'))
-      return withFilm || hits[0]
+      const searchTerms = type === 'movie' ? ['(film)', 'film'] : ['(série télévisée)', 'série télévisée', '(série)'];
+
+      const withYear = lower.find(h => searchTerms.some(s => h.t.includes(s)) && h.t.includes(String(year)))
+      if (withYear) return withYear;
+
+      const withTerm = lower.find(h => searchTerms.some(s => h.t.includes(s)));
+      return withTerm || hits[0]
     }
     const queries = [
-      `${title} film`,
-      `${title} (film)`,
+      `${title} ${term}`,
+      `${title} (${term})`,
       `${title}`,
-      `${title} (${year}) film`,
+      `${title} (${year}) ${term}`,
       `${title} (${year})`,
     ]
     for (const q of queries) {
@@ -412,7 +462,7 @@ async function findWikipediaUrl(title: string, year: number): Promise<string> {
         const data = await res.json()
         const hits: Array<{ title: string; pageid?: number }> = data?.query?.search || []
         if (hits.length > 0) {
-          const best = preferFilmHit(hits)
+          const best = preferHit(hits)
           // Use REST summary to get canonical content_urls if possible
           const sum = await getWikipediaSummary(lang, best.title)
           if (sum?.url) return sum.url
@@ -452,6 +502,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     const {
+      type = 'movie',
       countries = [],
       yearRange = [1997, new Date().getFullYear()],
       minRating = 6,
@@ -460,6 +511,7 @@ export async function POST(req: NextRequest) {
       rejectedMovieTitles = [],
       genre,
     } = body as {
+      type?: 'movie' | 'tv'
       countries?: string[]
       yearRange?: [number, number]
       minRating?: number
@@ -498,9 +550,10 @@ export async function POST(req: NextRequest) {
         // Try a few pages for variety (1, 2, or 3)
         const randomPage = Math.floor(Math.random() * 3) + 1;
 
-        const fetchResult = await fetchCountryMovies({
+        const fetchResult = await fetchCountryItems({
           apiKey,
           bearer,
+          type,
           countryCode: randomCountry,
           yearRange: yearSpecificRange,
           minRating,
@@ -513,9 +566,10 @@ export async function POST(req: NextRequest) {
         } else {
           // If specific year empty, try wider range around that year (+- 2 years)
           const widerRange: [number, number] = [randomYear - 2, randomYear + 2];
-          const fallbackResult = await fetchCountryMovies({
+          const fallbackResult = await fetchCountryItems({
             apiKey,
             bearer,
+            type,
             countryCode: randomCountry,
             yearRange: widerRange,
             minRating,
@@ -525,7 +579,7 @@ export async function POST(req: NextRequest) {
           results.push(...(fallbackResult.results || []));
         }
       } catch (e) {
-        console.error(`Error gathering movies for ${randomYear}/${randomCountry}:`, e);
+        console.error(`Error gathering ${type} for ${randomYear}/${randomCountry}:`, e);
       }
     }
 
@@ -596,12 +650,13 @@ export async function POST(req: NextRequest) {
       const chunk = selected.slice(i, i + concurrency)
       const data = await Promise.all(chunk.map(async (m) => {
         const actors: string[] = [] // Skip fetching cast to speed up response
-        const year = Number((m.release_date || '0000-00-00').substring(0, 4)) || 0
+        const dateStr = type === 'movie' ? m.release_date : m.first_air_date;
+        const year = Number((dateStr || '0000-00-00').substring(0, 4)) || 0
         // Robust synopsis: prefer FR details, fallback to EN, then to discover overview
-        const frDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, 'fr-FR')
+        const frDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, type, 'fr-FR')
         let synopsis = (m?.overview || frDetails?.overview || '').trim()
         if (!synopsis) {
-          const enDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, 'en-US')
+          const enDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, type, 'en-US')
           synopsis = (enDetails?.overview || m.overview || '').trim()
         }
         // Limit synopsis length and add ellipsis if needed
@@ -615,15 +670,15 @@ export async function POST(req: NextRequest) {
 
         // Country name from details (prefer FR names), fallback to origin_country code
         let country = (m as any)?._countryName || ''
-        const frCountries = (frDetails as any)?.production_countries
+        const frCountries = (frDetails as any)?.production_countries || (frDetails as any)?.origin_country
         if (Array.isArray(frCountries) && frCountries.length) {
-          country = frCountries.map((c: any) => c?.name).filter(Boolean).join(', ')
+          country = typeof frCountries[0] === 'string' ? frCountries.join(', ') : frCountries.map((c: any) => c?.name).filter(Boolean).join(', ')
         }
         if (!country) {
-          const enDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, 'en-US')
-          const enCountries = (enDetails as any)?.production_countries
+          const enDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, type, 'en-US')
+          const enCountries = (enDetails as any)?.production_countries || (enDetails as any)?.origin_country
           if (Array.isArray(enCountries) && enCountries.length) {
-            country = enCountries.map((c: any) => c?.name).filter(Boolean).join(', ')
+            country = typeof enCountries[0] === 'string' ? enCountries.join(', ') : enCountries.map((c: any) => c?.name).filter(Boolean).join(', ')
           }
         }
         if (!country) {
@@ -631,10 +686,10 @@ export async function POST(req: NextRequest) {
           country = codes.join(', ')
         }
         // Normalize title to avoid non-Latin scripts in UI
-        let titleStr = (m.title || m.original_title || '').trim()
-        titleStr = await normalizeTitle({ apiKey, bearer }, m.id, titleStr)
+        let titleStr = (m.title || m.name || m.original_title || m.original_name || '').trim()
+        titleStr = await normalizeTitle({ apiKey, bearer }, m.id, titleStr, type)
         // Build Wikipedia URL using Wikipedia search API
-        const wikipediaUrl = await findWikipediaUrl(titleStr, year)
+        const wikipediaUrl = await findWikipediaUrl(titleStr, year, type)
         // Build poster URL if available
         const posterUrl = m.poster_path ? `https://image.tmdb.org/t/p/w185${m.poster_path}` : null
         return {

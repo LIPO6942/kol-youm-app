@@ -90,7 +90,7 @@ const LoadingState = () => (
   </div>
 );
 
-export default function MovieSwiper({ genre }: { genre: string }) {
+export default function MovieSwiper({ genre, type = 'movie' }: { genre: string; type?: 'movie' | 'tv' }) {
   // États de base
   const [isLoading, setIsLoading] = useState(true);
   const [movies, setMovies] = useState<MovieSuggestion[]>([]);
@@ -129,12 +129,13 @@ export default function MovieSwiper({ genre }: { genre: string }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          type,
           countries: userProfile.preferredCountries || [],
           yearRange: yearRange,
           minRating: userProfile.preferredMinRating || 6,
           count: 10,
-          seenMovieTitles: userProfile?.seenMovieTitles || [],
-          rejectedMovieTitles: userProfile?.rejectedMovieTitles || [],
+          seenMovieTitles: type === 'movie' ? (userProfile?.seenMovieTitles || []) : (userProfile?.seenSeriesTitles || []),
+          rejectedMovieTitles: type === 'movie' ? (userProfile?.rejectedMovieTitles || []) : (userProfile?.rejectedSeriesTitles || []),
           genre: genre === 'Historique' ? undefined : genre,
         }),
       });
@@ -203,7 +204,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
     if (!user || currentIndex >= movies.length) return;
 
     const action = direction === 'left' ? 'vu' : 'ajouté à votre liste';
-    const movie = movies[currentIndex];
+    const item = movies[currentIndex];
 
     try {
       if (direction === 'left') {
@@ -219,11 +220,12 @@ export default function MovieSwiper({ genre }: { genre: string }) {
           },
           body: JSON.stringify({
             userId: user.uid,
-            movieTitle: movie.title,
+            title: item.title,
+            type,
           }),
         });
 
-        if (!response.ok) throw new Error('Impossible d\'enregistrer le film comme vu');
+        if (!response.ok) throw new Error(`Impossible d'enregistrer ${type === 'movie' ? 'le film' : 'la série'} comme vu`);
       } else {
         const currentUser = auth.currentUser;
         if (!currentUser) throw new Error('Utilisateur non connecté');
@@ -237,16 +239,17 @@ export default function MovieSwiper({ genre }: { genre: string }) {
           },
           body: JSON.stringify({
             userId: user.uid,
-            movieTitle: movie.title,
+            title: item.title,
+            type,
           }),
         });
 
-        if (!response.ok) throw new Error('Impossible d\'ajouter le film à la liste');
+        if (!response.ok) throw new Error(`Impossible d'ajouter ${type === 'movie' ? 'le film' : 'la série'} à la liste`);
       }
 
       toast({
-        title: `${movie.title} ${action} !`,
-        description: direction === 'right' ? "Consultez la liste 'À Voir' pour le retrouver." : undefined
+        title: `${item.title} ${action} !`,
+        description: direction === 'right' ? `Consultez la liste 'À Voir' pour ${type === 'movie' ? 'le' : 'la'} retrouver.` : undefined
       });
 
       setCurrentIndex(prev => prev + 1);
@@ -266,14 +269,15 @@ export default function MovieSwiper({ genre }: { genre: string }) {
 
     try {
       if (user) {
-        await rejectMovie(user.uid, movie.title);
+        // We'll need to update rejectMovie in firestore.ts as well
+        await rejectMovie(user.uid, movie.title, type);
       } else {
         addDismissedTitle(movie.title);
       }
 
       toast({
-        title: 'Film ignoré',
-        description: `"${movie.title}" ne vous sera plus proposé.`
+        title: `${type === 'movie' ? 'Film' : 'Série'} ignoré${type === 'tv' ? 'e' : ''}`,
+        description: `"${movie.title}" ne vous sera plus proposé${type === 'tv' ? 'e' : ''}.`
       });
 
       setCurrentIndex(prev => prev + 1);
@@ -338,14 +342,14 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         <Card className="w-full max-w-sm h-[300px] flex flex-col items-center justify-center text-center p-6">
           <h3 className="text-xl font-semibold mb-2">C'est tout pour le moment !</h3>
           <p className="text-muted-foreground mb-4">
-            Vous avez parcouru tous les films disponibles.
+            Vous avez parcouru tous les {type === 'movie' ? 'films disponibles' : 'séries disponibles'}.
           </p>
           <Button
             variant="outline"
             onClick={() => loadMovies(false)}
           >
             <RotateCcw className="mr-2 h-4 w-4" />
-            Charger plus de films
+            Charger plus de {type === 'movie' ? 'films' : 'séries'}
           </Button>
         </Card>
       </div>
@@ -493,7 +497,7 @@ export default function MovieSwiper({ genre }: { genre: string }) {
         {isLoadingMore && (
           <div className="flex items-center justify-center mt-4 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            Chargement de plus de films...
+            Chargement de plus de {type === 'movie' ? 'films' : 'séries'}...
           </div>
         )}
       </div>

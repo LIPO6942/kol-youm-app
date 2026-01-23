@@ -22,69 +22,41 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
-    console.log('API seen appelée');
-    
     const body = await req.json();
-    console.log('Body reçu:', body);
-    
-    const { userId, movieTitle } = body;
+    const { userId, title, type = 'movie' } = body;
 
-    if (!userId || !movieTitle) {
-      console.error('Paramètres manquants:', { userId, movieTitle });
+    if (!userId || !title) {
       return NextResponse.json(
-        { error: 'userId et movieTitle sont requis' },
+        { error: 'userId et title sont requis' },
         { status: 400 }
       );
     }
 
-    console.log('Vérification de l\'utilisateur:', userId);
-    
-    // Vérifier que l'utilisateur existe
     const userDoc = doc(db, 'users', userId);
     const userSnapshot = await getDoc(userDoc);
 
-    console.log('User snapshot exists:', userSnapshot.exists());
-    
     if (!userSnapshot.exists()) {
-      console.error('Utilisateur non trouvé:', userId);
       return NextResponse.json(
         { error: 'Utilisateur non trouvé' },
         { status: 404 }
       );
     }
 
-    console.log('Utilisateur trouvé, données:', userSnapshot.data());
-    console.log('Ajout du film:', movieTitle);
-    
-    // Vérifier si le champ seenMovieTitles existe
-    const userData = userSnapshot.data();
-    console.log('seenMovieTitles actuel:', userData?.seenMovieTitles);
-    
-    // Si le champ n'existe pas, l'initialiser
-    if (!userData?.seenMovieTitles) {
-      console.log('Initialisation du champ seenMovieTitles');
-      await setDoc(userDoc, {
-        seenMovieTitles: [movieTitle]
-      }, { merge: true });
-    } else {
-      // Ajouter le film à la liste des films vus
-      await setDoc(userDoc, {
-        seenMovieTitles: arrayUnion(movieTitle)
-      }, { merge: true });
-    }
+    const fieldName = type === 'movie' ? 'seenMovieTitles' : 'seenSeriesTitles';
 
-    console.log('Film ajouté avec succès');
-    
-    return NextResponse.json({ 
+    await setDoc(userDoc, {
+      [fieldName]: arrayUnion(title)
+    }, { merge: true });
+
+    return NextResponse.json({
       success: true,
-      message: `Film "${movieTitle}" ajouté aux films vus`
+      message: `${type === 'movie' ? 'Film' : 'Série'} "${title}" ajouté aux vus`
     });
 
   } catch (error: any) {
-    console.error('Erreur lors de l\'ajout du film vu:', error);
-    console.error('Stack trace:', error.stack);
+    console.error('Erreur lors de l\'ajout aux vus:', error);
     return NextResponse.json(
-      { error: error?.message || 'Erreur lors de l\'ajout du film' },
+      { error: error?.message || 'Erreur lors de l\'ajout' },
       { status: 500 }
     );
   }

@@ -8,9 +8,12 @@ const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
 
 interface TMDBSearchResult {
     id: number;
-    title: string;
-    original_title: string;
+    title?: string;
+    name?: string;
+    original_title?: string;
+    original_name?: string;
     release_date?: string;
+    first_air_date?: string;
     poster_path?: string;
     vote_average?: number;
 }
@@ -27,15 +30,25 @@ interface SearchResult {
 async function searchTMDB(
     query: string,
     language: string,
+    type: 'movie' | 'tv' = 'movie',
     year?: number,
     apiKey?: string,
     bearer?: string
 ): Promise<TMDBSearchResult[]> {
-    const url = new URL(`${TMDB_API_BASE}/search/movie`);
+    const endpoint = type === 'movie' ? 'movie' : 'tv';
+    const url = new URL(`${TMDB_API_BASE}/search/${endpoint}`);
     url.searchParams.set('query', query);
     url.searchParams.set('language', language);
     url.searchParams.set('include_adult', 'false');
-    if (year) url.searchParams.set('year', String(year));
+
+    if (year) {
+        if (type === 'movie') {
+            url.searchParams.set('year', String(year));
+        } else {
+            url.searchParams.set('first_air_date_year', String(year));
+        }
+    }
+
     if (apiKey) url.searchParams.set('api_key', apiKey);
 
     const headers: Record<string, string> = {};
@@ -52,11 +65,12 @@ async function searchTMDB(
 }
 
 function normalizeResult(r: TMDBSearchResult): SearchResult {
-    const year = r.release_date ? parseInt(r.release_date.substring(0, 4), 10) : null;
+    const dateStr = r.release_date || r.first_air_date;
+    const year = dateStr ? parseInt(dateStr.substring(0, 4), 10) : null;
     return {
         id: r.id,
-        title: r.title || r.original_title,
-        originalTitle: r.original_title || r.title,
+        title: r.title || r.name || r.original_title || r.original_name || 'Sans titre',
+        originalTitle: r.original_title || r.original_name || r.title || r.name || 'Sans titre',
         year: !isNaN(year as number) ? year : null,
         rating: Math.round((r.vote_average || 0) * 10) / 10,
         posterUrl: r.poster_path ? `${TMDB_IMAGE_BASE}/w92${r.poster_path}` : null,
@@ -77,6 +91,7 @@ export async function GET(req: NextRequest) {
 
         const { searchParams } = new URL(req.url);
         const query = searchParams.get('q') || '';
+        const type = (searchParams.get('type') as 'movie' | 'tv') || 'movie';
         const yearParam = searchParams.get('year');
         const year = yearParam ? parseInt(yearParam, 10) : undefined;
 
@@ -86,8 +101,8 @@ export async function GET(req: NextRequest) {
 
         // Search in both French and English in parallel
         const [frResults, enResults] = await Promise.all([
-            searchTMDB(query, 'fr-FR', year, apiKey, bearer),
-            searchTMDB(query, 'en-US', year, apiKey, bearer),
+            searchTMDB(query, 'fr-FR', type, year, apiKey, bearer),
+            searchTMDB(query, 'en-US', type, year, apiKey, bearer),
         ]);
 
         // Merge and deduplicate by ID

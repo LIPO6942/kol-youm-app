@@ -58,6 +58,11 @@ export type UserProfile = {
     seenMoviesData?: SeenMovie[]; // New: detailed seen movies with dates
     rejectedMovieTitles?: string[];
     moviesToWatch?: string[];
+    // Series lists
+    seenSeriesTitles?: string[];
+    seenSeriesData?: SeenMovie[];
+    rejectedSeriesTitles?: string[];
+    seriesToWatch?: string[];
     seenKhroujSuggestions?: string[];
     wardrobe?: WardrobeItem[];
     places?: PlaceItem[];
@@ -81,6 +86,9 @@ export async function createUserProfile(uid: string, data: { email: string | nul
         seenMovieTitles: [],
         rejectedMovieTitles: [],
         moviesToWatch: [],
+        seenSeriesTitles: [],
+        rejectedSeriesTitles: [],
+        seriesToWatch: [],
         seenKhroujSuggestions: [],
         wardrobe: [],
         places: [],
@@ -130,6 +138,15 @@ export async function updateUserProfile(uid: string, data: Partial<Omit<UserProf
         if (data.moviesToWatch) {
             updatedProfile.moviesToWatch = Array.from(new Set([...(localProfile.moviesToWatch || []), ...data.moviesToWatch]));
         }
+        if (data.seenSeriesTitles) {
+            updatedProfile.seenSeriesTitles = Array.from(new Set([...(localProfile.seenSeriesTitles || []), ...data.seenSeriesTitles]));
+        }
+        if (data.rejectedSeriesTitles) {
+            updatedProfile.rejectedSeriesTitles = Array.from(new Set([...(localProfile.rejectedSeriesTitles || []), ...data.rejectedSeriesTitles]));
+        }
+        if (data.seriesToWatch) {
+            updatedProfile.seriesToWatch = Array.from(new Set([...(localProfile.seriesToWatch || []), ...data.seriesToWatch]));
+        }
         if (data.seenKhroujSuggestions) {
             updatedProfile.seenKhroujSuggestions = Array.from(new Set([...(localProfile.seenKhroujSuggestions || []), ...data.seenKhroujSuggestions]));
         }
@@ -148,7 +165,7 @@ export async function updateUserProfile(uid: string, data: Partial<Omit<UserProf
     }
 }
 
-export async function removeMovieFromList(uid: string, listName: 'moviesToWatch' | 'seenMovieTitles', movieTitle: string) {
+export async function removeMovieFromList(uid: string, listName: 'moviesToWatch' | 'seenMovieTitles' | 'seriesToWatch' | 'seenSeriesTitles' | 'rejectedMovieTitles' | 'rejectedSeriesTitles', movieTitle: string) {
     const userRef = doc(firestoreDb, 'users', uid);
     await setDoc(userRef, { [listName]: arrayRemove(movieTitle) }, { merge: true });
     const localProfile = await getUserFromDb(uid);
@@ -156,6 +173,14 @@ export async function removeMovieFromList(uid: string, listName: 'moviesToWatch'
         const updatedProfile = { ...localProfile } as any;
         const current: string[] = Array.isArray(updatedProfile[listName]) ? updatedProfile[listName] : [];
         updatedProfile[listName] = current.filter((t: string) => t !== movieTitle);
+
+        // Also clean up detailed data if removing from seen list
+        if (listName === 'seenMovieTitles' && updatedProfile.seenMoviesData) {
+            updatedProfile.seenMoviesData = updatedProfile.seenMoviesData.filter((m: any) => m.title !== movieTitle);
+        } else if (listName === 'seenSeriesTitles' && updatedProfile.seenSeriesData) {
+            updatedProfile.seenSeriesData = updatedProfile.seenSeriesData.filter((m: any) => m.title !== movieTitle);
+        }
+
         await storeUserInDb(uid, updatedProfile);
     }
 }
@@ -241,46 +266,85 @@ export async function deletePlace(uid: string, placeToDelete: PlaceItem) {
 }
 
 
-export async function moveMovieFromWatchlistToSeen(uid: string, movieTitle: string) {
+export async function moveItemFromWatchlistToSeen(uid: string, title: string, type: 'movie' | 'tv' = 'movie') {
     const userRef = doc(firestoreDb, "users", uid);
 
-    const seenMovie: SeenMovie = {
-        title: movieTitle,
+    const seenItem: SeenMovie = {
+        title: title,
         viewedAt: Date.now(),
         addedAt: Date.now(),
     };
 
+    const watchlistField = type === 'movie' ? 'moviesToWatch' : 'seriesToWatch';
+    const seenTitlesField = type === 'movie' ? 'seenMovieTitles' : 'seenSeriesTitles';
+    const seenDataField = type === 'movie' ? 'seenMoviesData' : 'seenSeriesData';
+
     await setDoc(userRef, {
-        moviesToWatch: arrayRemove(movieTitle),
-        seenMovieTitles: arrayUnion(movieTitle),
-        seenMoviesData: arrayUnion(seenMovie)
+        [watchlistField]: arrayRemove(title),
+        [seenTitlesField]: arrayUnion(title),
+        [seenDataField]: arrayUnion(seenItem)
     }, { merge: true });
 
     const localProfile = await getUserFromDb(uid);
     if (localProfile) {
-        const updatedProfile = {
-            ...localProfile,
-            moviesToWatch: (localProfile.moviesToWatch || []).filter(t => t !== movieTitle),
-            seenMovieTitles: Array.from(new Set([...(localProfile.seenMovieTitles || []), movieTitle])),
-            seenMoviesData: [...(localProfile.seenMoviesData || []).filter(m => m.title !== movieTitle), seenMovie]
-        };
+        const updatedProfile = { ...localProfile } as any;
+        updatedProfile[watchlistField] = (updatedProfile[watchlistField] || []).filter((t: string) => t !== title);
+        updatedProfile[seenTitlesField] = Array.from(new Set([...(updatedProfile[seenTitlesField] || []), title]));
+        updatedProfile[seenDataField] = [...(updatedProfile[seenDataField] || []).filter((m: any) => m.title !== title), seenItem];
         await storeUserInDb(uid, updatedProfile);
     }
 }
 
+export async function moveMovieFromWatchlistToSeen(uid: string, movieTitle: string) {
+    return moveItemFromWatchlistToSeen(uid, movieTitle, 'movie');
+}
+
 export async function removeMovieFromSeenList(uid: string, movieTitle: string) {
+    await removeMovieFromList(uid, 'seenMovieTitles', movieTitle);
+}
+
+export async function moveSeriesFromWatchlistToSeen(uid: string, seriesTitle: string) {
+    return moveItemFromWatchlistToSeen(uid, seriesTitle, 'tv');
+}
+
+export async function removeSeriesFromSeenList(uid: string, seriesTitle: string) {
+    await removeMovieFromList(uid, 'seenSeriesTitles', seriesTitle);
+}
+
+// Add a series to seen list with viewing date (for manual entry)
+export async function addSeenSeriesWithDate(
+    uid: string,
+    series: {
+        title: string;
+        viewedAt: number;
+        posterUrl?: string;
+        year?: number;
+        rating?: number;
+    }
+) {
     const userRef = doc(firestoreDb, "users", uid);
 
+    const seenSeries: any = {
+        title: series.title,
+        viewedAt: series.viewedAt,
+        addedAt: Date.now(),
+    };
+
+    if (series.posterUrl) seenSeries.posterUrl = series.posterUrl;
+    if (series.year !== undefined && series.year !== null) seenSeries.year = series.year;
+    if (series.rating !== undefined && series.rating !== null) seenSeries.rating = series.rating;
+
     await setDoc(userRef, {
-        seenMovieTitles: arrayRemove(movieTitle)
+        seenSeriesTitles: arrayUnion(series.title),
+        seenSeriesData: arrayUnion(seenSeries)
     }, { merge: true });
 
     const localProfile = await getUserFromDb(uid);
     if (localProfile) {
         const updatedProfile = {
             ...localProfile,
-            seenMovieTitles: (localProfile.seenMovieTitles || []).filter(t => t !== movieTitle),
-            seenMoviesData: (localProfile.seenMoviesData || []).filter(m => m.title !== movieTitle)
+            seenSeriesTitles: Array.from(new Set([...(localProfile.seenSeriesTitles || []), series.title])),
+            seenSeriesData: [...(localProfile.seenSeriesData || []).filter(m => m.title !== series.title), seenSeries]
         };
         await storeUserInDb(uid, updatedProfile);
     }
@@ -326,24 +390,40 @@ export async function addSeenMovieWithDate(
     }
 }
 
-export async function rejectMovie(uid: string, movieTitle: string) {
+export async function rejectMovie(uid: string, movieTitle: string, type: 'movie' | 'tv' = 'movie') {
+    const userRef = doc(firestoreDb, "users", uid);
+    const fieldName = type === 'movie' ? 'rejectedMovieTitles' : 'rejectedSeriesTitles';
+
+    await setDoc(userRef, {
+        [fieldName]: arrayUnion(movieTitle)
+    }, { merge: true });
+
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = { ...localProfile } as any;
+        updatedProfile[fieldName] = Array.from(new Set([...(updatedProfile[fieldName] || []), movieTitle]));
+        await storeUserInDb(uid, updatedProfile);
+    }
+}
+
+export async function rejectSeries(uid: string, seriesTitle: string) {
     const userRef = doc(firestoreDb, "users", uid);
 
     await setDoc(userRef, {
-        rejectedMovieTitles: arrayUnion(movieTitle)
+        rejectedSeriesTitles: arrayUnion(seriesTitle)
     }, { merge: true });
 
     const localProfile = await getUserFromDb(uid);
     if (localProfile) {
         const updatedProfile = {
             ...localProfile,
-            rejectedMovieTitles: Array.from(new Set([...(localProfile.rejectedMovieTitles || []), movieTitle]))
+            rejectedSeriesTitles: Array.from(new Set([...(localProfile.rejectedSeriesTitles || []), seriesTitle]))
         };
         await storeUserInDb(uid, updatedProfile);
     }
 }
 
-export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' | 'seenMovieTitles' | 'rejectedMovieTitles' | 'seenKhroujSuggestions' | 'wardrobe') {
+export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' | 'seenMovieTitles' | 'rejectedMovieTitles' | 'seenKhroujSuggestions' | 'wardrobe' | 'seriesToWatch' | 'seenSeriesTitles' | 'rejectedSeriesTitles') {
     const userRef = doc(firestoreDb, 'users', uid);
     const firestoreUpdate: any = {};
     firestoreUpdate[listName] = [];
@@ -351,6 +431,8 @@ export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' 
     // Special handling for seenMovieTitles to also clear moviesToWatch
     if (listName === 'seenMovieTitles') {
         firestoreUpdate.moviesToWatch = [];
+    } else if (listName === 'seenSeriesTitles') {
+        firestoreUpdate.seriesToWatch = [];
     }
 
     await setDoc(userRef, firestoreUpdate, { merge: true });
@@ -361,6 +443,8 @@ export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' 
         (updatedProfile as any)[listName] = [];
         if (listName === 'seenMovieTitles') {
             updatedProfile.moviesToWatch = [];
+        } else if (listName === 'seenSeriesTitles') {
+            updatedProfile.seriesToWatch = [];
         }
         await storeUserInDb(uid, updatedProfile);
     }
