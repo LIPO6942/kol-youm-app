@@ -27,7 +27,7 @@ const CUISINE_MAP: Record<string, string[]> = {
     'Thaïlandaise': ['thai', 'pad thai', 'tom yum', 'curry vert', 'massaman', 'som tam'],
     'Japonaise': ['sushi', 'ramen', 'maki', 'sashimi', 'tempura', 'yakitori', 'takoyaki', 'wasabi', 'jap', 'gyoza', 'tonkatsu'],
     'Chinoise': ['chinois', 'chinese', 'nem', 'riz cantonnais', 'wok', 'dim sum', 'canard laque', 'bao', 'spring rolls'],
-    'Italien': ['pizza', 'pates', 'pasta', 'lasagne', 'risotto', 'tiramisu', 'spaghetti', 'italien', 'italian'],
+    'Italien': ['pizza', 'pates', 'pasta', 'lasagne', 'risotto', 'tiramisu', 'spaghetti', 'italien', 'italian', 'ciabatta', 'ciabata', 'tchabatta', 'tchabata', 'tiabatta', 'tiabata', 'panuzzo', 'panuzo', 'pannuzzo', 'pannozo', 'panuozzo', 'panuzio'],
     'Américain': ['burger', 'cheeseburger', 'fries', 'hot dog', 'wings', 'nuggets', 'milkshake', 'fast food', 'fast-food', 'americain', 'american', 'brunch', 'pancake', 'bagel'],
     'Français': ['crepe', 'croissant', 'omelette', 'quiche', 'fromage', 'baguette', 'francais', 'french', 'raclette', 'fondue', 'tartiflette', 'bistro', 'steak frites'],
     'Mexicain': ['tacos', 'burrito', 'quesadilla', 'fajita', 'nachos', 'guacamole', 'mexicain', 'mexican', 'chili'],

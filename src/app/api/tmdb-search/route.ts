@@ -95,6 +95,8 @@ export async function GET(req: NextRequest) {
         const yearParam = searchParams.get('year');
         const year = yearParam ? parseInt(yearParam, 10) : undefined;
 
+        console.log(`TMDb search request: type=${type}, query="${query}"`);
+
         if (!query.trim()) {
             return NextResponse.json({ results: [] });
         }

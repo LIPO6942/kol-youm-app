@@ -102,8 +102,8 @@ function TfarrejContent() {
       <div className="flex justify-center pb-2">
         <Tabs defaultValue="movie" className="w-[400px]" onValueChange={(v) => setType(v as 'movie' | 'tv')}>
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="movie">Films</TabsTrigger>
-            <TabsTrigger value="tv">Séries</TabsTrigger>
+            <TabsTrigger value="movie" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">Films</TabsTrigger>
+            <TabsTrigger value="tv" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">Séries</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>

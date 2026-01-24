@@ -71,7 +71,8 @@ export type UserProfile = {
     preferredCountries?: string[];
     preferredMinRating?: number;
     // Atlas des Saveurs
-    specialtyImages?: Record<string, string>; // Map of specialty name to image URL or emoji
+    specialtyImages?: Record<string, string>; // Map of specialty name to image URL, emoji, or Lucide icon string
+    specialtyColors?: Record<string, string>; // Map of specialty name to custom hex color
     // These are stored ONLY in IndexedDB for privacy
     fullBodyPhotoUrl?: string; // This will also be a Cloudinary URL
     closeupPhotoUrl?: string; // This will also be a Cloudinary URL
@@ -96,6 +97,8 @@ export async function createUserProfile(uid: string, data: { email: string | nul
         preferredMinRating: 6,
         fullBodyPhotoUrl: '',
         closeupPhotoUrl: '',
+        specialtyImages: {},
+        specialtyColors: {},
     };
     const { fullBodyPhotoUrl, closeupPhotoUrl, ...firestoreProfile } = userProfile;
     await setDoc(doc(firestoreDb, "users", uid), firestoreProfile);
@@ -549,12 +552,20 @@ export async function deleteVisitLog(uid: string, visitId: string) {
     await storeUserInDb(uid, updatedProfile);
 }
 
-export async function updateSpecialtyImage(uid: string, specialtyName: string, imageUrl: string) {
+export async function updateSpecialtyCustomization(uid: string, specialtyName: string, updates: { imageUrl?: string, color?: string }) {
     const userRef = doc(firestoreDb, 'users', uid);
-    const updatePath = `specialtyImages.${specialtyName}`;
-    await updateDoc(userRef, {
-        [updatePath]: imageUrl
-    });
+    const firestoreUpdates: Record<string, any> = {};
+
+    if (updates.imageUrl !== undefined) {
+        firestoreUpdates[`specialtyImages.${specialtyName}`] = updates.imageUrl;
+    }
+    if (updates.color !== undefined) {
+        firestoreUpdates[`specialtyColors.${specialtyName}`] = updates.color;
+    }
+
+    if (Object.keys(firestoreUpdates).length > 0) {
+        await updateDoc(userRef, firestoreUpdates);
+    }
 
     const localProfile = await getUserFromDb(uid);
     if (localProfile) {
@@ -562,7 +573,11 @@ export async function updateSpecialtyImage(uid: string, specialtyName: string, i
             ...localProfile,
             specialtyImages: {
                 ...(localProfile.specialtyImages || {}),
-                [specialtyName]: imageUrl
+                ...(updates.imageUrl !== undefined ? { [specialtyName]: updates.imageUrl } : {})
+            },
+            specialtyColors: {
+                ...(localProfile.specialtyColors || {}),
+                ...(updates.color !== undefined ? { [specialtyName]: updates.color } : {})
             }
         };
         await storeUserInDb(uid, updatedProfile);

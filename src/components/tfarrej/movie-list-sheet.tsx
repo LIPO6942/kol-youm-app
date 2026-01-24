@@ -84,6 +84,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie' }: {
       return;
     }
 
+    console.log(`AddMovieDialog searching TMDb: type=${type}, query="${query}"`);
     setIsSearching(true);
     try {
       const response = await fetch(`/api/tmdb-search?q=${encodeURIComponent(query)}&type=${type}`);
@@ -237,7 +238,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie' }: {
                             />
                           ) : (
                             <div className="w-full h-full bg-muted flex items-center justify-center">
-                              <Film className="h-6 w-6 text-muted-foreground" />
+                              {type === 'movie' ? <Film className="h-6 w-6 text-muted-foreground" /> : <Tv className="h-6 w-6 text-muted-foreground" />}
                             </div>
                           )}
                           {selectedMovie?.id === movie.id && (
@@ -271,7 +272,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie' }: {
                         />
                       ) : (
                         <div className="w-full h-full bg-muted flex items-center justify-center">
-                          <Film className="h-5 w-5" />
+                          {type === 'movie' ? <Film className="h-5 w-5" /> : <Tv className="h-5 w-5" />}
                         </div>
                       )}
                     </div>

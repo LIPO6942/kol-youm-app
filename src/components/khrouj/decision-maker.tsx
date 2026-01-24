@@ -9,9 +9,9 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { Suggestion } from '@/ai/flows/decision-maker-flow.types';
-import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2, Crown, Compass, Award, Home, Zap, Star } from 'lucide-react';
+import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2, Crown, Compass, Award, Home, Zap, Star, Soup, Cake, IceCream, Fish, Drumstick, Cherry, Apple, Carrot, Cookie, Beer, Wine, GlassWater, Beef, Egg, Flame } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { updateUserProfile, addVisitLog, deleteVisitLog, updateVisitLog, updateSpecialtyImage, type VisitLog } from '@/lib/firebase/firestore';
+import { updateUserProfile, addVisitLog, deleteVisitLog, updateVisitLog, updateSpecialtyCustomization, type VisitLog } from '@/lib/firebase/firestore';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -343,7 +343,6 @@ export default function DecisionMaker() {
       byPlace: [] as [string, { count: number; category: string; dates: number[]; zone?: string }][],
       byZone: {} as Record<string, { count: number; uniquePlaces: Set<string>; totalInDb: number; categoryCounts: Record<string, number> }>,
       bySpecialty: {} as Record<string, { count: number; topPlaces: Record<string, number>; emoji: string }>,
-      bySpecialty: {} as Record<string, { count: number; topPlaces: Record<string, number>; emoji: string }>,
       qgDuMois: null as { name: string; count: number; category: string } | null,
       weekendHQ: null as ReturnType<typeof getWeekendHQ>,
       passportStats: [] as ReturnType<typeof getCulinaryPassport>
@@ -487,7 +486,6 @@ export default function DecisionMaker() {
         return maxB - maxA;
       }),
       byZone,
-      bySpecialty,
       bySpecialty,
       qgDuMois,
       weekendHQ: getWeekendHQ(visits),
@@ -1115,6 +1113,43 @@ export default function DecisionMaker() {
     const sortedSpecialties = Object.entries(stats.bySpecialty).sort((a, b) => b[1].count - a[1].count);
     const [editingSpecialty, setEditingSpecialty] = useState<{ name: string, current: string } | null>(null);
     const [newVal, setNewVal] = useState('');
+    const [selectedColor, setSelectedColor] = useState<string | undefined>(undefined);
+
+    const iconOptions = [
+      { id: 'lucide:Pizza', icon: Pizza },
+      { id: 'lucide:Sandwich', icon: Sandwich },
+      { id: 'lucide:Soup', icon: Soup },
+      { id: 'lucide:Cake', icon: Cake },
+      { id: 'lucide:IceCream', icon: IceCream },
+      { id: 'lucide:Fish', icon: Fish },
+      { id: 'lucide:Drumstick', icon: Drumstick },
+      { id: 'lucide:Beef', icon: Beef },
+      { id: 'lucide:Egg', icon: Egg },
+      { id: 'lucide:Coffee', icon: Coffee },
+      { id: 'lucide:CupSoda', icon: CupSoda },
+      { id: 'lucide:Cherry', icon: Cherry },
+      { id: 'lucide:Apple', icon: Apple },
+      { id: 'lucide:Carrot', icon: Carrot },
+      { id: 'lucide:Cookie', icon: Cookie },
+      { id: 'lucide:Beer', icon: Beer },
+      { id: 'lucide:Wine', icon: Wine },
+      { id: 'lucide:GlassWater', icon: GlassWater },
+      { id: 'lucide:Flame', icon: Flame },
+    ];
+
+    const colorOptions = [
+      { name: 'Orange', value: 'from-orange-500/20 to-red-500/20', tint: 'bg-orange-600' },
+      { name: 'Amber', value: 'from-amber-600/20 to-orange-600/20', tint: 'bg-amber-700' },
+      { name: 'Yellow', value: 'from-yellow-400/20 to-amber-500/20', tint: 'bg-amber-800' },
+      { name: 'Red', value: 'from-red-400/20 to-rose-500/20', tint: 'bg-red-700' },
+      { name: 'Pink', value: 'from-pink-300/20 to-rose-400/20', tint: 'bg-pink-700' },
+      { name: 'Violet', value: 'from-violet-400/20 to-purple-500/20', tint: 'bg-violet-700' },
+      { name: 'Blue', value: 'from-blue-400/20 to-indigo-500/20', tint: 'bg-blue-700' },
+      { name: 'Cyan', value: 'from-cyan-400/20 to-teal-500/20', tint: 'bg-cyan-700' },
+      { name: 'Emerald', value: 'from-emerald-400/20 to-green-500/20', tint: 'bg-emerald-700' },
+      { name: 'Green', value: 'from-green-300/20 to-emerald-400/20', tint: 'bg-green-700' },
+      { name: 'Slate', value: 'from-slate-300/20 to-slate-500/20', tint: 'bg-slate-700' },
+    ];
 
     const specialtyThemes: Record<string, { gradient: string; tint: string }> = {
       'Pizza': { gradient: 'from-orange-500/20 to-red-500/20', tint: 'text-orange-600' },
@@ -1144,13 +1179,17 @@ export default function DecisionMaker() {
       return { label: 'Amateur', icon: '🥉', color: 'text-orange-800/60', bg: 'bg-orange-50/50', border: 'border-orange-100', next: 3, nextIcon: '🥈', nextLabel: 'Fan' };
     };
 
-    const handleUpdateImage = async () => {
+    const handleUpdateCustomization = async () => {
       if (!user || !editingSpecialty) return;
       try {
-        await updateSpecialtyImage(user.uid, editingSpecialty.name, newVal.trim());
-        toast({ title: "Atlas mis à jour", description: `L'image pour ${editingSpecialty.name} a été modifiée.` });
+        await updateSpecialtyCustomization(user.uid, editingSpecialty.name, {
+          imageUrl: newVal.trim(),
+          color: selectedColor
+        });
+        toast({ title: "Atlas mis à jour", description: `La personnalisation pour ${editingSpecialty.name} a été modifiée.` });
         setEditingSpecialty(null);
         setNewVal('');
+        setSelectedColor(undefined);
       } catch (error) {
         console.error(error);
       }
@@ -1197,11 +1236,16 @@ export default function DecisionMaker() {
                 <div className="grid grid-cols-2 gap-4">
                   {sortedSpecialties.map(([name, data]) => {
                     const customImage = userProfile?.specialtyImages?.[name];
+                    const customColor = userProfile?.specialtyColors?.[name];
                     const displayEmoji = customImage || data.emoji;
+
                     const isUrl = displayEmoji.startsWith('http') || displayEmoji.startsWith('/') || displayEmoji.startsWith('data:');
+                    const isLucide = displayEmoji.startsWith('lucide:');
 
                     const tier = getTier(data.count);
-                    const theme = specialtyThemes[name] || { gradient: 'from-blue-50/50 to-indigo-100/50', tint: 'text-blue-700' };
+                    const theme = customColor
+                      ? { gradient: customColor, tint: colorOptions.find(c => c.value === customColor)?.tint.replace('bg-', 'text-') || 'text-primary' }
+                      : (specialtyThemes[name] || { gradient: 'from-blue-50/50 to-indigo-100/50', tint: 'text-blue-700' });
                     const top3 = Object.entries(data.topPlaces)
                       .sort((a, b) => b[1] - a[1])
                       .slice(0, 3);
@@ -1226,7 +1270,11 @@ export default function DecisionMaker() {
                         </div>
 
                         <div className="h-16 w-16 mb-3 transform group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 flex items-center justify-center drop-shadow-md">
-                          {isUrl ? (
+                          {isLucide ? (() => {
+                            const iconName = displayEmoji.split(':')[1];
+                            const Icon = iconOptions.find(o => o.id === displayEmoji)?.icon || UtensilsCrossed;
+                            return <Icon className={cn("h-12 w-12", theme.tint)} />;
+                          })() : isUrl ? (
                             <img src={displayEmoji} alt={name} className="h-full w-full object-contain" />
                           ) : (
                             <span className="text-5xl">{displayEmoji}</span>
@@ -1283,39 +1331,105 @@ export default function DecisionMaker() {
           </ScrollArea>
 
           {/* Edit Dialog */}
-          <Dialog open={!!editingSpecialty} onOpenChange={(open) => !open && setEditingSpecialty(null)}>
-            <DialogContent className="sm:max-w-[400px]">
+          <Dialog open={!!editingSpecialty} onOpenChange={(open) => {
+            if (!open) {
+              setEditingSpecialty(null);
+              setSelectedColor(undefined);
+            }
+          }}>
+            <DialogContent className="sm:max-w-[450px] max-h-[90vh] overflow-hidden flex flex-col">
               <DialogHeader>
-                <DialogTitle>Personnaliser {editingSpecialty?.name}</DialogTitle>
-                <DialogDescription>
-                  Entrez un emoji ou l'URL d'une image (3D, photo, sticker...).
+                <DialogTitle className="text-2xl font-black">Personnaliser {editingSpecialty?.name}</DialogTitle>
+                <DialogDescription className="font-medium">
+                  Choisissez une icône, une couleur ou une image personnalisée.
                 </DialogDescription>
               </DialogHeader>
-              <div className="py-4 space-y-4">
-                <div className="flex flex-col gap-2">
-                  <Label>Emoji ou URL Image</Label>
-                  <Input
-                    value={newVal}
-                    onChange={(e) => setNewVal(e.target.value)}
-                    placeholder="🍔 ou https://site.com/image.png"
-                  />
-                </div>
-                {newVal && (
-                  <div className="flex flex-col items-center gap-2 pt-2">
-                    <Label className="text-[10px] uppercase font-bold opacity-50">Aperçu</Label>
-                    <div className="h-20 w-20 flex items-center justify-center bg-muted/30 rounded-2xl overflow-hidden border">
-                      {(newVal.startsWith('http') || newVal.startsWith('/') || newVal.startsWith('data:')) ? (
-                        <img src={newVal} alt="Aperçu" className="h-full w-full object-contain" />
-                      ) : (
-                        <span className="text-5xl">{newVal}</span>
-                      )}
+
+              <ScrollArea className="flex-1 pr-4">
+                <div className="py-4 space-y-6">
+                  {/* Icon Selection */}
+                  <div className="space-y-3">
+                    <Label className="text-xs font-black uppercase tracking-widest opacity-50">Icône Lucide</Label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {iconOptions.map((opt) => {
+                        const Icon = opt.icon;
+                        return (
+                          <button
+                            key={opt.id}
+                            onClick={() => setNewVal(opt.id)}
+                            className={cn(
+                              "h-12 w-full rounded-xl flex items-center justify-center transition-all border-2",
+                              newVal === opt.id ? "border-primary bg-primary/10" : "border-transparent bg-muted/40 hover:bg-muted"
+                            )}
+                          >
+                            <Icon className={cn("h-6 w-6", newVal === opt.id ? "text-primary" : "text-muted-foreground")} />
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-                )}
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setEditingSpecialty(null)}>Annuler</Button>
-                <Button onClick={handleUpdateImage}>Enregistrer</Button>
+
+                  {/* Color Selection */}
+                  <div className="space-y-3">
+                    <Label className="text-xs font-black uppercase tracking-widest opacity-50">Couleur du Widget</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {colorOptions.map((opt) => (
+                        <button
+                          key={opt.value}
+                          onClick={() => setSelectedColor(opt.value)}
+                          className={cn(
+                            "h-8 w-8 rounded-full border-2 transition-all p-0.5",
+                            (selectedColor || userProfile?.specialtyColors?.[editingSpecialty?.name || '']) === opt.value ? "border-primary scale-110" : "border-transparent"
+                          )}
+                          title={opt.name}
+                        >
+                          <div className={cn("w-full h-full rounded-full", opt.tint)} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Manual Entry */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-black uppercase tracking-widest opacity-50">Emoji ou URL Image</Label>
+                    </div>
+                    <Input
+                      value={newVal.startsWith('lucide:') ? '' : newVal}
+                      onChange={(e) => setNewVal(e.target.value)}
+                      placeholder="🍔 ou https://site.com/image.png"
+                    />
+                  </div>
+
+                  {/* Preview */}
+                  {newVal && (
+                    <div className="flex flex-col items-center gap-2 pt-2 pb-4">
+                      <Label className="text-xs font-black uppercase tracking-widest opacity-50">Aperçu du Widget</Label>
+                      <div className={cn(
+                        "h-32 w-48 rounded-[2rem] flex flex-col items-center justify-center gap-2 border-2 shadow-inner transition-all duration-500",
+                        selectedColor || userProfile?.specialtyColors?.[editingSpecialty?.name || ''] || 'bg-muted/30'
+                      )}>
+                        {newVal.startsWith('lucide:') ? (() => {
+                          const Icon = iconOptions.find(o => o.id === newVal)?.icon || UtensilsCrossed;
+                          return <Icon className="h-12 w-12 text-primary" />;
+                        })() : (newVal.startsWith('http') || newVal.startsWith('/') || newVal.startsWith('data:')) ? (
+                          <img src={newVal} alt="Aperçu" className="h-16 w-16 object-contain" />
+                        ) : (
+                          <span className="text-5xl">{newVal}</span>
+                        )}
+                        <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{editingSpecialty?.name}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+
+              <DialogFooter className="pt-4 border-t">
+                <Button variant="outline" onClick={() => {
+                  setEditingSpecialty(null);
+                  setSelectedColor(undefined);
+                }}>Annuler</Button>
+                <Button onClick={handleUpdateCustomization} className="font-bold">Enregistrer</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

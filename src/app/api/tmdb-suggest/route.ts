@@ -414,13 +414,13 @@ function mapGenreToId(genre: string, type: 'movie' | 'tv' = 'movie'): string | n
     'Famille': '10751',
     'Fantastique': '10765', // Sci-Fi & Fantasy
     'Histoire': '10768', // War & Politics
-    'Horreur': '18', // No specific horror for TV, often Drama
-    'Musique': '35', // No specific music, often Comedy
+    'Horreur': '18', // No specific horror top-level for TV, Drama often used
+    'Musique': '10766', // Soap/Music related? Actually let's use Comedy/Drama
     'Mystère': '9648',
-    'Romance': '18', // Drama often used for Romance
+    'Romance': '10766', // Soap Opera often for Romance
     'Science-Fiction': '10765',
     'Téléfilm': '10770',
-    'Thriller': '9648', // Mystery
+    'Thriller': '80|9648', // Crime/Mystery
     'Guerre': '10768',
     'Western': '37',
     'Historique': '10768',
@@ -536,7 +536,7 @@ export async function POST(req: NextRequest) {
 
     // How many distinct fetch attempts to make?
     // We want 'count' movies. Let's try to get more candidates.
-    const numberOfFetches = 5;
+    const numberOfFetches = type === 'tv' ? 8 : 5;
 
     for (let i = 0; i < numberOfFetches; i++) {
       const randomYear = Math.floor(Math.random() * (endYear - startYear + 1)) + startYear;
@@ -550,7 +550,7 @@ export async function POST(req: NextRequest) {
         // Try a few pages for variety (1, 2, or 3)
         const randomPage = Math.floor(Math.random() * 3) + 1;
 
-        const fetchResult = await fetchCountryItems({
+        let fetchResult = await fetchCountryItems({
           apiKey,
           bearer,
           type,
@@ -564,19 +564,35 @@ export async function POST(req: NextRequest) {
         if (fetchResult.results && fetchResult.results.length > 0) {
           results.push(...fetchResult.results);
         } else {
-          // If specific year empty, try wider range around that year (+- 2 years)
-          const widerRange: [number, number] = [randomYear - 2, randomYear + 2];
-          const fallbackResult = await fetchCountryItems({
+          // Fallback 1: Try without country but same year and genre
+          const globalResult = await fetchCountryItems({
             apiKey,
             bearer,
             type,
-            countryCode: randomCountry,
-            yearRange: widerRange,
+            countryCode: '', // Global
+            yearRange: yearSpecificRange,
             minRating,
             genre,
             page: 1
           });
-          results.push(...(fallbackResult.results || []));
+
+          if (globalResult.results && globalResult.results.length > 0) {
+            results.push(...globalResult.results);
+          } else {
+            // Fallback 2: wider range around that year (+- 2 years)
+            const widerRange: [number, number] = [randomYear - 2, randomYear + 2];
+            const fallbackResult = await fetchCountryItems({
+              apiKey,
+              bearer,
+              type,
+              countryCode: randomCountry,
+              yearRange: widerRange,
+              minRating,
+              genre,
+              page: 1
+            });
+            results.push(...(fallbackResult.results || []));
+          }
         }
       } catch (e) {
         console.error(`Error gathering ${type} for ${randomYear}/${randomCountry}:`, e);
