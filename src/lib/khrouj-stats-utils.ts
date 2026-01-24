@@ -19,6 +19,13 @@ export type CategoryStat = {
     daysSinceLastVisit: number;
 };
 
+export type CategoryFrequency = {
+    category: string;
+    averageDays: number;
+    count: number;
+    lastVisit: number;
+};
+
 // Helper: Normalize strings for comparsion
 const normalize = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
@@ -58,6 +65,38 @@ function detectCuisine(visit: VisitLog): string | null {
     if (cat.includes('brunch')) return 'Américain'; // Broad generalization, but effective for cleaning data
 
     return null; // Return null if it's just "Restaurant" with no info, or "Café"
+}
+
+export function getVisitFrequencies(visits: VisitLog[] = []): CategoryFrequency[] {
+    if (!visits.length) return [];
+
+    const visitsByCategory: Record<string, number[]> = {};
+
+    visits.forEach(v => {
+        if (!visitsByCategory[v.category]) {
+            visitsByCategory[v.category] = [];
+        }
+        visitsByCategory[v.category].push(v.date);
+    });
+
+    const frequencies: CategoryFrequency[] = Object.entries(visitsByCategory)
+        .map(([category, dates]) => {
+            const sortedDates = dates.sort((a, b) => a - b);
+            const count = sortedDates.length;
+            const lastVisit = sortedDates[count - 1];
+
+            if (count < 2) {
+                return { category, averageDays: 0, count, lastVisit };
+            }
+
+            const totalDays = (sortedDates[count - 1] - sortedDates[0]) / (1000 * 60 * 60 * 24);
+            const averageDays = totalDays / (count - 1);
+
+            return { category, averageDays: Math.round(averageDays), count, lastVisit };
+        })
+        .filter(f => f.averageDays > 0);
+
+    return frequencies.sort((a, b) => a.averageDays - b.averageDays);
 }
 
 export function getWeekendHQ(visits: VisitLog[] = []): WeekendHQResult {
