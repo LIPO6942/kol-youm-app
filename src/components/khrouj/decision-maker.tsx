@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 const TypedBadge = Badge as any;
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { getWeekendHQ, getCulinaryPassport, getVisitFrequencies } from '@/lib/khrouj-stats-utils';
+import { getWeekendHQ, getCulinaryPassport, getVisitFrequencies, getWeeklyHeatmap } from '@/lib/khrouj-stats-utils';
 import { WeekendHQCard } from './weekend-hq-card';
 import { CulinaryPassport } from './culinary-passport';
 import { HabitFrequency } from './habit-frequency';
@@ -347,7 +347,8 @@ export default function DecisionMaker() {
       qgDuMois: null as { name: string; count: number; category: string } | null,
       weekendHQ: null as ReturnType<typeof getWeekendHQ>,
       passportStats: [] as ReturnType<typeof getCulinaryPassport>,
-      frequencyStats: [] as ReturnType<typeof getVisitFrequencies>
+      frequencyStats: [] as ReturnType<typeof getVisitFrequencies>,
+      heatmap: [] as number[]
     };
 
     if (!userProfile?.visits) return defaultStats;
@@ -492,7 +493,8 @@ export default function DecisionMaker() {
       qgDuMois,
       weekendHQ: getWeekendHQ(visits),
       passportStats: getCulinaryPassport(visits),
-      frequencyStats: getVisitFrequencies(visits)
+      frequencyStats: getVisitFrequencies(visits),
+      heatmap: getWeeklyHeatmap(visits)
     };
   }, [userProfile?.visits, allPlaces]);
 
@@ -1576,7 +1578,7 @@ export default function DecisionMaker() {
         {(stats.weekendHQ || stats.passportStats.length > 0 || stats.frequencyStats.length > 0) && (
           <div className="space-y-4 animate-in slide-in-from-bottom-5 duration-500 delay-150 mt-4">
             {stats.frequencyStats.length > 0 && (
-              <HabitFrequency frequencies={stats.frequencyStats} />
+              <HabitFrequency frequencies={stats.frequencyStats} heatmap={stats.heatmap} />
             )}
 
             {(stats.weekendHQ || stats.passportStats.length > 0) && (

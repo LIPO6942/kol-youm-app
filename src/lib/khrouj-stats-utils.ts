@@ -99,6 +99,18 @@ export function getVisitFrequencies(visits: VisitLog[] = []): CategoryFrequency[
     return frequencies.sort((a, b) => a.averageDays - b.averageDays);
 }
 
+
+export function getWeeklyHeatmap(visits: VisitLog[] = []): number[] {
+    const days = new Array(7).fill(0);
+    visits.forEach(v => {
+        const day = new Date(v.date).getDay();
+        // Convert to 0=Mon, 6=Sun (Standard for heatmaps usually starts with Mon)
+        const adjustedDay = (day + 6) % 7;
+        days[adjustedDay]++;
+    });
+    return days;
+}
+
 export function getWeekendHQ(visits: VisitLog[] = []): WeekendHQResult {
     if (!visits.length) return null;
 
