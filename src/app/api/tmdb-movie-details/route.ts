@@ -6,20 +6,21 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { title } = body;
+    const { title, type = 'movie' } = body;
 
     if (!title) {
       return NextResponse.json(
-        { error: 'Le titre du film est requis' },
+        { error: 'Le titre est requis' },
         { status: 400 }
       );
     }
 
-    console.log('Recherche des détails pour:', title);
+    const endpoint = type === 'movie' ? 'movie' : 'tv';
+    console.log(`Recherche des détails pour ${type}:`, title);
 
-    // Appel à l'API TMDB pour rechercher le film
+    // Appel à l'API TMDB pour rechercher le film/série
     const searchResponse = await fetch(
-      `https://api.themoviedb.org/3/search/movie?api_key=${process.env.TMDB_API_KEY}&query=${encodeURIComponent(title)}&language=fr-FR`,
+      `https://api.themoviedb.org/3/search/${endpoint}?api_key=${process.env.TMDB_API_KEY}&query=${encodeURIComponent(title)}&language=fr-FR`,
       {
         method: 'GET',
         headers: {
@@ -29,24 +30,24 @@ export async function POST(req: NextRequest) {
     );
 
     if (!searchResponse.ok) {
-      throw new Error('Erreur lors de la recherche du film');
+      throw new Error(`Erreur lors de la recherche du ${type === 'movie' ? 'film' : 'de la série'}`);
     }
 
     const searchData = await searchResponse.json();
-    
+
     if (!searchData.results || searchData.results.length === 0) {
       return NextResponse.json(
-        { error: 'Film non trouvé' },
+        { error: `${type === 'movie' ? 'Film' : 'Série'} non trouvé${type === 'tv' ? 'e' : ''}` },
         { status: 404 }
       );
     }
 
     // Prendre le premier résultat (le plus pertinent)
-    const movie = searchData.results[0];
+    const item = searchData.results[0];
 
-    // Récupérer les détails complets du film
+    // Récupérer les détails complets
     const detailsResponse = await fetch(
-      `https://api.themoviedb.org/3/movie/${movie.id}?api_key=${process.env.TMDB_API_KEY}&language=fr-FR`,
+      `https://api.themoviedb.org/3/${endpoint}/${item.id}?api_key=${process.env.TMDB_API_KEY}&language=fr-FR`,
       {
         method: 'GET',
         headers: {
@@ -56,17 +57,22 @@ export async function POST(req: NextRequest) {
     );
 
     if (!detailsResponse.ok) {
-      throw new Error('Erreur lors de la récupération des détails du film');
+      throw new Error(`Erreur lors de la récupération des détails ${type === 'movie' ? 'du film' : 'de la série'}`);
     }
 
     const details = await detailsResponse.json();
+    const itemTitle = details.title || details.name;
+    const dateStr = details.release_date || details.first_air_date;
+    const year = dateStr ? new Date(dateStr).getFullYear() : null;
 
     // Rechercher le lien Wikipedia correct
     let wikipediaUrl = '';
+    const wikiTerm = type === 'movie' ? 'film' : 'série télévisée';
     try {
       // Utiliser l'API Wikipedia pour trouver la page correcte
+      const wikiQuery = year ? `${itemTitle}_(${year})` : itemTitle;
       const wikiSearchResponse = await fetch(
-        `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(details.title)}_${new Date(details.release_date).getFullYear()}`,
+        `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiQuery)}`,
         {
           method: 'GET',
           headers: {
@@ -80,10 +86,10 @@ export async function POST(req: NextRequest) {
         wikipediaUrl = wikiData.content_urls?.desktop?.page || '';
       }
 
-      // Si la recherche avec année ne fonctionne pas, essayer sans année
+      // Si la recherche spécifique ne fonctionne pas, essayer le titre seul
       if (!wikipediaUrl) {
         const wikiSearchResponse2 = await fetch(
-          `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(details.title)}`,
+          `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(itemTitle)}`,
           {
             method: 'GET',
             headers: {
@@ -94,48 +100,49 @@ export async function POST(req: NextRequest) {
 
         if (wikiSearchResponse2.ok) {
           const wikiData2 = await wikiSearchResponse2.json();
-          // Vérifier si c'est bien un film (contient "film" dans la description ou le titre)
-          if (wikiData2.description?.toLowerCase().includes('film') || 
-              wikiData2.title?.toLowerCase().includes('film')) {
+          // Vérifier si c'est bien le bon type
+          const desc = (wikiData2.description || '').toLowerCase();
+          const titleLow = (wikiData2.title || '').toLowerCase();
+          if (desc.includes(wikiTerm) || titleLow.includes(wikiTerm) || desc.includes('série') || desc.includes('émission')) {
             wikipediaUrl = wikiData2.content_urls?.desktop?.page || '';
           }
         }
       }
 
-      // Fallback: utiliser le lien de recherche Wikipedia si rien trouvé
+      // Fallback: utiliser le lien de recherche Wikipedia
       if (!wikipediaUrl) {
-        wikipediaUrl = `https://fr.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(details.title + ' film')}`;
+        wikipediaUrl = `https://fr.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(itemTitle + ' ' + wikiTerm)}`;
       }
     } catch (error) {
       console.log('Erreur lors de la recherche Wikipedia:', error);
-      // Fallback: utiliser le lien de recherche Wikipedia
-      wikipediaUrl = `https://fr.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(details.title + ' film')}`;
+      wikipediaUrl = `https://fr.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(itemTitle + ' ' + wikiTerm)}`;
     }
 
     // Formater les données pour le retour
-    const formattedMovie = {
+    const formattedItem = {
       id: details.id,
-      title: details.title,
-      year: new Date(details.release_date).getFullYear(),
+      title: itemTitle,
+      year: year,
       rating: details.vote_average ? Math.round(details.vote_average * 10) / 10 : undefined,
       synopsis: details.overview || 'Synopsis non disponible.',
-      country: details.production_countries?.[0]?.name || 'Inconnu',
+      country: details.production_countries?.[0]?.name || (details.origin_country?.[0]) || 'Inconnu',
       wikipediaUrl: wikipediaUrl,
-      actors: [], // Pourrait être ajouté avec un autre appel API
+      actors: [],
     };
 
-    console.log('Dét trouvés pour:', title, formattedMovie);
+    console.log('Détails trouvés:', formattedItem);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
-      movie: formattedMovie 
+      movie: formattedItem
     });
 
   } catch (error: any) {
-    console.error('Erreur lors de la récupération des détails du film:', error);
+    console.error('Erreur API tmdb-movie-details:', error);
     return NextResponse.json(
-      { error: error?.message || 'Erreur lors de la récupération des détails du film' },
+      { error: error?.message || 'Erreur lors de la récupération des détails' },
       { status: 500 }
     );
   }
 }
+

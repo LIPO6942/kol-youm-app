@@ -528,8 +528,8 @@ function MovieListContent({
 
   // Debounce search - only for moviesToWatch list (not for seenMovieTitles)
   useEffect(() => {
-    // For seen movies, we only do local filtering, no TMDb search
-    if (listType === 'seenMovieTitles') {
+    // For seen movies/series, we only do local filtering, no TMDb search
+    if (listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') {
       setSearchResults([]);
       return;
     }
@@ -656,7 +656,7 @@ function MovieListContent({
     const viewedAt = details?.viewedAt || seenData?.viewedAt;
     const posterUrl = details?.posterUrl || seenData?.posterUrl;
 
-    const isOld = listType === 'seenMovieTitles' && isOlderThanSixMonths(movieTitle);
+    const isOld = (listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && isOlderThanSixMonths(movieTitle);
 
     return (
       <div key={`${movieTitle}-${index}`} className="relative flex flex-col p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded group">
@@ -767,7 +767,7 @@ function MovieListContent({
     const viewedAt = details?.viewedAt || seenData?.viewedAt;
     const posterUrl = details?.posterUrl || seenData?.posterUrl;
 
-    const isOld = listType === 'seenMovieTitles' && isOlderThanSixMonths(movieTitle);
+    const isOld = (listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && isOlderThanSixMonths(movieTitle);
 
     return (
       <div
@@ -850,8 +850,8 @@ function MovieListContent({
         </div>
 
         <div className="flex gap-2">
-          {/* Add Button (only for seenMovieTitles) */}
-          {listType === 'seenMovieTitles' && (
+          {/* Add Button (for seen list) */}
+          {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
             <Button variant="outline" size="sm" onClick={onAddManual} className="gap-1">
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Ajouter</span>
@@ -905,12 +905,15 @@ function MovieListContent({
                 className="flex-shrink-0 w-16 text-center cursor-pointer hover:opacity-80"
                 title={`${result.title} (${result.year || '?'})`}
               >
-                <div className="w-16 h-24 rounded overflow-hidden bg-muted mb-1 relative">
+                <div
+                  className="w-16 h-24 rounded overflow-hidden bg-muted mb-1 relative"
+                  onClick={() => onAddManual()} // Open dialog when clicking a result
+                >
                   {result.posterUrl ? (
                     <Image src={result.posterUrl} alt={result.title} fill className="object-cover" sizes="64px" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Film className="h-6 w-6 text-muted-foreground" />
+                      {type === 'movie' ? <Film className="h-6 w-6 text-muted-foreground" /> : <Tv className="h-6 w-6 text-muted-foreground" />}
                     </div>
                   )}
                 </div>
@@ -934,16 +937,16 @@ function MovieListContent({
         <ScrollArea className="flex-1 pr-4">
           {viewMode === 'list' ? (
             <div className="py-2 space-y-1">
-              {/* Recent Movies */}
-              {listType === 'seenMovieTitles' && recentMovies.length > 0 && (
+              {/* Recent Entries */}
+              {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && recentMovies.length > 0 && (
                 <div className="mb-2">
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-2 px-1">Récemment vus</h3>
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-2 px-1">Récemment vu{type === 'tv' ? 'es' : 's'}</h3>
                   {recentMovies.map((movieTitle, index) => renderListItem(movieTitle, index))}
                 </div>
               )}
 
-              {/* Old Movies (> 6 months) */}
-              {listType === 'seenMovieTitles' && oldMovies.length > 0 && (
+              {/* Old Entries (> 6 months) */}
+              {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && oldMovies.length > 0 && (
                 <div className="mt-4">
                   {!showOldMovies ? (
                     <Button
@@ -951,13 +954,13 @@ function MovieListContent({
                       className="w-full justify-between text-muted-foreground"
                       onClick={() => setShowOldMovies(true)}
                     >
-                      <span>Voir plus ({oldMovies.length} films anciens)</span>
+                      <span>Voir plus ({oldMovies.length} ancien{type === 'tv' ? 'nes' : 's'} {type === 'movie' ? 'films' : 'titres'})</span>
                       <ChevronDown className="h-4 w-4" />
                     </Button>
                   ) : (
                     <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                       <div className="flex items-center justify-between mb-2 px-1">
-                        <h3 className="text-sm font-semibold text-muted-foreground">Vus il y a longtemps</h3>
+                        <h3 className="text-sm font-semibold text-muted-foreground">Vu{type === 'tv' ? 'es' : 's'} il y a longtemps</h3>
                         <Button variant="ghost" size="sm" onClick={() => setShowOldMovies(false)} className="h-6 text-xs">
                           Masquer
                         </Button>
@@ -969,7 +972,7 @@ function MovieListContent({
               )}
 
               {/* Standard List (Watchlist or Search Results) */}
-              {listType !== 'seenMovieTitles' && filteredMovies.length > 0 && (
+              {!(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && filteredMovies.length > 0 && (
                 filteredMovies.map((movieTitle, index) => renderListItem(movieTitle, index))
               )}
 
@@ -983,10 +986,10 @@ function MovieListContent({
                     <>
                       <p>Votre liste est vide pour le moment.</p>
                       {listType === 'moviesToWatch' && <p className="text-xs">"Likez" des films pour la remplir !</p>}
-                      {listType === 'seenMovieTitles' && (
+                      {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
                         <Button variant="outline" size="sm" onClick={onAddManual} className="mt-4 gap-1">
                           <Plus className="h-4 w-4" />
-                          Ajouter un film
+                          Ajouter {type === 'movie' ? 'un film' : 'une série'}
                         </Button>
                       )}
                     </>
@@ -997,11 +1000,11 @@ function MovieListContent({
           ) : (
             <div className="py-2">
               {/* Grid View Logic */}
-              {listType === 'seenMovieTitles' ? (
+              {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') ? (
                 <>
                   {recentMovies.length > 0 && (
                     <div className="mb-4">
-                      <h3 className="text-sm font-semibold text-muted-foreground mb-2 px-1">Récemment vus</h3>
+                      <h3 className="text-sm font-semibold text-muted-foreground mb-2 px-1">Récemment vu{type === 'tv' ? 'es' : 's'}</h3>
                       <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
                         {recentMovies.map((movieTitle, index) => renderGridItem(movieTitle, index))}
                       </div>
@@ -1016,13 +1019,13 @@ function MovieListContent({
                           className="w-full justify-between text-muted-foreground"
                           onClick={() => setShowOldMovies(true)}
                         >
-                          <span>Voir plus ({oldMovies.length} films anciens)</span>
+                          <span>Voir plus ({oldMovies.length} ancien{type === 'tv' ? 'nes' : 's'} {type === 'movie' ? 'films' : 'titres'})</span>
                           <ChevronDown className="h-4 w-4" />
                         </Button>
                       ) : (
                         <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                           <div className="flex items-center justify-between mb-2 px-1">
-                            <h3 className="text-sm font-semibold text-muted-foreground">Vus il y a longtemps</h3>
+                            <h3 className="text-sm font-semibold text-muted-foreground">Vu{type === 'tv' ? 'es' : 's'} il y a longtemps</h3>
                             <Button variant="ghost" size="sm" onClick={() => setShowOldMovies(false)} className="h-6 text-xs">
                               Masquer
                             </Button>

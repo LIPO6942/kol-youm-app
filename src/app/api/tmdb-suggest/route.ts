@@ -205,7 +205,7 @@ async function fetchCountryItems(params: {
   let [yMin, yMax] = yearRange
   const CURRENT_YEAR = new Date().getFullYear()
   const isRecent = yMax >= CURRENT_YEAR - 1
-  const defaultVoteCount = isRecent ? 50 : (type === 'movie' ? 500 : 100)
+  const defaultVoteCount = isRecent ? 20 : (type === 'movie' ? 500 : 50)
   url.searchParams.set('vote_count.gte', String(voteCountOverride ?? defaultVoteCount))
 
   url.searchParams.set('include_adult', 'false')
@@ -439,7 +439,7 @@ async function findWikipediaUrl(title: string, year: number, type: 'movie' | 'tv
     const preferHit = (hits: Array<{ title: string }>) => {
       // Prefer titles that clearly denote the entry
       const lower = hits.map(h => ({ ...h, t: h.title.toLowerCase() }))
-      const searchTerms = type === 'movie' ? ['(film)', 'film'] : ['(série télévisée)', 'série télévisée', '(série)'];
+      const searchTerms = type === 'movie' ? ['(film)', 'film'] : ['(série télévisée)', 'série télévisée', '(série)', 'série'];
 
       const withYear = lower.find(h => searchTerms.some(s => h.t.includes(s)) && h.t.includes(String(year)))
       if (withYear) return withYear;
@@ -489,7 +489,7 @@ async function findWikipediaUrl(title: string, year: number, type: 'movie' | 'tv
 
   // STRICT FALLBACK: Return the FR search page with "Title (Year) film"
   // This is what the user explicitly requested to ensure they land on something useful.
-  return `https://fr.wikipedia.org/w/index.php?search=${encodeURIComponent(`${title} (${year}) film`)}&title=Spécial:Recherche&go=Go`;
+  return `https://fr.wikipedia.org/w/index.php?search=${encodeURIComponent(`${title} (${year}) ${term}`)}&title=Spécial:Recherche&go=Go`;
 }
 
 export async function POST(req: NextRequest) {
