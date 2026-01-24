@@ -205,7 +205,7 @@ async function fetchCountryItems(params: {
   let [yMin, yMax] = yearRange
   const CURRENT_YEAR = new Date().getFullYear()
   const isRecent = yMax >= CURRENT_YEAR - 1
-  const defaultVoteCount = isRecent ? 20 : (type === 'movie' ? 500 : 50)
+  const defaultVoteCount = isRecent ? 5 : (type === 'movie' ? 500 : 10)
   url.searchParams.set('vote_count.gte', String(voteCountOverride ?? defaultVoteCount))
 
   url.searchParams.set('include_adult', 'false')
@@ -214,6 +214,9 @@ async function fetchCountryItems(params: {
   if (type === 'movie') url.searchParams.set('with_release_type', '3|2') // Theatrical | Digital
   url.searchParams.set('page', String(page))
   url.searchParams.set('sort_by', 'popularity.desc')
+
+  console.log(`TMDB Discovery call: type=${type}, country=${countryCode}, yearRange=[${yMin}, ${yMax}], genre=${genre}, page=${page}`);
+  console.log(`TMDB URL: ${url.toString().replace(apiKey || '', '***').replace(bearer || '', '***')}`);
 
   // Year bounds
   if (!Number.isFinite(yMin) || yMin < 1900) yMin = 1990
@@ -536,62 +539,58 @@ export async function POST(req: NextRequest) {
 
     // How many distinct fetch attempts to make?
     // We want 'count' movies. Let's try to get more candidates.
-    const numberOfFetches = type === 'tv' ? 8 : 5;
+    const numberOfFetches = type === 'tv' ? 12 : 5;
 
     for (let i = 0; i < numberOfFetches; i++) {
       const randomYear = Math.floor(Math.random() * (endYear - startYear + 1)) + startYear;
-      // Random country from preference pool
       const randomCountry = poolCodes[Math.floor(Math.random() * poolCodes.length)];
 
       try {
-        // Fetch specifically for this year and country
         const yearSpecificRange: [number, number] = [randomYear, randomYear];
-
-        // Try a few pages for variety (1, 2, or 3)
         const randomPage = Math.floor(Math.random() * 3) + 1;
 
         let fetchResult = await fetchCountryItems({
-          apiKey,
-          bearer,
-          type,
+          apiKey, bearer, type,
           countryCode: randomCountry,
           yearRange: yearSpecificRange,
-          minRating,
-          genre,
-          page: randomPage
+          minRating, genre, page: randomPage
         });
 
         if (fetchResult.results && fetchResult.results.length > 0) {
           results.push(...fetchResult.results);
         } else {
-          // Fallback 1: Try without country but same year and genre
+          // Fallback 1: Global but same year and genre
           const globalResult = await fetchCountryItems({
-            apiKey,
-            bearer,
-            type,
-            countryCode: '', // Global
+            apiKey, bearer, type,
+            countryCode: '',
             yearRange: yearSpecificRange,
-            minRating,
-            genre,
-            page: 1
+            minRating, genre, page: 1
           });
 
           if (globalResult.results && globalResult.results.length > 0) {
             results.push(...globalResult.results);
           } else {
-            // Fallback 2: wider range around that year (+- 2 years)
+            // Fallback 2: wider range around that year (+- 2 years) + country
             const widerRange: [number, number] = [randomYear - 2, randomYear + 2];
-            const fallbackResult = await fetchCountryItems({
-              apiKey,
-              bearer,
-              type,
+            const fallbackWider = await fetchCountryItems({
+              apiKey, bearer, type,
               countryCode: randomCountry,
               yearRange: widerRange,
-              minRating,
-              genre,
-              page: 1
+              minRating, genre, page: 1
             });
-            results.push(...(fallbackResult.results || []));
+
+            if (fallbackWider.results && fallbackWider.results.length > 0) {
+              results.push(...fallbackWider.results);
+            } else {
+              // Fallback 3: Wider range + Global
+              const fallbackGlobalWider = await fetchCountryItems({
+                apiKey, bearer, type,
+                countryCode: '',
+                yearRange: widerRange,
+                minRating, genre, page: 1
+              });
+              results.push(...(fallbackGlobalWider.results || []));
+            }
           }
         }
       } catch (e) {
@@ -607,7 +606,7 @@ export async function POST(req: NextRequest) {
     const unique = [] as any[]
     const titleSet = new Set<string>()
     for (const r of results) {
-      const title = (r?.title || r?.original_title || '').trim()
+      const title = (r?.title || r?.name || r?.original_title || r?.original_name || '').trim()
       if (!title) continue
       const key = title.toLowerCase()
       if (titleSet.has(key)) continue
