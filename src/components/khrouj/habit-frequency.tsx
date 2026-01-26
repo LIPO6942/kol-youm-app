@@ -154,13 +154,16 @@ export function HabitFrequency({ frequencies, heatmap, monthlyHeatmap, yearlyHea
                                     </div>
                                     <div className="flex flex-col">
                                         <span className={cn("text-[10px] font-black uppercase tracking-tight", config.color)}>{f.category}</span>
-                                        <div className="flex items-baseline gap-1">
-                                            <span className="text-lg font-black text-slate-900 dark:text-white leading-none">
-                                                {f.averageDays}
-                                            </span>
-                                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                                                {f.averageDays === 1 ? 'jour' : 'jours'}
-                                            </span>
+                                        <div className="flex flex-col -mt-0.5">
+                                            <span className="text-[7px] font-bold text-slate-400 uppercase leading-none">Tous les</span>
+                                            <div className="flex items-baseline gap-1">
+                                                <span className="text-lg font-black text-slate-900 dark:text-white leading-none">
+                                                    {f.averageDays}
+                                                </span>
+                                                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                                    {f.averageDays === 1 ? 'jour' : 'jours'}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -213,35 +216,34 @@ export function HabitFrequency({ frequencies, heatmap, monthlyHeatmap, yearlyHea
                         </div>
                     </div>
 
-                    {/* Monthly Intensity (Clickable) */}
+                    {/* Monthly Intensity (Main Dialog Trigger) */}
                     {monthlyHeatmap && (
-                        <PeriodStatsDialog visits={visits || []} period="year">
-                            <div className="flex items-center justify-between px-1 py-1 hover:bg-slate-50 dark:hover:bg-slate-900/50 rounded-lg transition-colors cursor-pointer group">
+                        <PeriodStatsDialog visits={visits || []} period="month">
+                            <div className="flex items-center justify-between px-1 hover:bg-slate-50 dark:hover:bg-slate-900/50 p-1 rounded-lg transition-colors cursor-pointer group">
                                 <div className="flex items-center gap-1.5">
                                     <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest group-hover:text-primary transition-colors">Intensité mensuelle</span>
                                     <BarChart3 className="h-2 w-2 text-slate-300 group-hover:text-primary" />
                                 </div>
-                                <div className="flex gap-0.5">
-                                    {monthlyHeatmap.map((count: number, i: number) => (
-                                        <TooltipProvider key={i}>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <div
-                                                        className={cn(
-                                                            "w-2.5 h-2.5 rounded-[1px] transition-colors duration-300",
-                                                            count === 0 ? "bg-slate-100 dark:bg-slate-800/50" :
-                                                                count >= 1 && count <= 3 ? "bg-primary/30" :
-                                                                    count > 3 && count <= 6 ? "bg-primary/60" :
-                                                                        "bg-primary"
-                                                        )}
-                                                    />
-                                                </TooltipTrigger>
-                                                <TooltipContent className="text-[10px] py-1 px-2">
-                                                    {MONTHS_SHORT[i]} : {count} sortie{count > 1 ? 's' : ''}
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    ))}
+                                <div className="flex flex-col gap-1 items-end">
+                                    <div className="flex gap-0.5">
+                                        {monthlyHeatmap.map((count: number, i: number) => (
+                                            <div
+                                                key={i}
+                                                className={cn(
+                                                    "w-2.5 h-2.5 rounded-[1px] transition-colors duration-300",
+                                                    count === 0 ? "bg-slate-100 dark:bg-slate-800/50" :
+                                                        count >= 1 && count <= 3 ? "bg-primary/30" :
+                                                            count > 3 && count <= 6 ? "bg-primary/60" :
+                                                                "bg-primary"
+                                                )}
+                                            />
+                                        ))}
+                                    </div>
+                                    <div className="flex gap-px w-full justify-between pr-[1px]">
+                                        {MONTHS_SHORT.map(m => (
+                                            <span key={m} className="text-[5px] font-black text-slate-300 uppercase">{m.charAt(0)}</span>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </PeriodStatsDialog>
@@ -253,10 +255,12 @@ export function HabitFrequency({ frequencies, heatmap, monthlyHeatmap, yearlyHea
 }
 
 function PeriodStatsDialog({ visits, period, children }: { visits: VisitLog[], period: 'month' | 'year', children: React.ReactNode }) {
-    const stats = getStatsForPeriod(visits, period);
-    const title = period === 'month' ? "Statistiques du Mois" : "Récapitulatif de l'Année";
+    const [selectedMonth, setSelectedMonth] = React.useState(new Date().getMonth());
+    const stats = getStatsForPeriod(visits, period, period === 'month' ? selectedMonth : undefined);
+
+    const title = period === 'month' ? `Statistiques de ${MONTHS_LONG[selectedMonth]}` : "Récapitulatif de l'Année";
     const description = period === 'month'
-        ? "Détail de vos sorties sur les 30 derniers jours."
+        ? `Consultez le détail de vos sorties pour le mois de ${MONTHS_LONG[selectedMonth]}.`
         : "Votre activité sur l'ensemble de l'année en cours.";
 
     return (
@@ -270,10 +274,30 @@ function PeriodStatsDialog({ visits, period, children }: { visits: VisitLog[], p
                         {period === 'month' ? <BarChart3 className="h-6 w-6 text-primary" /> : <TrendingUp className="h-6 w-6 text-primary" />}
                     </div>
                     <DialogTitle className="text-xl font-black font-headline tracking-tight">{title}</DialogTitle>
-                    <DialogDescription className="text-sm font-medium">
+                    <DialogDescription className="text-xs font-medium">
                         {description}
                     </DialogDescription>
                 </DialogHeader>
+
+                {/* Month Selector Column (Inside Dialog) */}
+                {period === 'month' && (
+                    <div className="flex flex-wrap gap-1 justify-center py-2 border-b border-slate-100 dark:border-slate-800/50">
+                        {MONTHS_SHORT.map((m, idx) => (
+                            <button
+                                key={m}
+                                onClick={() => setSelectedMonth(idx)}
+                                className={cn(
+                                    "px-2 py-1 rounded-md text-[9px] font-black transition-all",
+                                    selectedMonth === idx
+                                        ? "bg-primary text-white shadow-sm scale-105"
+                                        : "bg-slate-50 dark:bg-slate-900 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                )}
+                            >
+                                {m}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 <div className="space-y-4 pt-4">
                     {/* Summary Stats */}
@@ -306,20 +330,31 @@ function PeriodStatsDialog({ visits, period, children }: { visits: VisitLog[], p
                                     const Icon = config.icon;
                                     const percentage = Math.round((count / stats.totalVisits) * 100);
 
+                                    const avgDays = stats.averageDaysByCategory[cat] || 0;
+
                                     return (
-                                        <div key={cat} className="flex items-center justify-between group">
-                                            <div className="flex items-center gap-2">
-                                                <div className={cn("p-1 rounded-md", config.bg || 'bg-slate-100')}>
-                                                    <Icon className={cn("h-3 w-3", config.color)} />
+                                        <div key={cat} className="space-y-1 group">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={cn("p-1 rounded-md", config.bg || 'bg-slate-100')}>
+                                                        <Icon className={cn("h-3 w-3", config.color)} />
+                                                    </div>
+                                                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{cat}</span>
                                                 </div>
-                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{cat}</span>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-[10px] font-black text-primary">{count}</span>
-                                                <div className="w-12 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-primary" style={{ width: `${percentage}%` }} />
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-[10px] font-black text-primary">{count}</span>
+                                                    <div className="w-12 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-primary" style={{ width: `${percentage}%` }} />
+                                                    </div>
                                                 </div>
                                             </div>
+                                            {avgDays > 0 && (
+                                                <div className="pl-7">
+                                                    <p className="text-[9px] font-medium text-slate-400 italic">
+                                                        Moyenne : <span className="text-primary font-bold lowercase">{cat}</span> tous les <span className="font-bold text-slate-600 dark:text-slate-300">{avgDays} jours</span>
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}

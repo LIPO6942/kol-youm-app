@@ -29,6 +29,7 @@ export type CategoryFrequency = {
 export type PeriodStats = {
     totalVisits: number;
     byCategory: Record<string, number>;
+    averageDaysByCategory: Record<string, number>; // New: avg days between visits for this cat
     averagePerWeek?: number;
     averagePerMonth?: number;
 };
@@ -148,33 +149,53 @@ export function getYearlyHeatmap(visits: VisitLog[] = []): number[] {
     return intensity;
 }
 
-export function getStatsForPeriod(visits: VisitLog[] = [], period: 'month' | 'year'): PeriodStats {
+export function getStatsForPeriod(visits: VisitLog[] = [], period: 'month' | 'year', specificMonth?: number): PeriodStats {
     const now = new Date();
-    const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
+    const targetMonth = specificMonth !== undefined ? specificMonth : now.getMonth();
 
     const filtered = visits.filter(v => {
         const d = new Date(v.date);
         if (period === 'month') {
-            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+            return d.getMonth() === targetMonth && d.getFullYear() === currentYear;
         }
         return d.getFullYear() === currentYear;
     });
 
     const byCategory: Record<string, number> = {};
+    const categoryDates: Record<string, number[]> = {};
+
     filtered.forEach(v => {
         byCategory[v.category] = (byCategory[v.category] || 0) + 1;
+        if (!categoryDates[v.category]) categoryDates[v.category] = [];
+        categoryDates[v.category].push(v.date);
+    });
+
+    // Calculate Average Days per category
+    const averageDaysByCategory: Record<string, number> = {};
+    Object.entries(categoryDates).forEach(([cat, dates]) => {
+        if (dates.length < 2) {
+            // For small data or single visits in a month, estimate based on period length
+            const daysInTarget = period === 'month' ? 30 : 365;
+            averageDaysByCategory[cat] = Math.round(daysInTarget / dates.length);
+        } else {
+            const sorted = dates.sort((a, b) => a - b);
+            const totalDays = (sorted[sorted.length - 1] - sorted[0]) / (1000 * 60 * 60 * 24);
+            averageDaysByCategory[cat] = Math.max(1, Math.round(totalDays / (dates.length - 1)));
+        }
     });
 
     const stats: PeriodStats = {
         totalVisits: filtered.length,
-        byCategory
+        byCategory,
+        averageDaysByCategory
     };
 
     if (period === 'month') {
-        // Average visits per week in the current month
-        const daysPassed = now.getDate();
-        const weeksPassed = Math.max(1, daysPassed / 7);
+        // Average visits per week in the specific or current month
+        const isCurrentMonth = targetMonth === now.getMonth();
+        const daysToCount = isCurrentMonth ? now.getDate() : 30; // Approximation for simplicity
+        const weeksPassed = Math.max(1, daysToCount / 7);
         stats.averagePerWeek = Number((filtered.length / weeksPassed).toFixed(1));
     } else {
         // Average visits per month in the current year
