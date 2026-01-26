@@ -42,12 +42,23 @@ function TfarrejContent() {
 
   useEffect(() => {
     if (genreFromUrl) {
-      // Check if genre from URL is valid
-      if (genres.some(g => g.name === genreFromUrl) || genreFromUrl === 'Historique') { // Allow 'Historique' from quiz
+      if (genres.some(g => g.name === genreFromUrl) || genreFromUrl === 'Historique') {
         setSelectedGenre(genreFromUrl);
       }
     }
+
+    // Persist type selection
+    const savedType = localStorage.getItem('tfarrej-preference-type');
+    if (savedType === 'movie' || savedType === 'tv') {
+      setType(savedType);
+    }
   }, [genreFromUrl]);
+
+  const handleTypeChange = (newType: string) => {
+    const t = newType as 'movie' | 'tv';
+    setType(t);
+    localStorage.setItem('tfarrej-preference-type', t);
+  };
 
   if (selectedGenre) {
     return (
@@ -83,14 +94,14 @@ function TfarrejContent() {
             <Settings className="h-4 w-4" />
           </Button>
           <MovieListSheet
-            trigger={<Button variant="ocean"><ListVideo className="mr-2 h-4 w-4" /> {type === 'movie' ? 'À Voir' : 'À Voir'}</Button>}
+            trigger={<Button variant="ocean"><ListVideo className="mr-2 h-4 w-4" /> {type === 'movie' ? 'Films à Voir' : 'Séries à Voir'}</Button>}
             title={type === 'movie' ? "Ma Liste 'À Voir'" : "Mes Séries 'À Voir'"}
             description={type === 'movie' ? "Les films mis de côté." : "Les séries mises de côté."}
             listType={type === 'movie' ? "moviesToWatch" : "seriesToWatch"}
             type={type}
           />
           <MovieListSheet
-            trigger={<Button variant="default"><Eye className="mr-2 h-4 w-4" /> {type === 'movie' ? 'Vus' : 'Vus'}</Button>}
+            trigger={<Button variant="default"><Eye className="mr-2 h-4 w-4" /> {type === 'movie' ? 'Films Vus' : 'Séries Vues'}</Button>}
             title={type === 'movie' ? "Mes Films 'Vus'" : "Mes Séries 'Vues'"}
             description={type === 'movie' ? "L'historique des films notés." : "L'historique des séries notées."}
             listType={type === 'movie' ? "seenMovieTitles" : "seenSeriesTitles"}
@@ -100,7 +111,7 @@ function TfarrejContent() {
       </div>
 
       <div className="flex justify-center pb-2">
-        <Tabs defaultValue="movie" className="w-[400px]" onValueChange={(v) => setType(v as 'movie' | 'tv')}>
+        <Tabs value={type} className="w-[400px]" onValueChange={handleTypeChange}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="movie" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">Films</TabsTrigger>
             <TabsTrigger value="tv" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">Séries</TabsTrigger>
