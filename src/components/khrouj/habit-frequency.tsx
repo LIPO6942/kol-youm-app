@@ -307,11 +307,11 @@ function PeriodStatsDialog({ visits, period, children }: { visits: VisitLog[], p
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Visites</span>
                         </div>
                         <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-3 flex flex-col items-center justify-center text-center border border-slate-100 dark:border-slate-800">
-                            <span className="text-2xl font-black text-primary leading-none">
-                                {period === 'month' ? stats.averagePerWeek : stats.averagePerMonth}
+                            <span className="text-lg font-black text-primary leading-none truncate w-full px-1">
+                                {stats.favoriteDay || '--'}
                             </span>
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                                {period === 'month' ? 'Par semaine' : 'Par mois'}
+                                Jour de prédilection
                             </span>
                         </div>
                     </div>

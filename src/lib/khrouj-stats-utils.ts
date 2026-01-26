@@ -29,9 +29,8 @@ export type CategoryFrequency = {
 export type PeriodStats = {
     totalVisits: number;
     byCategory: Record<string, number>;
-    averageDaysByCategory: Record<string, number>; // New: avg days between visits for this cat
-    averagePerWeek?: number;
-    averagePerMonth?: number;
+    averageDaysByCategory: Record<string, number>; // avg days between visits for this cat
+    favoriteDay?: string; // New: Name of the most frequent day (e.g., "Samedi")
 };
 
 // Helper: Normalize strings for comparsion
@@ -185,23 +184,31 @@ export function getStatsForPeriod(visits: VisitLog[] = [], period: 'month' | 'ye
         }
     });
 
+    // Calculate Favorite Day
+    const dayCounts = new Array(7).fill(0);
+    filtered.forEach(v => {
+        const day = new Date(v.date).getDay();
+        dayCounts[day]++;
+    });
+
+    let maxVisitsOnDay = -1;
+    let favoriteDayIdx = -1;
+    dayCounts.forEach((count, idx) => {
+        if (count > maxVisitsOnDay && count > 0) {
+            maxVisitsOnDay = count;
+            favoriteDayIdx = idx;
+        }
+    });
+
+    const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+    const favoriteDay = favoriteDayIdx !== -1 ? dayNames[favoriteDayIdx] : undefined;
+
     const stats: PeriodStats = {
         totalVisits: filtered.length,
         byCategory,
-        averageDaysByCategory
+        averageDaysByCategory,
+        favoriteDay
     };
-
-    if (period === 'month') {
-        // Average visits per week in the specific or current month
-        const isCurrentMonth = targetMonth === now.getMonth();
-        const daysToCount = isCurrentMonth ? now.getDate() : 30; // Approximation for simplicity
-        const weeksPassed = Math.max(1, daysToCount / 7);
-        stats.averagePerWeek = Number((filtered.length / weeksPassed).toFixed(1));
-    } else {
-        // Average visits per month in the current year
-        const monthsPassed = now.getMonth() + 1;
-        stats.averagePerMonth = Number((filtered.length / monthsPassed).toFixed(1));
-    }
 
     return stats;
 }
