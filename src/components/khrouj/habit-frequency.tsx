@@ -15,6 +15,8 @@ interface HabitFrequencyProps {
     monthlyHeatmap?: number[];
     yearlyHeatmap?: number[];
     visits?: VisitLog[];
+    selectedYear: number;
+    onYearChange: (year: number) => void;
 }
 
 const CATEGORY_CONFIG: Record<string, {
@@ -79,7 +81,7 @@ const DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MONTHS_SHORT = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
 const MONTHS_LONG = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
-export function HabitFrequency({ frequencies, heatmap, monthlyHeatmap, yearlyHeatmap, visits }: HabitFrequencyProps) {
+export function HabitFrequency({ frequencies, heatmap, monthlyHeatmap, yearlyHeatmap, visits, selectedYear, onYearChange }: HabitFrequencyProps) {
     if (frequencies.length === 0) return null;
 
     const now = Date.now();
@@ -88,33 +90,55 @@ export function HabitFrequency({ frequencies, heatmap, monthlyHeatmap, yearlyHea
     return (
         <Card className="max-w-xl border-slate-200/60 dark:border-slate-800/60 overflow-hidden bg-white/40 dark:bg-slate-950/40 backdrop-blur-xl shadow-lg transition-all duration-500">
             <CardHeader className="py-2.5 px-4 border-b border-slate-100 dark:border-slate-800/50 flex flex-row items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-slate-400 animate-pulse" />
-                    <CardTitle className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-                        Rythme & Habitudes
-                    </CardTitle>
+                <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-slate-400 animate-pulse" />
+                        <CardTitle className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                            Rythme & Habitudes
+                        </CardTitle>
+                    </div>
                 </div>
 
-                {/* Minatur Heatmap in Header */}
-                <div className="flex gap-0.5 items-end h-4">
-                    {heatmap.map((count, i) => (
-                        <TooltipProvider key={i}>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div
-                                        className={cn(
-                                            "w-1.5 rounded-t-[1px] transition-all duration-500",
-                                            count === 0 ? "bg-slate-200 dark:bg-slate-800 h-1" : "bg-primary h-full opacity-40 hover:opacity-100"
-                                        )}
-                                        style={{ height: count === 0 ? '4px' : `${Math.max(4, (count / maxVisits) * 100)}%` }}
-                                    />
-                                </TooltipTrigger>
-                                <TooltipContent className="text-[10px] py-1 px-2">
-                                    {DAYS_SHORT[i]} : {count} sortie{count > 1 ? 's' : ''}
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    ))}
+                <div className="flex items-center gap-3">
+                    {/* Year Selector */}
+                    <div className="flex bg-slate-100 dark:bg-slate-900 rounded-lg p-0.5">
+                        {[2024, 2025, 2026].map(y => (
+                            <button
+                                key={y}
+                                onClick={() => onYearChange(y)}
+                                className={cn(
+                                    "px-1.5 py-0.5 rounded-md text-[9px] font-black transition-all",
+                                    selectedYear === y
+                                        ? "bg-white dark:bg-slate-800 text-primary shadow-sm"
+                                        : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                )}
+                            >
+                                {y}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Minatur Heatmap in Header */}
+                    <div className="flex gap-0.5 items-end h-4">
+                        {heatmap.map((count, i) => (
+                            <TooltipProvider key={i}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div
+                                            className={cn(
+                                                "w-1.5 rounded-t-[1px] transition-all duration-500",
+                                                count === 0 ? "bg-slate-200 dark:bg-slate-800 h-1" : "bg-primary h-full opacity-40 hover:opacity-100"
+                                            )}
+                                            style={{ height: count === 0 ? '4px' : `${Math.max(4, (count / maxVisits) * 100)}%` }}
+                                        />
+                                    </TooltipTrigger>
+                                    <TooltipContent className="text-[10px] py-1 px-2">
+                                        {DAYS_SHORT[i]} : {count} sortie{count > 1 ? 's' : ''}
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        ))}
+                    </div>
                 </div>
             </CardHeader>
             <CardContent className="p-2 sm:p-3">
@@ -218,7 +242,7 @@ export function HabitFrequency({ frequencies, heatmap, monthlyHeatmap, yearlyHea
 
                     {/* Monthly Intensity (Main Dialog Trigger) */}
                     {monthlyHeatmap && (
-                        <PeriodStatsDialog visits={visits || []} period="month">
+                        <PeriodStatsDialog visits={visits || []} period="month" initialYear={selectedYear}>
                             <div className="flex items-center justify-between px-1 hover:bg-slate-50 dark:hover:bg-slate-900/50 p-1 rounded-lg transition-colors cursor-pointer group">
                                 <div className="flex items-center gap-1.5">
                                     <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest group-hover:text-primary transition-colors">Intensité mensuelle</span>
@@ -254,14 +278,15 @@ export function HabitFrequency({ frequencies, heatmap, monthlyHeatmap, yearlyHea
     );
 }
 
-function PeriodStatsDialog({ visits, period, children }: { visits: VisitLog[], period: 'month' | 'year', children: React.ReactNode }) {
+function PeriodStatsDialog({ visits, period, children, initialYear }: { visits: VisitLog[], period: 'month' | 'year', children: React.ReactNode, initialYear?: number }) {
     const [selectedMonth, setSelectedMonth] = React.useState(new Date().getMonth());
-    const stats = getStatsForPeriod(visits, period, period === 'month' ? selectedMonth : undefined);
+    const [selectedYear, setSelectedYear] = React.useState(initialYear || new Date().getFullYear());
+    const stats = getStatsForPeriod(visits, period, period === 'month' ? selectedMonth : undefined, selectedYear);
 
-    const title = period === 'month' ? `Statistiques de ${MONTHS_LONG[selectedMonth]}` : "Récapitulatif de l'Année";
+    const title = period === 'month' ? `Statistiques de ${MONTHS_LONG[selectedMonth]} ${selectedYear}` : `Récapitulatif de l'Année ${selectedYear}`;
     const description = period === 'month'
-        ? `Consultez le détail de vos sorties pour le mois de ${MONTHS_LONG[selectedMonth]}.`
-        : "Votre activité sur l'ensemble de l'année en cours.";
+        ? `Consultez le détail de vos sorties pour ${MONTHS_LONG[selectedMonth]} ${selectedYear}.`
+        : `Votre activité sur l'ensemble de l'année ${selectedYear}.`;
 
     return (
         <Dialog>
@@ -278,6 +303,24 @@ function PeriodStatsDialog({ visits, period, children }: { visits: VisitLog[], p
                         {description}
                     </DialogDescription>
                 </DialogHeader>
+
+                {/* Year Selector */}
+                <div className="flex bg-slate-100 dark:bg-slate-900 rounded-xl p-1 mb-2">
+                    {[2024, 2025, 2026].map(y => (
+                        <button
+                            key={y}
+                            onClick={() => setSelectedYear(y)}
+                            className={cn(
+                                "flex-1 py-1.5 rounded-lg text-xs font-black transition-all",
+                                selectedYear === y
+                                    ? "bg-white dark:bg-slate-800 text-primary shadow-sm scale-105"
+                                    : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                            )}
+                        >
+                            {y}
+                        </button>
+                    ))}
+                </div>
 
                 {/* Month Selector Column (Inside Dialog) */}
                 {period === 'month' && (
@@ -305,6 +348,15 @@ function PeriodStatsDialog({ visits, period, children }: { visits: VisitLog[], p
                         <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-3 flex flex-col items-center justify-center text-center border border-slate-100 dark:border-slate-800">
                             <span className="text-2xl font-black text-primary leading-none">{stats.totalVisits}</span>
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Visites</span>
+                            {stats.monthlyTrend !== undefined && stats.monthlyTrend !== 0 && (
+                                <div className={cn(
+                                    "flex items-center gap-0.5 mt-1 px-1.5 py-0.5 rounded-full text-[8px] font-black",
+                                    stats.monthlyTrend > 0 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                )}>
+                                    <TrendingUp className={cn("h-2 w-2", stats.monthlyTrend < 0 && "rotate-180")} />
+                                    {stats.monthlyTrend > 0 ? '+' : ''}{stats.monthlyTrend} vs mois dernier
+                                </div>
+                            )}
                         </div>
                         <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-3 flex flex-col items-center justify-center text-center border border-slate-100 dark:border-slate-800">
                             <span className="text-lg font-black text-primary leading-none truncate w-full px-1">

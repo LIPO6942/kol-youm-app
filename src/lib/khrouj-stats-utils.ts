@@ -31,6 +31,7 @@ export type PeriodStats = {
     byCategory: Record<string, number>;
     averageDaysByCategory: Record<string, number>; // avg days between visits for this cat
     favoriteDay?: string; // New: Name of the most frequent day (e.g., "Samedi")
+    monthlyTrend?: number; // New: difference in visits vs previous month
 };
 
 // Helper: Normalize strings for comparsion
@@ -118,13 +119,13 @@ export function getWeeklyHeatmap(visits: VisitLog[] = []): number[] {
     return days;
 }
 
-export function getMonthlyHeatmap(visits: VisitLog[] = []): number[] {
-    const currentYear = new Date().getFullYear();
+export function getMonthlyHeatmap(visits: VisitLog[] = [], year?: number): number[] {
+    const targetYear = year || new Date().getFullYear();
     const intensity = new Array(12).fill(0);
 
     visits.forEach(v => {
         const d = new Date(v.date);
-        if (d.getFullYear() === currentYear) {
+        if (d.getFullYear() === targetYear) {
             intensity[d.getMonth()]++;
         }
     });
@@ -132,15 +133,14 @@ export function getMonthlyHeatmap(visits: VisitLog[] = []): number[] {
     return intensity;
 }
 
-export function getYearlyHeatmap(visits: VisitLog[] = []): number[] {
-    const now = new Date();
-    const currentYear = now.getFullYear();
+export function getYearlyHeatmap(visits: VisitLog[] = [], year?: number): number[] {
+    const targetYear = year || new Date().getFullYear();
 
     const intensity = new Array(12).fill(0);
 
     visits.forEach(v => {
         const d = new Date(v.date);
-        if (d.getFullYear() === currentYear) {
+        if (d.getFullYear() === targetYear) {
             intensity[d.getMonth()]++;
         }
     });
@@ -148,17 +148,18 @@ export function getYearlyHeatmap(visits: VisitLog[] = []): number[] {
     return intensity;
 }
 
-export function getStatsForPeriod(visits: VisitLog[] = [], period: 'month' | 'year', specificMonth?: number): PeriodStats {
+export function getStatsForPeriod(visits: VisitLog[] = [], period: 'month' | 'year', specificMonth?: number, year?: number): PeriodStats {
     const now = new Date();
     const currentYear = now.getFullYear();
+    const targetYear = year !== undefined ? year : currentYear;
     const targetMonth = specificMonth !== undefined ? specificMonth : now.getMonth();
 
     const filtered = visits.filter(v => {
         const d = new Date(v.date);
         if (period === 'month') {
-            return d.getMonth() === targetMonth && d.getFullYear() === currentYear;
+            return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
         }
-        return d.getFullYear() === currentYear;
+        return d.getFullYear() === targetYear;
     });
 
     const byCategory: Record<string, number> = {};
@@ -203,11 +204,26 @@ export function getStatsForPeriod(visits: VisitLog[] = [], period: 'month' | 'ye
     const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
     const favoriteDay = favoriteDayIdx !== -1 ? dayNames[favoriteDayIdx] : undefined;
 
+    // Calculate Monthly Trend
+    let monthlyTrend: number | undefined;
+    if (period === 'month') {
+        const prevMonth = targetMonth === 0 ? 11 : targetMonth - 1;
+        const prevYear = targetMonth === 0 ? targetYear - 1 : targetYear;
+
+        const prevMonthVisits = visits.filter(v => {
+            const d = new Date(v.date);
+            return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+        }).length;
+
+        monthlyTrend = filtered.length - prevMonthVisits;
+    }
+
     const stats: PeriodStats = {
         totalVisits: filtered.length,
         byCategory,
         averageDaysByCategory,
-        favoriteDay
+        favoriteDay,
+        monthlyTrend
     };
 
     return stats;
