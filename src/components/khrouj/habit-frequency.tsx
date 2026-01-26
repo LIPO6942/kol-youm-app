@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CategoryFrequency, getStatsForPeriod, PeriodStats } from '@/lib/khrouj-stats-utils';
+import { CategoryFrequency, getAvailableYears, getStatsForPeriod, PeriodStats } from '@/lib/khrouj-stats-utils';
 import { Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Clock, Calendar, type LucideIcon, TrendingUp, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -102,7 +102,7 @@ export function HabitFrequency({ frequencies, heatmap, monthlyHeatmap, yearlyHea
                 <div className="flex items-center gap-3">
                     {/* Year Selector */}
                     <div className="flex bg-slate-100 dark:bg-slate-900 rounded-lg p-0.5">
-                        {[2024, 2025, 2026].map(y => (
+                        {getAvailableYears().map(y => (
                             <button
                                 key={y}
                                 onClick={() => onYearChange(y)}
@@ -306,7 +306,7 @@ function PeriodStatsDialog({ visits, period, children, initialYear }: { visits: 
 
                 {/* Year Selector */}
                 <div className="flex bg-slate-100 dark:bg-slate-900 rounded-xl p-1 mb-2">
-                    {[2024, 2025, 2026].map(y => (
+                    {getAvailableYears().map(y => (
                         <button
                             key={y}
                             onClick={() => setSelectedYear(y)}
@@ -348,13 +348,13 @@ function PeriodStatsDialog({ visits, period, children, initialYear }: { visits: 
                         <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl p-3 flex flex-col items-center justify-center text-center border border-slate-100 dark:border-slate-800">
                             <span className="text-2xl font-black text-primary leading-none">{stats.totalVisits}</span>
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Visites</span>
-                            {stats.monthlyTrend !== undefined && stats.monthlyTrend !== 0 && (
+                            {stats.monthlyTrend !== undefined && stats.monthlyTrend.diff !== 0 && (
                                 <div className={cn(
                                     "flex items-center gap-0.5 mt-1 px-1.5 py-0.5 rounded-full text-[8px] font-black",
-                                    stats.monthlyTrend > 0 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                    stats.monthlyTrend.isIncrease ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                                 )}>
-                                    <TrendingUp className={cn("h-2 w-2", stats.monthlyTrend < 0 && "rotate-180")} />
-                                    {stats.monthlyTrend > 0 ? '+' : ''}{stats.monthlyTrend} vs mois dernier
+                                    <TrendingUp className={cn("h-2 w-2", !stats.monthlyTrend.isIncrease && "rotate-180")} />
+                                    {stats.monthlyTrend.isIncrease ? '+' : '-'}{stats.monthlyTrend.value}% vs mois dernier
                                 </div>
                             )}
                         </div>

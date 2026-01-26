@@ -31,11 +31,27 @@ export type PeriodStats = {
     byCategory: Record<string, number>;
     averageDaysByCategory: Record<string, number>; // avg days between visits for this cat
     favoriteDay?: string; // New: Name of the most frequent day (e.g., "Samedi")
-    monthlyTrend?: number; // New: difference in visits vs previous month
+    monthlyTrend?: {
+        value: number; // Percentage
+        isIncrease: boolean;
+        diff: number; // Raw difference
+    };
 };
 
 // Helper: Normalize strings for comparsion
 const normalize = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+
+export function getAvailableYears(): number[] {
+    const currentYear = new Date().getFullYear();
+    const startYear = 2026;
+
+    // We want current year and up to 2 previous years, but never before 2026
+    const years: number[] = [];
+    for (let y = currentYear; y >= Math.max(startYear, currentYear - 2); y--) {
+        years.push(y);
+    }
+    return years.sort((a, b) => a - b);
+}
 
 const CUISINE_MAP: Record<string, string[]> = {
     'Tunisien': ['lablebi', 'kefteji', 'mloukhia', 'couscous', 'brik', 'fricasse', 'chapati', 'ma9loub', 'makloub', 'baguette farcie', 'libanais', 'chawarma', 'sahn tounsi', 'ojja', 'tunisien', 'tunisian'],
@@ -205,7 +221,7 @@ export function getStatsForPeriod(visits: VisitLog[] = [], period: 'month' | 'ye
     const favoriteDay = favoriteDayIdx !== -1 ? dayNames[favoriteDayIdx] : undefined;
 
     // Calculate Monthly Trend
-    let monthlyTrend: number | undefined;
+    let monthlyTrend: { value: number; isIncrease: boolean; diff: number } | undefined;
     if (period === 'month') {
         const prevMonth = targetMonth === 0 ? 11 : targetMonth - 1;
         const prevYear = targetMonth === 0 ? targetYear - 1 : targetYear;
@@ -215,7 +231,22 @@ export function getStatsForPeriod(visits: VisitLog[] = [], period: 'month' | 'ye
             return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
         }).length;
 
-        monthlyTrend = filtered.length - prevMonthVisits;
+        const diff = filtered.length - prevMonthVisits;
+        if (prevMonthVisits > 0) {
+            const percentage = Math.round((diff / prevMonthVisits) * 100);
+            monthlyTrend = {
+                value: Math.abs(percentage),
+                isIncrease: diff > 0,
+                diff
+            };
+        } else if (filtered.length > 0) {
+            // If previous month had 0 and this one has visits, it's 100% since it's a new activity
+            monthlyTrend = {
+                value: 100,
+                isIncrease: true,
+                diff
+            };
+        }
     }
 
     const stats: PeriodStats = {
