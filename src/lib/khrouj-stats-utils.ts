@@ -26,6 +26,13 @@ export type CategoryFrequency = {
     lastVisit: number;
 };
 
+export type PeriodStats = {
+    totalVisits: number;
+    byCategory: Record<string, number>;
+    averagePerWeek?: number;
+    averagePerMonth?: number;
+};
+
 // Helper: Normalize strings for comparsion
 const normalize = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
@@ -109,6 +116,77 @@ export function getWeeklyHeatmap(visits: VisitLog[] = []): number[] {
         days[adjustedDay]++;
     });
     return days;
+}
+
+export function getMonthlyHeatmap(visits: VisitLog[] = []): number[] {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+    const intensity = new Array(daysInMonth).fill(0);
+
+    visits.forEach(v => {
+        const d = new Date(v.date);
+        if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+            intensity[d.getDate() - 1]++;
+        }
+    });
+
+    return intensity;
+}
+
+export function getYearlyHeatmap(visits: VisitLog[] = []): number[] {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+
+    const intensity = new Array(12).fill(0);
+
+    visits.forEach(v => {
+        const d = new Date(v.date);
+        if (d.getFullYear() === currentYear) {
+            intensity[d.getMonth()]++;
+        }
+    });
+
+    return intensity;
+}
+
+export function getStatsForPeriod(visits: VisitLog[] = [], period: 'month' | 'year'): PeriodStats {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const filtered = visits.filter(v => {
+        const d = new Date(v.date);
+        if (period === 'month') {
+            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        }
+        return d.getFullYear() === currentYear;
+    });
+
+    const byCategory: Record<string, number> = {};
+    filtered.forEach(v => {
+        byCategory[v.category] = (byCategory[v.category] || 0) + 1;
+    });
+
+    const stats: PeriodStats = {
+        totalVisits: filtered.length,
+        byCategory
+    };
+
+    if (period === 'month') {
+        // Average visits per week in the current month
+        const daysPassed = now.getDate();
+        const weeksPassed = Math.max(1, daysPassed / 7);
+        stats.averagePerWeek = Number((filtered.length / weeksPassed).toFixed(1));
+    } else {
+        // Average visits per month in the current year
+        const monthsPassed = now.getMonth() + 1;
+        stats.averagePerMonth = Number((filtered.length / monthsPassed).toFixed(1));
+    }
+
+    return stats;
 }
 
 export function getWeekendHQ(visits: VisitLog[] = []): WeekendHQResult {
