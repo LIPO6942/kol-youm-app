@@ -97,7 +97,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie' }: {
     } finally {
       setIsSearching(false);
     }
-  }, []);
+  }, [type]);
 
   // Debounce search
   useEffect(() => {
@@ -525,7 +525,7 @@ function MovieListContent({
     } finally {
       setIsSearching(false);
     }
-  }, [yearFilter]);
+  }, [yearFilter, type]);
 
   // Debounce search - only for moviesToWatch list (not for seenMovieTitles)
   useEffect(() => {
@@ -546,7 +546,7 @@ function MovieListContent({
   }, [searchQuery, searchTMDb, listType]);
 
   // Fonction pour récupérer les détails d'un film
-  const fetchMovieDetails = async (movieTitle: string) => {
+  const fetchMovieDetails = useCallback(async (movieTitle: string) => {
     if (movieDetails[movieTitle]) return;
 
     setIsLoadingDetails(true);
@@ -594,7 +594,7 @@ function MovieListContent({
     } finally {
       setIsLoadingDetails(false);
     }
-  };
+  }, [movieDetails, seenMoviesData, type]);
 
   // Charger les détails pour tous les films
   useEffect(() => {

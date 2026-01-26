@@ -76,6 +76,8 @@ const CATEGORY_CONFIG: Record<string, {
 };
 
 const DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+const MONTHS_SHORT = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+const MONTHS_LONG = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
 export function HabitFrequency({ frequencies, heatmap, monthlyHeatmap, yearlyHeatmap, visits }: HabitFrequencyProps) {
     if (frequencies.length === 0) return null;
@@ -213,50 +215,32 @@ export function HabitFrequency({ frequencies, heatmap, monthlyHeatmap, yearlyHea
 
                     {/* Monthly Intensity (Clickable) */}
                     {monthlyHeatmap && (
-                        <PeriodStatsDialog visits={visits || []} period="month">
-                            <div className="flex items-center justify-between px-1 py-1 hover:bg-slate-50 dark:hover:bg-slate-900/50 rounded-lg transition-colors cursor-pointer group">
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest group-hover:text-primary transition-colors">Intensité mois</span>
-                                    <BarChart3 className="h-2 w-2 text-slate-300 group-hover:text-primary" />
-                                </div>
-                                <div className="flex gap-px">
-                                    {monthlyHeatmap.map((count: number, i: number) => (
-                                        <div
-                                            key={i}
-                                            className={cn(
-                                                "w-1.5 h-2.5 rounded-[1px] transition-colors duration-300",
-                                                count === 0 ? "bg-slate-100 dark:bg-slate-800/50" :
-                                                    count === 1 ? "bg-primary/30" :
-                                                        count === 2 ? "bg-primary/60" :
-                                                            "bg-primary"
-                                            )}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        </PeriodStatsDialog>
-                    )}
-
-                    {/* Yearly Intensity (Clickable) */}
-                    {yearlyHeatmap && (
                         <PeriodStatsDialog visits={visits || []} period="year">
                             <div className="flex items-center justify-between px-1 py-1 hover:bg-slate-50 dark:hover:bg-slate-900/50 rounded-lg transition-colors cursor-pointer group">
                                 <div className="flex items-center gap-1.5">
-                                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest group-hover:text-primary transition-colors">Intensité année</span>
-                                    <TrendingUp className="h-2 w-2 text-slate-300 group-hover:text-primary" />
+                                    <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest group-hover:text-primary transition-colors">Intensité mensuelle</span>
+                                    <BarChart3 className="h-2 w-2 text-slate-300 group-hover:text-primary" />
                                 </div>
                                 <div className="flex gap-0.5">
-                                    {yearlyHeatmap.map((count: number, i: number) => (
-                                        <div
-                                            key={i}
-                                            className={cn(
-                                                "w-3 h-2.5 rounded-[1px] transition-colors duration-300",
-                                                count === 0 ? "bg-slate-100 dark:bg-slate-800/50" :
-                                                    count >= 1 && count <= 3 ? "bg-primary/30" :
-                                                        count > 3 && count <= 6 ? "bg-primary/60" :
-                                                            "bg-primary"
-                                            )}
-                                        />
+                                    {monthlyHeatmap.map((count: number, i: number) => (
+                                        <TooltipProvider key={i}>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <div
+                                                        className={cn(
+                                                            "w-2.5 h-2.5 rounded-[1px] transition-colors duration-300",
+                                                            count === 0 ? "bg-slate-100 dark:bg-slate-800/50" :
+                                                                count >= 1 && count <= 3 ? "bg-primary/30" :
+                                                                    count > 3 && count <= 6 ? "bg-primary/60" :
+                                                                        "bg-primary"
+                                                        )}
+                                                    />
+                                                </TooltipTrigger>
+                                                <TooltipContent className="text-[10px] py-1 px-2">
+                                                    {MONTHS_SHORT[i]} : {count} sortie{count > 1 ? 's' : ''}
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
                                     ))}
                                 </div>
                             </div>

@@ -119,17 +119,13 @@ export function getWeeklyHeatmap(visits: VisitLog[] = []): number[] {
 }
 
 export function getMonthlyHeatmap(visits: VisitLog[] = []): number[] {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-
-    const intensity = new Array(daysInMonth).fill(0);
+    const currentYear = new Date().getFullYear();
+    const intensity = new Array(12).fill(0);
 
     visits.forEach(v => {
         const d = new Date(v.date);
-        if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
-            intensity[d.getDate() - 1]++;
+        if (d.getFullYear() === currentYear) {
+            intensity[d.getMonth()]++;
         }
     });
 
