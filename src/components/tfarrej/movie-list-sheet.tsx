@@ -621,13 +621,13 @@ function MovieListContent({
 
       return (
         <div className={`w-full h-full ${variant.className} flex flex-col items-center justify-center p-1 text-center`}>
-          <Icon className={`${isOld ? 'h-3 w-3' : 'h-8 w-8'} text-white/90 mb-1`} />
-          {!isOld && <p className="text-[9px] text-white font-medium line-clamp-2 leading-tight drop-shadow-sm">{title}</p>}
+          <Icon className="h-8 w-8 text-white/90 mb-1" />
+          <p className="text-[9px] text-white font-medium line-clamp-2 leading-tight drop-shadow-sm">{title}</p>
         </div>
       );
     }
 
-    if (!isOld && posterUrl) {
+    if (posterUrl) {
       return (
         <Image
           src={posterUrl}
@@ -640,11 +640,11 @@ function MovieListContent({
     }
 
     return (
-      <div className={`flex-shrink-0 rounded bg-muted flex items-center justify-center ${isOld ? 'w-6 h-6' : 'w-full h-full'}`}>
+      <div className="flex-shrink-0 rounded bg-muted flex items-center justify-center w-full h-full">
         {type === 'movie' ? (
-          <Film className={`${isOld ? 'h-3 w-3' : 'h-4 w-4'} text-muted-foreground`} />
+          <Film className="h-4 w-4 text-muted-foreground" />
         ) : (
-          <Tv className={`${isOld ? 'h-3 w-3' : 'h-4 w-4'} text-muted-foreground`} />
+          <Tv className="h-4 w-4 text-muted-foreground" />
         )}
       </div>
     );
@@ -664,7 +664,7 @@ function MovieListContent({
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <div className="flex items-start gap-3">
-              <div className={`flex-shrink-0 ${isOld ? 'w-6 h-6' : 'w-8 h-12'} relative rounded overflow-hidden bg-muted`}>
+              <div className="flex-shrink-0 w-8 h-12 relative rounded overflow-hidden bg-muted">
                 {renderPoster(posterUrl, movieTitle, isOld)}
               </div>
 
@@ -791,7 +791,7 @@ function MovieListContent({
         )}
 
         {/* Overlay with title - Only for non-text tiles (images) and NOT defaults who already have text */}
-        {!isOld && (!posterUrl || !posterUrl.startsWith('default:')) && (
+        {(!posterUrl || !posterUrl.startsWith('default:')) && (
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
             <div className="absolute bottom-0 left-0 right-0 p-2">
               <p className="text-[10px] text-white font-medium line-clamp-2 leading-tight">{movieTitle}</p>
