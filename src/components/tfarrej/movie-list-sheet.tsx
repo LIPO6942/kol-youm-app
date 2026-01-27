@@ -778,15 +778,23 @@ function MovieListContent({
       >
         {renderPoster(posterUrl, movieTitle, isOld)}
 
-        {/* Show title if no poster (excluding defaults that already show title) */}
-        {!isOld && !posterUrl && (
-          <div className="absolute inset-0 flex items-center justify-center p-2 text-center">
-            <p className="text-xs font-medium text-foreground line-clamp-3 leading-tight">{movieTitle}</p>
-          </div>
+        {/* Show title if no poster (excluding defaults that already show title) - Applies to ALL items now, including old ones */}
+        {(!posterUrl || (posterUrl && !posterUrl.startsWith('default:'))) && (
+          // We check if it's NOT a default poster (which has text) AND we don't have a real image poster, 
+          // OR if we have valid posterUrl but it failed to load (handled by Image fallback?),
+          // logic simplified: If text isn't embedded in the "poster" (like default ones), we show it.
+          // Actually, renderPoster handles "default:" cases by showing text. 
+          // If renderPoster returned an Image, we don't show text unless hover.
+          // If renderPoster returned a generic icon (because no posterUrl), we MUST show text.
+          (!posterUrl) && (
+            <div className="absolute inset-0 flex items-center justify-center p-2 text-center">
+              <p className="text-xs font-medium text-foreground line-clamp-3 leading-tight">{movieTitle}</p>
+            </div>
+          )
         )}
 
         {/* Overlay with title - Only for non-text tiles (images) and NOT defaults who already have text */}
-        {!isOld && (!posterUrl || !posterUrl.startsWith('default:')) && (
+        {(!posterUrl || !posterUrl.startsWith('default:')) && (
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
             <div className="absolute bottom-0 left-0 right-0 p-2">
               <p className="text-[10px] text-white font-medium line-clamp-2 leading-tight">{movieTitle}</p>
@@ -804,27 +812,51 @@ function MovieListContent({
         )}
 
         {/* Action buttons on hover */}
-        <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && (
             <Button
               variant="secondary"
               size="icon"
-              className="h-6 w-6"
+              className="h-5 w-5 bg-white/10 hover:bg-white/20 backdrop-blur-sm"
               onClick={(e) => { e.stopPropagation(); onMarkAsWatched(movieTitle); }}
               disabled={isUpdating}
             >
               <Eye className="h-3 w-3" />
             </Button>
           )}
-          <Button
-            variant="destructive"
-            size="icon"
-            className="h-6 w-6"
-            onClick={(e) => { e.stopPropagation(); onRemove(movieTitle); }}
-            disabled={isUpdating}
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="destructive"
+                size="icon"
+                className="h-5 w-5 bg-red-500/80 hover:bg-red-600 backdrop-blur-sm"
+                onClick={(e) => e.stopPropagation()} // Prevent card click
+                disabled={isUpdating}
+              >
+                <Trash2 className="h-2.5 w-2.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Supprimer "{movieTitle}" ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Cette action est irréversible. Voulez-vous vraiment retirer ce titre de votre liste ?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Annuler</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-red-600 hover:bg-red-700"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove(movieTitle);
+                  }}
+                >
+                  Supprimer
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
     );
