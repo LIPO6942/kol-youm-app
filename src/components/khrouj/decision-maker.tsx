@@ -80,6 +80,7 @@ export default function DecisionMaker() {
   const [selectedCategory, setSelectedCategory] = useState<(typeof outingOptions)[0] | undefined>(undefined);
   const [selectedZones, setSelectedZones] = useState<string[]>([]);
   const [view, setView] = useState<'search' | 'stats'>('search');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [isAddingVisit, setIsAddingVisit] = useState(false);
   const { toast } = useToast();
   const { user, userProfile } = useAuth();
@@ -497,10 +498,10 @@ export default function DecisionMaker() {
       passportStats: getCulinaryPassport(visits),
       frequencyStats: getVisitFrequencies(visits),
       heatmap: getWeeklyHeatmap(visits),
-      monthlyHeatmap: getMonthlyHeatmap(visits),
-      yearlyHeatmap: getYearlyHeatmap(visits)
+      monthlyHeatmap: getMonthlyHeatmap(visits, selectedYear),
+      yearlyHeatmap: getYearlyHeatmap(visits, selectedYear)
     };
-  }, [userProfile?.visits, allPlaces]);
+  }, [userProfile?.visits, allPlaces, selectedYear]);
 
 
   const ManualVisitForm = () => {
@@ -1588,6 +1589,8 @@ export default function DecisionMaker() {
                 monthlyHeatmap={stats.monthlyHeatmap}
                 yearlyHeatmap={stats.yearlyHeatmap}
                 visits={userProfile?.visits || []}
+                selectedYear={selectedYear}
+                onYearChange={setSelectedYear}
               />
             )}
 
