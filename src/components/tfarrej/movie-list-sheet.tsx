@@ -776,25 +776,22 @@ function MovieListContent({
         className="group relative aspect-[2/3] rounded-lg overflow-hidden bg-muted cursor-pointer hover:ring-2 hover:ring-primary transition-all"
         title={`${movieTitle}${viewedAt ? ` - Vu le ${formatViewedDate(viewedAt)}` : ''}`}
       >
-        {renderPoster(posterUrl, movieTitle, isOld)}
-
-        {/* Show title if no poster (excluding defaults that already show title) - Applies to ALL items now, including old ones */}
-        {(!posterUrl || (posterUrl && !posterUrl.startsWith('default:'))) && (
-          // We check if it's NOT a default poster (which has text) AND we don't have a real image poster, 
-          // OR if we have valid posterUrl but it failed to load (handled by Image fallback?),
-          // logic simplified: If text isn't embedded in the "poster" (like default ones), we show it.
-          // Actually, renderPoster handles "default:" cases by showing text. 
-          // If renderPoster returned an Image, we don't show text unless hover.
-          // If renderPoster returned a generic icon (because no posterUrl), we MUST show text.
-          (!posterUrl) && (
-            <div className="absolute inset-0 flex items-center justify-center p-2 text-center">
-              <p className="text-xs font-medium text-foreground line-clamp-3 leading-tight">{movieTitle}</p>
-            </div>
-          )
+        {/* Custom rendering for missing posters in grid view to ensure contrast */}
+        {(!posterUrl || (posterUrl && !posterUrl.startsWith('default:') && !posterUrl.startsWith('http'))) ? (
+          <div className="w-full h-full bg-slate-800 flex flex-col items-center justify-center p-2 text-center relative">
+            {type === 'movie' ? (
+              <Film className="h-8 w-8 text-slate-600 mb-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-20 transform scale-[3]" />
+            ) : (
+              <Tv className="h-8 w-8 text-slate-600 mb-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-20 transform scale-[3]" />
+            )}
+            <p className="text-xs font-semibold text-slate-100 line-clamp-3 leading-tight z-10">{movieTitle}</p>
+          </div>
+        ) : (
+          renderPoster(posterUrl, movieTitle, false) // Force isOld to false for grid view to ensure full size
         )}
 
         {/* Overlay with title - Only for non-text tiles (images) and NOT defaults who already have text */}
-        {(!posterUrl || !posterUrl.startsWith('default:')) && (
+        {!isOld && (!posterUrl || !posterUrl.startsWith('default:')) && (
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
             <div className="absolute bottom-0 left-0 right-0 p-2">
               <p className="text-[10px] text-white font-medium line-clamp-2 leading-tight">{movieTitle}</p>
@@ -812,7 +809,7 @@ function MovieListContent({
         )}
 
         {/* Action buttons on hover */}
-        <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
           {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && (
             <Button
               variant="secondary"
