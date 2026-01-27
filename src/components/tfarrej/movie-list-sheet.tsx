@@ -405,7 +405,7 @@ function MovieListContent({
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   // Constants
-  const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000; // ~6 months in milliseconds
+  const TWO_YEARS_MS = 2 * 365 * 24 * 60 * 60 * 1000; // ~2 years in milliseconds
 
   // State for search, filter, and view mode
   const [searchQuery, setSearchQuery] = useState('');
@@ -446,13 +446,13 @@ function MovieListContent({
     return [...movieTitles].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
   }, [movieTitles, listType, seenMoviesData]);
 
-  // Helper function to check if a movie is older than 6 months
-  const isOlderThanSixMonths = useCallback((movieTitle: string) => {
+  // Helper function to check if a movie is older than 2 years
+  const isOlderThanTwoYears = useCallback((movieTitle: string) => {
     const seenData = seenMoviesData?.find((m: any) => m.title === movieTitle);
     const viewedAt = seenData?.viewedAt;
     if (!viewedAt) return false;
-    return Date.now() - viewedAt > SIX_MONTHS_MS;
-  }, [seenMoviesData, SIX_MONTHS_MS]);
+    return Date.now() - viewedAt > TWO_YEARS_MS;
+  }, [seenMoviesData, TWO_YEARS_MS]);
 
   // Extract available years for filtering
   const availableYears = useMemo(() => {
@@ -487,7 +487,7 @@ function MovieListContent({
     return filtered;
   }, [sortedMovieTitles, searchQuery, yearFilter, movieDetails]);
 
-  // For seen movies: split into recent and old (>6 months)
+  // For seen movies: split into recent and old (>2 years)
   const { recentMovies, oldMovies } = useMemo(() => {
     const isSeenList = listType === 'seenMovieTitles' || listType === 'seenSeriesTitles';
     if (!isSeenList) {
@@ -496,14 +496,14 @@ function MovieListContent({
     const recent: string[] = [];
     const old: string[] = [];
     filteredMovies.forEach(title => {
-      if (isOlderThanSixMonths(title)) {
+      if (isOlderThanTwoYears(title)) {
         old.push(title);
       } else {
         recent.push(title);
       }
     });
     return { recentMovies: recent, oldMovies: old };
-  }, [filteredMovies, listType, isOlderThanSixMonths]);
+  }, [filteredMovies, listType, isOlderThanTwoYears]);
 
   // Debounced search for TMDb API
   const searchTMDb = useCallback(async (query: string) => {
@@ -657,7 +657,7 @@ function MovieListContent({
     const viewedAt = details?.viewedAt || seenData?.viewedAt;
     const posterUrl = details?.posterUrl || seenData?.posterUrl;
 
-    const isOld = (listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && isOlderThanSixMonths(movieTitle);
+    const isOld = (listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && isOlderThanTwoYears(movieTitle);
 
     return (
       <div key={`${movieTitle}-${index}`} className="relative flex flex-col p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded group">
@@ -768,7 +768,7 @@ function MovieListContent({
     const viewedAt = details?.viewedAt || seenData?.viewedAt;
     const posterUrl = details?.posterUrl || seenData?.posterUrl;
 
-    const isOld = (listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && isOlderThanSixMonths(movieTitle);
+    const isOld = (listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && isOlderThanTwoYears(movieTitle);
 
     return (
       <div
@@ -777,6 +777,13 @@ function MovieListContent({
         title={`${movieTitle}${viewedAt ? ` - Vu le ${formatViewedDate(viewedAt)}` : ''}`}
       >
         {renderPoster(posterUrl, movieTitle, isOld)}
+
+        {/* Show title if no poster (excluding defaults that already show title) */}
+        {!isOld && !posterUrl && (
+          <div className="absolute inset-0 flex items-center justify-center p-2 text-center">
+            <p className="text-xs font-medium text-foreground line-clamp-3 leading-tight">{movieTitle}</p>
+          </div>
+        )}
 
         {/* Overlay with title - Only for non-text tiles (images) and NOT defaults who already have text */}
         {!isOld && (!posterUrl || !posterUrl.startsWith('default:')) && (
