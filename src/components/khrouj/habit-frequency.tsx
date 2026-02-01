@@ -156,7 +156,8 @@ export function HabitFrequency({ frequencies, heatmap, monthlyHeatmap, yearlyHea
 
                         // Prediction Logic
                         const nextVisitDate = f.lastVisit + (f.averageDays * 24 * 60 * 60 * 1000);
-                        const daysRemaining = Math.max(0, Math.ceil((nextVisitDate - now) / (24 * 60 * 60 * 1000)));
+                        const rawDaysRemaining = Math.ceil((nextVisitDate - now) / (24 * 60 * 60 * 1000));
+                        const daysRemaining = Math.max(0, rawDaysRemaining);
                         const isOverdue = nextVisitDate < now;
 
                         return (
@@ -197,7 +198,7 @@ export function HabitFrequency({ frequencies, heatmap, monthlyHeatmap, yearlyHea
                                         <Calendar className="h-3 w-3 text-slate-400" />
                                         <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300">
                                             {isOverdue ? (
-                                                <span className="text-red-500 animate-pulse">Retard de {Math.abs(daysRemaining)}j</span>
+                                                <span className="text-red-500 animate-pulse">Retard de {Math.abs(rawDaysRemaining)}j</span>
                                             ) : (
                                                 `Prochaine : ${daysRemaining === 0 ? "Aujourd'hui" : `dans ${daysRemaining}j`}`
                                             )}
