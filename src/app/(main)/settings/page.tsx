@@ -229,6 +229,8 @@ export default function SettingsPage() {
   const [currentSpecialties, setCurrentSpecialties] = useState<string[]>([]);
   const [isSavingSpecialties, setIsSavingSpecialties] = useState(false);
   const specialtyInputRef = useRef<HTMLInputElement>(null);
+  const [isAddingZone, setIsAddingZone] = useState(false);
+  const [newZoneName, setNewZoneName] = useState('');
 
   // Charger la base de données des lieux
   const loadPlacesDatabase = async () => {
@@ -432,6 +434,19 @@ export default function SettingsPage() {
 
   const handleRemovePlaceFromEditing = (placeToRemove: string) => {
     setEditedPlaces(editedPlaces.filter((p: string) => p !== placeToRemove));
+  };
+
+  const handleAddZone = async () => {
+    if (!newZoneName.trim()) return;
+
+    // Create new zone via update endpoint (will create doc if not exists)
+    // Initialize with empty cafes list to create structure
+    await handleUpdateZoneCategory(newZoneName.trim(), [], 'cafes');
+
+    setNewZoneName('');
+    setIsAddingZone(false);
+    // Auto-select will happen via useEffect when database reloads
+    setSelectedZone(newZoneName.trim());
   };
 
   // Obtenir toutes les zones disponibles
@@ -994,31 +1009,67 @@ export default function SettingsPage() {
                       {/* Sélecteurs Zone et Catégorie */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                         <div className="space-y-2">
-                          <Label className="text-sm font-medium">Zone</Label>
-                          <Select value={selectedZone} onValueChange={(value) => {
-                            setSelectedZone(value);
-                            // Sélectionner automatiquement la première catégorie disponible dans cette zone
-                            const zoneData = placesDatabase.zones.find(z => z.zone === value);
-                            if (zoneData) {
-                              const firstCategory = Object.keys(zoneData.categories).find(cat =>
-                                (zoneData.categories[cat as keyof CategoryPlaces]?.length || 0) > 0
-                              );
-                              if (firstCategory) {
-                                setSelectedCategory(firstCategory);
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium">Zone</Label>
+                            {!isAddingZone && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs text-primary bg-primary/10 hover:bg-primary/20"
+                                onClick={() => setIsAddingZone(true)}
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Ajouter
+                              </Button>
+                            )}
+                          </div>
+
+                          {isAddingZone ? (
+                            <div className="flex gap-2 animate-in fade-in zoom-in-95 duration-200">
+                              <Input
+                                placeholder="Nom de la zone (ex: Rades)"
+                                value={newZoneName}
+                                onChange={(e) => setNewZoneName(e.target.value)}
+                                className="h-10 bg-background"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleAddZone();
+                                  if (e.key === 'Escape') setIsAddingZone(false);
+                                }}
+                              />
+                              <Button size="icon" onClick={handleAddZone} disabled={!newZoneName.trim()}>
+                                <Save className="h-4 w-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" onClick={() => setIsAddingZone(false)}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Select value={selectedZone} onValueChange={(value) => {
+                              setSelectedZone(value);
+                              // Sélectionner automatiquement la première catégorie disponible dans cette zone
+                              const zoneData = placesDatabase.zones.find(z => z.zone === value);
+                              if (zoneData) {
+                                const firstCategory = Object.keys(zoneData.categories).find(cat =>
+                                  (zoneData.categories[cat as keyof CategoryPlaces]?.length || 0) > 0
+                                );
+                                if (firstCategory) {
+                                  setSelectedCategory(firstCategory);
+                                }
                               }
-                            }
-                          }}>
-                            <SelectTrigger className="w-full bg-background">
-                              <SelectValue placeholder="Choisir une zone" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {placesDatabase.zones.map((zone) => (
-                                <SelectItem key={zone.zone} value={zone.zone}>
-                                  {zone.zone}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            }}>
+                              <SelectTrigger className="w-full bg-background h-10">
+                                <SelectValue placeholder="Choisir une zone" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {placesDatabase.zones.map((zone) => (
+                                  <SelectItem key={zone.zone} value={zone.zone}>
+                                    {zone.zone}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
                         </div>
                         <div className="space-y-2">
                           <Label className="text-sm font-medium">Catégorie</Label>
@@ -1119,27 +1170,28 @@ export default function SettingsPage() {
                                     {getPlacesForZoneAndCategory(selectedZone, selectedCategory).length} lieux
                                   </TypedBadge>
                                 </div>
-                                <div className="flex gap-1 flex-wrap sm:flex-nowrap">
+                                <div className="flex gap-1 flex-wrap sm:flex-nowrap justify-end w-full sm:w-auto mt-2 sm:mt-0">
                                   {editingZone === `${selectedZone}-${selectedCategory}` ? (
                                     <>
-                                      <Button size="sm" onClick={() => handleSaveZoneCategory(selectedZone, selectedCategory)}>
+                                      <Button size="sm" onClick={() => handleSaveZoneCategory(selectedZone, selectedCategory)} className="flex-1 sm:flex-none">
                                         <Save className="h-3 w-3 mr-1" />
                                         Sauver
                                       </Button>
-                                      <Button size="sm" variant="outline" onClick={() => setEditingZone(null)}>
+                                      <Button size="sm" variant="outline" onClick={() => setEditingZone(null)} className="flex-1 sm:flex-none">
                                         <X className="h-3 w-3 mr-1" />
                                         Annuler
                                       </Button>
                                     </>
                                   ) : (
                                     <>
-                                      <Button size="sm" variant="ghost" onClick={() => handleStartEditingZoneCategory(selectedZone, selectedCategory)}>
+                                      <Button size="sm" variant="ghost" onClick={() => handleStartEditingZoneCategory(selectedZone, selectedCategory)} className="flex-1 sm:flex-none">
                                         <Edit2 className="h-3 w-3 mr-1" />
                                         Modifier
                                       </Button>
                                       <Button
                                         size="sm"
-                                        variant="ghost"
+                                        variant="default" // Changed to default for better visibility
+                                        className="flex-1 sm:flex-none bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary"
                                         onClick={() => {
                                           console.log('Bouton Ajouter cliqué!');
                                           setNewPlaceName(''); // Active le champ d'ajout rapide
