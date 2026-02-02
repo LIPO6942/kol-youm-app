@@ -79,6 +79,7 @@ export default function DecisionMaker() {
   const [seenSuggestions, setSeenSuggestions] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<(typeof outingOptions)[0] | undefined>(undefined);
   const [selectedZones, setSelectedZones] = useState<string[]>([]);
+  const [availableZones, setAvailableZones] = useState<string[]>(zones);
   const [view, setView] = useState<'search' | 'stats'>('search');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [isAddingVisit, setIsAddingVisit] = useState(false);
@@ -155,6 +156,12 @@ export default function DecisionMaker() {
             });
           });
           setAllPlaces(flatPlaces);
+
+          // Extract unique zones dynamically
+          const dbZones = Array.from(new Set(result.data.zones.map((z: any) => z.zone))) as string[];
+          if (dbZones.length > 0) {
+            setAvailableZones(dbZones.sort());
+          }
         }
       } catch (error) {
         console.error("Failed to fetch places for selection help", error);
@@ -1733,7 +1740,7 @@ export default function DecisionMaker() {
           </div>
           <CollapsibleContent>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 border rounded-md">
-              {zones.sort().map((zone: string) => (
+              {availableZones.map((zone: string) => (
                 <div key={zone} className="flex items-center space-x-2">
                   <Checkbox
                     id={zone}
