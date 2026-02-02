@@ -1336,64 +1336,69 @@ export default function SettingsPage() {
                                             <div className="mt-4 pt-4 border-t space-y-4 animate-in slide-in-from-top-2 duration-300">
                                               <div className="flex flex-col gap-2">
                                                 <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ajouter une spécialité</Label>
-                                                <div className="flex gap-2">
-                                                  <Input
-                                                    ref={specialtyInputRef}
-                                                    placeholder="Ex: chapati, malfouf..."
-                                                    className="h-9 text-sm focus-visible:ring-blue-500"
-                                                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                                                      if (e.key === 'Enter') {
-                                                        e.preventDefault();
-                                                        const val = e.currentTarget.value.trim();
-                                                        if (val && !currentSpecialties.some((s: string) => s.toLowerCase() === val.toLowerCase())) {
-                                                          setCurrentSpecialties([...currentSpecialties, val]);
-                                                          e.currentTarget.value = '';
+                                                <div className="flex flex-col sm:flex-row gap-2">
+                                                  <div className="flex gap-2 flex-1">
+                                                    <Input
+                                                      ref={specialtyInputRef}
+                                                      placeholder="Ex: chapati, malfouf..."
+                                                      className="h-10 sm:h-9 text-sm focus-visible:ring-blue-500 flex-1"
+                                                      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                                                        if (e.key === 'Enter') {
+                                                          e.preventDefault();
+                                                          const val = e.currentTarget.value.trim();
+                                                          if (val && !currentSpecialties.some((s: string) => s.toLowerCase() === val.toLowerCase())) {
+                                                            setCurrentSpecialties([...currentSpecialties, val]);
+                                                            e.currentTarget.value = '';
+                                                          }
                                                         }
-                                                      }
-                                                    }}
-                                                  />
-                                                  <Button
-                                                    size="sm"
-                                                    type="button"
-                                                    variant="outline"
-                                                    className="h-9 px-3 border-blue-200 text-blue-600 hover:bg-blue-50"
-                                                    onClick={() => {
-                                                      const input = specialtyInputRef.current;
-                                                      if (input) {
-                                                        const val = input.value.trim();
-                                                        if (val && !currentSpecialties.some((s: string) => s.toLowerCase() === val.toLowerCase())) {
-                                                          setCurrentSpecialties([...currentSpecialties, val]);
-                                                          input.value = '';
-                                                          input.focus();
+                                                      }}
+                                                    />
+                                                    <Button
+                                                      size="sm"
+                                                      type="button"
+                                                      variant="outline"
+                                                      className="h-10 sm:h-9 px-3 border-blue-200 text-blue-600 hover:bg-blue-50"
+                                                      onClick={() => {
+                                                        const input = specialtyInputRef.current;
+                                                        if (input) {
+                                                          const val = input.value.trim();
+                                                          if (val && !currentSpecialties.some((s: string) => s.toLowerCase() === val.toLowerCase())) {
+                                                            setCurrentSpecialties([...currentSpecialties, val]);
+                                                            input.value = '';
+                                                            input.focus();
+                                                          }
                                                         }
-                                                      }
-                                                    }}
-                                                  >
-                                                    <Plus className="h-4 w-4" />
-                                                  </Button>
-                                                  <Button
-                                                    size="sm"
-                                                    className="h-9 px-4 bg-green-600 hover:bg-green-700 ml-auto"
-                                                    onClick={() => handleUpdateSpecialties(selectedZone, place, currentSpecialties)}
-                                                    disabled={isSavingSpecialties}
-                                                  >
-                                                    {isSavingSpecialties ? (
-                                                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                                    ) : (
-                                                      <Save className="h-4 w-4 mr-2" />
-                                                    )}
-                                                    Enregistrer
-                                                  </Button>
-                                                  <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="h-9"
-                                                    onClick={() => setEditingSpecialties(null)}
-                                                    disabled={isSavingSpecialties}
-                                                  >
-                                                    <X className="h-4 w-4 mr-2" />
-                                                    Annuler
-                                                  </Button>
+                                                      }}
+                                                    >
+                                                      <Plus className="h-4 w-4" />
+                                                    </Button>
+                                                  </div>
+                                                  <div className="flex gap-2">
+                                                    <Button
+                                                      size="sm"
+                                                      className="h-10 sm:h-9 px-4 bg-green-600 hover:bg-green-700 flex-1 sm:flex-none"
+                                                      onClick={() => handleUpdateSpecialties(selectedZone, place, currentSpecialties)}
+                                                      disabled={isSavingSpecialties}
+                                                    >
+                                                      {isSavingSpecialties ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                                      ) : (
+                                                        <Save className="h-4 w-4 mr-2" />
+                                                      )}
+                                                      <span className="sm:hidden lg:inline">Enregistrer</span>
+                                                      <span className="hidden sm:inline lg:hidden">OK</span>
+                                                    </Button>
+                                                    <Button
+                                                      size="sm"
+                                                      variant="ghost"
+                                                      className="h-10 sm:h-9 flex-1 sm:flex-none"
+                                                      onClick={() => setEditingSpecialties(null)}
+                                                      disabled={isSavingSpecialties}
+                                                    >
+                                                      <X className="h-4 w-4 mr-2" />
+                                                      Annuler
+                                                    </Button>
+                                                  </div>
                                                 </div>
                                               </div>
 
