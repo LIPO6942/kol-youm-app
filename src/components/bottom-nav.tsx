@@ -3,14 +3,14 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Palette, Film, BrainCircuit, MapPin } from 'lucide-react';
+import { Palette, Film, Ticket, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect } from 'react';
 
 const navItems = [
   { href: '/stylek', label: 'Stylek', icon: Palette },
   { href: '/tfarrej', label: 'Tfarrej', icon: Film },
-  { href: '/5amem', label: '5amem', icon: BrainCircuit },
+  { href: '/5amem', label: 'Events', icon: Ticket },
   { href: '/khrouj', label: 'Khrouj', icon: MapPin },
 ];
 
@@ -20,21 +20,21 @@ export default function BottomNav() {
   useEffect(() => {
     // List of all possible theme classes
     const themeClasses = navItems.map(item => `theme-${item.href.slice(1)}`);
-    
+
     // Remove any existing theme classes from the body
-    document.body.classList.remove(...themeClasses, 'theme-profil', 'theme-settings', 'theme-stylek', 'theme-wardrobe'); 
+    document.body.classList.remove(...themeClasses, 'theme-profil', 'theme-settings', 'theme-stylek', 'theme-wardrobe');
 
     // Find the current section and add its theme class
     const section = navItems.find(item => pathname.startsWith(item.href));
     if (section) {
-        const themeClass = `theme-${section.href.slice(1)}`; 
-        document.body.classList.add(themeClass);
+      const themeClass = `theme-${section.href.slice(1)}`;
+      document.body.classList.add(themeClass);
     } else if (pathname.startsWith('/settings') || pathname.startsWith('/wardrobe')) {
-        // Special case for settings page since it's not in navItems anymore
-        document.body.classList.add('theme-stylek');
+      // Special case for settings page since it's not in navItems anymore
+      document.body.classList.add('theme-stylek');
     } else {
-        // Apply a default theme if no section matches
-        document.body.classList.add('theme-stylek');
+      // Apply a default theme if no section matches
+      document.body.classList.add('theme-stylek');
     }
   }, [pathname]);
 
