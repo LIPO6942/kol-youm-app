@@ -10,7 +10,32 @@ export interface TeskertiEvent {
 }
 
 export const getTeskertiEvents = async (): Promise<TeskertiEvent[]> => {
-    // Links are updated to point to specific categories since direct event deep links are dynamic and require scraping
+    try {
+        const response = await fetch('/api/teskerti', {
+            cache: 'no-store', // Always get fresh data or cached from server
+        });
+
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.success && data.events) {
+            return data.events;
+        }
+
+        // Fallback to static events if API fails
+        return getStaticEvents();
+
+    } catch (error) {
+        console.error('Failed to fetch Teskerti events from API:', error);
+        return getStaticEvents();
+    }
+};
+
+// Fallback static events in case API is unavailable
+function getStaticEvents(): TeskertiEvent[] {
     return [
         {
             id: '1',
@@ -59,14 +84,6 @@ export const getTeskertiEvents = async (): Promise<TeskertiEvent[]> => {
             location: 'Théâtre de l\'Opéra',
             category: 'Concert',
             url: 'https://teskerti.tn/category/spectacle'
-        },
-        {
-            id: '7',
-            title: 'Exposition : L\'Art de la Calle',
-            date: 'En cours',
-            location: 'Galerie Marsa',
-            category: 'Art',
-            url: 'https://teskerti.tn/'
         }
     ];
-};
+}
