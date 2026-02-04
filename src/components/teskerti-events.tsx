@@ -1,12 +1,23 @@
 
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, MapPin, ExternalLink, Ticket, Loader2 } from 'lucide-react';
+import { Calendar, MapPin, ExternalLink, Ticket, Loader2, Music, Film, Tv, Mic2, Theater } from 'lucide-react';
 import { getTeskertiEvents, type TeskertiEvent } from '@/lib/teskerti-service';
+
+const CategoryIcon = ({ category, className }: { category: string, className?: string }) => {
+    const term = category.toLowerCase();
+    if (term.includes('cinéma') || term.includes('cinema')) return <Film className={className} />;
+    if (term.includes('théâtre') || term.includes('theatre') || term.includes('spectacle')) return <Theater className={className} />;
+    if (term.includes('musique') || term.includes('concert')) return <Music className={className} />;
+    if (term.includes('festival')) return <Mic2 className={className} />;
+    if (term.includes('ramadan')) return <Tv className={className} />; // Or Moon if available
+    return <Ticket className={className} />;
+}
 
 export function TeskertiEvents() {
     const [events, setEvents] = useState<TeskertiEvent[]>([]);
@@ -36,47 +47,51 @@ export function TeskertiEvents() {
     }
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-500">
+        <div className="space-y-3 animate-in fade-in duration-500">
             {events.map((event) => (
-                <Card key={event.id} className="group overflow-hidden border-2 hover:border-primary/50 transition-all duration-300 shadow-sm hover:shadow-md">
-                    <CardHeader className="p-0">
-                        <div className="relative h-40 bg-muted flex items-center justify-center">
-                            {event.imageUrl ? (
-                                <img src={event.imageUrl} alt={event.title} className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="flex flex-col items-center text-muted-foreground/30">
-                                    <Ticket className="h-16 w-16" />
-                                </div>
-                            )}
-                            <Badge className="absolute top-2 right-2 bg-primary/90 backdrop-blur-sm">
-                                {event.category}
-                            </Badge>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-4 space-y-3">
-                        <h3 className="font-bold text-lg line-clamp-2 min-h-[3.5rem] group-hover:text-primary transition-colors">
-                            {event.title}
-                        </h3>
-
-                        <div className="space-y-2 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4 text-primary" />
-                                <span>{event.date}</span>
+                <Card key={event.id} className="group relative overflow-hidden transition-all duration-300 hover:shadow-md hover:border-primary/50">
+                    <div className="flex flex-row items-stretch">
+                        {/* Left Side: Category Icon Strip */}
+                        <div className="w-16 bg-muted/30 flex flex-col items-center justify-center border-r shrink-0">
+                            <div className="h-10 w-10 rounded-full bg-background flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform duration-300">
+                                <CategoryIcon category={event.category} className="h-5 w-5 text-primary" />
                             </div>
-                            <div className="flex items-center gap-2">
-                                <MapPin className="h-4 w-4 text-primary" />
+                        </div>
+
+                        {/* Middle: Content */}
+                        <div className="flex-1 p-4 flex flex-col justify-center gap-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-primary/20 text-primary bg-primary/5">
+                                    {event.category}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <Calendar className="h-3 w-3" />
+                                    {event.date}
+                                </span>
+                            </div>
+
+                            <h3 className="font-bold text-base truncate group-hover:text-primary transition-colors pr-8">
+                                {event.title}
+                            </h3>
+
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
+                                <MapPin className="h-3.5 w-3.5 shrink-0" />
                                 <span className="truncate">{event.location}</span>
                             </div>
                         </div>
-                    </CardContent>
-                    <CardFooter className="p-4 pt-0">
-                        <Button asChild className="w-full gap-2 rounded-xl group/btn overflow-hidden relative">
-                            <a href={event.url} target="_blank" rel="noopener noreferrer">
-                                <span>Réserver sur Teskerti</span>
-                                <ExternalLink className="h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
+
+                        {/* Right: Action Button (Link) */}
+                        <div className="flex items-center text-primary px-4 border-l bg-primary/0 group-hover:bg-primary/5 transition-colors">
+                            <a
+                                href={event.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="h-full w-full flex items-center justify-center p-2"
+                            >
+                                <ExternalLink className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                             </a>
-                        </Button>
-                    </CardFooter>
+                        </div>
+                    </div>
                 </Card>
             ))}
         </div>
