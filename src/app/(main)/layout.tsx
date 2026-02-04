@@ -66,7 +66,10 @@ export default function MainLayout({ children }: { children: ReactNode }) {
               </h1>
             </Link>
             <div className="flex items-center gap-2">
-              <Link href="/settings" passHref>
+              <Link
+                href={pathname === '/khrouj' ? "/settings?tab=khrouj&db=true" : "/settings"}
+                passHref
+              >
                 <Button variant="ghost" size="icon">
                   <Settings className="h-6 w-6" />
                   <span className="sr-only">Paramètres</span>

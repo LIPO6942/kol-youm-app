@@ -587,8 +587,12 @@ export default function SettingsPage() {
   // Handle URL tab parameter
   useEffect(() => {
     const tab = searchParams.get('tab');
+    const db = searchParams.get('db');
     if (tab === 'tfarrej' || tab === 'khrouj' || tab === 'profile') {
-      setActiveTab(tab);
+      setActiveTab(tab as any);
+      if (tab === 'khrouj' && db === 'true') {
+        setDatabaseMode(true);
+      }
     }
   }, [searchParams]);
 
