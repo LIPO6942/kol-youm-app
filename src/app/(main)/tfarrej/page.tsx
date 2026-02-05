@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo, Settings } from 'lucide-react';
 import { MovieListSheet } from '@/components/tfarrej/movie-list-sheet';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TfarrejStatsDialog } from '@/components/tfarrej/tfarrej-stats-dialog';
 
 const genres = [
   { name: 'Comédie', iconName: 'Laugh', description: 'Pour rire aux éclats.' },
@@ -93,6 +94,7 @@ function TfarrejContent() {
           <Button variant="outline" size="icon" aria-label="Paramètres" onClick={() => router.push('/settings?tab=tfarrej')}>
             <Settings className="h-4 w-4" />
           </Button>
+          <TfarrejStatsDialog />
           <MovieListSheet
             trigger={<Button variant="ocean"><ListVideo className="mr-2 h-4 w-4" /> {type === 'movie' ? 'Films à Voir' : 'Séries à Voir'}</Button>}
             title={type === 'movie' ? "Ma Liste 'À Voir'" : "Mes Séries 'À Voir'"}
