@@ -314,6 +314,31 @@ export async function removeSeriesFromSeenList(uid: string, seriesTitle: string)
     await removeMovieFromList(uid, 'seenSeriesTitles', seriesTitle);
 }
 
+// Add an item to the watchlist
+export async function addItemToWatchlist(uid: string, title: string, type: 'movie' | 'tv' = 'movie') {
+    const userRef = doc(firestoreDb, "users", uid);
+    const watchlistField = type === 'movie' ? 'moviesToWatch' : 'seriesToWatch';
+
+    await setDoc(userRef, {
+        [watchlistField]: arrayUnion(title)
+    }, { merge: true });
+
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = { ...localProfile } as any;
+        updatedProfile[watchlistField] = Array.from(new Set([...(updatedProfile[watchlistField] || []), title]));
+        await storeUserInDb(uid, updatedProfile);
+    }
+}
+
+export async function addMovieToWatchlist(uid: string, movieTitle: string) {
+    return addItemToWatchlist(uid, movieTitle, 'movie');
+}
+
+export async function addSeriesToWatchlist(uid: string, seriesTitle: string) {
+    return addItemToWatchlist(uid, seriesTitle, 'tv');
+}
+
 // Add a series to seen list with viewing date (for manual entry)
 export async function addSeenSeriesWithDate(
     uid: string,

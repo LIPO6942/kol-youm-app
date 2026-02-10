@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate } from '@/lib/firebase/firestore';
+import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist } from '@/lib/firebase/firestore';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -58,11 +58,13 @@ interface MovieListSheetProps {
 }
 
 // Add Movie Dialog Component
-function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie' }: {
+function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 'seen', initialMovie = null }: {
   onAdd: (movie: SearchResult, viewedAt: Date) => Promise<void>;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   type?: 'movie' | 'tv';
+  mode?: 'seen' | 'watchlist';
+  initialMovie?: SearchResult | null;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -76,6 +78,13 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie' }: {
   const [manualTitle, setManualTitle] = useState('');
   const [manualYear, setManualYear] = useState('');
   const [manualPosterVariant, setManualPosterVariant] = useState(DEFAULT_POSTERS[0].id);
+
+  // Set initial movie if provided
+  useEffect(() => {
+    if (isOpen && initialMovie) {
+      setSelectedMovie(initialMovie);
+    }
+  }, [isOpen, initialMovie]);
 
   // Search TMDb
   const searchTMDb = useCallback(async (query: string) => {
@@ -186,12 +195,18 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie' }: {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Plus className="h-5 w-5" />
-            {isManualMode ? 'Ajout manuel' : `Ajouter ${type === 'movie' ? 'un film' : 'une série'} vu${type === 'tv' ? 'e' : ''}`}
+            {isManualMode
+              ? 'Ajout manuel'
+              : mode === 'watchlist'
+                ? `Ajouter à voir (${type === 'movie' ? 'film' : 'série'})`
+                : `Ajouter ${type === 'movie' ? 'un film' : 'une série'} vu${type === 'tv' ? 'e' : ''}`}
           </DialogTitle>
           <DialogDescription>
             {isManualMode
               ? `Entrez les détails ${type === 'movie' ? 'du film' : 'de la série'} manuellement.`
-              : `Recherchez ${type === 'movie' ? 'un film' : 'une série'} et indiquez quand vous l'avez vu${type === 'tv' ? 'e' : ''}.`}
+              : mode === 'watchlist'
+                ? `Recherchez ${type === 'movie' ? 'un film' : 'une série'} à mettre de côté.`
+                : `Recherchez ${type === 'movie' ? 'un film' : 'une série'} et indiquez quand vous l'avez vu${type === 'tv' ? 'e' : ''}.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -222,7 +237,10 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie' }: {
                       {searchResults.map(movie => (
                         <button
                           key={movie.id}
-                          onClick={() => setSelectedMovie(movie)}
+                          onClick={(e: React.MouseEvent) => {
+                            e.preventDefault();
+                            setSelectedMovie(movie);
+                          }}
                           className={`relative rounded-lg overflow-hidden aspect-[2/3] transition-all text-left ${selectedMovie?.id === movie.id
                             ? 'ring-2 ring-primary ring-offset-2'
                             : 'hover:ring-2 hover:ring-muted-foreground'
@@ -297,7 +315,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie' }: {
                   }}
                   className="text-xs text-muted-foreground hover:text-primary underline"
                 >
-                  {type === 'movie' ? 'Film' : 'Série'} introuvable ? Ajouter "{searchQuery || (type === 'movie' ? 'ce film' : 'cette série')}" manuellement
+                  {type === 'movie' ? 'Film' : 'Série'} introuvable ? Ajouter "{searchQuery || (type === 'movie' ? 'ce film' : 'cette série')}" {mode === 'watchlist' ? 'à voir' : ''} manuellement
                 </button>
               </div>
             </>
@@ -352,8 +370,8 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie' }: {
             </div>
           )}
 
-          {/* Date Picker (Common) */}
-          {(selectedMovie || isManualMode) && (
+          {/* Date Picker (Common - Only for seen mode) */}
+          {(selectedMovie || isManualMode) && mode === 'seen' && (
             <div className="space-y-2">
               <Label htmlFor="viewedDate">Vu le :</Label>
               <Input
@@ -391,18 +409,20 @@ function MovieListContent({
   onRemove,
   isUpdating,
   onAddManual,
+  movieDetails,
+  isLoadingDetails,
   type = 'movie'
 }: {
   listType: 'moviesToWatch' | 'seenMovieTitles' | 'seriesToWatch' | 'seenSeriesTitles';
   onMarkAsWatched: (movieTitle: string) => Promise<void>;
   onRemove: (movieTitle: string) => Promise<void>;
   isUpdating: boolean;
-  onAddManual: () => void;
+  onAddManual: (movie?: SearchResult) => void;
   type?: 'movie' | 'tv';
+  movieDetails: Record<string, MovieDetails>;
+  isLoadingDetails: boolean;
 }) {
   const { userProfile } = useAuth();
-  const [movieDetails, setMovieDetails] = useState<Record<string, MovieDetails>>({});
-  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   // Constants
   const TWO_YEARS_MS = 2 * 365 * 24 * 60 * 60 * 1000; // ~2 years in milliseconds
@@ -457,7 +477,7 @@ function MovieListContent({
   // Extract available years for filtering
   const availableYears = useMemo(() => {
     const years = new Set<number>();
-    Object.values(movieDetails).forEach(detail => {
+    (Object.values(movieDetails) as MovieDetails[]).forEach((detail: MovieDetails) => {
       if (detail.year) years.add(detail.year);
     });
     return Array.from(years).sort((a, b) => b - a);
@@ -495,7 +515,7 @@ function MovieListContent({
     }
     const recent: string[] = [];
     const old: string[] = [];
-    filteredMovies.forEach(title => {
+    filteredMovies.forEach((title: string) => {
       if (isOlderThanTwoYears(title)) {
         old.push(title);
       } else {
@@ -545,65 +565,7 @@ function MovieListContent({
     return () => clearTimeout(timer);
   }, [searchQuery, searchTMDb, listType]);
 
-  // Fonction pour récupérer les détails d'un film
-  const fetchMovieDetails = useCallback(async (movieTitle: string) => {
-    if (movieDetails[movieTitle]) return;
-
-    setIsLoadingDetails(true);
-    try {
-      // First check if we have data in seenMoviesData
-      const seenData = seenMoviesData?.find(m => m.title === movieTitle);
-
-      const response = await fetch('/api/tmdb-movie-details', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ title: movieTitle, type }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.movie) {
-          // Also fetch poster from search API
-          const searchRes = await fetch(`/api/tmdb-search?q=${encodeURIComponent(movieTitle)}&type=${type}`);
-          let posterUrl = seenData?.posterUrl || undefined;
-          if (!posterUrl && searchRes.ok) {
-            const searchData = await searchRes.json();
-            if (searchData.results?.[0]?.posterUrl) {
-              posterUrl = searchData.results[0].posterUrl;
-            }
-          }
-
-          setMovieDetails(prev => ({
-            ...prev,
-            [movieTitle]: {
-              title: movieTitle,
-              rating: data.movie.rating,
-              wikipediaUrl: data.movie.wikipediaUrl,
-              year: data.movie.year,
-              country: data.movie.country,
-              posterUrl,
-              viewedAt: seenData?.viewedAt,
-            }
-          }));
-        }
-      }
-    } catch (error) {
-      console.error('Erreur lors de la récupération des détails du film:', error);
-    } finally {
-      setIsLoadingDetails(false);
-    }
-  }, [movieDetails, seenMoviesData, type]);
-
-  // Charger les détails pour tous les films
-  useEffect(() => {
-    if (sortedMovieTitles.length > 0) {
-      sortedMovieTitles.forEach(movieTitle => {
-        fetchMovieDetails(movieTitle);
-      });
-    }
-  }, [sortedMovieTitles]);
+  // No longer needed here as it's lifted to parent
 
   // Format date for display
   const formatViewedDate = (timestamp?: number) => {
@@ -635,6 +597,7 @@ function MovieListContent({
           fill
           className="object-cover"
           sizes="32px"
+          unoptimized={posterUrl.startsWith('http')}
         />
       );
     }
@@ -688,22 +651,21 @@ function MovieListContent({
                 </div>
                 {details && (
                   <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
-                    {/* Rating hidden for seen list/compact view */}
-                    {!(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && details.rating && (
+                    {!isOld && details.rating && (
                       <div className="flex items-center gap-0.5 flex-shrink-0">
                         <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                         <span className="font-medium">{details.rating}/10</span>
                       </div>
                     )}
                     {!isOld && details.year && (
-                      <Badge variant="secondary" className="px-1.5 py-0 text-[10px] h-5 flex-shrink-0">
+                      <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80 px-1.5 py-0 text-[10px] h-5 flex-shrink-0">
                         {details.year}
-                      </Badge>
+                      </span>
                     )}
                     {!isOld && details.country && (
-                      <Badge variant="outline" className="px-1.5 py-0 text-[10px] h-5 truncate max-w-[80px]">
+                      <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-transparent border-input border text-foreground hover:bg-accent hover:text-accent-foreground px-1.5 py-0 text-[10px] h-5 truncate max-w-[80px]">
                         {details.country}
-                      </Badge>
+                      </span>
                     )}
                   </div>
                 )}
@@ -887,13 +849,11 @@ function MovieListContent({
         </div>
 
         <div className="flex gap-2">
-          {/* Add Button (for seen list) */}
-          {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
-            <Button variant="outline" size="sm" onClick={onAddManual} className="gap-1">
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Ajouter</span>
-            </Button>
-          )}
+          {/* Add Button (Available for all lists now) */}
+          <Button variant="outline" size="sm" onClick={() => onAddManual()} className="gap-1">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Ajouter</span>
+          </Button>
 
           {/* Year Filter */}
           <Select value={yearFilter} onValueChange={setYearFilter}>
@@ -944,7 +904,7 @@ function MovieListContent({
               >
                 <div
                   className="w-16 h-24 rounded overflow-hidden bg-muted mb-1 relative"
-                  onClick={() => onAddManual()} // Open dialog when clicking a result
+                  onClick={() => onAddManual(result)} // Open dialog with pre-selected movie
                 >
                   {result.posterUrl ? (
                     <Image src={result.posterUrl} alt={result.title} fill className="object-cover" sizes="64px" />
@@ -978,7 +938,7 @@ function MovieListContent({
               {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && recentMovies.length > 0 && (
                 <div className="mb-2">
                   <h3 className="text-sm font-semibold text-muted-foreground mb-2 px-1">Récemment vu{type === 'tv' ? 'es' : 's'}</h3>
-                  {recentMovies.map((movieTitle, index) => renderListItem(movieTitle, index))}
+                  {recentMovies.map((movieTitle: string, index: number) => renderListItem(movieTitle, index))}
                 </div>
               )}
 
@@ -1002,7 +962,7 @@ function MovieListContent({
                           Masquer
                         </Button>
                       </div>
-                      {oldMovies.map((movieTitle, index) => renderListItem(movieTitle, index))}
+                      {oldMovies.map((movieTitle: string, index: number) => renderListItem(movieTitle, index))}
                     </div>
                   )}
                 </div>
@@ -1010,7 +970,7 @@ function MovieListContent({
 
               {/* Standard List (Watchlist or Search Results) */}
               {!(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && filteredMovies.length > 0 && (
-                filteredMovies.map((movieTitle, index) => renderListItem(movieTitle, index))
+                filteredMovies.map((movieTitle: string, index: number) => renderListItem(movieTitle, index))
               )}
 
               {/* Fallback Empty State */}
@@ -1043,7 +1003,7 @@ function MovieListContent({
                     <div className="mb-4">
                       <h3 className="text-sm font-semibold text-muted-foreground mb-2 px-1">Récemment vu{type === 'tv' ? 'es' : 's'}</h3>
                       <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                        {recentMovies.map((movieTitle, index) => renderGridItem(movieTitle, index))}
+                        {recentMovies.map((movieTitle: string, index: number) => renderGridItem(movieTitle, index))}
                       </div>
                     </div>
                   )}
@@ -1068,7 +1028,7 @@ function MovieListContent({
                             </Button>
                           </div>
                           <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                            {oldMovies.map((movieTitle, index) => renderGridItem(movieTitle, index))}
+                            {oldMovies.map((movieTitle: string, index: number) => renderGridItem(movieTitle, index))}
                           </div>
                         </div>
                       )}
@@ -1132,19 +1092,78 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
   const [isClearing, setIsClearing] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [preSelectedMovie, setPreSelectedMovie] = useState<SearchResult | null>(null);
+  const [movieDetails, setMovieDetails] = useState<Record<string, MovieDetails>>({});
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
-  const handleMarkAsWatched = async (movieTitle: string) => {
-    if (!user) return;
-    setIsUpdating(true);
+  const isSeenList = listType === 'seenMovieTitles' || listType === 'seenSeriesTitles';
+  const addMode: 'seen' | 'watchlist' = isSeenList ? 'seen' : 'watchlist';
+
+  // Fetch movie details logic lifted from MovieListContent
+  const seenMoviesData = type === 'movie' ? userProfile?.seenMoviesData : userProfile?.seenSeriesData;
+  const movieTitles = (userProfile?.[listType] || []) as string[];
+
+  const fetchMovieDetails = useCallback(async (movieTitle: string) => {
+    if (movieDetails[movieTitle]) return;
+
+    setIsLoadingDetails(true);
     try {
-      await moveItemFromWatchlistToSeen(user.uid, movieTitle, type);
-      toast({ title: `"${movieTitle}" marqué comme vu.` });
+      const seenData = (seenMoviesData as any[] | undefined)?.find((m: any) => m.title === movieTitle);
+      const response = await fetch('/api/tmdb-movie-details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: movieTitle, type }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.movie) {
+          const searchRes = await fetch(`/api/tmdb-search?q=${encodeURIComponent(movieTitle)}&type=${type}`);
+          let posterUrl = seenData?.posterUrl || undefined;
+          if (!posterUrl && searchRes.ok) {
+            const searchData = await searchRes.json();
+            if (searchData.results?.[0]?.posterUrl) {
+              posterUrl = searchData.results[0].posterUrl;
+            }
+          }
+
+          setMovieDetails(prev => ({
+            ...prev,
+            [movieTitle]: {
+              title: movieTitle,
+              rating: data.movie.rating,
+              wikipediaUrl: data.movie.wikipediaUrl,
+              year: data.movie.year,
+              country: data.movie.country,
+              posterUrl,
+              viewedAt: seenData?.viewedAt,
+            }
+          }));
+        }
+      }
     } catch (error) {
-      console.error(error);
-      toast({ variant: 'destructive', title: "Erreur", description: "Impossible de mettre à jour le contenu." });
+      console.error('Erreur détails:', error);
     } finally {
-      setIsUpdating(false);
+      setIsLoadingDetails(false);
     }
+  }, [movieDetails, seenMoviesData, type]);
+
+  useEffect(() => {
+    if (movieTitles.length > 0) {
+      movieTitles.forEach(title => fetchMovieDetails(title));
+    }
+  }, [movieTitles, fetchMovieDetails]);
+  const handleMarkAsWatched = async (movieTitle: string) => {
+    const details = movieDetails[movieTitle];
+    const pseudoMovie: SearchResult = {
+      id: -Date.now(),
+      title: movieTitle,
+      originalTitle: movieTitle,
+      year: details?.year || null,
+      rating: details?.rating || 0,
+      posterUrl: details?.posterUrl || null
+    };
+    openAddDialog(pseudoMovie);
   };
 
   const handleRemove = async (movieTitle: string) => {
@@ -1201,10 +1220,38 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
       }
 
       toast({ title: `"${movie.title}" ajouté aux vus.` });
+
+      // If we are moving from a watchlist, remove it from there
+      if (userProfile?.moviesToWatch?.includes(movie.title)) {
+        await removeMovieFromList(user.uid, 'moviesToWatch', movie.title);
+      } else if (userProfile?.seriesToWatch?.includes(movie.title)) {
+        await removeMovieFromList(user.uid, 'seriesToWatch', movie.title);
+      }
     } catch (error) {
       console.error('Error in handleAddMovieManually:', error);
       toast({ variant: 'destructive', title: "Erreur", description: `Impossible d'ajouter ${type === 'movie' ? 'le film' : 'la série'}.` });
     }
+  };
+
+  const handleAddToWatchlist = async (movie: SearchResult) => {
+    if (!user) {
+      toast({ variant: 'destructive', title: "Erreur", description: "Vous devez être connecté." });
+      return;
+    }
+
+    try {
+      await addItemToWatchlist(user.uid, movie.title, type);
+      toast({ title: `"${movie.title}" ajouté à la liste 'À Voir'.` });
+    } catch (error) {
+      console.error('Error in handleAddToWatchlist:', error);
+      toast({ variant: 'destructive', title: "Erreur", description: `Impossible d'ajouter ${type === 'movie' ? 'le film' : 'la série'}.` });
+    }
+  };
+
+  const openAddDialog = (movie?: SearchResult) => {
+    if (movie) setPreSelectedMovie(movie);
+    else setPreSelectedMovie(null);
+    setIsAddDialogOpen(true);
   };
 
   return (
@@ -1228,17 +1275,24 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
             onMarkAsWatched={handleMarkAsWatched}
             onRemove={handleRemove}
             isUpdating={isUpdating}
-            onAddManual={() => setIsAddDialogOpen(true)}
+            onAddManual={openAddDialog}
             type={type}
+            movieDetails={movieDetails}
+            isLoadingDetails={isLoadingDetails}
           />
         </SheetContent>
       </Sheet>
 
       <AddMovieDialog
         isOpen={isAddDialogOpen}
-        onOpenChange={setIsAddDialogOpen}
-        onAdd={handleAddMovieManually}
+        onOpenChange={(open) => {
+          setIsAddDialogOpen(open);
+          if (!open) setPreSelectedMovie(null);
+        }}
+        onAdd={addMode === 'seen' ? handleAddMovieManually : handleAddToWatchlist}
         type={type}
+        mode={addMode}
+        initialMovie={preSelectedMovie}
       />
     </>
   );
