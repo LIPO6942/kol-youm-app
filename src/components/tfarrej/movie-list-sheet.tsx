@@ -637,16 +637,17 @@ function MovieListContent({
                     {movieTitle}
                   </h4>
                   {details?.wikipediaUrl && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-4 w-4 p-0 flex-shrink-0 text-muted-foreground hover:text-foreground"
-                      onClick={() => window.open(details.wikipediaUrl, '_blank')}
+                    <a
+                      href={details.wikipediaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center h-4 w-4 rounded-md hover:bg-accent hover:text-accent-foreground text-muted-foreground transition-colors"
+                      onClick={(e) => e.stopPropagation()}
                       title="Wikipedia"
                     >
                       <ExternalLink className="h-3 w-3" />
                       <span className="sr-only">Wikipedia</span>
-                    </Button>
+                    </a>
                   )}
                 </div>
                 {details && (
@@ -688,7 +689,10 @@ function MovieListContent({
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7"
-                    onClick={() => onMarkAsWatched(movieTitle)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMarkAsWatched(movieTitle);
+                    }}
                     disabled={isUpdating}
                   >
                     <Eye className="h-4 w-4" />
@@ -1093,6 +1097,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
   const [isUpdating, setIsUpdating] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [preSelectedMovie, setPreSelectedMovie] = useState<SearchResult | null>(null);
+  const [currentDialogMode, setCurrentDialogMode] = useState<'seen' | 'watchlist'>('seen');
   const [movieDetails, setMovieDetails] = useState<Record<string, MovieDetails>>({});
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
@@ -1163,7 +1168,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
       rating: details?.rating || 0,
       posterUrl: details?.posterUrl || null
     };
-    openAddDialog(pseudoMovie);
+    openAddDialog(pseudoMovie, 'seen');
   };
 
   const handleRemove = async (movieTitle: string) => {
@@ -1248,9 +1253,10 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
     }
   };
 
-  const openAddDialog = (movie?: SearchResult) => {
+  const openAddDialog = (movie?: SearchResult, overrideMode?: 'seen' | 'watchlist') => {
     if (movie) setPreSelectedMovie(movie);
     else setPreSelectedMovie(null);
+    setCurrentDialogMode(overrideMode || addMode);
     setIsAddDialogOpen(true);
   };
 
@@ -1289,9 +1295,9 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
           setIsAddDialogOpen(open);
           if (!open) setPreSelectedMovie(null);
         }}
-        onAdd={addMode === 'seen' ? handleAddMovieManually : handleAddToWatchlist}
+        onAdd={currentDialogMode === 'seen' ? handleAddMovieManually : handleAddToWatchlist}
         type={type}
-        mode={addMode}
+        mode={currentDialogMode}
         initialMovie={preSelectedMovie}
       />
     </>

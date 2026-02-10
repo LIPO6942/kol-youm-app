@@ -69,47 +69,47 @@ export async function POST(req: NextRequest) {
     let wikipediaUrl = '';
     const wikiTerm = type === 'movie' ? 'film' : 'série télévisée';
     try {
-      // Utiliser l'API Wikipedia pour trouver la page correcte
-      const wikiQuery = year ? `${itemTitle}_(${year})` : itemTitle;
-      const wikiSearchResponse = await fetch(
-        `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiQuery)}`,
-        {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-          },
-        }
+      // 1. Chercher via l'API de recherche Wikipedia pour trouver le titre exact
+      const searchQuery = year ? `${itemTitle} ${wikiTerm} ${year}` : `${itemTitle} ${wikiTerm}`;
+      const searchResponse = await fetch(
+        `https://fr.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(searchQuery)}&format=json&origin=*`,
+        { method: 'GET', headers: { 'Accept': 'application/json' } }
       );
 
-      if (wikiSearchResponse.ok) {
-        const wikiData = await wikiSearchResponse.json();
-        wikipediaUrl = wikiData.content_urls?.desktop?.page || '';
-      }
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        const firstResult = searchData.query?.search?.[0];
 
-      // Si la recherche spécifique ne fonctionne pas, essayer le titre seul
-      if (!wikipediaUrl) {
-        const wikiSearchResponse2 = await fetch(
-          `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(itemTitle)}`,
-          {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-            },
-          }
-        );
+        if (firstResult) {
+          // Utiliser le titre trouvé pour obtenir le résumé et l'URL
+          const pageTitle = firstResult.title;
+          const wikiSummaryResponse = await fetch(
+            `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle.replace(/ /g, '_'))}`,
+            { method: 'GET', headers: { 'Accept': 'application/json' } }
+          );
 
-        if (wikiSearchResponse2.ok) {
-          const wikiData2 = await wikiSearchResponse2.json();
-          // Vérifier si c'est bien le bon type
-          const desc = (wikiData2.description || '').toLowerCase();
-          const titleLow = (wikiData2.title || '').toLowerCase();
-          if (desc.includes(wikiTerm) || titleLow.includes(wikiTerm) || desc.includes('série') || desc.includes('émission')) {
-            wikipediaUrl = wikiData2.content_urls?.desktop?.page || '';
+          if (wikiSummaryResponse.ok) {
+            const wikiData = await wikiSummaryResponse.json();
+            wikipediaUrl = wikiData.content_urls?.desktop?.page || `https://fr.wikipedia.org/wiki/${encodeURIComponent(pageTitle.replace(/ /g, '_'))}`;
           }
         }
       }
 
-      // Fallback: utiliser le lien de recherche Wikipedia
+      // 2. Fallback: Ancienne méthode si la recherche n'a rien donné
+      if (!wikipediaUrl) {
+        const wikiQuery = year ? `${itemTitle}_(${year})` : itemTitle;
+        const wikiSearchResponse = await fetch(
+          `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiQuery)}`,
+          { method: 'GET', headers: { 'Accept': 'application/json' } }
+        );
+
+        if (wikiSearchResponse.ok) {
+          const wikiData = await wikiSearchResponse.json();
+          wikipediaUrl = wikiData.content_urls?.desktop?.page || '';
+        }
+      }
+
+      // 3. Fallback ultime: recherche directe
       if (!wikipediaUrl) {
         wikipediaUrl = `https://fr.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(itemTitle + ' ' + wikiTerm)}`;
       }
