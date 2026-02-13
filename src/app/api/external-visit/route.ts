@@ -86,6 +86,8 @@ export async function POST(request: NextRequest) {
         };
 
         // 4.5. DÉTECTION MULTI-CATÉGORIES
+        // La catégorie normalisée envoyée par Momenty est TOUJOURS la source de vérité
+        const normalizedInputCategory = normalizeCategoryInput(category);
         let possibleCategories: string[] = [];
         try {
             const zonesSnap = await getDocs(collection(db, 'zones'));
@@ -102,26 +104,44 @@ export async function POST(request: NextRequest) {
             console.error('[External Visit API] Error checking categories:', catError);
         }
 
-        // Si aucune catégorie trouvée via DB, on utilise celle reçue et normalisée
-        if (possibleCategories.length === 0) {
-            possibleCategories = [normalizeCategoryInput(category)];
+        // TOUJOURS utiliser la catégorie envoyée par Momenty comme catégorie principale.
+        // La détection multi-catégories via la DB sert uniquement à enrichir possibleCategories
+        // pour le dialog de confirmation côté client, mais NE DOIT PAS remplacer le choix de Momenty.
+        const finalCategory = normalizedInputCategory;
+
+        // S'assurer que la catégorie Momenty est incluse dans possibleCategories
+        if (!possibleCategories.includes(normalizedInputCategory)) {
+            possibleCategories.push(normalizedInputCategory);
         }
 
+        // Ambiguïté uniquement si le lieu existe dans PLUSIEURS catégories en DB
+        // ET que la catégorie Momenty est différente d'une seule catégorie DB
         const isAmbiguous = possibleCategories.length > 1;
-        const finalCategory = isAmbiguous ? possibleCategories[0] : possibleCategories[0];
 
-        // 5. Préparer l'objet visite
+        // 5. Préparer l'objet visite — IMPORTANT: NE PAS inclure de valeurs `undefined`
+        // car Firestore rejette les objets contenant des champs `undefined`, ce qui fait
+        // échouer silencieusement le `updateDoc`.
         const visitId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const newVisit = {
+        const newVisit: Record<string, any> = {
             id: visitId,
             placeName: placeName,
             category: finalCategory,
             date: date,
-            orderedItem: dishName ? dishName.trim() : undefined,
             source: 'momenty',
             isPending: isAmbiguous,
-            possibleCategories: isAmbiguous ? possibleCategories : undefined
         };
+
+        // N'ajouter orderedItem QUE si dishName est fourni et non vide
+        if (dishName && dishName.trim()) {
+            newVisit.orderedItem = dishName.trim();
+        }
+
+        // N'ajouter possibleCategories QUE si ambigu
+        if (isAmbiguous) {
+            newVisit.possibleCategories = possibleCategories;
+        }
+
+        console.log(`[External Visit API] Saving visit object:`, JSON.stringify(newVisit));
 
         // 6. Ajouter la visite au tableau 'visits' de l'utilisateur
         const userRef = doc(db, 'users', userId);
@@ -129,7 +149,7 @@ export async function POST(request: NextRequest) {
             visits: arrayUnion(newVisit)
         });
 
-        console.log(`[External Visit API] Successfully added visit for ${userEmail} at ${placeName}`);
+        console.log(`[External Visit API] Successfully added visit for ${userEmail} at ${placeName} | category: ${finalCategory} | dish: ${dishName || 'N/A'} | input category was: ${category}`);
 
         // 7. Synchroniser le plat dans la base globale (Spécialités)
         if (dishName && placeName) {
@@ -183,7 +203,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             message: "Visite ajoutée au tableau visits",
-            visitId: visitId
+            visitId: visitId,
+            finalCategory: finalCategory,
+            orderedItem: newVisit.orderedItem || null,
+            inputCategory: category
         }, { headers: corsHeaders() });
 
     } catch (error) {
