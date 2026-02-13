@@ -85,38 +85,58 @@ export async function POST(request: NextRequest) {
             return cat.charAt(0).toUpperCase() + cat.slice(1);
         };
 
-        // 4.5. DÉTECTION MULTI-CATÉGORIES
-        // La catégorie normalisée envoyée par Momenty est TOUJOURS la source de vérité
+        // 4.5. DÉTECTION MULTI-CATÉGORIES avec FUZZY MATCHING
         const normalizedInputCategory = normalizeCategoryInput(category);
-        let possibleCategories: string[] = [];
+
+        // Fuzzy match helper: permet de détecter que "Del Capo Restaurant" correspond à "Del Capo" dans la DB
+        const fuzzyMatch = (dbName: string, searchName: string): boolean => {
+            if (dbName === searchName) return true;
+            // Le plus court doit faire au moins 4 caractères pour éviter les faux positifs
+            const shorter = dbName.length < searchName.length ? dbName : searchName;
+            const longer = dbName.length < searchName.length ? searchName : dbName;
+            return shorter.length >= 4 && longer.includes(shorter);
+        };
+
+        const matchesInList = (list: string[] | undefined, searchName: string): boolean => {
+            if (!list) return false;
+            return list.some(p => fuzzyMatch(p.toLowerCase(), searchName));
+        };
+
+        // Détecter les catégories DB pour ce lieu
+        let dbCategories: string[] = [];
         try {
             const zonesSnap = await getDocs(collection(db, 'zones'));
             const normalizedPlace = placeName.trim().toLowerCase();
 
             for (const zoneDoc of zonesSnap.docs) {
                 const data = zoneDoc.data();
-                if (data.restaurants?.map((p: string) => p.toLowerCase()).includes(normalizedPlace)) possibleCategories.push('Restaurant');
-                if (data.cafes?.map((p: string) => p.toLowerCase()).includes(normalizedPlace)) possibleCategories.push('Café');
-                if (data.fastFoods?.map((p: string) => p.toLowerCase()).includes(normalizedPlace)) possibleCategories.push('Fast Food');
-                if (data.brunch?.map((p: string) => p.toLowerCase()).includes(normalizedPlace)) possibleCategories.push('Brunch');
+                if (matchesInList(data.restaurants, normalizedPlace)) dbCategories.push('Restaurant');
+                if (matchesInList(data.cafes, normalizedPlace)) dbCategories.push('Café');
+                if (matchesInList(data.fastFoods, normalizedPlace)) dbCategories.push('Fast Food');
+                if (matchesInList(data.brunch, normalizedPlace)) dbCategories.push('Brunch');
             }
+            // Dédupliquer (un lieu pourrait être dans la même catégorie dans plusieurs zones)
+            dbCategories = [...new Set(dbCategories)];
         } catch (catError) {
             console.error('[External Visit API] Error checking categories:', catError);
         }
 
-        // TOUJOURS utiliser la catégorie envoyée par Momenty comme catégorie principale.
-        // La détection multi-catégories via la DB sert uniquement à enrichir possibleCategories
-        // pour le dialog de confirmation côté client, mais NE DOIT PAS remplacer le choix de Momenty.
-        const finalCategory = normalizedInputCategory;
+        // LOGIQUE DE RÉSOLUTION :
+        // - 0 ou 1 catégorie DB → Pas ambigu → Utiliser la catégorie Momenty directement
+        // - 2+ catégories DB → Ambigu → Sauvegarder en "pending" pour que le client demande à l'utilisateur
+        const isAmbiguous = dbCategories.length > 1;
+        const finalCategory = normalizedInputCategory; // Toujours le choix Momenty comme défaut
 
-        // S'assurer que la catégorie Momenty est incluse dans possibleCategories
-        if (!possibleCategories.includes(normalizedInputCategory)) {
-            possibleCategories.push(normalizedInputCategory);
+        let possibleCategories: string[] = [];
+        if (isAmbiguous) {
+            possibleCategories = [...dbCategories];
+            // Ajouter la catégorie Momenty si elle n'est pas déjà dans les catégories DB
+            if (!possibleCategories.includes(normalizedInputCategory)) {
+                possibleCategories.push(normalizedInputCategory);
+            }
         }
 
-        // Ambiguïté uniquement si le lieu existe dans PLUSIEURS catégories en DB
-        // ET que la catégorie Momenty est différente d'une seule catégorie DB
-        const isAmbiguous = possibleCategories.length > 1;
+        console.log(`[External Visit API] Category resolution: input="${category}" → normalized="${normalizedInputCategory}" | DB categories: [${dbCategories.join(', ')}] | isAmbiguous: ${isAmbiguous}`);
 
         // 5. Préparer l'objet visite — IMPORTANT: NE PAS inclure de valeurs `undefined`
         // car Firestore rejette les objets contenant des champs `undefined`, ce qui fait
@@ -160,7 +180,7 @@ export async function POST(request: NextRequest) {
                 let targetZoneDoc = null;
                 let currentSpecialties: Record<string, string[]> = {};
 
-                // Parcourir les zones pour trouver le lieu
+                // Parcourir les zones pour trouver le lieu (avec fuzzy matching)
                 for (const zoneDoc of zonesSnap.docs) {
                     const data = zoneDoc.data();
                     const allPlacesInZone = [
@@ -170,9 +190,10 @@ export async function POST(request: NextRequest) {
                         ...(data.brunch || []),
                         ...(data.balade || []),
                         ...(data.shopping || [])
-                    ].map(p => p.toLowerCase());
+                    ];
 
-                    if (allPlacesInZone.includes(normalizedPlace)) {
+                    const matchedPlace = allPlacesInZone.find(p => fuzzyMatch(p.toLowerCase(), normalizedPlace));
+                    if (matchedPlace) {
                         targetZoneDoc = zoneDoc;
                         currentSpecialties = data.specialties || {};
                         break;
