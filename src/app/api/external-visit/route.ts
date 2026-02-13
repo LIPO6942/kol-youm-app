@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
             placeName: placeName,
             category: finalCategory,
             date: date,
-            orderedItem: dishName || '',
+            orderedItem: dishName ? dishName.trim() : undefined,
             source: 'momenty',
             isPending: isAmbiguous,
             possibleCategories: isAmbiguous ? possibleCategories : undefined
