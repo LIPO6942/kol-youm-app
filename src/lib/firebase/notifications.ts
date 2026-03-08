@@ -39,10 +39,13 @@ async function registerFCMServiceWorker(): Promise<ServiceWorkerRegistration | n
     }
 
     try {
-        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-            scope: '/firebase-cloud-messaging-push-scope',
-        });
+        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
         console.log('[Notifications] Service Worker FCM enregistré:', registration);
+
+        // Attendre que le service worker soit actif
+        await navigator.serviceWorker.ready;
+        console.log('[Notifications] Service Worker FCM est prêt et actif');
+
         return registration;
     } catch (error) {
         console.error('[Notifications] Erreur enregistrement SW:', error);
