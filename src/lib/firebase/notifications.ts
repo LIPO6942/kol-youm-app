@@ -76,7 +76,7 @@ export async function requestNotificationPermission(userId: string): Promise<str
         const swRegistration = await registerFCMServiceWorker();
 
         // 4. Obtenir le token FCM
-        const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+        const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY?.trim();
         if (!vapidKey) {
             console.error('[Notifications] NEXT_PUBLIC_FIREBASE_VAPID_KEY manquant');
             return null;
