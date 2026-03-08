@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { NotificationSettings } from '@/components/settings/notification-settings';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -851,6 +852,10 @@ export default function SettingsPage() {
               />
             </CardContent>
           </Card>
+
+          <Separator />
+
+          <NotificationSettings />
         </div>
       )}
 

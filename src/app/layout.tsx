@@ -30,6 +30,10 @@ export default function RootLayout({
               if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.getRegistrations().then(function(registrations) {
                   for(let registration of registrations) {
+                    // Garder le service worker FCM pour les push notifications
+                    if (registration.active && registration.active.scriptURL.includes('firebase-messaging-sw')) {
+                      continue;
+                    }
                     registration.unregister();
                   }
                 });

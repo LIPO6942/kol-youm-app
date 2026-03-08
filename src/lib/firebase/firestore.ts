@@ -73,6 +73,10 @@ export type UserProfile = {
     // Atlas des Saveurs
     specialtyImages?: Record<string, string>; // Map of specialty name to image URL, emoji, or Lucide icon string
     specialtyColors?: Record<string, string>; // Map of specialty name to custom hex color
+    // Push Notifications
+    notificationsEnabled?: boolean;
+    notificationsEnabledAt?: string;
+    fcmToken?: string;
     // These are stored ONLY in IndexedDB for privacy
     fullBodyPhotoUrl?: string; // This will also be a Cloudinary URL
     closeupPhotoUrl?: string; // This will also be a Cloudinary URL

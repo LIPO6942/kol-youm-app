@@ -43,3 +43,6 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# Generated service worker (contains Firebase config from env vars)
+public/firebase-messaging-sw.js
