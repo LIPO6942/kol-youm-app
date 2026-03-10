@@ -41,35 +41,43 @@ if (!getApps().length) {
 
 const CRON_SECRET = process.env.CRON_SECRET || 'kol-youm-weekly-notification-secret';
 
-// Messages variés pour ne pas être répétitif
+// Messages variés par thématique (Khrouj, Tfarrej, Stylek)
 const NOTIFICATION_MESSAGES = [
+    // --- KHROUJ (Sorties/Restos) ---
     {
-        title: '🎬 Bilan de la semaine !',
-        body: "N'oublie pas de marquer les films que tu as vus cette semaine et de publier tes sorties !",
+        title: '📍 Tes sorties de la semaine ?',
+        body: "N'oublie pas d'enregistrer tes nouvelles adresses et coups de cœur dans ton passeport culinaire !",
     },
     {
-        title: '📍 Où es-tu sorti cette semaine ?',
-        body: "Pense à enregistrer tes sorties de la semaine pour garder une trace de tes découvertes !",
+        title: '🌟 Où es-tu allé cette semaine ?',
+        body: "Garde une trace de tes sorties ! Prends 2 minutes pour noter les lieux que tu as découverts.",
+    },
+    // --- TFARREJ (Films/Séries) ---
+    {
+        title: '🍿 Ciné-bilan de la semaine !',
+        body: "Quels films as-tu vus ? Note-les vite dans kol youm avant d'oublier !",
     },
     {
-        title: '🍿 C\'est l\'heure du bilan !',
-        body: "As-tu vu de bons films ? Découvert de nouveaux endroits ? Viens tout noter dans kol youm !",
+        title: '🎬 À jour dans tes films ?',
+        body: "As-tu vu de bons films cette semaine ? Mets à jour ta liste et partage ton avis.",
+    },
+    // --- STYLEK (Tenues/Garde-robe) ---
+    {
+        title: '👗 Ton look de la semaine',
+        body: "As-tu créé de nouveaux outfits ? Ajoute-les à ton Stylek pour tes prochaines inspirations !",
     },
     {
-        title: '✨ Ta semaine en un coup d\'œil',
-        body: "Prends 2 minutes pour noter tes sorties et films de la semaine. Tu te remercieras plus tard !",
+        title: '✨ Garde-robe à jour',
+        body: "Prends un moment pour organiser tes tenues préférées et compléter ton dressing.",
     },
+    // --- MIXTE / GENERAL ---
     {
-        title: '📝 Petit rappel hebdomadaire',
-        body: "kol youm t'attend ! Marque tes films vus, tes sorties, et garde une trace de ta semaine.",
-    },
-    {
-        title: '🌟 N\'oublie pas ta semaine !',
-        body: "Quels endroits as-tu découverts ? Quels films as-tu regardés ? Viens tout noter !",
+        title: '📝 Ton bilan kol youm',
+        body: "Sorties, films, looks... c'est dimanche ! Prends 2 minutes pour tout noter et garder une trace de ta semaine.",
     },
     {
         title: '🎯 Rappel kol youm',
-        body: "C'est dimanche ! Le moment parfait pour faire le point sur ta semaine. Films, sorties... tout compte !",
+        body: "C'est le moment parfait pour faire le point sur ta semaine. Films, sorties, styles... tout compte !",
     },
 ];
 
