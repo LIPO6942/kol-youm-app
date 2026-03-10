@@ -4,13 +4,36 @@ import { getMessaging } from 'firebase-admin/messaging';
 import { getFirestore } from 'firebase-admin/firestore';
 
 // Initialiser Firebase Admin SDK
-// Sur Firebase App Hosting, les credentials sont automatiquement disponibles
 if (!getApps().length) {
     try {
-        // Essayer avec Application Default Credentials (Firebase App Hosting)
-        initializeApp({
-            projectId: process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-        });
+        const projectId = process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+        const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+        const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+
+        if (projectId && clientEmail && privateKey) {
+            console.log('[Send Notification] Initialisation avec Service Account (Variables séparées)');
+            initializeApp({
+                credential: cert({
+                    projectId,
+                    clientEmail,
+                    privateKey: privateKey.replace(/\\n/g, '\n'), // Important: Remplacer les \n échappés
+                }),
+                projectId,
+            });
+        } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+            console.log('[Send Notification] Initialisation avec Service Account (JSON)');
+            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+            initializeApp({
+                credential: cert(serviceAccount),
+                projectId: serviceAccount.project_id,
+            });
+        } else {
+            // Repli sur les ADC (Application Default Credentials)
+            console.log('[Send Notification] Initialisation avec ADC (Firebase App Hosting)');
+            initializeApp({
+                projectId: projectId,
+            });
+        }
     } catch (error) {
         console.error('[Send Notification] Erreur init Firebase Admin:', error);
     }
