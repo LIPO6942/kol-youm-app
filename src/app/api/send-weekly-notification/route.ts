@@ -56,22 +56,29 @@ function getRandomMessage() {
 
 // Endpoint GET pour le cron job external
 export async function GET(request: NextRequest) {
+    console.log('[Send Notification] Requête GET reçue');
     try {
         // Vérifier le secret pour la sécurité
         const authHeader = request.headers.get('authorization');
         const urlSecret = request.nextUrl.searchParams.get('secret');
         const providedSecret = authHeader?.replace('Bearer ', '') || urlSecret;
 
+        if (!providedSecret) {
+            console.warn('[Send Notification] Aucun secret fourni');
+        }
+
         if (providedSecret !== CRON_SECRET) {
+            console.error('[Send Notification] Secret invalide');
             return NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
         }
 
+        console.log('[Send Notification] Secret validé, démarrage de l\'envoi...');
         return await sendWeeklyNotifications();
     } catch (error) {
-        console.error('[Send Notification] Erreur:', error);
+        console.error('[Send Notification] Erreur critique GET:', error);
         return NextResponse.json(
             { success: false, error: error instanceof Error ? error.message : 'Erreur interne' },
             { status: 500 }
@@ -81,31 +88,33 @@ export async function GET(request: NextRequest) {
 
 // Aussi supporter POST pour plus de flexibilité
 export async function POST(request: NextRequest) {
+    console.log('[Send Notification] Requête POST reçue');
     try {
         const authHeader = request.headers.get('authorization');
         const providedSecret = authHeader?.replace('Bearer ', '');
 
-        if (providedSecret !== CRON_SECRET) {
-            // Essayer dans le body
-            try {
-                const body = await request.json();
-                if (body.secret !== CRON_SECRET) {
-                    return NextResponse.json(
-                        { success: false, error: 'Non autorisé' },
-                        { status: 401 }
-                    );
-                }
-            } catch {
-                return NextResponse.json(
-                    { success: false, error: 'Non autorisé' },
-                    { status: 401 }
-                );
-            }
+        let secretFromPayload = null;
+        try {
+            const body = await request.json();
+            secretFromPayload = body.secret;
+        } catch (e) {
+            // Pas de JSON ou erreur de lecture, pas grave si le header est là
         }
 
+        const finalSecret = providedSecret || secretFromPayload;
+
+        if (finalSecret !== CRON_SECRET) {
+            console.error('[Send Notification] Secret invalide (POST)');
+            return NextResponse.json(
+                { success: false, error: 'Non autorisé' },
+                { status: 401 }
+            );
+        }
+
+        console.log('[Send Notification] Secret validé (POST), démarrage de l\'envoi...');
         return await sendWeeklyNotifications();
     } catch (error) {
-        console.error('[Send Notification] Erreur:', error);
+        console.error('[Send Notification] Erreur critique POST:', error);
         return NextResponse.json(
             { success: false, error: error instanceof Error ? error.message : 'Erreur interne' },
             { status: 500 }
@@ -119,6 +128,7 @@ async function sendWeeklyNotifications() {
 
     // Récupérer tous les utilisateurs qui ont un fcmToken
     const usersSnapshot = await db.collection('users').where('notificationsEnabled', '==', true).get();
+    console.log(`[Send Notification] Utilisateurs avec notifications activées: ${usersSnapshot.size}`);
 
     if (usersSnapshot.empty) {
         console.log('[Send Notification] Aucun utilisateur avec notifications activées');
@@ -140,6 +150,8 @@ async function sendWeeklyNotifications() {
         }
     });
 
+    console.log(`[Send Notification] Tokens FCM trouvés: ${tokens.length}`);
+
     if (tokens.length === 0) {
         return NextResponse.json({
             success: true,
@@ -149,7 +161,8 @@ async function sendWeeklyNotifications() {
     }
 
     const message = getRandomMessage();
-    console.log(`[Send Notification] Envoi à ${tokens.length} utilisateurs: "${message.title}"`);
+    console.log(`[Send Notification] Message choisi: "${message.title}"`);
+    console.log(`[Send Notification] Envoi à ${tokens.length} utilisateurs...`);
 
     // Préparer les messages pour l'envoi en batch
     const messages = tokens.map(token => ({
