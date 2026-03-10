@@ -151,44 +151,56 @@ async function sendWeeklyNotifications() {
     const message = getRandomMessage();
     console.log(`[Send Notification] Envoi à ${tokens.length} utilisateurs: "${message.title}"`);
 
-    // Envoyer les notifications en batch
+    // Préparer les messages pour l'envoi en batch
+    const messages = tokens.map(token => ({
+        token,
+        notification: {
+            title: message.title,
+            body: message.body,
+        },
+        webpush: {
+            notification: {
+                icon: '/icons/icon-192x192.png',
+                badge: '/icons/icon-192x192.png',
+                tag: 'weekly-reminder',
+                renotify: true,
+            },
+            fcmOptions: {
+                link: '/',
+            },
+        },
+    }));
+
+    // Envoyer toutes les notifications d'un coup (Batch)
     let successCount = 0;
     let failureCount = 0;
     const invalidTokens: { userId: string; token: string }[] = [];
 
-    // Envoyer individuellement pour gérer les erreurs par token
-    for (let i = 0; i < tokens.length; i++) {
-        try {
-            await messaging.send({
-                token: tokens[i],
-                notification: {
-                    title: message.title,
-                    body: message.body,
-                },
-                webpush: {
-                    notification: {
-                        icon: '/icons/icon-192x192.png',
-                        badge: '/icons/icon-192x192.png',
-                        tag: 'weekly-reminder',
-                        renotify: true,
-                    },
-                    fcmOptions: {
-                        link: '/',
-                    },
-                },
-            });
-            successCount++;
-        } catch (error: any) {
-            failureCount++;
-            // Si le token est invalide, le marquer pour suppression
-            if (
-                error?.code === 'messaging/registration-token-not-registered' ||
-                error?.code === 'messaging/invalid-registration-token'
-            ) {
-                invalidTokens.push({ userId: userIds[i], token: tokens[i] });
+    try {
+        const response = await messaging.sendEach(messages);
+
+        response.responses.forEach((res, i) => {
+            if (res.success) {
+                successCount++;
+            } else {
+                failureCount++;
+                const error = res.error as any;
+                // Si le token est invalide, le marquer pour suppression
+                if (
+                    error?.code === 'messaging/registration-token-not-registered' ||
+                    error?.code === 'messaging/invalid-registration-token'
+                ) {
+                    invalidTokens.push({ userId: userIds[i], token: tokens[i] });
+                }
+                console.error(`[Send Notification] Erreur pour token ${tokens[i].substring(0, 10)}...:`, error?.code || error);
             }
-            console.error(`[Send Notification] Erreur pour token ${tokens[i].substring(0, 10)}...:`, error?.code || error);
-        }
+        });
+    } catch (batchError) {
+        console.error('[Send Notification] Erreur critique lors de l\'envoi batch:', batchError);
+        return NextResponse.json(
+            { success: false, error: 'Erreur lors de l\'envoi batch' },
+            { status: 500 }
+        );
     }
 
     // Nettoyer les tokens invalides
