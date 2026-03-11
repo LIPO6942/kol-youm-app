@@ -129,7 +129,7 @@ export function NotificationSettings() {
                     <CardTitle className="text-base">Rappels hebdomadaires</CardTitle>
                 </div>
                 <CardDescription>
-                    Reçois une notification chaque semaine pour ne pas oublier de noter tes sorties et les films que tu as vus.
+                    Reçois une notification chaque semaine pour noter tes sorties/films, ainsi qu'un rappel intelligent personnalisé selon tes habitudes de sorties.
                 </CardDescription>
             </CardHeader>
             <CardContent>
