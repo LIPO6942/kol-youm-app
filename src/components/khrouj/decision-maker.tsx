@@ -1536,13 +1536,13 @@ export default function DecisionMaker() {
                               <MapPin className="h-4 w-4 text-red-500 group-hover:text-primary transition-colors duration-300" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-base sm:text-lg font-headline tracking-tight group-hover:text-primary transition-colors duration-300 truncate">
+                              <p className="font-medium text-base sm:text-lg font-headline tracking-tight group-hover:text-primary transition-colors duration-300 leading-tight">
                                 {name}
-                                <span className="text-xs text-blue-600 ml-1 sm:ml-2 font-normal">
+                                <span className="text-xs text-blue-600 ml-1 sm:ml-2 font-normal whitespace-nowrap">
                                   {data.zone || ''}
                                 </span>
                               </p>
-                              <p className="text-xs text-muted-foreground font-medium">{data.category}</p>
+                              <p className="text-xs text-muted-foreground font-medium mt-0.5">{data.category}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
