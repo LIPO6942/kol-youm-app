@@ -144,9 +144,11 @@ async function sendHabitNotifications() {
      const now = Date.now();
      const invalidTokens: { userId: string; token: string }[] = [];
      
+     const processedTokens = new Set<string>();
+     
      usersSnapshot.forEach((doc) => {
          const data = doc.data();
-         if (!data.fcmToken) return;
+         if (!data.fcmToken || processedTokens.has(data.fcmToken)) return;
 
          const visits = data.visits || [];
          const frequencies = getVisitFrequencies(visits);
@@ -156,7 +158,7 @@ async function sendHabitNotifications() {
          for (const f of frequencies) {
              const daysSinceLastVisit = Math.round((now - f.lastVisit) / (1000 * 60 * 60 * 24));
              
-             // Si on a l'habitude d'y aller tous les 5 jours, on notifie à J+5, J+10, J+15...
+             // Si on a l'habitude d'y aller toues les 5 jours, on notifie à J+5, J+10, J+15...
              // Pour éviter le spam si averageDays est 1 (tous les jours), on ne notifie qu'à J+1 ou J+2
              // Et on évite le jour même (daysSinceLastVisit > 0)
              if (daysSinceLastVisit > 0 && daysSinceLastVisit % f.averageDays === 0) {
@@ -170,6 +172,7 @@ async function sendHabitNotifications() {
          }
 
          if (notificationToSent) {
+             processedTokens.add(data.fcmToken);
              messages.push({
                  token: data.fcmToken,
                  userId: doc.id,

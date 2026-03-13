@@ -172,12 +172,14 @@ async function sendWeeklyNotifications() {
 
     const tokens: string[] = [];
     const userIds: string[] = [];
+    const processedTokens = new Set<string>();
 
     usersSnapshot.forEach((doc) => {
         const data = doc.data();
-        if (data.fcmToken) {
+        if (data.fcmToken && !processedTokens.has(data.fcmToken)) {
             tokens.push(data.fcmToken);
             userIds.push(doc.id);
+            processedTokens.add(data.fcmToken);
         }
     });
 
