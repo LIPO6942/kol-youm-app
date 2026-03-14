@@ -47,12 +47,19 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Message reçu en arrière-plan:', payload);
 
-  const notificationTitle = payload.notification?.title || '🔔 kol youm';
+  // Si le message contient déjà une notification (objet payload.notification),
+  // le SDK Firebase l'affiche automatiquement. On s'arrête là pour éviter les doublons.
+  if (payload.notification) {
+    return;
+  }
+
+  // Cas des messages "data-only" : on affiche manuellement la notification
+  const notificationTitle = payload.data?.title || '🔔 kol youm';
   const notificationOptions = {
-    body: payload.notification?.body || "N'oublie pas de publier tes sorties de la semaine !",
+    body: payload.data?.body || "N'oublie pas de marquer ton passage !",
     icon: '/icons/icon-192x192.png',
     badge: '/icons/icon-192x192.png',
-    tag: 'weekly-reminder',
+    tag: payload.data?.tag || 'habit-reminder',
     renotify: true,
     data: {
       url: payload.data?.url || '/',
