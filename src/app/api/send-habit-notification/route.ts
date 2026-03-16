@@ -185,10 +185,10 @@ async function sendHabitNotifications() {
                      notification: notificationToSent,
                      webpush: {
                           notification: {
-                              icon: '/icons/icon-192x192.png',
-                              badge: '/icons/icon-192x192.png',
-                              tag: 'habit-reminder',    // même tag = remplace la notif précédente côté navigateur
-                              renotify: false,           // pas de son si déjà une notif avec ce tag
+                              icon: '/icons/icon-192x192.png',  // icône dans le drawer
+                              badge: '/icons/badge-96x96.png',  // icône barre de statut (monochrome)
+                              tag: 'habit-reminder',
+                              renotify: false,
                           },
                           fcmOptions: { link: '/' },
                      }
