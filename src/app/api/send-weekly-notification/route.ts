@@ -176,14 +176,20 @@ async function sendWeeklyNotifications() {
 
     usersSnapshot.forEach((doc) => {
         const data = doc.data();
-        if (data.fcmToken && !processedTokens.has(data.fcmToken)) {
-            tokens.push(data.fcmToken);
+        // Lire le tableau fcmTokens (multi-appareils) ou l'ancien champ scalaire
+        const userTokens: string[] = Array.isArray(data.fcmTokens) && data.fcmTokens.length > 0
+            ? data.fcmTokens.filter(Boolean)
+            : (data.fcmToken ? [data.fcmToken] : []);
+
+        userTokens.forEach((token: string) => {
+            if (!token || processedTokens.has(token)) return;
+            tokens.push(token);
             userIds.push(doc.id);
-            processedTokens.add(data.fcmToken);
-        }
+            processedTokens.add(token);
+        });
     });
 
-    console.log(`[Send Notification] Tokens FCM trouvés: ${tokens.length}`);
+    console.log(`[Send Notification] Tokens FCM found: ${tokens.length}`);
 
     if (tokens.length === 0) {
         return NextResponse.json({

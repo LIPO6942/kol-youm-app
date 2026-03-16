@@ -2,7 +2,7 @@
 
 import { getMessaging, getToken, onMessage, isSupported, Messaging } from 'firebase/messaging';
 import { getApps, getApp } from 'firebase/app';
-import { doc, getFirestore, setDoc, deleteField } from 'firebase/firestore';
+import { doc, getFirestore, setDoc, deleteField, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 
 let messagingInstance: Messaging | null = null;
 
@@ -94,16 +94,17 @@ export async function requestNotificationPermission(userId: string): Promise<str
 
         console.log('[Notifications] Token FCM obtenu:', token.substring(0, 20) + '...');
 
-        // 5. Sauvegarder le token dans Firestore
+        // 5. Sauvegarder le token dans Firestore (tableau de tokens pour multi-appareils/contextes)
         const db = getFirestore();
         const userRef = doc(db, 'users', userId);
         await setDoc(userRef, {
-            fcmToken: token,
+            fcmTokens: arrayUnion(token),   // tableau : supporte PWA + navigateur
+            fcmToken: token,                 // gardé pour compatibilité ascendante
             notificationsEnabled: true,
             notificationsEnabledAt: new Date().toISOString(),
         }, { merge: true });
 
-        console.log('[Notifications] Token sauvegardé dans Firestore');
+        console.log('[Notifications] Token sauvegardé dans Firestore (multi-tokens)');
         return token;
 
     } catch (error) {
@@ -122,6 +123,7 @@ export async function disableNotifications(userId: string): Promise<void> {
         const userRef = doc(db, 'users', userId);
         await setDoc(userRef, {
             fcmToken: deleteField(),
+            fcmTokens: deleteField(),
             notificationsEnabled: false,
         }, { merge: true });
 

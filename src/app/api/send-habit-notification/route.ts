@@ -148,7 +148,6 @@ async function sendHabitNotifications() {
      
      usersSnapshot.forEach((doc) => {
          const data = doc.data();
-         if (!data.fcmToken || processedTokens.has(data.fcmToken)) return;
 
          const visits = data.visits || [];
          const frequencies = getVisitFrequencies(visits);
@@ -158,9 +157,6 @@ async function sendHabitNotifications() {
          for (const f of frequencies) {
              const daysSinceLastVisit = Math.round((now - f.lastVisit) / (1000 * 60 * 60 * 24));
              
-             // Si on a l'habitude d'y aller toues les 5 jours, on notifie à J+5, J+10, J+15...
-             // Pour éviter le spam si averageDays est 1 (tous les jours), on ne notifie qu'à J+1 ou J+2
-             // Et on évite le jour même (daysSinceLastVisit > 0)
              if (daysSinceLastVisit > 0 && daysSinceLastVisit % f.averageDays === 0) {
                   const icon = CATEGORY_ICONS[f.category] || '🌟';
                   notificationToSent = {
@@ -172,20 +168,31 @@ async function sendHabitNotifications() {
          }
 
          if (notificationToSent) {
-             processedTokens.add(data.fcmToken);
-             messages.push({
-                 token: data.fcmToken,
-                 userId: doc.id,
-                 notification: notificationToSent,
-                 webpush: {
-                      notification: {
-                          icon: '/icons/icon-192x192.png',
-                          badge: '/icons/icon-192x192.png',
-                          tag: 'habit-reminder',
-                          renotify: true,
-                      },
-                      fcmOptions: { link: '/' },
-                 }
+             // Récupérer TOUS les tokens de cet utilisateur (PWA + navigateur)
+             const userTokens: string[] = [];
+             if (Array.isArray(data.fcmTokens) && data.fcmTokens.length > 0) {
+                 data.fcmTokens.forEach((t: string) => { if (t) userTokens.push(t); });
+             } else if (data.fcmToken) {
+                 userTokens.push(data.fcmToken); // compatibilité ascendante
+             }
+
+             userTokens.forEach((token) => {
+                 if (!token || processedTokens.has(token)) return;
+                 processedTokens.add(token);
+                 messages.push({
+                     token,
+                     userId: doc.id,
+                     notification: notificationToSent,
+                     webpush: {
+                          notification: {
+                              icon: '/icons/icon-192x192.png',
+                              badge: '/icons/icon-192x192.png',
+                              tag: 'habit-reminder',    // même tag = remplace la notif précédente côté navigateur
+                              renotify: false,           // pas de son si déjà une notif avec ce tag
+                          },
+                          fcmOptions: { link: '/' },
+                     }
+                 });
              });
          }
      });
