@@ -793,6 +793,9 @@ export default function DecisionMaker() {
                       <div className="flex items-center gap-3 text-sm">
                         <Calendar className="h-4 w-4 text-primary" />
                         <span>{new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                        {visit.source === 'momenty' && (
+                          <span className="text-[7px] text-muted-foreground/60 italic ml-1 select-none">via Momenty</span>
+                        )}
                       </div>
                       {visit.orderedItem && (
                         <div className="flex items-center gap-2 pl-7">
@@ -853,7 +856,12 @@ export default function DecisionMaker() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <p className="font-bold text-sm sm:text-base truncate text-foreground/90 group-hover:text-primary transition-colors">{visit.placeName}</p>
+                    <p className="font-bold text-sm sm:text-base text-foreground/90 group-hover:text-primary transition-colors leading-tight break-words">
+                      {visit.placeName}
+                      {(visit as any).source === 'momenty' && (
+                        <span className="text-[7px] text-muted-foreground/60 italic ml-1.5 align-middle select-none">via Momenty</span>
+                      )}
+                    </p>
                     <TypedBadge variant="outline" className="text-[10px] h-5 px-1.5 font-normal bg-background/50 text-muted-foreground whitespace-nowrap group-hover:opacity-0 transition-opacity">
                       {new Date(visit.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
                     </TypedBadge>
@@ -1536,7 +1544,7 @@ export default function DecisionMaker() {
                               <MapPin className="h-4 w-4 text-red-500 group-hover:text-primary transition-colors duration-300" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-base sm:text-lg font-headline tracking-tight group-hover:text-primary transition-colors duration-300 leading-tight">
+                              <p className="font-medium text-base sm:text-lg font-headline tracking-tight group-hover:text-primary transition-colors duration-300 leading-tight break-words">
                                 {name}
                                 <span className="text-xs text-blue-600 ml-1 sm:ml-2 font-normal whitespace-nowrap">
                                   {data.zone || ''}

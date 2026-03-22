@@ -118,7 +118,7 @@ export function getVisitFrequencies(visits: VisitLog[] = []): CategoryFrequency[
 
             return { category, averageDays: Math.round(averageDays), count, lastVisit };
         })
-        .filter(f => f.count > 0);
+        .filter(f => f.count >= 2);
 
     return frequencies.sort((a, b) => a.averageDays - b.averageDays);
 }
@@ -202,8 +202,10 @@ export function getStatsForPeriod(visits: VisitLog[] = [], period: 'month' | 'ye
             periodEnd = Math.min(now.getTime(), lastDayOfYear.getTime());
         }
 
-        const totalDays = (periodEnd - sorted[0]) / (1000 * 60 * 60 * 24);
-        averageDaysByCategory[cat] = Math.max(1, Math.round(totalDays / dates.length));
+        if (dates.length >= 2) {
+            const totalDays = (periodEnd - sorted[0]) / (1000 * 60 * 60 * 24);
+            averageDaysByCategory[cat] = Math.max(1, Math.round(totalDays / dates.length));
+        }
     });
 
     // Calculate Favorite Day
