@@ -34,6 +34,7 @@ export type VisitLog = {
     source?: 'momenty' | 'app';
     isPending?: boolean;
     possibleCategories?: string[];
+    momentyUrl?: string;
 };
 
 export type SeenMovie = {

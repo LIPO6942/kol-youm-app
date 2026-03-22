@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { Suggestion } from '@/ai/flows/decision-maker-flow.types';
-import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2, Crown, Compass, Award, Home, Zap, Star, Soup, Cake, IceCream, Fish, Drumstick, Cherry, Apple, Carrot, Cookie, Beer, Wine, GlassWater, Beef, Egg, Flame } from 'lucide-react';
+import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2, Crown, Compass, Award, Home, Zap, Star, Soup, Cake, IceCream, Fish, Drumstick, Cherry, Apple, Carrot, Cookie, Beer, Wine, GlassWater, Beef, Egg, Flame, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile, addVisitLog, deleteVisitLog, updateVisitLog, updateSpecialtyCustomization, type VisitLog } from '@/lib/firebase/firestore';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
@@ -794,7 +794,20 @@ export default function DecisionMaker() {
                         <Calendar className="h-4 w-4 text-primary" />
                         <span>{new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                         {visit.source === 'momenty' && (
-                          <span className="text-[7px] text-muted-foreground/60 italic ml-1 select-none">via Momenty</span>
+                          <span className="inline-flex items-center gap-1">
+                            <span className="text-[7px] text-muted-foreground/60 italic ml-1 select-none">via Momenty</span>
+                            {visit.momentyUrl && (
+                                <Link
+                                  href={visit.momentyUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary/70 hover:text-primary transition-colors ml-0.5"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <ExternalLink className="h-2 w-2" />
+                                </Link>
+                              )}
+                          </span>
                         )}
                       </div>
                       {visit.orderedItem && (
@@ -859,7 +872,20 @@ export default function DecisionMaker() {
                     <p className="font-bold text-sm sm:text-base text-foreground/90 group-hover:text-primary transition-colors leading-tight break-words">
                       {visit.placeName}
                       {(visit as any).source === 'momenty' && (
-                        <span className="text-[7px] text-muted-foreground/60 italic ml-1.5 align-middle select-none">via Momenty</span>
+                        <span className="inline-flex items-center gap-1">
+                          <span className="text-[7px] text-muted-foreground/60 italic ml-1.5 align-middle select-none">via Momenty</span>
+                          {visit.momentyUrl && (
+                            <Link
+                              href={visit.momentyUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary/70 hover:text-primary transition-colors ml-0.5"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-2 w-2" />
+                            </Link>
+                          )}
+                        </span>
                       )}
                     </p>
                     <TypedBadge variant="outline" className="text-[10px] h-5 px-1.5 font-normal bg-background/50 text-muted-foreground whitespace-nowrap group-hover:opacity-0 transition-opacity">
