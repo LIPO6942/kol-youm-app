@@ -38,9 +38,10 @@ if (!getApps().length) {
 
 const CRON_SECRET = process.env.CRON_SECRET || 'kol-youm-weekly-notification-secret';
 
-type CategoryFrequency = {
+export type CategoryFrequency = {
     category: string;
     averageDays: number;
+    stableAverageDays: number; // For notification frequency stability
     count: number;
     lastVisit: number;
 };
@@ -66,15 +67,20 @@ function getVisitFrequencies(visits: any[] = []): CategoryFrequency[] {
             const lastVisit = sortedDates[count - 1];
 
             if (count < 2) {
-                return { category, averageDays: 0, count, lastVisit };
+                // For 1 visit, average is days since then, but we don't use it for stable trigger
+                const totalDays = (Date.now() - sortedDates[0]) / (1000 * 60 * 60 * 24);
+                return { category, averageDays: Math.round(totalDays), stableAverageDays: 0, count, lastVisit };
             }
 
-            const totalDays = (sortedDates[count - 1] - sortedDates[0]) / (1000 * 60 * 60 * 24);
-            const averageDays = totalDays / (count - 1);
+            const totalDaysDynamic = (Date.now() - sortedDates[0]) / (1000 * 60 * 60 * 24);
+            const averageDays = totalDaysDynamic / count;
 
-            return { category, averageDays: Math.round(averageDays), count, lastVisit };
+            const totalDaysHistorical = (sortedDates[count - 1] - sortedDates[0]) / (1000 * 60 * 60 * 24);
+            const stableAverageDays = totalDaysHistorical / (count - 1);
+
+            return { category, averageDays: Math.round(averageDays), stableAverageDays: Math.round(stableAverageDays), count, lastVisit };
         })
-        .filter(f => f.averageDays > 0);
+        .filter(f => f.count > 0);
 
     return frequencies.sort((a, b) => a.averageDays - b.averageDays);
 }
@@ -157,7 +163,9 @@ async function sendHabitNotifications() {
          for (const f of frequencies) {
              const daysSinceLastVisit = Math.round((now - f.lastVisit) / (1000 * 60 * 60 * 24));
              
-             if (daysSinceLastVisit > 0 && daysSinceLastVisit % f.averageDays === 0) {
+             // We trigger on multiples of the stable (historical) average to avoid daily notifications
+             // we only notify if there's a real habit (count >= 2)
+             if (f.count >= 2 && f.stableAverageDays > 0 && daysSinceLastVisit > 0 && daysSinceLastVisit % f.stableAverageDays === 0) {
                   const icon = CATEGORY_ICONS[f.category] || '🌟';
                   notificationToSent = {
                       title: `${icon} Envie de ${f.category} ?`,

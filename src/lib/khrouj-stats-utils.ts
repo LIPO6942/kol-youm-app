@@ -113,12 +113,12 @@ export function getVisitFrequencies(visits: VisitLog[] = []): CategoryFrequency[
                 return { category, averageDays: 0, count, lastVisit };
             }
 
-            const totalDays = (sortedDates[count - 1] - sortedDates[0]) / (1000 * 60 * 60 * 24);
-            const averageDays = totalDays / (count - 1);
+            const totalDays = (Date.now() - sortedDates[0]) / (1000 * 60 * 60 * 24);
+            const averageDays = totalDays / count;
 
             return { category, averageDays: Math.round(averageDays), count, lastVisit };
         })
-        .filter(f => f.averageDays > 0);
+        .filter(f => f.count > 0);
 
     return frequencies.sort((a, b) => a.averageDays - b.averageDays);
 }
@@ -190,15 +190,20 @@ export function getStatsForPeriod(visits: VisitLog[] = [], period: 'month' | 'ye
     // Calculate Average Days per category
     const averageDaysByCategory: Record<string, number> = {};
     Object.entries(categoryDates).forEach(([cat, dates]) => {
-        if (dates.length < 2) {
-            // For small data or single visits in a month, estimate based on period length
-            const daysInTarget = period === 'month' ? 30 : 365;
-            averageDaysByCategory[cat] = Math.round(daysInTarget / dates.length);
+        const sorted = dates.sort((a, b) => a - b);
+        
+        // Calculate days relative to the end of the period (or now if it's the current period)
+        let periodEnd = now.getTime();
+        if (period === 'month') {
+            const lastDayOfMonth = new Date(targetYear, targetMonth + 1, 0);
+            periodEnd = Math.min(now.getTime(), lastDayOfMonth.getTime());
         } else {
-            const sorted = dates.sort((a, b) => a - b);
-            const totalDays = (sorted[sorted.length - 1] - sorted[0]) / (1000 * 60 * 60 * 24);
-            averageDaysByCategory[cat] = Math.max(1, Math.round(totalDays / (dates.length - 1)));
+            const lastDayOfYear = new Date(targetYear, 11, 31);
+            periodEnd = Math.min(now.getTime(), lastDayOfYear.getTime());
         }
+
+        const totalDays = (periodEnd - sorted[0]) / (1000 * 60 * 60 * 24);
+        averageDaysByCategory[cat] = Math.max(1, Math.round(totalDays / dates.length));
     });
 
     // Calculate Favorite Day
