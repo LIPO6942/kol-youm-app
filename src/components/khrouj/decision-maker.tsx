@@ -305,7 +305,9 @@ export default function DecisionMaker() {
 
   // Fix old /timeline?id= links to the correct /plats?id= route
   const normalizeMomentyUrl = (url: string) => {
-    return url.replace('/timeline?id=', '/plats?id=');
+    return url
+      .replace('momenty.vercel.app', 'momenty-ten.vercel.app')
+      .replace('/timeline?id=', '/plats?id=');
   };
 
   const handleVisit = async (suggestion: Suggestion) => {
@@ -802,7 +804,7 @@ export default function DecisionMaker() {
                           <span className="inline-flex items-center gap-1">
                             <span className="text-[7px] text-muted-foreground/60 italic ml-1 select-none">via Momenty</span>
                             <Link
-                              href={visit.momentyUrl ? normalizeMomentyUrl(visit.momentyUrl) : 'https://momenty.vercel.app/plats'}
+                              href={visit.momentyUrl ? normalizeMomentyUrl(visit.momentyUrl) : 'https://momenty-ten.vercel.app/plats'}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-primary/70 hover:text-primary transition-colors ml-0.5"
@@ -878,7 +880,7 @@ export default function DecisionMaker() {
                         <span className="inline-flex items-center gap-1">
                           <span className="text-[7px] text-muted-foreground/60 italic ml-1.5 align-middle select-none">via Momenty</span>
                           <Link
-                            href={visit.momentyUrl ? normalizeMomentyUrl(visit.momentyUrl) : 'https://momenty.vercel.app/plats'}
+                            href={visit.momentyUrl ? normalizeMomentyUrl(visit.momentyUrl) : 'https://momenty-ten.vercel.app/plats'}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-primary/70 hover:text-primary transition-colors ml-0.5"
