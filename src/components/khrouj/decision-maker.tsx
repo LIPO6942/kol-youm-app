@@ -303,6 +303,11 @@ export default function DecisionMaker() {
     return name.split('[')[0].trim();
   };
 
+  // Fix old /timeline?id= links to the correct /plats?id= route
+  const normalizeMomentyUrl = (url: string) => {
+    return url.replace('/timeline?id=', '/plats?id=');
+  };
+
   const handleVisit = async (suggestion: Suggestion) => {
     if (!user) return;
     try {
@@ -798,7 +803,7 @@ export default function DecisionMaker() {
                             <span className="text-[7px] text-muted-foreground/60 italic ml-1 select-none">via Momenty</span>
                             {visit.momentyUrl && (
                                 <Link
-                                  href={visit.momentyUrl}
+                                  href={normalizeMomentyUrl(visit.momentyUrl)}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-primary/70 hover:text-primary transition-colors ml-0.5"
@@ -876,7 +881,7 @@ export default function DecisionMaker() {
                           <span className="text-[7px] text-muted-foreground/60 italic ml-1.5 align-middle select-none">via Momenty</span>
                           {visit.momentyUrl && (
                             <Link
-                              href={visit.momentyUrl}
+                              href={normalizeMomentyUrl(visit.momentyUrl)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-primary/70 hover:text-primary transition-colors ml-0.5"
