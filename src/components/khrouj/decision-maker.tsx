@@ -801,17 +801,15 @@ export default function DecisionMaker() {
                         {visit.source === 'momenty' && (
                           <span className="inline-flex items-center gap-1">
                             <span className="text-[7px] text-muted-foreground/60 italic ml-1 select-none">via Momenty</span>
-                            {visit.momentyUrl && (
-                                <Link
-                                  href={normalizeMomentyUrl(visit.momentyUrl)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-primary/70 hover:text-primary transition-colors ml-0.5"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <ExternalLink className="h-2 w-2" />
-                                </Link>
-                              )}
+                            <Link
+                              href={visit.momentyUrl ? normalizeMomentyUrl(visit.momentyUrl) : 'https://momenty.vercel.app/plats'}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary/70 hover:text-primary transition-colors ml-0.5"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-2 w-2" />
+                            </Link>
                           </span>
                         )}
                       </div>
@@ -879,17 +877,15 @@ export default function DecisionMaker() {
                       {(visit as any).source === 'momenty' && (
                         <span className="inline-flex items-center gap-1">
                           <span className="text-[7px] text-muted-foreground/60 italic ml-1.5 align-middle select-none">via Momenty</span>
-                          {visit.momentyUrl && (
-                            <Link
-                              href={normalizeMomentyUrl(visit.momentyUrl)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary/70 hover:text-primary transition-colors ml-0.5"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <ExternalLink className="h-2 w-2" />
-                            </Link>
-                          )}
+                          <Link
+                            href={visit.momentyUrl ? normalizeMomentyUrl(visit.momentyUrl) : 'https://momenty.vercel.app/plats'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary/70 hover:text-primary transition-colors ml-0.5"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="h-2 w-2" />
+                          </Link>
                         </span>
                       )}
                     </p>
