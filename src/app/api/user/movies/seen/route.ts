@@ -23,7 +23,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, title, type = 'movie' } = body;
+    const { userId, title, type = 'movie', posterPath = null } = body;
 
     if (!userId || !title) {
       return NextResponse.json(
@@ -43,9 +43,17 @@ export async function POST(req: NextRequest) {
     }
 
     const fieldName = type === 'movie' ? 'seenMovieTitles' : 'seenSeriesTitles';
+    const historyFieldName = type === 'movie' ? 'seenMovieHistory' : 'seenSeriesHistory';
+
+    const historyObject = {
+        title,
+        addedAt: Date.now(),
+        ...(posterPath && { posterPath })
+    };
 
     await setDoc(userDoc, {
-      [fieldName]: arrayUnion(title)
+      [fieldName]: arrayUnion(title),
+      [historyFieldName]: arrayUnion(historyObject)
     }, { merge: true });
 
     return NextResponse.json({

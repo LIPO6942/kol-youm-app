@@ -35,6 +35,7 @@ export type VisitLog = {
     isPending?: boolean;
     possibleCategories?: string[];
     momentyUrl?: string;
+    momentyImageUrl?: string;
 };
 
 export type SeenMovie = {

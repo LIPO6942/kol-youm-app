@@ -1,0 +1,308 @@
+"use client";
+
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Share2, Download, ArrowRight, Camera, Clapperboard, Award, Sparkles, MapPin } from 'lucide-react';
+import { useMonthlyWrapUp, WrapUpStats } from '@/hooks/use-monthly-wrapup';
+import type { UserProfile } from '@/lib/firebase/firestore';
+import { Button } from '@/components/ui/button';
+import { toPng } from 'html-to-image';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+
+type Props = {
+  user: UserProfile | null;
+  isOpen: boolean;
+  onClose: () => void;
+  targetDate?: Date;
+};
+
+// Durée de chaque slide en ms
+const SLIDE_DURATION = 6000;
+
+export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Date() }: Props) {
+  // Optionnel: On pourrait reculer d'un mois si on est au tout début du mois actuel.
+  // Pour le test, on prend directement targetDate (le mois en cours).
+  const stats = useMonthlyWrapUp(user, targetDate);
+
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const storyRef = useRef<HTMLDivElement>(null);
+
+  const slides = stats ? [
+    'intro',
+    'category',
+    'place',
+    stats.totalMovies > 0 ? 'tfarrej' : null,
+    stats.featuredMomentyImage ? 'momenty' : null,
+    'verdict'
+  ].filter(Boolean) as string[] : [];
+
+  useEffect(() => {
+    setCurrentSlide(0);
+    setProgress(0);
+    setIsPaused(false);
+  }, [isOpen, stats]);
+
+  useEffect(() => {
+    if (!isOpen || !stats || isPaused) return;
+
+    const intervalId = setInterval(() => {
+      setProgress((oldProgress) => {
+        if (oldProgress >= 100) {
+          if (currentSlide < slides.length - 1) {
+            setCurrentSlide((s) => s + 1);
+            return 0; // Reset progress for next slide
+          } else {
+            clearInterval(intervalId); // End of stories
+            return 100;
+          }
+        }
+        // Increment progress smoothly (assumes 50ms interval)
+        return oldProgress + (100 / (SLIDE_DURATION / 50));
+      });
+    }, 50);
+
+    return () => clearInterval(intervalId);
+  }, [isOpen, stats, isPaused, currentSlide, slides.length]);
+
+  const handleNextSlide = () => {
+    if (currentSlide < slides.length - 1) {
+      setCurrentSlide((s) => s + 1);
+      setProgress(0);
+    }
+  };
+
+  const handlePrevSlide = () => {
+    if (currentSlide > 0) {
+      setCurrentSlide((s) => s - 1);
+      setProgress(0);
+    }
+  };
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    setIsPaused(true);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    setIsPaused(false);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isRightHalf = e.clientX - rect.left > rect.width / 2;
+    if (isRightHalf) {
+      handleNextSlide();
+    } else {
+      handlePrevSlide();
+    }
+  };
+
+  const shareStory = async () => {
+    if (!storyRef.current) return;
+    try {
+      const dataUrl = await toPng(storyRef.current, { cacheBust: true, filter: (img) => !img.classList?.contains('no-screenshot') });
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], 'wrapup.png', { type: 'image/png' });
+
+      if (navigator.share && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Mon Récapitulatif Kol Youm',
+          text: 'Découvrez mon bilan du mois sur Kol Youm !'
+        });
+      } else {
+        // Fallback for desktop: download
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = `kolyoum_wrapup_${stats?.monthName.replace(' ', '_')}.png`;
+        a.click();
+      }
+    } catch (e) {
+      console.error('Share failed', e);
+    }
+  };
+
+  if (!stats || slides.length === 0) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="fixed inset-0 sm:max-w-md w-full h-full max-h-screen p-0 m-0 border-none bg-black/95 flex sm:my-auto sm:h-[85vh] sm:rounded-[40px] overflow-hidden text-white shadow-2xl">
+        
+        {/* PROGRESS BARS */}
+        <div className="absolute top-4 left-0 right-0 z-50 flex gap-1 px-4">
+          {slides.map((_, index) => (
+            <div key={index} className="h-1 flex-1 bg-white/20 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-white transition-all duration-75"
+                style={{ 
+                  width: index < currentSlide ? '100%' : index === currentSlide ? `${progress}%` : '0%' 
+                }}
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* CONTROLS */}
+        <button className="absolute top-8 right-4 z-50 p-2 bg-black/20 rounded-full backdrop-blur-md no-screenshot" onClick={onClose}>
+          <X className="w-5 h-5 text-white" />
+        </button>
+
+        {/* CLICKABLE AREAS FOR NAVIGATION */}
+        <div 
+          className="absolute inset-0 z-40 flex touch-none"
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={() => setIsPaused(false)}
+        >
+          {/* Transparent interaction layer */}
+        </div>
+
+        {/* SLIDES CONTENT */}
+        <div ref={storyRef} className="relative w-full h-full flex items-center justify-center p-6 bg-gradient-to-br from-indigo-900 via-purple-900 to-black overflow-hidden pointer-events-none">
+          {/* Optional Noise Texture Overlay */}
+          <div className="absolute inset-0 opacity-20 mix-blend-overlay bg-[url('/noise.png')]"></div>
+
+          <AnimatePresence mode="wait">
+            {slides[currentSlide] === 'intro' && (
+              <SlideContainer key="intro">
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.2, type: 'spring' }}
+                  className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center mb-8 backdrop-blur-md"
+                >
+                  <Sparkles className="w-12 h-12 text-yellow-300" />
+                </motion.div>
+                <h2 className="text-3xl font-black font-headline text-center leading-tight mb-4">
+                  {stats.monthName} a été intense.
+                </h2>
+                <p className="text-xl text-center text-white/80">
+                  Tu as effectué <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400">{stats.totalOutings} sorties</span> ce mois-ci.
+                </p>
+              </SlideContainer>
+            )}
+
+            {slides[currentSlide] === 'category' && (
+              <SlideContainer key="category" className="bg-gradient-to-bl from-pink-700 via-purple-800 to-black">
+                <h2 className="text-2xl font-bold mb-8 text-white/50">L'obsession du mois</h2>
+                <motion.div 
+                  initial={{ rotate: -10, y: 50 }}
+                  animate={{ rotate: 0, y: 0 }}
+                  className="bg-white/10 p-8 rounded-3xl border border-white/20 backdrop-blur-md text-center"
+                >
+                  <div className="text-7xl mb-4">
+                    {stats.topCategory?.name === 'Fast Food' ? '🍔' : 
+                     stats.topCategory?.name === 'Brunch' ? '🥞' : 
+                     stats.topCategory?.name === 'Café' ? '☕' : '🍽️'}
+                  </div>
+                  <h1 className="text-4xl font-black mb-2">{stats.topCategory?.name}</h1>
+                  <p className="text-lg text-white/70">
+                    Cela représente <span className="font-bold text-white">{stats.topCategory?.percentage}%</span> de tes sorties globales !
+                  </p>
+                </motion.div>
+              </SlideContainer>
+            )}
+
+            {slides[currentSlide] === 'place' && (
+              <SlideContainer key="place" className="bg-gradient-to-tr from-emerald-900 via-teal-900 to-black">
+                <MapPin className="w-16 h-16 text-emerald-400 mb-6" />
+                <h2 className="text-2xl font-bold mb-2 text-white/70">Ton Quartier Général</h2>
+                <h1 className="text-5xl font-black text-center text-white drop-shadow-lg mb-6 leading-tight">
+                  {stats.topPlace?.name}
+                </h1>
+                <p className="text-xl text-emerald-200 bg-emerald-950/50 px-6 py-2 rounded-full border border-emerald-800">
+                  Visité {stats.topPlace?.count} fois
+                </p>
+              </SlideContainer>
+            )}
+
+            {slides[currentSlide] === 'tfarrej' && (
+              <SlideContainer key="tfarrej">
+                {stats.featuredMoviePoster && (
+                   <div 
+                     className="absolute inset-0 z-0 opacity-40 blur-sm scale-110"
+                     style={{ backgroundImage: `url(https://image.tmdb.org/t/p/w500${stats.featuredMoviePoster})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                   />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent z-0" />
+                <div className="relative z-10 flex flex-col items-center">
+                  <Clapperboard className="w-16 h-16 text-red-500 mb-6" />
+                  <h2 className="text-2xl font-bold mb-4 text-white/80">L'Instant Tfarrej</h2>
+                  <div className="text-center mb-8">
+                    <span className="text-6xl font-black text-white">{stats.totalMovies}</span>
+                    <span className="block text-xl text-white/60">œuvres vues</span>
+                  </div>
+                  {stats.featuredMovieTitle && (
+                    <div className="bg-black/60 p-4 rounded-xl border border-white/10 text-center backdrop-blur-md">
+                      <p className="text-sm text-red-400 uppercase tracking-widest font-bold mb-1">Coup de cœur récent</p>
+                      <h3 className="text-2xl font-bold">{stats.featuredMovieTitle}</h3>
+                    </div>
+                  )}
+                </div>
+              </SlideContainer>
+            )}
+
+            {slides[currentSlide] === 'momenty' && (
+              <SlideContainer key="momenty" className="p-0">
+                {stats.featuredMomentyImage && (
+                  <div 
+                    className="absolute inset-0 w-full h-full"
+                    style={{ backgroundImage: `url(${stats.featuredMomentyImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                  />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+                
+                <div className="absolute inset-0 p-8 flex flex-col justify-end">
+                  <Camera className="w-10 h-10 text-white/80 mb-4" />
+                  <p className="text-lg text-white/80 font-semibold uppercase tracking-wider mb-2">Momenty du mois</p>
+                  <h2 className="text-4xl font-black leading-tight drop-shadow-xl">{stats.featuredMomentyDish}</h2>
+                </div>
+              </SlideContainer>
+            )}
+
+            {slides[currentSlide] === 'verdict' && (
+              <SlideContainer key="verdict" className="bg-gradient-to-r from-blue-900 via-indigo-900 to-purple-900">
+                <Award className="w-20 h-20 text-yellow-400 mb-6 drop-shadow-lg" />
+                <h2 className="text-xl font-bold mb-4 text-center text-white/70">Bilan Officiel</h2>
+                <h1 className="text-4xl font-black text-center mb-10 leading-tight">
+                  {stats.userPersona}
+                </h1>
+
+                <div className="grid grid-cols-2 gap-4 w-full mb-12">
+                   <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/5">
+                     <p className="text-sm text-white/50 mb-1">Sorties</p>
+                     <p className="text-2xl font-bold">{stats.totalOutings}</p>
+                   </div>
+                   <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/5">
+                     <p className="text-sm text-white/50 mb-1">Tfarrej</p>
+                     <p className="text-2xl font-bold">{stats.totalMovies}</p>
+                   </div>
+                </div>
+                
+                <div className="pointer-events-auto no-screenshot z-50">
+                  <Button onClick={shareStory} className="w-full bg-white text-black hover:bg-white/90 rounded-full h-14 text-lg font-bold flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(255,255,255,0.3)]">
+                    <Share2 className="w-5 h-5" /> Partager mon profil
+                  </Button>
+                </div>
+              </SlideContainer>
+            )}
+          </AnimatePresence>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Wrapper pour chaque slide avec animation standardisée
+function SlideContainer({ children, className = "", style }: { children: React.ReactNode, className?: string, style?: React.CSSProperties }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 1.05 }}
+      transition={{ duration: 0.4, ease: "easeInOut" }}
+      className={`absolute inset-0 w-full h-full flex flex-col items-center justify-center p-8 ${className}`}
+      style={style}
+    >
+      {children}
+    </motion.div>
+  );
+}

@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
         // 2. Parser le body
         const body = await request.json();
-        const { userEmail, placeName, category, cityName, dishName, date, postUrl } = body;
+        const { userEmail, placeName, category, cityName, dishName, date, postUrl, momentyImageUrl } = body;
 
         // 3. Valider les données
         if (!userEmail || !placeName || !category || !date) {
@@ -152,6 +152,7 @@ export async function POST(request: NextRequest) {
         };
 
         if (postUrl) newVisit.momentyUrl = postUrl;
+        if (momentyImageUrl) newVisit.momentyImageUrl = momentyImageUrl;
 
         // N'ajouter orderedItem QUE si dishName est fourni et non vide
         if (dishName && dishName.trim()) {

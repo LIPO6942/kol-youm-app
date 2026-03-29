@@ -11,6 +11,10 @@
         {
             "path": "/api/send-habit-notification?type=evening",
             "schedule": "0 18 * * *"
+        },
+        {
+            "path": "/api/send-monthly-wrapup-notification",
+            "schedule": "0 10 1 * *"
         }
     ]
 }
