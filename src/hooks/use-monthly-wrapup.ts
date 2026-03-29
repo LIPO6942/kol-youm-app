@@ -121,9 +121,21 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
     // 4. Determine Persona
     const userPersona = getPersona(totalOutings, topCategory?.name || null, totalMovies);
 
-    // If there's absolutely NO activity, return null to avoid showing empty stories
+    // If there's absolutely NO activity, return a ghost persona instead of null
+    // so the modal still opens and tells the user something!
     if (totalOutings === 0 && totalMovies === 0) {
-        return null;
+        return {
+          monthName: `${MONTH_NAMES[targetMonth]} ${targetYear}`,
+          totalOutings: 0,
+          topCategory: null,
+          topPlace: null,
+          featuredMomentyImage: null,
+          featuredMomentyDish: null,
+          totalMovies: 0,
+          featuredMovieTitle: null,
+          featuredMoviePoster: null,
+          userPersona: "Le Fantôme Discret 👻"
+        };
     }
 
     return {

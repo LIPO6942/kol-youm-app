@@ -7,7 +7,6 @@ import { useMonthlyWrapUp, WrapUpStats } from '@/hooks/use-monthly-wrapup';
 import type { UserProfile } from '@/lib/firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { toPng } from 'html-to-image';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 type Props = {
   user: UserProfile | null;
@@ -120,11 +119,25 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
     }
   };
 
-  if (!stats || slides.length === 0) return null;
+  if (!stats || slides.length === 0) {
+    if (isOpen) {
+       // Auto-close if completely invalid
+       setTimeout(onClose, 0);
+    }
+    return null;
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="fixed inset-0 sm:max-w-md w-full h-full max-h-screen p-0 m-0 border-none bg-black/95 flex sm:my-auto sm:h-[85vh] sm:rounded-[40px] overflow-hidden text-white shadow-2xl">
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.3 }}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black sm:bg-black/90"
+        >
+          <div className="relative w-full h-full sm:max-w-md sm:h-[85vh] sm:rounded-[40px] overflow-hidden bg-black text-white flex shadow-2xl">
         
         {/* PROGRESS BARS */}
         <div className="absolute top-4 left-0 right-0 z-50 flex gap-1 px-4">
@@ -286,8 +299,10 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
             )}
           </AnimatePresence>
         </div>
-      </DialogContent>
-    </Dialog>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
