@@ -5,7 +5,11 @@
             "schedule": "0 20 * * 0"
         },
         {
-            "path": "/api/send-habit-notification",
+            "path": "/api/send-habit-notification?type=morning",
+            "schedule": "0 8 * * *"
+        },
+        {
+            "path": "/api/send-habit-notification?type=evening",
             "schedule": "0 18 * * *"
         }
     ]

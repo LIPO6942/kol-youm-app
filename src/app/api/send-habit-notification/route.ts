@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
 async function handleRequest(request: NextRequest) {
     console.log(`[Send Habit Notification] Requête ${request.method} reçue`);
     try {
+        const type = request.nextUrl.searchParams.get('type') || 'all';
         const authHeader = request.headers.get('authorization');
         const urlSecret = request.nextUrl.searchParams.get('secret');
         const providedSecret = authHeader?.replace('Bearer ', '') || urlSecret;
@@ -127,15 +128,15 @@ async function handleRequest(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Non autorisé' }, { status: 401 });
         }
 
-        console.log('[Send Habit Notification] Secret validé, démarrage...');
-        return await sendHabitNotifications();
+        console.log(`[Send Habit Notification] Secret validé, démarrage... (type: ${type})`);
+        return await sendHabitNotifications(type);
     } catch (error) {
         console.error('[Send Habit Notification] Erreur critique:', error);
          return NextResponse.json({ success: false, error: error instanceof Error ? error.message : 'Erreur interne' }, { status: 500 });
     }
 }
 
-async function sendHabitNotifications() {
+async function sendHabitNotifications(type: string) {
      const db = getFirestore();
      const messaging = getMessaging();
 
@@ -161,6 +162,10 @@ async function sendHabitNotifications() {
          let notificationToSent = null;
 
          for (const f of frequencies) {
+             // Brunch at morning, everything else at evening (or all if not specified)
+             if (type === 'morning' && f.category !== 'Brunch') continue;
+             if (type === 'evening' && f.category === 'Brunch') continue;
+
              const daysSinceLastVisit = Math.round((now - f.lastVisit) / (1000 * 60 * 60 * 24));
              
              // We trigger on multiples of the stable (historical) average to avoid daily notifications
