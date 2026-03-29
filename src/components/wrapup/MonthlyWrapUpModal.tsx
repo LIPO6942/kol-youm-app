@@ -79,21 +79,6 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
     }
   };
 
-  const handlePointerDown = (e: React.PointerEvent) => {
-    setIsPaused(true);
-  };
-
-  const handlePointerUp = (e: React.PointerEvent) => {
-    setIsPaused(false);
-    const rect = e.currentTarget.getBoundingClientRect();
-    const isRightHalf = e.clientX - rect.left > rect.width / 2;
-    if (isRightHalf) {
-      handleNextSlide();
-    } else {
-      handlePrevSlide();
-    }
-  };
-
   const shareStory = async () => {
     if (!storyRef.current) return;
     try {
@@ -157,16 +142,6 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
         <button className="absolute top-8 right-4 z-50 p-2 bg-black/20 rounded-full backdrop-blur-md no-screenshot" onClick={onClose}>
           <X className="w-5 h-5 text-white" />
         </button>
-
-        {/* CLICKABLE AREAS FOR NAVIGATION */}
-        <div 
-          className="absolute inset-0 z-40 flex touch-none"
-          onPointerDown={handlePointerDown}
-          onPointerUp={handlePointerUp}
-          onPointerLeave={() => setIsPaused(false)}
-        >
-          {/* Transparent interaction layer */}
-        </div>
 
         {/* SLIDES CONTENT */}
         <div ref={storyRef} className="relative w-full h-full flex items-center justify-center p-6 bg-gradient-to-br from-indigo-900 via-purple-900 to-black overflow-hidden pointer-events-none">
@@ -290,7 +265,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
                    </div>
                 </div>
                 
-                <div className="pointer-events-auto no-screenshot z-50">
+                <div className="pointer-events-auto no-screenshot z-[60] relative">
                   <Button onClick={shareStory} className="w-full bg-white text-black hover:bg-white/90 rounded-full h-14 text-lg font-bold flex items-center justify-center gap-2 shadow-[0_0_30px_rgba(255,255,255,0.3)]">
                     <Share2 className="w-5 h-5" /> Partager mon profil
                   </Button>
@@ -298,6 +273,26 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
               </SlideContainer>
             )}
           </AnimatePresence>
+        </div>
+
+        {/* CLICKABLE AREAS FOR NAVIGATION - MOVED AFTER CONTENT TO ENSURE TOP PRIORITY */}
+        <div className="absolute inset-0 z-40 flex no-screenshot pointer-events-auto">
+          <div 
+            className="flex-1 bg-transparent cursor-pointer"
+            onClick={(e) => { e.stopPropagation(); handlePrevSlide(); }}
+            onPointerDown={() => setIsPaused(true)}
+            onPointerUp={() => setIsPaused(false)}
+            onPointerCancel={() => setIsPaused(false)}
+            onPointerLeave={() => setIsPaused(false)}
+          />
+          <div 
+            className="flex-1 bg-transparent cursor-pointer"
+            onClick={(e) => { e.stopPropagation(); handleNextSlide(); }}
+            onPointerDown={() => setIsPaused(true)}
+            onPointerUp={() => setIsPaused(false)}
+            onPointerCancel={() => setIsPaused(false)}
+            onPointerLeave={() => setIsPaused(false)}
+          />
         </div>
           </div>
         </motion.div>
