@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin } from 'lucide-react';
+import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 const TypedBadge = Badge as any;
 import { Separator } from '@/components/ui/separator';
@@ -850,6 +850,23 @@ export default function SettingsPage() {
                 currentImageUrl={userProfile?.closeupPhotoUrl}
                 onImageUpload={(dataUri) => handleImageUpload(dataUri, 'closeup')}
               />
+            </CardContent>
+          </Card>
+
+          <Separator />
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Wrap-Up Mensuel</CardTitle>
+              <CardDescription>
+                Revivez vos meilleurs moments et découvrez vos statistiques du mois actuel.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => router.push('?wrapup=true')} className="w-full sm:w-auto flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-0">
+                <Sparkles className="h-5 w-5" />
+                Relancer mon Wrap-Up
+              </Button>
             </CardContent>
           </Card>
 
