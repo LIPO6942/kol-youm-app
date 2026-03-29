@@ -3,9 +3,9 @@
 import type { ReactNode } from 'react';
 import { Suspense } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { usePathname, useSearchParams, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import BottomNav from '@/components/bottom-nav';
-import { MonthlyWrapUpModal } from '@/components/wrapup/MonthlyWrapUpModal';
+import { WrapUpTrigger } from '@/components/wrapup/WrapUpTrigger';
 import { Loader2, Settings, Shirt } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -14,16 +14,6 @@ import { NavigationEvents } from '@/components/navigation-events';
 export default function MainLayout({ children }: { children: ReactNode }) {
   const { user, userProfile, loading } = useAuth();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  
-  const isWrapUpOpen = searchParams.get('wrapup') === 'true';
-  const handleCloseWrapUp = () => {
-      const params = new URLSearchParams(searchParams.toString());
-      params.delete('wrapup');
-      const newQuery = params.toString();
-      router.replace(`${pathname}${newQuery ? `?${newQuery}` : ''}`);
-  };
 
   if (loading || !user) {
     return (
@@ -95,11 +85,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       </main>
       <BottomNav />
       {userProfile && (
-        <MonthlyWrapUpModal 
-          user={userProfile} 
-          isOpen={isWrapUpOpen} 
-          onClose={handleCloseWrapUp} 
-        />
+        <Suspense fallback={null}>
+          <WrapUpTrigger userProfile={userProfile} />
+        </Suspense>
       )}
     </div>
   );
