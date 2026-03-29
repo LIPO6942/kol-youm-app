@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Share2, Download, ArrowRight, Camera, Clapperboard, Award, Sparkles, MapPin } from 'lucide-react';
 import { useMonthlyWrapUp, WrapUpStats } from '@/hooks/use-monthly-wrapup';
@@ -30,18 +30,25 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
 
   const slides = stats ? [
     'intro',
-    'category',
-    'place',
+    stats.topCategory ? 'category' : null,
+    stats.topPlace ? 'place' : null,
     stats.totalMovies > 0 ? 'tfarrej' : null,
     stats.featuredMomentyImage ? 'momenty' : null,
     'verdict'
   ].filter(Boolean) as string[] : [];
 
+  // Only reset when the modal opens/closes — NOT when stats ref changes
   useEffect(() => {
-    setCurrentSlide(0);
-    setProgress(0);
-    setIsPaused(false);
-  }, [isOpen, stats]);
+    if (isOpen) {
+      setCurrentSlide(0);
+      setProgress(0);
+      setIsPaused(false);
+    }
+  }, [isOpen]);
+
+  // Keep slides.length in a ref to avoid stale closures in the timer
+  const slidesLengthRef = useRef(slides.length);
+  slidesLengthRef.current = slides.length;
 
   useEffect(() => {
     if (!isOpen || !stats || isPaused) return;
@@ -49,13 +56,14 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
     const intervalId = setInterval(() => {
       setProgress((oldProgress) => {
         if (oldProgress >= 100) {
-          if (currentSlide < slides.length - 1) {
-            setCurrentSlide((s) => s + 1);
-            return 0; // Reset progress for next slide
-          } else {
+          setCurrentSlide((s) => {
+            if (s < slidesLengthRef.current - 1) {
+              return s + 1;
+            }
             clearInterval(intervalId); // End of stories
-            return 100;
-          }
+            return s;
+          });
+          return 0; // Reset progress for next slide
         }
         // Increment progress smoothly (assumes 50ms interval)
         return oldProgress + (100 / (SLIDE_DURATION / 50));
@@ -63,7 +71,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
     }, 50);
 
     return () => clearInterval(intervalId);
-  }, [isOpen, stats, isPaused, currentSlide, slides.length]);
+  }, [isOpen, stats, isPaused]);
 
   const handleNextSlide = () => {
     if (currentSlide < slides.length - 1) {
