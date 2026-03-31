@@ -14,7 +14,7 @@
         },
         {
             "path": "/api/send-monthly-wrapup-notification",
-            "schedule": "0 10 1 * *"
+            "schedule": "0 18 1 * *"
         }
     ]
 }
