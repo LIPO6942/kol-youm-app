@@ -19,9 +19,9 @@ type Props = {
 const SLIDE_DURATION = 6000;
 
 export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Date() }: Props) {
-  // Optionnel: On pourrait reculer d'un mois si on est au tout début du mois actuel.
-  // Pour le test, on prend directement targetDate (le mois en cours).
-  const stats = useMonthlyWrapUp(user, targetDate);
+  // Le wrap-up concerne toujours le mois précédent par rapport à la date cible
+  const previousMonthDate = new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, 1);
+  const stats = useMonthlyWrapUp(user, previousMonthDate);
 
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
