@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Share2, Download, ArrowRight, Camera, Clapperboard, Award, Sparkles, MapPin } from 'lucide-react';
+import { X, Share2, Download, ArrowRight, Camera, Clapperboard, Award, Sparkles, MapPin, Film } from 'lucide-react';
 import { useMonthlyWrapUp, WrapUpStats } from '@/hooks/use-monthly-wrapup';
 import type { UserProfile } from '@/lib/firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,34 @@ type Props = {
 // Durée de chaque slide en ms
 const SLIDE_DURATION = 6000;
 
+// Composant pour l'arrière-plan en collage
+function CollageBackground({ posters }: { posters: string[] }) {
+  if (!posters || posters.length === 0) return null;
+  
+  // Limiter à 9 pour un collage 3x3 propre
+  const displayPosters = posters.slice(0, 9);
+  const count = displayPosters.length;
+  
+  let gridClass = "grid-cols-1";
+  if (count === 2) gridClass = "grid-cols-2";
+  else if (count >= 3 && count <= 4) gridClass = "grid-cols-2 grid-rows-2";
+  else if (count >= 5) gridClass = "grid-cols-3 grid-rows-3 text-xs"; // Petit texte si besoin
+
+  return (
+    <div className={`absolute inset-0 z-0 grid ${gridClass} gap-0.5 opacity-60 blur-[1px] scale-105`}>
+      {displayPosters.map((url, i) => (
+        <div key={i} className="relative w-full h-full overflow-hidden">
+           <img 
+             src={url.startsWith('http') ? url : `https://image.tmdb.org/t/p/w500${url}`} 
+             alt="Poster"
+             className="w-full h-full object-cover"
+           />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Date() }: Props) {
   // Le wrap-up concerne toujours le mois précédent par rapport à la date cible
   const previousMonthDate = new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, 1);
@@ -32,10 +60,15 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
     'intro',
     stats.topCategory ? 'category' : null,
     stats.topPlace ? 'place' : null,
-    stats.totalMovies > 0 ? 'tfarrej' : null,
+    stats.movies && stats.movies.total > 0 ? 'movies' : null,
+    stats.series && stats.series.total > 0 ? 'series' : null,
     stats.featuredMomentyImage ? 'momenty' : null,
     'verdict'
   ].filter(Boolean) as string[] : [];
+
+  // ... (rest of the logic stays similar)
+  
+  // (Moving to the return part to update slides rendering)
 
   // Only reset when the modal opens/closes — NOT when stats ref changes
   useEffect(() => {
@@ -210,26 +243,42 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
               </SlideContainer>
             )}
 
-            {slides[currentSlide] === 'tfarrej' && (
-              <SlideContainer key="tfarrej">
-                {stats.featuredMoviePoster && (
-                   <div 
-                     className="absolute inset-0 z-0 opacity-40 blur-sm scale-110"
-                     style={{ backgroundImage: `url(https://image.tmdb.org/t/p/w500${stats.featuredMoviePoster})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
-                   />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent z-0" />
+            {slides[currentSlide] === 'movies' && stats.movies && (
+              <SlideContainer key="movies">
+                <CollageBackground posters={stats.movies.posters} />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent z-0" />
                 <div className="relative z-10 flex flex-col items-center">
-                  <Clapperboard className="w-16 h-16 text-red-500 mb-6" />
-                  <h2 className="text-2xl font-bold mb-4 text-white/80">L'Instant Tfarrej</h2>
+                  <Clapperboard className="w-16 h-16 text-blue-500 mb-6" />
+                  <h2 className="text-2xl font-bold mb-4 text-white/80">L'Instant Ciné</h2>
                   <div className="text-center mb-8">
-                    <span className="text-6xl font-black text-white">{stats.totalMovies}</span>
-                    <span className="block text-xl text-white/60">œuvres vues</span>
+                    <span className="text-6xl font-black text-white">{stats.movies.total}</span>
+                    <span className="block text-xl text-white/60">films vus</span>
                   </div>
-                  {stats.featuredMovieTitle && (
-                    <div className="bg-black/60 p-4 rounded-xl border border-white/10 text-center backdrop-blur-md">
-                      <p className="text-sm text-red-400 uppercase tracking-widest font-bold mb-1">Coup de cœur récent</p>
-                      <h3 className="text-2xl font-bold">{stats.featuredMovieTitle}</h3>
+                  {stats.movies.featured && (
+                    <div className="bg-black/60 p-4 rounded-xl border border-white/10 text-center backdrop-blur-md max-w-[80%]">
+                      <p className="text-sm text-blue-400 uppercase tracking-widest font-bold mb-1">Coup de cœur récent</p>
+                      <h3 className="text-xl font-bold line-clamp-2">{stats.movies.featured.title}</h3>
+                    </div>
+                  )}
+                </div>
+              </SlideContainer>
+            )}
+
+            {slides[currentSlide] === 'series' && stats.series && (
+              <SlideContainer key="series">
+                <CollageBackground posters={stats.series.posters} />
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent z-0" />
+                <div className="relative z-10 flex flex-col items-center">
+                  <Film className="w-16 h-16 text-purple-500 mb-6" />
+                  <h2 className="text-2xl font-bold mb-4 text-white/80">L'Instant Séries</h2>
+                  <div className="text-center mb-8">
+                    <span className="text-6xl font-black text-white">{stats.series.total}</span>
+                    <span className="block text-xl text-white/60">séries vues</span>
+                  </div>
+                  {stats.series.featured && (
+                    <div className="bg-black/60 p-4 rounded-xl border border-white/10 text-center backdrop-blur-md max-w-[80%]">
+                      <p className="text-sm text-purple-400 uppercase tracking-widest font-bold mb-1">Coup de cœur récent</p>
+                      <h3 className="text-xl font-bold line-clamp-2">{stats.series.featured.title}</h3>
                     </div>
                   )}
                 </div>
@@ -271,6 +320,18 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
                      <p className="text-sm text-white/50 mb-1">Tfarrej</p>
                      <p className="text-2xl font-bold">{stats.totalMovies}</p>
                    </div>
+                   {stats.movies && (
+                     <div className="bg-white/5 rounded-xl p-2 col-span-1 text-center">
+                       <p className="text-[10px] uppercase text-white/30">Films</p>
+                       <p className="text-lg font-bold">{stats.movies.total}</p>
+                     </div>
+                   )}
+                   {stats.series && (
+                     <div className="bg-white/5 rounded-xl p-2 col-span-1 text-center">
+                       <p className="text-[10px] uppercase text-white/30">Séries</p>
+                       <p className="text-lg font-bold">{stats.series.total}</p>
+                     </div>
+                   )}
                 </div>
                 
                 <div className="pointer-events-auto no-screenshot z-[60] relative">

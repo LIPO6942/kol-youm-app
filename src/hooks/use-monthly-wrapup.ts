@@ -8,9 +8,17 @@ export type WrapUpStats = {
   topPlace: { name: string; count: number } | null;
   featuredMomentyImage: string | null;
   featuredMomentyDish: string | null;
-  totalMovies: number;
-  featuredMovieTitle: string | null;
-  featuredMoviePoster: string | null;
+  movies?: {
+    total: number;
+    posters: string[];
+    featured: { title: string; poster: string } | null;
+  };
+  series?: {
+    total: number;
+    posters: string[];
+    featured: { title: string; poster: string } | null;
+  };
+  totalMovies: number; // Sum of both for Persona
   userPersona: string;
 };
 
@@ -87,49 +95,47 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
       }
     });
 
-    // 3. Tfarrej Stats
-    // Assuming 'seenMoviesData' exists on userProfile from the latest codebase analysis
-    // and holds { title, viewedAt, posterUrl }
-    const monthlyMovies = ((user as any).seenMoviesData || []).filter((m: any) => {
-        if (!m.viewedAt) return false;
-        const d = new Date(m.viewedAt);
-        return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
-    });
-    
-    // Fallback search to our recently implemented seenMovieHistory
-    const backendHistory = ((user as any).seenMovieHistory || []).filter((m: any) => {
-        if (!m.addedAt) return false;
-        const d = new Date(m.addedAt);
-        return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
-    });
+    // 3. Tfarrej Stats (Separated Movies and Series)
+    const filterByDate = (history: any[], dateField: string) => {
+        return (history || []).filter((m: any) => {
+            if (!m[dateField]) return false;
+            const d = new Date(m[dateField]);
+            return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+        });
+    };
 
-    // Inclusion des séries (deux formats possibles selon la version de l'app)
-    const seriesData = ((user as any).seenSeriesData || []).filter((m: any) => {
-        if (!m.viewedAt) return false;
-        const d = new Date(m.viewedAt);
-        return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
-    });
+    const movieHistory = [
+        ...filterByDate((user as any).seenMoviesData || [], 'viewedAt'),
+        ...filterByDate((user as any).seenMovieHistory || [], 'addedAt')
+    ];
+    const seriesHistory = [
+        ...filterByDate((user as any).seenSeriesData || [], 'viewedAt'),
+        ...filterByDate((user as any).seenSeriesHistory || [], 'addedAt')
+    ];
 
-    const seriesHistory = ((user as any).seenSeriesHistory || []).filter((m: any) => {
-        if (!m.addedAt) return false;
-        const d = new Date(m.addedAt);
-        return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
-    });
+    const deduplicate = (list: any[]) => {
+        const map = new Map();
+        list.forEach(m => map.set(m.title, m));
+        return Array.from(map.values());
+    };
 
-    const combinedMovies = [...monthlyMovies, ...backendHistory, ...seriesData, ...seriesHistory];
-    const uniqueMoviesMap = new Map();
-    combinedMovies.forEach(m => uniqueMoviesMap.set(m.title, m)); // Deduplicate
-    const uniqueMonthlyMovies = Array.from(uniqueMoviesMap.values());
+    const uniqueMovies = deduplicate(movieHistory);
+    const uniqueSeries = deduplicate(seriesHistory);
 
-    const totalMovies = uniqueMonthlyMovies.length;
-    let featuredMovieTitle = null;
-    let featuredMoviePoster = null;
+    const getStats = (list: any[]) => {
+        if (list.length === 0) return null;
+        const posters = list.map(m => m.posterUrl || m.posterPath).filter(Boolean);
+        const feat = list[list.length - 1];
+        return {
+            total: list.length,
+            posters: posters as string[],
+            featured: feat ? { title: feat.title, poster: feat.posterUrl || feat.posterPath } : null
+        };
+    };
 
-    if (totalMovies > 0) {
-        const featMovie = uniqueMonthlyMovies[uniqueMonthlyMovies.length - 1]; // Pick the last one added
-        featuredMovieTitle = featMovie.title;
-        featuredMoviePoster = featMovie.posterUrl || featMovie.posterPath || null;
-    }
+    const movies = getStats(uniqueMovies);
+    const series = getStats(uniqueSeries);
+    const totalMovies = uniqueMovies.length + uniqueSeries.length;
 
     // 4. Determine Persona
     const userPersona = getPersona(totalOutings, topCategory?.name || null, totalMovies);
@@ -145,8 +151,6 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
           featuredMomentyImage: null,
           featuredMomentyDish: null,
           totalMovies: 0,
-          featuredMovieTitle: null,
-          featuredMoviePoster: null,
           userPersona: "Le Fantôme Discret 👻"
         };
     }
@@ -158,9 +162,9 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
       topPlace,
       featuredMomentyImage,
       featuredMomentyDish,
+      movies: movies || undefined,
+      series: series || undefined,
       totalMovies,
-      featuredMovieTitle,
-      featuredMoviePoster,
       userPersona
     };
 
