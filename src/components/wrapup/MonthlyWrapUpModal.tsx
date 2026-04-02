@@ -64,16 +64,22 @@ function CollageBackground({ posters }: { posters: string[] }) {
       transition={{ duration: 1.2, ease: 'easeOut' }}
       className={`absolute inset-0 z-0 grid ${gridClass} gap-0.5 blur-[1px]`}
     >
-      {displayPosters.map((url, i) => (
-        <div key={i} className="relative w-full h-full overflow-hidden">
-          <img
-            src={url.startsWith('http') ? url : `https://image.tmdb.org/t/p/w500${url}`}
-            alt="Poster"
-            crossOrigin="anonymous"
-            className="w-full h-full object-cover"
-          />
-        </div>
-      ))}
+      {displayPosters.map((url, i) => {
+        const posterUrl = url.startsWith('http') 
+          ? url 
+          : `https://image.tmdb.org/t/p/w500${url.startsWith('/') ? '' : '/'}${url}`;
+          
+        return (
+          <div key={i} className="relative w-full h-full overflow-hidden">
+            <img
+              src={posterUrl}
+              alt="Poster"
+              crossOrigin="anonymous"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        );
+      })}
     </motion.div>
   );
 }
@@ -601,7 +607,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
             </div>
 
             {/* ── NAVIGATION ZONES ── */}
-            <div className="absolute inset-0 z-40 flex no-screenshot pointer-events-auto">
+            <div className="absolute top-0 left-0 right-0 bottom-28 z-40 flex no-screenshot pointer-events-auto">
               <div
                 className="flex-1 bg-transparent cursor-pointer"
                 onClick={(e: any) => { e.stopPropagation(); handlePrevSlide(); }}
