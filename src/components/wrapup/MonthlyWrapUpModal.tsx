@@ -223,9 +223,14 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
                      stats.topCategory?.name === 'Café' ? '☕' : '🍽️'}
                   </div>
                   <h1 className="text-4xl font-black mb-2">{stats.topCategory?.name}</h1>
-                  <p className="text-lg text-white/70">
+                  <p className="text-lg text-white/70 mb-4">
                     Cela représente <span className="font-bold text-white">{stats.topCategory?.percentage}%</span> de tes sorties globales !
                   </p>
+                  {stats.topDay && (
+                    <div className="text-sm font-medium uppercase tracking-widest text-pink-300">
+                      Survient surtout les <span className="text-white underline decoration-pink-500 underline-offset-4">{stats.topDay.name}s</span>
+                    </div>
+                  )}
                 </motion.div>
               </SlideContainer>
             )}
@@ -234,9 +239,16 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
               <SlideContainer key="place" className="bg-gradient-to-tr from-emerald-900 via-teal-900 to-black">
                 <MapPin className="w-16 h-16 text-emerald-400 mb-6" />
                 <h2 className="text-2xl font-bold mb-2 text-white/70">Ton Quartier Général</h2>
-                <h1 className="text-5xl font-black text-center text-white drop-shadow-lg mb-6 leading-tight">
-                  {stats.topPlace?.name}
-                </h1>
+                <div className="text-center mb-6">
+                  <h1 className="text-5xl font-black text-white drop-shadow-lg leading-tight">
+                    {stats.topPlace?.name}
+                  </h1>
+                  {stats.topNeighborhood && (
+                    <p className="text-emerald-300 font-medium uppercase tracking-tighter mt-1">
+                      Dans le quartier de {stats.topNeighborhood.name}
+                    </p>
+                  )}
+                </div>
                 <p className="text-xl text-emerald-200 bg-emerald-950/50 px-6 py-2 rounded-full border border-emerald-800">
                   Visité {stats.topPlace?.count} fois
                 </p>
@@ -297,8 +309,12 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
                 
                 <div className="absolute inset-0 p-8 flex flex-col justify-end">
                   <Camera className="w-10 h-10 text-white/80 mb-4" />
-                  <p className="text-lg text-white/80 font-semibold uppercase tracking-wider mb-2">Momenty du mois</p>
-                  <h2 className="text-4xl font-black leading-tight drop-shadow-xl">{stats.featuredMomentyDish}</h2>
+                  <p className="text-lg text-white/80 font-semibold uppercase tracking-wider mb-2">
+                    {stats.topDish ? 'Votre péché mignon du mois' : 'Momenty du mois'}
+                  </p>
+                  <h2 className="text-4xl font-black leading-tight drop-shadow-xl">
+                    {stats.topDish ? stats.topDish.name : stats.featuredMomentyDish}
+                  </h2>
                 </div>
               </SlideContainer>
             )}
@@ -311,27 +327,35 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
                   {stats.userPersona}
                 </h1>
 
-                <div className="grid grid-cols-2 gap-4 w-full mb-12">
-                   <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/5">
-                     <p className="text-sm text-white/50 mb-1">Sorties</p>
-                     <p className="text-2xl font-bold">{stats.totalOutings}</p>
+                <div className="grid grid-cols-2 gap-3 w-full mb-8">
+                   <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/5">
+                     <p className="text-[10px] uppercase text-white/50 mb-1">Sorties</p>
+                     <p className="text-xl font-bold">{stats.totalOutings}</p>
                    </div>
-                   <div className="bg-white/10 rounded-2xl p-4 backdrop-blur-sm border border-white/5">
-                     <p className="text-sm text-white/50 mb-1">Tfarrej</p>
-                     <p className="text-2xl font-bold">{stats.totalMovies}</p>
+                   <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/5">
+                     <p className="text-[10px] uppercase text-white/50 mb-1">Tfarrej</p>
+                     <p className="text-xl font-bold">{stats.totalMovies}</p>
                    </div>
-                   {stats.movies && (
-                     <div className="bg-white/5 rounded-xl p-2 col-span-1 text-center">
-                       <p className="text-[10px] uppercase text-white/30">Films</p>
-                       <p className="text-lg font-bold">{stats.movies.total}</p>
+                   
+                   <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/5 overflow-hidden">
+                     <p className="text-[10px] uppercase text-white/50 mb-1">Quartier Top</p>
+                     <p className="text-sm font-bold truncate">{stats.topNeighborhood?.name || "Tunis"}</p>
+                   </div>
+                   <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/5">
+                     <p className="text-[10px] uppercase text-white/50 mb-1">Jour Favori</p>
+                     <p className="text-sm font-bold">{stats.topDay?.name || "Weekend"}</p>
+                   </div>
+
+                   <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/5 col-span-2 flex items-center justify-between">
+                     <div>
+                       <p className="text-[10px] uppercase text-white/50 mb-1">Côté Assiette</p>
+                       <p className="text-sm font-bold truncate max-w-[150px]">{stats.topDish?.name || "Gourmandises"}</p>
                      </div>
-                   )}
-                   {stats.series && (
-                     <div className="bg-white/5 rounded-xl p-2 col-span-1 text-center">
-                       <p className="text-[10px] uppercase text-white/30">Séries</p>
-                       <p className="text-lg font-bold">{stats.series.total}</p>
+                     <div className="text-right">
+                       <p className="text-[10px] uppercase text-white/50 mb-1">Style Top</p>
+                       <p className="text-sm font-bold">{stats.topCategory?.name || "Sortie"}</p>
                      </div>
-                   )}
+                   </div>
                 </div>
                 
                 <div className="pointer-events-auto no-screenshot z-[60] relative">
@@ -371,7 +395,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
 }
 
 // Wrapper pour chaque slide avec animation standardisée
-function SlideContainer({ children, className = "", style }: { children: React.ReactNode, className?: string, style?: React.CSSProperties }) {
+function SlideContainer({ children, className = "", style }: { children: React.ReactNode; className?: string; style?: any }) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}

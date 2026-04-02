@@ -6,6 +6,9 @@ export type WrapUpStats = {
   totalOutings: number;
   topCategory: { name: string; count: number; percentage: number } | null;
   topPlace: { name: string; count: number } | null;
+  topDish: { name: string; count: number } | null;
+  topNeighborhood: { name: string; count: number } | null;
+  topDay: { name: string; count: number } | null;
   featuredMomentyImage: string | null;
   featuredMomentyDish: string | null;
   movies?: {
@@ -26,6 +29,8 @@ const MONTH_NAMES = [
   "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
   "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
 ];
+
+const DAY_NAMES = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
 
 function getPersona(
   totalOutings: number,
@@ -55,9 +60,13 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
 
     const totalOutings = monthlyVisits.length;
 
-    // 2. Compute Top Category
+    // 2. Compute Top Category, Place, Dish, Neighborhood, Day
     const categoryCounts: Record<string, number> = {};
     const placeCounts: Record<string, number> = {};
+    const dishCounts: Record<string, number> = {};
+    const neighborhoodCounts: Record<string, number> = {};
+    const dayCounts: Record<string, number> = {};
+    
     let featuredMomentyImage: string | null = null;
     let featuredMomentyDish: string | null = null;
 
@@ -70,6 +79,24 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
       const place = v.placeName;
       if (place) placeCounts[place] = (placeCounts[place] || 0) + 1;
 
+      // Top Dish
+      if (v.orderedItem && v.orderedItem !== "Découverte Gourmande") {
+        const dish = v.orderedItem.trim();
+        dishCounts[dish] = (dishCounts[dish] || 0) + 1;
+      }
+
+      // Top Neighborhood (matching via predefinedArea in places)
+      const userPlace = (user.places || []).find(p => p.name === v.placeName);
+      if (userPlace?.predefinedArea) {
+        const area = userPlace.predefinedArea;
+        neighborhoodCounts[area] = (neighborhoodCounts[area] || 0) + 1;
+      }
+
+      // Top Day
+      const dayIndex = new Date(v.date).getDay();
+      const dayName = DAY_NAMES[dayIndex];
+      dayCounts[dayName] = (dayCounts[dayName] || 0) + 1;
+
       // Extract a featured image from Momenty if available
       if (!featuredMomentyImage && v.momentyImageUrl) {
         featuredMomentyImage = v.momentyImageUrl;
@@ -77,23 +104,29 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
       }
     });
 
-    let topCategory: { name: string; count: number; percentage: number } | null = null;
-    let maxCatCount = 0;
-    Object.entries(categoryCounts).forEach(([name, count]) => {
-      if (count > maxCatCount) {
-        maxCatCount = count;
-        topCategory = { name, count, percentage: Math.round((count / totalOutings) * 100) };
-      }
-    });
+    const getTop = (counts: Record<string, number>): { name: string; count: number } | null => {
+        let topItem: { name: string; count: number } | null = null;
+        let maxCount = 0;
+        Object.entries(counts).forEach(([name, count]) => {
+          if (count > maxCount) {
+            maxCount = count;
+            topItem = { name, count };
+          }
+        });
+        return topItem;
+    };
 
-    let topPlace: { name: string; count: number } | null = null;
-    let maxPlaceCount = 0;
-    Object.entries(placeCounts).forEach(([name, count]) => {
-      if (count > maxPlaceCount) {
-        maxPlaceCount = count;
-        topPlace = { name, count };
-      }
-    });
+    const topCategoryItem = getTop(categoryCounts);
+    const topCategory = topCategoryItem ? { 
+        name: topCategoryItem.name, 
+        count: topCategoryItem.count, 
+        percentage: Math.round((topCategoryItem.count / totalOutings) * 100) 
+    } : null;
+
+    const topPlace = getTop(placeCounts);
+    const topDish = getTop(dishCounts);
+    const topNeighborhood = getTop(neighborhoodCounts);
+    const topDay = getTop(dayCounts);
 
     // 3. Tfarrej Stats (Separated Movies and Series)
     const filterByDate = (history: any[], dateField: string) => {
@@ -122,7 +155,7 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
     const uniqueMovies = deduplicate(movieHistory);
     const uniqueSeries = deduplicate(seriesHistory);
 
-    const getStats = (list: any[]) => {
+    const getTfarrejStats = (list: any[]) => {
         if (list.length === 0) return null;
         const posters = list.map(m => m.posterUrl || m.posterPath).filter(Boolean);
         const feat = list[list.length - 1];
@@ -133,8 +166,8 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
         };
     };
 
-    const movies = getStats(uniqueMovies);
-    const series = getStats(uniqueSeries);
+    const movies = getTfarrejStats(uniqueMovies);
+    const series = getTfarrejStats(uniqueSeries);
     const totalMovies = uniqueMovies.length + uniqueSeries.length;
 
     // 4. Determine Persona
@@ -148,6 +181,9 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
           totalOutings: 0,
           topCategory: null,
           topPlace: null,
+          topDish: null,
+          topNeighborhood: null,
+          topDay: null,
           featuredMomentyImage: null,
           featuredMomentyDish: null,
           totalMovies: 0,
@@ -160,6 +196,9 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
       totalOutings,
       topCategory,
       topPlace,
+      topDish,
+      topNeighborhood,
+      topDay,
       featuredMomentyImage,
       featuredMomentyDish,
       movies: movies || undefined,
