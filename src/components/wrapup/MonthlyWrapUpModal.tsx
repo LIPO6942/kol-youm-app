@@ -49,7 +49,34 @@ function CollageBackground({ posters }: { posters: string[] }) {
 export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Date() }: Props) {
   // Le wrap-up concerne toujours le mois précédent par rapport à la date cible
   const previousMonthDate = new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, 1);
-  const stats = useMonthlyWrapUp(user, previousMonthDate);
+
+  // Fetch la base Firestore des lieux pour récupérer les zones
+  const [placesWithZones, setPlacesWithZones] = useState<{ name: string; zone: string }[]>([]);
+  useEffect(() => {
+    if (!isOpen) return;
+    async function fetchPlaces() {
+      try {
+        const res = await fetch('/api/places-database-firestore');
+        const data = await res.json();
+        if (data.success && data.data?.zones) {
+          const flat: { name: string; zone: string }[] = [];
+          data.data.zones.forEach((z: any) => {
+            Object.values(z.categories).forEach((places: any) => {
+              (places as string[]).forEach((name: string) => {
+                flat.push({ name: name.split('[')[0].trim(), zone: z.zone });
+              });
+            });
+          });
+          setPlacesWithZones(flat);
+        }
+      } catch (e) {
+        console.error('Failed to fetch places for zones in wrapup', e);
+      }
+    }
+    fetchPlaces();
+  }, [isOpen]);
+
+  const stats = useMonthlyWrapUp(user, previousMonthDate, placesWithZones);
 
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);

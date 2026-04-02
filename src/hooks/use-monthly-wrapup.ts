@@ -46,7 +46,11 @@ function getPersona(
   return "L'Épicurien Équilibré 🌟";
 }
 
-export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): WrapUpStats | null {
+export function useMonthlyWrapUp(
+  user: UserProfile | null,
+  targetDate: Date,
+  placesWithZones?: { name: string; zone: string }[]
+): WrapUpStats | null {
   return useMemo(() => {
     if (!user) return null;
 
@@ -94,10 +98,10 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
         beverageCounts[bev] = (beverageCounts[bev] || 0) + 1;
       }
 
-      // Top Neighborhood (matching via predefinedArea in places)
-      const userPlace = (user.places || []).find(p => p.name === v.placeName);
-      if (userPlace?.predefinedArea) {
-        const area = userPlace.predefinedArea;
+      // Top Neighborhood — priorité : base Firestore globale, sinon user.places.predefinedArea
+      const globalPlace = placesWithZones?.find(p => p.name === v.placeName);
+      const area = globalPlace?.zone || (user.places || []).find(p => p.name === v.placeName)?.predefinedArea;
+      if (area) {
         neighborhoodCounts[area] = (neighborhoodCounts[area] || 0) + 1;
       }
 
