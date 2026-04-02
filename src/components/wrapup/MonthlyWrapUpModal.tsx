@@ -339,21 +339,21 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
                    
                    <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/5 overflow-hidden">
                      <p className="text-[10px] uppercase text-white/50 mb-1">Quartier Top</p>
-                     <p className="text-sm font-bold truncate">{stats.topNeighborhood?.name || "Tunis"}</p>
+                     <p className="text-sm font-bold truncate">{stats.topNeighborhood?.name || "—"}</p>
                    </div>
                    <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/5">
                      <p className="text-[10px] uppercase text-white/50 mb-1">Jour Favori</p>
-                     <p className="text-sm font-bold">{stats.topDay?.name || "Weekend"}</p>
+                     <p className="text-sm font-bold">{stats.topDay?.name || "—"}</p>
                    </div>
 
                    <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/5 col-span-2 flex items-center justify-between">
                      <div>
                        <p className="text-[10px] uppercase text-white/50 mb-1">Côté Assiette</p>
-                       <p className="text-sm font-bold truncate max-w-[150px]">{stats.topDish?.name || "Gourmandises"}</p>
+                       <p className="text-sm font-bold truncate max-w-[150px]">{stats.topDish?.name || "—"}</p>
                      </div>
                      <div className="text-right">
-                       <p className="text-[10px] uppercase text-white/50 mb-1">Style Top</p>
-                       <p className="text-sm font-bold">{stats.topCategory?.name || "Sortie"}</p>
+                       <p className="text-[10px] uppercase text-white/50 mb-1">Boisson Préférée</p>
+                       <p className="text-sm font-bold">{stats.topBeverage?.name || "—"}</p>
                      </div>
                    </div>
                 </div>

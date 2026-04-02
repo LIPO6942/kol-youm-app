@@ -7,6 +7,7 @@ export type WrapUpStats = {
   topCategory: { name: string; count: number; percentage: number } | null;
   topPlace: { name: string; count: number } | null;
   topDish: { name: string; count: number } | null;
+  topBeverage: { name: string; count: number } | null;
   topNeighborhood: { name: string; count: number } | null;
   topDay: { name: string; count: number } | null;
   featuredMomentyImage: string | null;
@@ -60,10 +61,11 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
 
     const totalOutings = monthlyVisits.length;
 
-    // 2. Compute Top Category, Place, Dish, Neighborhood, Day
+    // 2. Compute Top Category, Place, Dish, Beverage, Neighborhood, Day
     const categoryCounts: Record<string, number> = {};
     const placeCounts: Record<string, number> = {};
     const dishCounts: Record<string, number> = {};
+    const beverageCounts: Record<string, number> = {};
     const neighborhoodCounts: Record<string, number> = {};
     const dayCounts: Record<string, number> = {};
     
@@ -84,6 +86,12 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
       if (isFoodCategory && v.orderedItem && v.orderedItem !== "Découverte Gourmande") {
         const dish = v.orderedItem.trim();
         dishCounts[dish] = (dishCounts[dish] || 0) + 1;
+      }
+
+      // Top Beverage — uniquement les items commandés dans les Cafés
+      if (cat === 'Café' && v.orderedItem && v.orderedItem !== "Découverte Gourmande") {
+        const bev = v.orderedItem.trim();
+        beverageCounts[bev] = (beverageCounts[bev] || 0) + 1;
       }
 
       // Top Neighborhood (matching via predefinedArea in places)
@@ -126,6 +134,7 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
 
     const topPlace = getTop(placeCounts);
     const topDish = getTop(dishCounts);
+    const topBeverage = getTop(beverageCounts);
     const topNeighborhood = getTop(neighborhoodCounts);
     const topDay = getTop(dayCounts);
 
@@ -183,6 +192,7 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
           topCategory: null,
           topPlace: null,
           topDish: null,
+          topBeverage: null,
           topNeighborhood: null,
           topDay: null,
           featuredMomentyImage: null,
@@ -198,6 +208,7 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
       topCategory,
       topPlace,
       topDish,
+      topBeverage,
       topNeighborhood,
       topDay,
       featuredMomentyImage,
