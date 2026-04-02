@@ -222,6 +222,7 @@ export default function MovieSwiper({ genre, type = 'movie' }: { genre: string; 
             userId: user.uid,
             title: item.title,
             type,
+            posterPath: item.posterUrl,
           }),
         });
 

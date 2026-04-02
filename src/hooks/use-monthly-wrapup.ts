@@ -103,7 +103,20 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
         return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
     });
 
-    const combinedMovies = [...monthlyMovies, ...backendHistory];
+    // Inclusion des séries (deux formats possibles selon la version de l'app)
+    const seriesData = ((user as any).seenSeriesData || []).filter((m: any) => {
+        if (!m.viewedAt) return false;
+        const d = new Date(m.viewedAt);
+        return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+    });
+
+    const seriesHistory = ((user as any).seenSeriesHistory || []).filter((m: any) => {
+        if (!m.addedAt) return false;
+        const d = new Date(m.addedAt);
+        return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+    });
+
+    const combinedMovies = [...monthlyMovies, ...backendHistory, ...seriesData, ...seriesHistory];
     const uniqueMoviesMap = new Map();
     combinedMovies.forEach(m => uniqueMoviesMap.set(m.title, m)); // Deduplicate
     const uniqueMonthlyMovies = Array.from(uniqueMoviesMap.values());
