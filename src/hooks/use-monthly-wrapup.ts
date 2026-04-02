@@ -79,8 +79,9 @@ export function useMonthlyWrapUp(user: UserProfile | null, targetDate: Date): Wr
       const place = v.placeName;
       if (place) placeCounts[place] = (placeCounts[place] || 0) + 1;
 
-      // Top Dish
-      if (v.orderedItem && v.orderedItem !== "Découverte Gourmande") {
+      // Top Dish — exclure les visites de catégorie "Café" (boissons ≠ plats)
+      const isFoodCategory = cat !== 'Café';
+      if (isFoodCategory && v.orderedItem && v.orderedItem !== "Découverte Gourmande") {
         const dish = v.orderedItem.trim();
         dishCounts[dish] = (dishCounts[dish] || 0) + 1;
       }
