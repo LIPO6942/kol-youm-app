@@ -65,16 +65,17 @@ function CollageBackground({ posters }: { posters: string[] }) {
       className={`absolute inset-0 z-0 grid ${gridClass} gap-0.5 blur-[1px]`}
     >
       {displayPosters.map((url, i) => {
-        const posterUrl = url.startsWith('http') 
-          ? url 
-          : `https://image.tmdb.org/t/p/w500${url.startsWith('/') ? '' : '/'}${url}`;
+        let finalUrl = url;
+        if (!url.startsWith('http')) {
+           finalUrl = `https://image.tmdb.org/t/p/w500${url.startsWith('/') ? '' : '/'}${url}`;
+        }
+        const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(finalUrl)}`;
           
         return (
           <div key={i} className="relative w-full h-full overflow-hidden">
             <img
-              src={posterUrl}
+              src={proxyUrl}
               alt="Poster"
-              crossOrigin="anonymous"
               className="w-full h-full object-cover"
             />
           </div>
@@ -229,15 +230,9 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
     if (!storyRef.current) return;
     try {
       const dataUrl = await toPng(storyRef.current, {
-        cacheBust: true,
+        cacheBust: false, // Pas besoin avec le proxy
         pixelRatio: 2,
         skipFonts: true,
-        filter: (node) => {
-          if (node instanceof HTMLElement) {
-            return !node.classList.contains('no-screenshot');
-          }
-          return true;
-        }
       });
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], 'wrapup.png', { type: 'image/png' });
@@ -493,9 +488,8 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
                         <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100 rounded-[1px]">
                           {stats.featuredMomentyImage && (
                             <motion.img
-                              src={stats.featuredMomentyImage}
+                              src={`/api/image-proxy?url=${encodeURIComponent(stats.featuredMomentyImage)}`}
                               alt="Momenty"
-                              crossOrigin="anonymous"
                               className="absolute inset-0 w-full h-full object-cover"
                               initial={{ scale: 1.15 }}
                               animate={{ scale: 1.05 }}
@@ -589,16 +583,6 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
                           </div>
                         </motion.div>
                       </motion.div>
-
-                      {/* Bouton partager */}
-                      <motion.div variants={itemVariants} className="pointer-events-auto no-screenshot w-full z-50">
-                        <Button
-                          onClick={shareStory}
-                          className="w-full bg-white text-black hover:bg-white/90 rounded-2xl h-13 text-base font-bold flex items-center justify-center gap-2 shadow-[0_0_40px_rgba(255,255,255,0.2)] transition-all hover:shadow-[0_0_50px_rgba(255,255,255,0.35)] relative z-50 cursor-pointer"
-                        >
-                          <Share2 className="w-4 h-4" /> Partager mon bilan
-                        </Button>
-                      </motion.div>
                     </motion.div>
                   </SlideContainer>
                 )}
@@ -606,10 +590,29 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
               </AnimatePresence>
             </div>
 
+            {/* ── SHARE BUTTON OVERLAY ── */}
+            <AnimatePresence>
+              {slides[currentSlide] === 'verdict' && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="absolute bottom-10 left-8 right-8 z-[100] no-screenshot pointer-events-auto"
+                >
+                  <Button
+                    onClick={shareStory}
+                    className="w-full bg-white text-black hover:bg-white/90 rounded-2xl h-14 text-base font-bold flex items-center justify-center gap-2 shadow-[0_20px_50px_rgba(255,255,255,0.25)] transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    <Share2 className="w-5 h-5" /> Partager mon bilan
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* ── NAVIGATION ZONES ── */}
-            <div className="absolute top-0 left-0 right-0 bottom-28 z-40 flex no-screenshot pointer-events-auto">
+            <div className="absolute top-0 left-0 right-0 bottom-32 z-40 flex no-screenshot pointer-events-none">
               <div
-                className="flex-1 bg-transparent cursor-pointer"
+                className="flex-1 bg-transparent cursor-pointer pointer-events-auto"
                 onClick={(e: any) => { e.stopPropagation(); handlePrevSlide(); }}
                 onPointerDown={() => setIsPaused(true)}
                 onPointerUp={() => setIsPaused(false)}
@@ -617,7 +620,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
                 onPointerLeave={() => setIsPaused(false)}
               />
               <div
-                className="flex-1 bg-transparent cursor-pointer"
+                className="flex-1 bg-transparent cursor-pointer pointer-events-auto"
                 onClick={(e: any) => { e.stopPropagation(); handleNextSlide(); }}
                 onPointerDown={() => setIsPaused(true)}
                 onPointerUp={() => setIsPaused(false)}
