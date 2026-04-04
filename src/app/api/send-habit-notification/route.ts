@@ -197,6 +197,10 @@ async function sendHabitNotifications(type: string) {
                      userId: doc.id,
                      notification: notificationToSent,
                      webpush: {
+                          headers: {
+                              Urgency: 'high',
+                              TTL: '86400'
+                          },
                           notification: {
                               icon: '/icons/icon-192x192.png',  // icône dans le drawer
                               badge: '/icons/badge-96x96.png',  // icône barre de statut (monochrome)

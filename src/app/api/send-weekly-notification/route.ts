@@ -211,6 +211,10 @@ async function sendWeeklyNotifications() {
             body: message.body,
         },
         webpush: {
+            headers: {
+                Urgency: 'high',
+                TTL: '86400'
+            },
             notification: {
                 icon: '/icons/icon-192x192.png',  // icône dans le drawer de notification
                 badge: '/icons/badge-96x96.png',  // icône barre de statut Android (monochrome)

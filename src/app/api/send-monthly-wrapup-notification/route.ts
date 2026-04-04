@@ -134,6 +134,10 @@ async function sendWrapUpNotifications() {
                      body: notificationContent.body
                  },
                  webpush: {
+                      headers: {
+                          Urgency: 'high',
+                          TTL: '86400'
+                      },
                       notification: {
                           icon: '/icons/icon-192x192.png',
                           badge: '/icons/badge-96x96.png',
