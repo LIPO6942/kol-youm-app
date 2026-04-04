@@ -846,6 +846,7 @@ export default function DecisionMaker() {
 
   const GlobalHistoryList = () => {
     const [searchQuery, setSearchQuery] = useState('');
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
 
     if (!userProfile?.visits || userProfile.visits.length === 0) {
       return (
@@ -865,16 +866,36 @@ export default function DecisionMaker() {
       : sortedVisits;
 
     return (
-      <div className="flex flex-col h-full space-y-4">
-        <div className="px-6 pt-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div className="flex flex-col h-full space-y-2">
+        <div className="px-6 flex justify-end">
+          <div className={cn(
+            "relative transition-all duration-300 ease-out flex items-center rounded-full mt-1",
+            isSearchFocused || searchQuery.length > 0 
+              ? "w-full bg-muted/40 border border-primary/20 shadow-sm" 
+              : "w-9 h-9 bg-muted/30 border border-transparent hover:bg-muted/50 cursor-pointer"
+          )}>
+            <div className="absolute left-2.5 z-10 flex items-center justify-center pointer-events-none">
+              <Search className={cn("h-4 w-4 transition-colors duration-300", isSearchFocused ? "text-primary" : "text-muted-foreground/70")} />
+            </div>
             <Input
-              placeholder="Rechercher par lieu ou plat..."
+              placeholder="Lieu ou plat..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 bg-muted/50 border-transparent focus-visible:border-primary"
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
+              className={cn(
+                "h-9 pl-9 pr-8 border-none bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm",
+                isSearchFocused || searchQuery.length > 0 ? "opacity-100 placeholder:text-muted-foreground/50" : "opacity-0 cursor-pointer"
+              )}
             />
+            {searchQuery.length > 0 && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 z-20 flex items-center justify-center h-5 w-5 rounded-full hover:bg-muted-foreground/20 text-muted-foreground transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
           </div>
         </div>
         <ScrollArea className="h-[60vh] -mx-6 px-6">
