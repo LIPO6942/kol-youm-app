@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { Suggestion } from '@/ai/flows/decision-maker-flow.types';
-import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2, Crown, Compass, Award, Home, Zap, Star, Soup, Cake, IceCream, Fish, Drumstick, Cherry, Apple, Carrot, Cookie, Beer, Wine, GlassWater, Beef, Egg, Flame, ExternalLink } from 'lucide-react';
+import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2, Crown, Compass, Award, Home, Zap, Star, Soup, Cake, IceCream, Fish, Drumstick, Cherry, Apple, Carrot, Cookie, Beer, Wine, GlassWater, Beef, Egg, Flame, ExternalLink, Search } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile, addVisitLog, deleteVisitLog, updateVisitLog, updateSpecialtyCustomization, type VisitLog } from '@/lib/firebase/firestore';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
@@ -845,6 +845,8 @@ export default function DecisionMaker() {
   };
 
   const GlobalHistoryList = () => {
+    const [searchQuery, setSearchQuery] = useState('');
+
     if (!userProfile?.visits || userProfile.visits.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-10 text-center gap-2 text-muted-foreground">
@@ -855,11 +857,34 @@ export default function DecisionMaker() {
     }
 
     const sortedVisits = [...userProfile.visits].sort((a, b) => b.date - a.date);
+    const filteredVisits = searchQuery.length >= 2
+      ? sortedVisits.filter(v =>
+          v.placeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (v.orderedItem && v.orderedItem.toLowerCase().includes(searchQuery.toLowerCase()))
+        )
+      : sortedVisits;
 
     return (
-      <ScrollArea className="h-[60vh] -mx-6 px-6">
+      <div className="flex flex-col h-full space-y-4">
+        <div className="px-6 pt-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher par lieu ou plat..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 bg-muted/50 border-transparent focus-visible:border-primary"
+            />
+          </div>
+        </div>
+        <ScrollArea className="h-[60vh] -mx-6 px-6">
         <div className="space-y-3 pb-6">
-          {sortedVisits.map((visit: VisitLog) => {
+          {filteredVisits.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">
+              Aucun résultat pour "{searchQuery}"
+            </div>
+          ) : (
+            filteredVisits.map((visit: VisitLog) => {
             const cat = outingOptions.find((o: (typeof outingOptions)[0]) => o.label === visit.category) || {
               icon: MapPin,
               colorClass: "text-slate-600",
@@ -925,9 +950,11 @@ export default function DecisionMaker() {
                 </div>
               </div>
             );
-          })}
+          })
+          )}
         </div>
       </ScrollArea>
+      </div>
     );
   };
 
