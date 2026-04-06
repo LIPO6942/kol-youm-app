@@ -25,6 +25,7 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { getAge } from '@/lib/age-utils';
@@ -991,101 +992,6 @@ export default function SettingsPage() {
       {activeTab === 'khrouj' && (
         <div className="space-y-6">
 
-          {/* ── Mes Règles Culinaires ── */}
-          <Card className="border-orange-100 dark:border-slate-800 shadow-sm overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-orange-500/10 to-amber-500/10 border-b border-orange-100/50 dark:border-slate-800/50 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-md shadow-orange-500/20">
-                  <ChefHat className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-sm font-black uppercase tracking-tight text-slate-800 dark:text-slate-100">
-                    Mes Règles Culinaires
-                  </CardTitle>
-                  <CardDescription className="text-xs mt-0.5">
-                    Attribuez un plat à une cuisine — prioritaire sur la détection automatique du Passeport.
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-5 space-y-4">
-              {/* Add rule form */}
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Input
-                  id="dish-keyword-input"
-                  placeholder="Mot-clé plat (ex: osban, harissa, mloukhia)"
-                  value={newDishKeyword}
-                  onChange={(e) => setNewDishKeyword(e.target.value)}
-                  className="flex-1"
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddDishRule(); }}
-                />
-                <Select value={newDishCuisine} onValueChange={setNewDishCuisine}>
-                  <SelectTrigger className="w-full sm:w-44" id="dish-cuisine-select">
-                    <SelectValue placeholder="Cuisine..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CUISINE_OPTIONS.map(c => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  id="add-dish-rule-btn"
-                  onClick={handleAddDishRule}
-                  disabled={!newDishKeyword.trim() || !newDishCuisine || isSavingDishRule}
-                  className="bg-orange-500 hover:bg-orange-600 text-white shrink-0"
-                >
-                  {isSavingDishRule
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : <Plus className="h-4 w-4" />}
-                </Button>
-              </div>
-
-              {/* Existing rules */}
-              {Object.keys(userProfile?.customDishRules || {}).length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-6 text-center border border-dashed border-orange-200 dark:border-slate-700 rounded-xl bg-orange-50/20 dark:bg-slate-900/20">
-                  <Flame className="h-8 w-8 text-orange-200 dark:text-orange-900 mb-2" />
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Aucune règle définie</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Ajoutez un mot-clé ci-dessus pour forcer la classification d'un plat.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                    {Object.keys(userProfile?.customDishRules || {}).length} règle(s) active(s)
-                  </p>
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-                    {Object.entries(userProfile?.customDishRules || {}).map(([keyword, cuisine]) => (
-                      <div
-                        key={keyword}
-                        className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 hover:bg-orange-50/30 dark:hover:bg-slate-800/30 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="h-7 w-7 rounded-lg bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center shrink-0">
-                            <UtensilsCrossed className="h-3.5 w-3.5 text-orange-600" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-black text-slate-800 dark:text-slate-100 tracking-tight">{keyword}</p>
-                            <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">→ {cuisine as string}</p>
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
-                          onClick={() => handleDeleteDishRule(keyword)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
           {/* ── Base de données des lieux ── */}
           <Card>
             <CardHeader>
@@ -1627,6 +1533,106 @@ export default function SettingsPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* ── Mes Règles Culinaires ── */}
+          <Card className="border-orange-100 dark:border-slate-800 shadow-sm overflow-hidden">
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="rules" className="border-none">
+                <AccordionTrigger className="hover:no-underline px-6 py-4 bg-gradient-to-r from-orange-500/10 to-amber-500/10 border-b border-orange-100/50 dark:border-slate-800/50 outline-none">
+                  <div className="flex items-center gap-3 text-left w-full">
+                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-md shadow-orange-500/20 shrink-0">
+                      <ChefHat className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-black uppercase tracking-tight text-slate-800 dark:text-slate-100">
+                        Mes Règles Culinaires
+                      </div>
+                      <div className="text-xs mt-0.5 text-muted-foreground font-normal">
+                        Attribuez un plat à une cuisine — prioritaire sur la détection automatique du Passeport.
+                      </div>
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pt-5 pb-6">
+                  {/* Add rule form */}
+                  <div className="flex flex-col sm:flex-row gap-2 mb-4">
+                    <Input
+                      id="dish-keyword-input"
+                      placeholder="Mot-clé plat (ex: osban, harissa, mloukhia)"
+                      value={newDishKeyword}
+                      onChange={(e) => setNewDishKeyword(e.target.value)}
+                      className="flex-1"
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddDishRule(); }}
+                    />
+                    <Select value={newDishCuisine} onValueChange={setNewDishCuisine}>
+                      <SelectTrigger className="w-full sm:w-44" id="dish-cuisine-select">
+                        <SelectValue placeholder="Cuisine..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CUISINE_OPTIONS.map(c => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      id="add-dish-rule-btn"
+                      onClick={handleAddDishRule}
+                      disabled={!newDishKeyword.trim() || !newDishCuisine || isSavingDishRule}
+                      className="bg-orange-500 hover:bg-orange-600 text-white shrink-0"
+                    >
+                      {isSavingDishRule
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <Plus className="h-4 w-4" />}
+                    </Button>
+                  </div>
+
+                  {/* Existing rules */}
+                  {Object.keys(userProfile?.customDishRules || {}).length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-6 text-center border border-dashed border-orange-200 dark:border-slate-700 rounded-xl bg-orange-50/20 dark:bg-slate-900/20">
+                      <Flame className="h-8 w-8 text-orange-200 dark:text-orange-900 mb-2" />
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Aucune règle définie</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        Ajoutez un mot-clé ci-dessus pour forcer la classification d'un plat.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                        {Object.keys(userProfile?.customDishRules || {}).length} règle(s) active(s)
+                      </p>
+                      <div className="divide-y divide-slate-100 dark:divide-slate-800 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+                        {Object.entries(userProfile?.customDishRules || {}).map(([keyword, cuisine]) => (
+                          <div
+                            key={keyword}
+                            className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 hover:bg-orange-50/30 dark:hover:bg-slate-800/30 transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="h-7 w-7 rounded-lg bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center shrink-0">
+                                <UtensilsCrossed className="h-3.5 w-3.5 text-orange-600" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-black text-slate-800 dark:text-slate-100 tracking-tight">{keyword}</p>
+                                <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">→ {cuisine as string}</p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                              onClick={() => handleDeleteDishRule(keyword)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </Card>
+
         </div>
       )}
     </div>
