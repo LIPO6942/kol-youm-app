@@ -392,9 +392,9 @@ export default function DecisionMaker() {
       'Brunch': { keywords: ['brunch', 'oeuf', 'pancake', 'benedict'], emoji: '🍳' },
       'Crêpe/Gaufre': { keywords: ['crêpe', 'gaufre', 'crepe'], emoji: '🥞' },
       'Glace/Dessert': { keywords: ['glace', 'cake', 'pâtisserie', 'chocolat', 'donut'], emoji: '🍦' },
-      'Libanais': { keywords: ['libanais', 'chawarma', 'shawarma', 'falafel'], emoji: '🌯' },
+      'Libanais/Oriental': { keywords: ['libanais', 'chawarma', 'shawarma', 'falafel', 'kebab', 'kabab', 'kabeb', 'kebeb', 'taouk', 'chich taouk', 'maajouka', 'maajou9a', 'mchakkel', 'mchakel'], emoji: '🥙' },
       'Salade/Bowl': { keywords: ['salade', 'healthy', 'bowl'], emoji: '🥗' },
-      'Grillade': { keywords: ['grillade', 'steak', 'entrecôte', 'kebab'], emoji: '🍖' },
+      'Grillade': { keywords: ['grillade', 'steak', 'entrecôte'], emoji: '🍖' },
       'Plat Tunisien': { keywords: ['fricassé', 'ojja', 'kammounia'], emoji: '🇹🇳' },
     };
 
@@ -509,7 +509,7 @@ export default function DecisionMaker() {
       bySpecialty,
       qgDuMois,
       weekendHQ: getWeekendHQ(visits),
-      passportStats: getCulinaryPassport(visits),
+      passportStats: getCulinaryPassport(visits, userProfile?.customDishRules || {}),
       frequencyStats: getVisitFrequencies(visits),
       heatmap: getWeeklyHeatmap(visits),
       monthlyHeatmap: getMonthlyHeatmap(visits, selectedYear),

@@ -55,7 +55,68 @@ export function getAvailableYears(): number[] {
 
 const CUISINE_MAP: Record<string, string[]> = {
     'Tunisien': ['lablebi', 'kefteji', 'mloukhia', 'couscous', 'brik', 'fricasse', 'chapati', 'ma9loub', 'makloub', 'baguette farcie', 'sahn tounsi', 'ojja', 'tunisien', 'tunisian'],
-    'Oriental': ['kebab', 'kabeb', 'kebeb', 'kabab', 'chich taouk', 'shish taouk', 'taouk', 'maajouka', 'maajou9a', 'mchakkel', 'libanais', 'chawarma', 'shawarma'],
+    'Oriental': [
+        // === GRILLADES / VIANDES ===
+        'kebab', 'kabab', 'kabeb', 'kebeb', 'kbab', 'kbeb', 'kebap', 'kabap',
+        'kofta', 'kafta', 'kefta', 'kufta', 'kofte', 'köfte', 'kofte', 'koufte', 'keufta', 'kafté',
+        'chich taouk', 'shish taouk', 'chiche taouk', 'chichtaouk', 'chishtaouk', 'chicha taouk',
+        'shish kebab', 'chich kebab', 'chichekabab',
+        'chawarma', 'shawarma', 'chawalma', 'chawirma', 'shawirma', 'chawerma', 'shawerma', 'chaouerma', 'chaouerma',
+        'tikka', 'tika', 'chicken tikka',
+        'meshwi', 'michawi', 'machawi', 'machaoui', 'mchoui', 'méchoui', 'mechoui',
+        'ouzi', 'ouzy', 'ouzzi', 'uzi',
+        'mansaf',
+        'madfoun', 'mdfoun',
+        'biryani', 'briyani', 'biryane', 'bryani',
+        'djaj mshoui', 'poulet oriental', 'poulet grille oriental',
+        // === SANDWICHS ORIENTAUX ===
+        'mchakkel', 'mchakel', 'mechakkel', 'mechakel', 'mechakl', 'mchakl',
+        'maajouka', 'maajou9a', 'majouka', 'ma3jouka', 'maajouka', 'maajuka', 'ma9jouka',
+        'sandwich kabab', 'sandwich kebab', 'sandwich chawarma', 'sandwich kofta', 'sandwich kafta',
+        'sandwich oriental', 'sandwich libanais', 'sandwich syrien',
+        // === MEZZÉ / ENTRÉES ===
+        'houmous', 'hummus', 'houmos', 'homos', 'hamous', 'hommos', 'hoummos',
+        'moutabal', 'mutabbal', 'motabbal', 'baba ghanouj', 'baba ganoush', 'baba ghannouj',
+        'fattoush', 'fatouche', 'fatouch', 'fatoush',
+        'taboulé', 'tabouleh', 'tabbouleh', 'taboule', 'tabbule',
+        'falafel', 'falafels', 'falafel', 'felafel', 'falafel', 'tameya', 'tamiya',
+        'fatayer', 'fatayr', 'fataer', 'fetatir',
+        'sambousek', 'sambousak', 'samboussek', 'samboussak', 'sambusak',
+        'labneh', 'labné', 'labne',
+        'fatteh', 'fatta', 'fatté',
+        'warak enab', 'feuilles de vigne', 'waraq dawali', 'dolma', 'dolmades',
+        'kibbeh', 'kibbi', 'kobeba', '9obba', '9obeiba', 'kobeibat', 'kibbé', 'kibe', 'kebbeh',
+        'sfiha', 'sfeeha', 'lahm bi ajin', 'lahm bi 3ajin', 'lahem bi ajeen',
+        'manakeish', 'manaqeesh', 'mana2ich', 'manouché', 'manoucheh', 'man2ouche', 'manousheh',
+        'pita', 'pain pita', 'khobez', 'khobz', 'pain libanais',
+        'fattouche', 'crackers orientaux',
+        // === PLATS PRINCIPAUX ===
+        'freekeh', 'frikeh', 'freeka', 'friki',
+        'moujaddara', 'mujaddara', 'mjaddara', 'mujadara', 'moujadara',
+        'yakhne', 'ya9na', 'yakhni', 'yakhneh',
+        'harak osbao', 'harak osba3',
+        'bamia', 'bamya', 'baamia',
+        'dawoud basha', 'daoud bacha',
+        'kafta bi tahini', 'kafta tahini', 'kofta bi tahini',
+        'sheikh el mahshi', 'cheikh al mahchi', 'cheikh mahchi',
+        'mahchi', 'mahshi', 'mahche', 'farci oriental',
+        'riz bi djaj', 'riz djaj', 'riz au poulet oriental', 'ruz bi djaj',
+        'riz basmati', 'basmati oriental',
+        'knefeh', 'knafeh', 'konafeh', 'knefe', 'kanafeh', 'kunafa', 'kunafeh',
+        'maamoul', 'mamoul', 'ma3moul', 'mamul',
+        // === ORIGINE / NATIONALITÉ ===
+        'libanais', 'libanaise', 'liban', 'lebanese', 'lebanon',
+        'syrien', 'syrienne', 'syrie', 'syrian', 'syria',
+        'palestinien', 'palestinienne', 'palestine', 'palestinian',
+        'egyptien', 'egyptienne', 'egypte', 'egyptian', 'egypt',
+        'jordanien', 'jordanienne', 'jordanie', 'jordanian', 'jordan',
+        'irakien', 'irakienne', 'irak', 'iraqi', 'iraq',
+        'yemenite', 'yemeni', 'yemni', 'yemen',
+        'khaleeji', 'golfe', 'gulf', 'saoudien', 'saoudienne',
+        'turc', 'turque', 'turquie', 'turkish', 'turkey',
+        'oriental', 'orientale', 'orient', 'moyen-orient', 'moyen orient', 'middle east', 'levant', 'levantin',
+        'arabe', 'cuisine arabe', 'resto arabe',
+    ],
     'Thaïlandaise': ['thai', 'pad thai', 'tom yum', 'curry vert', 'massaman', 'som tam'],
     'Japonaise': ['sushi', 'ramen', 'maki', 'sashimi', 'tempura', 'yakitori', 'takoyaki', 'wasabi', 'jap', 'gyoza', 'tonkatsu'],
     'Chinoise': ['chinois', 'chinese', 'nem', 'riz cantonnais', 'wok', 'dim sum', 'canard laque', 'bao', 'spring rolls'],
@@ -65,7 +126,7 @@ const CUISINE_MAP: Record<string, string[]> = {
     'Mexicain': ['tacos', 'burrito', 'quesadilla', 'fajita', 'nachos', 'guacamole', 'mexicain', 'mexican', 'chili'],
 };
 
-function detectCuisine(visit: VisitLog): string | null {
+function detectCuisine(visit: VisitLog, customRules: Record<string, string> = {}): string | null {
     const item = normalize(visit.orderedItem || "");
     const possibleCats = (visit.possibleCategories || []).map(normalize);
     const cat = normalize(visit.category || "");
@@ -73,23 +134,31 @@ function detectCuisine(visit: VisitLog): string | null {
     // 0. Explicit exclusion/skip for "Café" (handled in QG, not Passport)
     if (cat.includes('cafe')) return null;
 
-    // 1. Check Ordered Item Keywords
+    // 1. PRIORITY 0 — Custom user-defined rules (checked first, exact substring match)
+    for (const [keyword, cuisine] of Object.entries(customRules)) {
+        const k = normalize(keyword);
+        if (item.includes(k) || cat.includes(k) || possibleCats.some(pc => pc.includes(k))) {
+            return cuisine;
+        }
+    }
+
+    // 2. Check Ordered Item Keywords against built-in map
     for (const [cuisine, keywords] of Object.entries(CUISINE_MAP)) {
         if (keywords.some(k => item.includes(k))) return cuisine;
     }
 
-    // 2. Check Category Explicitly
+    // 3. Check Category Explicitly
     for (const [cuisine, keywords] of Object.entries(CUISINE_MAP)) {
         if (keywords.some(k => cat.includes(k) || possibleCats.some(pc => pc.includes(k)))) {
             return cuisine;
         }
     }
 
-    // 3. Fallbacks
+    // 4. Fallbacks
     if (cat.includes('fast-food') || cat.includes('fast food')) return 'Américain';
-    if (cat.includes('brunch')) return 'Américain'; // Broad generalization, but effective for cleaning data
+    if (cat.includes('brunch')) return 'Américain';
 
-    return null; // Return null if it's just "Restaurant" with no info, or "Café"
+    return null;
 }
 
 export function getVisitFrequencies(visits: VisitLog[] = []): CategoryFrequency[] {
@@ -323,7 +392,7 @@ export function getWeekendHQ(visits: VisitLog[] = []): WeekendHQResult {
 }
 
 
-export function getCulinaryPassport(visits: VisitLog[] = []): CategoryStat[] {
+export function getCulinaryPassport(visits: VisitLog[] = [], customDishRules: Record<string, string> = {}): CategoryStat[] {
     if (!visits.length) return [];
 
     const cuisineStats: Record<string, {
@@ -336,7 +405,7 @@ export function getCulinaryPassport(visits: VisitLog[] = []): CategoryStat[] {
 
     visits.forEach(visit => {
         // Detect Cuisine/Nation
-        const cuisine = detectCuisine(visit);
+        const cuisine = detectCuisine(visit, customDishRules);
 
         if (!cuisine) return; // Skip if unrecognized or Cafe
 

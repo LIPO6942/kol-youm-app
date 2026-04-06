@@ -75,6 +75,8 @@ export type UserProfile = {
     // Atlas des Saveurs
     specialtyImages?: Record<string, string>; // Map of specialty name to image URL, emoji, or Lucide icon string
     specialtyColors?: Record<string, string>; // Map of specialty name to custom hex color
+    // Passeport Culinaire — Règles personnalisées
+    customDishRules?: Record<string, string>; // Map: normalized dish keyword → cuisine label (e.g. { 'osban': 'Tunisien' })
     // Push Notifications
     notificationsEnabled?: boolean;
     notificationsEnabledAt?: string;
@@ -105,6 +107,7 @@ export async function createUserProfile(uid: string, data: { email: string | nul
         closeupPhotoUrl: '',
         specialtyImages: {},
         specialtyColors: {},
+        customDishRules: {},
     };
     const { fullBodyPhotoUrl, closeupPhotoUrl, ...firestoreProfile } = userProfile;
     await setDoc(doc(firestoreDb, "users", uid), firestoreProfile);
@@ -613,4 +616,36 @@ export async function updateSpecialtyCustomization(uid: string, specialtyName: s
         };
         await storeUserInDb(uid, updatedProfile);
     }
+}
+
+/**
+ * Add or remove custom dish→cuisine rules for the Culinary Passport.
+ * Pass `null` as the cuisine value to delete a rule.
+ * The full map is replaced atomically to handle deletions cleanly.
+ */
+export async function updateCustomDishRules(
+    uid: string,
+    rules: Record<string, string | null>
+): Promise<Record<string, string>> {
+    const localProfile = await getUserFromDb(uid);
+    const currentRules: Record<string, string> = localProfile?.customDishRules || {};
+    const updatedRules: Record<string, string> = { ...currentRules };
+
+    for (const [dish, cuisine] of Object.entries(rules)) {
+        if (cuisine === null) {
+            delete updatedRules[dish];
+        } else {
+            updatedRules[dish] = cuisine;
+        }
+    }
+
+    // Full replace (simplest approach for map with deletions)
+    const userRef = doc(firestoreDb, 'users', uid);
+    await setDoc(userRef, { customDishRules: updatedRules }, { merge: true });
+
+    if (localProfile) {
+        await storeUserInDb(uid, { ...localProfile, customDishRules: updatedRules });
+    }
+
+    return updatedRules;
 }
