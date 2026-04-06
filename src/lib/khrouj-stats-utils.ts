@@ -54,7 +54,8 @@ export function getAvailableYears(): number[] {
 }
 
 const CUISINE_MAP: Record<string, string[]> = {
-    'Tunisien': ['lablebi', 'kefteji', 'mloukhia', 'couscous', 'brik', 'fricasse', 'chapati', 'ma9loub', 'makloub', 'baguette farcie', 'libanais', 'chawarma', 'sahn tounsi', 'ojja', 'tunisien', 'tunisian'],
+    'Tunisien': ['lablebi', 'kefteji', 'mloukhia', 'couscous', 'brik', 'fricasse', 'chapati', 'ma9loub', 'makloub', 'baguette farcie', 'sahn tounsi', 'ojja', 'tunisien', 'tunisian'],
+    'Oriental': ['kebab', 'kabeb', 'kebeb', 'kabab', 'chich taouk', 'shish taouk', 'taouk', 'maajouka', 'maajou9a', 'mchakkel', 'libanais', 'chawarma', 'shawarma'],
     'Thaïlandaise': ['thai', 'pad thai', 'tom yum', 'curry vert', 'massaman', 'som tam'],
     'Japonaise': ['sushi', 'ramen', 'maki', 'sashimi', 'tempura', 'yakitori', 'takoyaki', 'wasabi', 'jap', 'gyoza', 'tonkatsu'],
     'Chinoise': ['chinois', 'chinese', 'nem', 'riz cantonnais', 'wok', 'dim sum', 'canard laque', 'bao', 'spring rolls'],

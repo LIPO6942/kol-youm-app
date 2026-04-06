@@ -251,18 +251,33 @@ export function HabitFrequency({ frequencies, heatmap, monthlyHeatmap, yearlyHea
                                 </div>
                                 <div className="flex flex-col gap-1 items-end">
                                     <div className="flex gap-0.5">
-                                        {monthlyHeatmap.map((count: number, i: number) => (
-                                            <div
-                                                key={i}
-                                                className={cn(
-                                                    "w-2.5 h-2.5 rounded-[1px] transition-colors duration-300",
-                                                    count === 0 ? "bg-slate-100 dark:bg-slate-800/50" :
-                                                        count >= 1 && count <= 3 ? "bg-primary/30" :
-                                                            count > 3 && count <= 6 ? "bg-primary/60" :
-                                                                "bg-primary"
-                                                )}
-                                            />
-                                        ))}
+                                        {(() => {
+                                            const uniqueCounts = Array.from(new Set(monthlyHeatmap.filter(c => c > 0))).sort((a, b) => b - a);
+                                            return monthlyHeatmap.map((count: number, i: number) => {
+                                                const rankIndex = uniqueCounts.indexOf(count);
+                                                const rank = (count > 0 && rankIndex >= 0 && rankIndex < 3) ? rankIndex + 1 : null;
+
+                                                return (
+                                                    <div
+                                                        key={i}
+                                                        className={cn(
+                                                            "w-2.5 h-2.5 rounded-[1px] transition-all duration-500 flex items-center justify-center relative",
+                                                            count === 0 ? "bg-slate-100 dark:bg-slate-800/50" :
+                                                                rank === 1 ? "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)] z-10 scale-110" :
+                                                                    rank === 2 ? "bg-slate-300 shadow-[0_0_8px_rgba(148,163,184,0.3)] z-10" :
+                                                                        rank === 3 ? "bg-orange-300 shadow-[0_0_8px_rgba(253,186,116,0.3)] z-10" :
+                                                                            count >= 1 && count <= 3 ? "bg-primary/30" :
+                                                                                count > 3 && count <= 6 ? "bg-primary/60" :
+                                                                                    "bg-primary"
+                                                        )}
+                                                    >
+                                                        {rank === 1 && <span className="text-[6px] absolute -top-2">🥇</span>}
+                                                        {rank === 2 && <span className="text-[6px] absolute -top-2">🥈</span>}
+                                                        {rank === 3 && <span className="text-[6px] absolute -top-2">🥉</span>}
+                                                    </div>
+                                                );
+                                            });
+                                        })()}
                                     </div>
                                     <div className="flex gap-px w-full justify-between pr-[1px]">
                                         {MONTHS_SHORT.map(m => (
