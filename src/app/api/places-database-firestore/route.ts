@@ -39,6 +39,7 @@ interface CategoryPlaces {
   brunch?: string[];
   balade?: string[];
   shopping?: string[];
+  cinemas?: string[];
 }
 
 interface ZoneData {
@@ -84,7 +85,8 @@ export async function GET() {
           fastFoods: data.fastFoods || [],
           brunch: data.brunch || [],
           balade: data.balade || [],
-          shopping: data.shopping || []
+          shopping: data.shopping || [],
+          cinemas: data.cinemas || []
         },
         specialties: data.specialties || {}
       } as ZoneData;
@@ -282,7 +284,8 @@ export async function POST(request: NextRequest) {
         fastFoods: [],
         brunch: [],
         balade: [],
-        shopping: []
+        shopping: [],
+        cinemas: []
       };
 
       if (zoneDoc.exists()) {
@@ -294,6 +297,7 @@ export async function POST(request: NextRequest) {
         if (!zoneData.brunch) zoneData.brunch = [];
         if (!zoneData.balade) zoneData.balade = [];
         if (!zoneData.shopping) zoneData.shopping = [];
+        if (!zoneData.cinemas) zoneData.cinemas = [];
       }
 
       if (category) {
@@ -305,7 +309,8 @@ export async function POST(request: NextRequest) {
               category === 'Brunch' || category === 'brunch' ? 'brunch' :
                 category === 'Balade' || category === 'balade' ? 'balade' :
                   category === 'Shopping' || category === 'shopping' ? 'shopping' :
-                    category.toLowerCase();
+                    category === 'Cinéma' || category === 'cinemas' ? 'cinemas' :
+                      category.toLowerCase();
 
         zoneData[categoryKey] = places;
       }

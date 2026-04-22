@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { Suggestion } from '@/ai/flows/decision-maker-flow.types';
-import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2, Crown, Compass, Award, Home, Zap, Star, Soup, Cake, IceCream, Fish, Drumstick, Cherry, Apple, Carrot, Cookie, Beer, Wine, GlassWater, Beef, Egg, Flame, ExternalLink, Search, Clapperboard, Film } from 'lucide-react';
+import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2, Crown, Compass, Award, Home, Zap, Star, Soup, Cake, IceCream, Fish, Drumstick, Cherry, Apple, Carrot, Cookie, Beer, Wine, GlassWater, Beef, Egg, Flame, ExternalLink, Search, Clapperboard, Film, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile, addVisitLog, deleteVisitLog, updateVisitLog, updateSpecialtyCustomization, addSeenMovieWithDate, type VisitLog } from '@/lib/firebase/firestore';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 const TypedBadge = Badge as any;
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getWeekendHQ, getCulinaryPassport, getVisitFrequencies, getWeeklyHeatmap, getMonthlyHeatmap, getYearlyHeatmap } from '@/lib/khrouj-stats-utils';
 import { WeekendHQCard } from './weekend-hq-card';
 import { CulinaryPassport } from './culinary-passport';
@@ -141,7 +142,8 @@ export default function DecisionMaker() {
                 fastFoods: 'Fast Food',
                 brunch: 'Brunch',
                 balade: 'Balade',
-                shopping: 'Shopping'
+                shopping: 'Shopping',
+                cinemas: 'Cinéma'
               };
               const categoryLabel = labelMap[catKey] || catKey;
               const specialtiesMap = zone.specialties || {};
@@ -553,6 +555,13 @@ export default function DecisionMaker() {
       return () => clearTimeout(timer);
     }, [movieSearchQuery, selectedCat]);
 
+    const cinemaOptions = useMemo(() => {
+      return Array.from(new Set(allPlaces
+        .filter((p: any) => p.category === 'Cinéma')
+        .map((p: any) => p.name)))
+        .sort();
+    }, [allPlaces]);
+
     const filteredSuggestions = useMemo(() => {
       if (!searchQuery) return [];
       return allPlaces
@@ -682,14 +691,38 @@ export default function DecisionMaker() {
             </div>
             <div className="space-y-2 relative">
               <Label>{selectedCat === 'Cinéma' ? 'Salle de Cinéma' : 'Lieu'}</Label>
-              <Input
-                placeholder={selectedCat === 'Cinéma' ? "Ex: Pathé Lac, Le Colisée..." : "Ex: Café Matignon..."}
-                value={selectedPlace || searchQuery}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setSearchQuery(e.target.value);
-                  setSelectedPlace("");
-                }}
-              />
+              {selectedCat === 'Cinéma' ? (
+                <Select
+                  value={selectedPlace}
+                  onValueChange={(val) => {
+                    setSelectedPlace(val);
+                    setSearchQuery("");
+                  }}
+                >
+                  <SelectTrigger className="w-full bg-background">
+                    <SelectValue placeholder="Choisir une salle..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cinemaOptions.map((name) => (
+                      <SelectItem key={name} value={name}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                    {cinemaOptions.length === 0 && (
+                      <SelectItem value="none" disabled>Aucune salle définie dans les paramètres</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  placeholder="Ex: Café Matignon..."
+                  value={selectedPlace || searchQuery}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    setSearchQuery(e.target.value);
+                    setSelectedPlace("");
+                  }}
+                />
+              )}
               {filteredSuggestions.length > 0 && !selectedPlace && selectedCat !== 'Cinéma' && (
                 <Card className="absolute z-50 w-full mt-1 shadow-lg border-primary/20">
                   <ScrollArea className="h-auto max-h-[200px]">

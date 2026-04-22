@@ -61,6 +61,7 @@ interface CategoryPlaces {
   brunch?: string[];
   balade?: string[];
   shopping?: string[];
+  cinemas?: string[];
 }
 
 interface ZoneData {
@@ -429,7 +430,8 @@ export default function SettingsPage() {
             category === 'Balade' ? 'balade' :
               category === 'Shopping' ? 'shopping' :
                 category === 'bars' ? 'bars' :
-                  category.toLowerCase();
+                  category === 'Cinéma' || category === 'cinemas' ? 'cinemas' :
+                    category.toLowerCase();
   };
 
   const handleAddPlaceToZoneCategory = (zone: string, category: string) => {
@@ -510,7 +512,8 @@ export default function SettingsPage() {
           category === 'Brunch' ? 'brunch' :
             category === 'Balade' ? 'balade' :
               category === 'Shopping' ? 'shopping' :
-                category.toLowerCase();
+                category === 'Cinéma' || category === 'cinemas' ? 'cinemas' :
+                  category.toLowerCase();
     return categories[categoryKey as keyof CategoryPlaces] || [];
   };
 
@@ -522,7 +525,8 @@ export default function SettingsPage() {
       'fastFoods': 'Fast Food',
       'brunch': 'Brunch',
       'balade': 'Balade',
-      'shopping': 'Shopping'
+      'shopping': 'Shopping',
+      'cinemas': 'Cinémas'
     };
     return names[category] || category.charAt(0).toUpperCase() + category.slice(1);
   };
@@ -1167,6 +1171,9 @@ export default function SettingsPage() {
                                   </SelectItem>
                                   <SelectItem value="shopping">
                                     Shopping ({getPlacesForZoneAndCategory(selectedZone, 'shopping').length})
+                                  </SelectItem>
+                                  <SelectItem value="cinemas">
+                                    Cinémas ({getPlacesForZoneAndCategory(selectedZone, 'cinemas').length})
                                   </SelectItem>
                                 </>
                               ) : (
