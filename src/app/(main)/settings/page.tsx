@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat } from 'lucide-react';
+import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat, Clapperboard, Film } from 'lucide-react';
 import { updateCustomDishRules } from '@/lib/firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 const TypedBadge = Badge as any;
