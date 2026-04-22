@@ -9,7 +9,7 @@ import { z } from 'zod';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile } from '@/lib/firebase/firestore';
-import { addPlace, deletePlace, PlaceItem } from '@/lib/firebase/firestore';
+import { addPlace, deletePlace, updateCinemaTheaters, PlaceItem } from '@/lib/firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -241,6 +241,10 @@ export default function SettingsPage() {
   const [newDishCuisine, setNewDishCuisine] = useState('');
   const [isSavingDishRule, setIsSavingDishRule] = useState(false);
 
+  // Cinema Theaters state
+  const [newCinemaName, setNewCinemaName] = useState('');
+  const [isSavingCinema, setIsSavingCinema] = useState(false);
+
   const CUISINE_OPTIONS = [
     'Tunisien', 'Oriental', 'Italien', 'Américain', 'Français',
     'Japonaise', 'Chinoise', 'Mexicain', 'Thaïlandaise'
@@ -363,6 +367,36 @@ export default function SettingsPage() {
       toast({ variant: 'destructive', title: 'Erreur', description: "Impossible d'enregistrer la règle." });
     } finally {
       setIsSavingDishRule(false);
+    }
+  };
+
+  const handleAddCinema = async () => {
+    if (!user || !newCinemaName.trim()) return;
+    setIsSavingCinema(true);
+    try {
+      const currentTheaters = userProfile?.cinemaTheaters || [];
+      if (!currentTheaters.includes(newCinemaName.trim())) {
+        await updateCinemaTheaters(user.uid, [...currentTheaters, newCinemaName.trim()]);
+        setNewCinemaName('');
+        toast({ title: 'Salle ajoutée ✓', description: `${newCinemaName.trim()} a été ajoutée à vos cinémas` });
+      } else {
+        toast({ variant: 'destructive', title: 'Déjà présent', description: 'Cette salle est déjà dans votre liste' });
+      }
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erreur', description: "Impossible d'enregistrer la salle." });
+    } finally {
+      setIsSavingCinema(false);
+    }
+  };
+
+  const handleDeleteCinema = async (theater: string) => {
+    if (!user) return;
+    try {
+      const currentTheaters = userProfile?.cinemaTheaters || [];
+      await updateCinemaTheaters(user.uid, currentTheaters.filter(t => t !== theater));
+      toast({ title: 'Salle supprimée' });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer la salle.' });
     }
   };
 
@@ -1172,9 +1206,6 @@ export default function SettingsPage() {
                                   <SelectItem value="shopping">
                                     Shopping ({getPlacesForZoneAndCategory(selectedZone, 'shopping').length})
                                   </SelectItem>
-                                  <SelectItem value="cinemas">
-                                    Cinémas ({getPlacesForZoneAndCategory(selectedZone, 'cinemas').length})
-                                  </SelectItem>
                                 </>
                               ) : (
                                 <SelectItem value="placeholder" disabled>Sélectionnez d'abord une zone</SelectItem>
@@ -1534,8 +1565,63 @@ export default function SettingsPage() {
                           </CardContent>
                         </Card>
                       )}
-                    </>
-                  )}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ── Mes Salles de Cinéma ── */}
+          <Card className="border-violet-100 dark:border-slate-800 shadow-sm overflow-hidden mb-6">
+            <CardHeader className="bg-gradient-to-r from-violet-500/10 to-purple-500/10 border-b border-violet-100/50">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-md shadow-violet-500/20">
+                  <Clapperboard className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm font-black uppercase tracking-tight">Mes Salles de Cinéma</CardTitle>
+                  <CardDescription className="text-xs font-normal">Définissez vos cinémas préférés pour les retrouver dans Khrouj.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-5 pb-6">
+              <div className="flex gap-2 mb-4">
+                <Input
+                  placeholder="Nom de la salle (ex: Pathé Lac, Le Colisée...)"
+                  value={newCinemaName}
+                  onChange={(e) => setNewCinemaName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddCinema(); }}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleAddCinema}
+                  disabled={!newCinemaName.trim() || isSavingCinema}
+                  className="bg-violet-600 hover:bg-violet-700 text-white shrink-0"
+                >
+                  {isSavingCinema ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                </Button>
+              </div>
+
+              {(!userProfile?.cinemaTheaters || userProfile.cinemaTheaters.length === 0) ? (
+                <div className="flex flex-col items-center justify-center py-6 text-center border border-dashed border-violet-200 dark:border-slate-700 rounded-xl bg-violet-50/20 dark:bg-slate-900/20">
+                  <Film className="h-8 w-8 text-violet-200 dark:text-violet-900 mb-2" />
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Aucune salle définie</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Ajoutez une salle ci-dessus pour l'utiliser dans Khrouj.</p>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {userProfile.cinemaTheaters.map((theater, idx) => (
+                    <TypedBadge key={idx} variant="secondary" className="pl-3 pr-1 gap-2 py-1.5 h-auto text-xs bg-white dark:bg-slate-800 border-violet-200 dark:border-violet-900 text-violet-700 dark:text-violet-300">
+                      {theater}
+                      <button
+                        onClick={() => handleDeleteCinema(theater)}
+                        className="hover:text-red-600 rounded-full hover:bg-red-50 dark:hover:bg-red-950/30 p-1 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </TypedBadge>
+                  ))}
                 </div>
               )}
             </CardContent>

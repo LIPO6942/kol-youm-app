@@ -556,11 +556,8 @@ export default function DecisionMaker() {
     }, [movieSearchQuery, selectedCat]);
 
     const cinemaOptions = useMemo(() => {
-      return Array.from(new Set(allPlaces
-        .filter((p: any) => p.category === 'Cinéma')
-        .map((p: any) => p.name)))
-        .sort();
-    }, [allPlaces]);
+      return (userProfile?.cinemaTheaters || []).sort();
+    }, [userProfile?.cinemaTheaters]);
 
     const filteredSuggestions = useMemo(() => {
       if (!searchQuery) return [];

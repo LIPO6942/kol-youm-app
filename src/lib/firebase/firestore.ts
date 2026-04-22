@@ -81,6 +81,8 @@ export type UserProfile = {
     notificationsEnabled?: boolean;
     notificationsEnabledAt?: string;
     fcmToken?: string;
+    // Mes Salles de Cinéma (indépendant des zones)
+    cinemaTheaters?: string[];
     // These are stored ONLY in IndexedDB for privacy
     fullBodyPhotoUrl?: string; // This will also be a Cloudinary URL
     closeupPhotoUrl?: string; // This will also be a Cloudinary URL
@@ -108,6 +110,7 @@ export async function createUserProfile(uid: string, data: { email: string | nul
         specialtyImages: {},
         specialtyColors: {},
         customDishRules: {},
+        cinemaTheaters: [],
     };
     const { fullBodyPhotoUrl, closeupPhotoUrl, ...firestoreProfile } = userProfile;
     await setDoc(doc(firestoreDb, "users", uid), firestoreProfile);
@@ -123,7 +126,7 @@ export async function updateUserProfile(uid: string, data: Partial<Omit<UserProf
         if (key === 'fullBodyPhotoUrl' || key === 'closeupPhotoUrl') {
             localData[key] = (data as any)[key];
         } else {
-            if (key === 'seenMovieTitles' || key === 'rejectedMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions' || key === 'wardrobe' || key === 'places') {
+            if (key === 'seenMovieTitles' || key === 'rejectedMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions' || key === 'wardrobe' || key === 'places' || key === 'cinemaTheaters') {
                 firestoreData[key] = arrayUnion(...(data as any)[key]);
             } else {
                 firestoreData[key] = (data as any)[key];
@@ -171,6 +174,9 @@ export async function updateUserProfile(uid: string, data: Partial<Omit<UserProf
             const allPlaces = [...(localProfile.places || []), ...data.places];
             const uniquePlaces = Array.from(new Map(allPlaces.map(place => [place.id, place])).values());
             updatedProfile.places = uniquePlaces;
+        }
+        if (data.cinemaTheaters) {
+            updatedProfile.cinemaTheaters = Array.from(new Set([...(localProfile.cinemaTheaters || []), ...data.cinemaTheaters]));
         }
 
         await storeUserInDb(uid, updatedProfile);
@@ -648,4 +654,25 @@ export async function updateCustomDishRules(
     }
 
     return updatedRules;
+}
+
+/**
+ * Add or remove cinema theaters for the user.
+ * Pass a full list of theaters to replace the current one.
+ */
+export async function updateCinemaTheaters(
+    uid: string,
+    theaters: string[]
+): Promise<string[]> {
+    const localProfile = await getUserFromDb(uid);
+    const updatedTheaters = Array.from(new Set(theaters)).sort();
+
+    const userRef = doc(firestoreDb, 'users', uid);
+    await setDoc(userRef, { cinemaTheaters: updatedTheaters }, { merge: true });
+
+    if (localProfile) {
+        await storeUserInDb(uid, { ...localProfile, cinemaTheaters: updatedTheaters });
+    }
+
+    return updatedTheaters;
 }
