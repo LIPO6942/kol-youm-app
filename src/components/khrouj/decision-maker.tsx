@@ -9,9 +9,9 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { Suggestion } from '@/ai/flows/decision-maker-flow.types';
-import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2, Crown, Compass, Award, Home, Zap, Star, Soup, Cake, IceCream, Fish, Drumstick, Cherry, Apple, Carrot, Cookie, Beer, Wine, GlassWater, Beef, Egg, Flame, ExternalLink, Search } from 'lucide-react';
+import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2, Crown, Compass, Award, Home, Zap, Star, Soup, Cake, IceCream, Fish, Drumstick, Cherry, Apple, Carrot, Cookie, Beer, Wine, GlassWater, Beef, Egg, Flame, ExternalLink, Search, Clapperboard, Film } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { updateUserProfile, addVisitLog, deleteVisitLog, updateVisitLog, updateSpecialtyCustomization, type VisitLog } from '@/lib/firebase/firestore';
+import { updateUserProfile, addVisitLog, deleteVisitLog, updateVisitLog, updateSpecialtyCustomization, addSeenMovieWithDate, type VisitLog } from '@/lib/firebase/firestore';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -34,6 +34,7 @@ const outingOptions: { id: string; label: string; icon: LucideIcon; description:
   { id: 'restaurant', label: 'Restaurant', icon: Pizza, description: "Un repas mémorable", colorClass: 'text-red-700', bgClass: 'bg-red-50', hoverClass: 'hover:bg-red-100', selectedClass: 'border-red-500 bg-red-100' },
   { id: 'balade', label: 'Balade', icon: Mountain, description: "Prendre l'air", colorClass: 'text-green-700', bgClass: 'bg-green-50', hoverClass: 'hover:bg-green-100', selectedClass: 'border-green-500 bg-green-100' },
   { id: 'shopping', label: 'Shopping', icon: ShoppingBag, description: "Trouver la perle", colorClass: 'text-pink-700', bgClass: 'bg-pink-50', hoverClass: 'hover:bg-pink-100', selectedClass: 'border-pink-500 bg-pink-100' },
+  { id: 'cinema', label: 'Cinéma', icon: Clapperboard, description: "Soirée 7ème art", colorClass: 'text-violet-700', bgClass: 'bg-violet-50', hoverClass: 'hover:bg-violet-100', selectedClass: 'border-violet-500 bg-violet-100' },
 ];
 
 const zones = [
@@ -525,6 +526,32 @@ export default function DecisionMaker() {
     const [searchQuery, setSearchQuery] = useState("");
     const [orderedItem, setOrderedItem] = useState("");
     const [isSaving, setIsSaving] = useState(false);
+    const [viewedDate, setViewedDate] = useState(new Date().toISOString().split('T')[0]);
+
+    // For Cinema
+    const [movieSearchQuery, setMovieSearchQuery] = useState("");
+    const [movieSearchResults, setMovieSearchResults] = useState<any[]>([]);
+    const [selectedMovie, setSelectedMovie] = useState<any | null>(null);
+
+    // Debounce movie search
+    useEffect(() => {
+      const timer = setTimeout(async () => {
+        if (selectedCat === 'Cinéma' && movieSearchQuery.length >= 2) {
+          try {
+            const response = await fetch(`/api/tmdb-search?q=${encodeURIComponent(movieSearchQuery)}&type=movie`);
+            if (response.ok) {
+              const data = await response.json();
+              setMovieSearchResults(data.results || []);
+            }
+          } catch (error) {
+            console.error(error);
+          }
+        } else {
+          setMovieSearchResults([]);
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    }, [movieSearchQuery, selectedCat]);
 
     const filteredSuggestions = useMemo(() => {
       if (!searchQuery) return [];
@@ -544,16 +571,38 @@ export default function DecisionMaker() {
       setIsSaving(true);
       try {
         const cleanedName = cleanPlaceName(placeToSave);
+        const dateMs = new Date(viewedDate).getTime();
+        
+        let finalOrderedItem = orderedItem.trim();
+
+        if (selectedCat === 'Cinéma') {
+            finalOrderedItem = selectedMovie ? selectedMovie.title : movieSearchQuery.trim();
+        }
+
         // Enregistrer la visite
         await addVisitLog(user.uid, {
           placeName: cleanedName,
           category: selectedCat,
-          date: Date.now(),
-          orderedItem: orderedItem.trim() || undefined
+          date: dateMs,
+          orderedItem: finalOrderedItem || undefined
         });
 
+        // Sync avec Tfarrej si c'est un cinéma
+        if (selectedCat === 'Cinéma' && finalOrderedItem) {
+            const movieData: any = {
+                title: finalOrderedItem,
+                viewedAt: dateMs,
+            };
+            if (selectedMovie) {
+                if (selectedMovie.posterUrl) movieData.posterUrl = selectedMovie.posterUrl;
+                if (selectedMovie.year) movieData.year = selectedMovie.year;
+                if (selectedMovie.rating) movieData.rating = selectedMovie.rating;
+            }
+            await addSeenMovieWithDate(user.uid, movieData);
+        }
+
         // Si une nouvelle spécialité a été entrée, l'ajouter à la base de données du lieu
-        if (orderedItem.trim()) {
+        if (selectedCat !== 'Cinéma' && orderedItem.trim()) {
           const trimmedItem = orderedItem.trim();
           const placeData = allPlaces.find((p: { name: string; category: string; zone: string; specialties: string[] }) => p.name === cleanedName);
 
@@ -583,6 +632,9 @@ export default function DecisionMaker() {
         setSelectedPlace("");
         setSearchQuery("");
         setOrderedItem("");
+        setMovieSearchQuery("");
+        setSelectedMovie(null);
+        setViewedDate(new Date().toISOString().split('T')[0]);
       } finally {
         setIsSaving(false);
       }
@@ -619,6 +671,8 @@ export default function DecisionMaker() {
                     onClick={() => {
                       setSelectedCat(opt.label);
                       setSelectedPlace("");
+                      setMovieSearchQuery("");
+                      setSelectedMovie(null);
                     }}
                   >
                     {opt.label}
@@ -627,16 +681,16 @@ export default function DecisionMaker() {
               </div>
             </div>
             <div className="space-y-2 relative">
-              <Label>Lieu</Label>
+              <Label>{selectedCat === 'Cinéma' ? 'Salle de Cinéma' : 'Lieu'}</Label>
               <Input
-                placeholder="Ex: Café Matignon..."
+                placeholder={selectedCat === 'Cinéma' ? "Ex: Pathé Lac, Le Colisée..." : "Ex: Café Matignon..."}
                 value={selectedPlace || searchQuery}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                   setSearchQuery(e.target.value);
                   setSelectedPlace("");
                 }}
               />
-              {filteredSuggestions.length > 0 && !selectedPlace && (
+              {filteredSuggestions.length > 0 && !selectedPlace && selectedCat !== 'Cinéma' && (
                 <Card className="absolute z-50 w-full mt-1 shadow-lg border-primary/20">
                   <ScrollArea className="h-auto max-h-[200px]">
                     <div className="p-1">
@@ -659,27 +713,97 @@ export default function DecisionMaker() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label>Qu'avez-vous commandé ? (Optionnel)</Label>
-              <Input
-                placeholder="Ex: Chapati, Café crème, Pizza..."
-                value={orderedItem}
-                onChange={(e) => setOrderedItem(e.target.value)}
-              />
-              {(selectedPlace || searchQuery) && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {allPlaces.find((p: { name: string }) => p.name === (selectedPlace || searchQuery))?.specialties.map((s: string, idx: number) => (
-                    <TypedBadge
-                      key={idx}
-                      variant="outline"
-                      className="cursor-pointer hover:bg-primary/5 text-[10px] bg-white text-muted-foreground"
-                      onClick={() => setOrderedItem(s)}
-                    >
-                      {s}
-                    </TypedBadge>
-                  ))}
+            {selectedCat === 'Cinéma' ? (
+                <div className="space-y-2">
+                  <Label>Quel film avez-vous vu ?</Label>
+                  {!selectedMovie ? (
+                    <div className="relative">
+                      <Input
+                        placeholder="Rechercher un film..."
+                        value={movieSearchQuery}
+                        onChange={(e) => setMovieSearchQuery(e.target.value)}
+                      />
+                      {movieSearchQuery.length >= 2 && movieSearchResults.length > 0 && (
+                        <Card className="absolute z-50 w-full mt-1 max-h-[200px] overflow-y-auto shadow-lg">
+                          {movieSearchResults.map((movie) => (
+                            <div
+                              key={movie.id}
+                              className="flex items-center gap-2 p-2 hover:bg-accent cursor-pointer"
+                              onClick={() => {
+                                setSelectedMovie(movie);
+                                setMovieSearchQuery('');
+                              }}
+                            >
+                              {movie.posterUrl ? (
+                                <img src={movie.posterUrl} alt={movie.title} className="w-8 h-12 object-cover rounded" />
+                              ) : (
+                                <div className="w-8 h-12 bg-muted flex items-center justify-center rounded">
+                                  <Film className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{movie.title}</p>
+                                <p className="text-xs text-muted-foreground">{movie.year}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </Card>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
+                      <div className="flex items-center gap-2">
+                        {selectedMovie.posterUrl ? (
+                          <img src={selectedMovie.posterUrl} alt={selectedMovie.title} className="w-8 h-12 object-cover rounded" />
+                        ) : (
+                          <div className="w-8 h-12 bg-muted flex items-center justify-center rounded">
+                            <Film className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-sm font-medium">{selectedMovie.title}</p>
+                          <p className="text-xs text-muted-foreground">{selectedMovie.year}</p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={() => setSelectedMovie(null)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              )}
+            ) : (
+                <div className="space-y-2">
+                  <Label>Qu'avez-vous commandé ? (Optionnel)</Label>
+                  <Input
+                    placeholder="Ex: Chapati, Café crème, Pizza..."
+                    value={orderedItem}
+                    onChange={(e) => setOrderedItem(e.target.value)}
+                  />
+                  {(selectedPlace || searchQuery) && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {allPlaces.find((p: { name: string }) => p.name === (selectedPlace || searchQuery))?.specialties.map((s: string, idx: number) => (
+                        <TypedBadge
+                          key={idx}
+                          variant="outline"
+                          className="cursor-pointer hover:bg-primary/5 text-[10px] bg-white text-muted-foreground"
+                          onClick={() => setOrderedItem(s)}
+                        >
+                          {s}
+                        </TypedBadge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Date de la visite</Label>
+              <Input
+                type="date"
+                value={viewedDate}
+                onChange={(e) => setViewedDate(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
+              />
             </div>
           </div>
           <DialogFooter>
@@ -1117,6 +1241,16 @@ export default function DecisionMaker() {
                             `Expert du Petit-Déj`,
                             `Maître du Brunch`,
                             `Légende du Matin ☀️`
+                          ]
+                        },
+                        'Cinéma': {
+                          icon: Clapperboard, color: 'text-violet-700', bg: 'bg-violet-50',
+                          titles: [
+                            `Amateur de Cinéma`,
+                            `Cinéphile`,
+                            `Critique Film`,
+                            `Expert du 7ème Art`,
+                            `Légende d'Hollywood 🎬`
                           ]
                         },
                       };
