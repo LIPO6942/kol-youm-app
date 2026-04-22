@@ -2008,7 +2008,7 @@ export default function DecisionMaker() {
           </CollapsibleContent>
         </Collapsible>
         <div className="grid gap-4 grid-cols-2 md:grid-cols-3">
-          {outingOptions.map((option: (typeof outingOptions)[0]) => {
+          {outingOptions.filter(o => o.id !== 'cinema').map((option: (typeof outingOptions)[0]) => {
             const Icon = option.icon;
             return (
               <div
