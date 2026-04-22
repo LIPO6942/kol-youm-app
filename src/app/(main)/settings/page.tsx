@@ -1565,10 +1565,12 @@ export default function SettingsPage() {
                           </CardContent>
                         </Card>
                       )}
-                    </div>
+                    </>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* ── Mes Salles de Cinéma ── */}
           <Card className="border-violet-100 dark:border-slate-800 shadow-sm overflow-hidden mb-6">
