@@ -384,7 +384,7 @@ export default function DecisionMaker() {
       'Burger': { keywords: ['burger'], emoji: '🍔' },
       'Tacos': { keywords: ['tacos'], emoji: '🌮' },
       'Ma9loub': { keywords: ['ma9loub', 'makloub'], emoji: '🥙' },
-      'Mlawi': { keywords: ['mlawi'], emoji: '🌯' },
+      'Mlawi': { keywords: ['mlawi', 'melaoui'], emoji: '🌯' },
       'Chapati': { keywords: ['chapati', 'croque', 'sandwich rond'], emoji: '🥪' },
       'Kaffteji': { keywords: ['kafteji', 'kaffteji'], emoji: '🥘' },
       'Lablebi': { keywords: ['lablebi', 'lablabi'], emoji: '🍲' },
@@ -398,7 +398,7 @@ export default function DecisionMaker() {
       'Libanais/Oriental': { keywords: ['libanais', 'chawarma', 'shawarma', 'falafel', 'kebab', 'kabab', 'kabeb', 'kebeb', 'taouk', 'chich taouk', 'maajouka', 'maajou9a', 'mchakkel', 'mchakel'], emoji: '🥙' },
       'Salade/Bowl': { keywords: ['salade', 'healthy', 'bowl'], emoji: '🥗' },
       'Grillade': { keywords: ['grillade', 'steak', 'entrecôte'], emoji: '🍖' },
-      'Plat Tunisien': { keywords: ['fricassé', 'ojja', 'kammounia'], emoji: '🇹🇳' },
+      'Plat Tunisien': { keywords: ['fricassé', 'ojja', 'kammounia', 'brik', 'couscous', 'tunisien'], emoji: '🇹🇳' },
     };
 
     // QG du Mois Logic (Last 30 days)
@@ -434,6 +434,9 @@ export default function DecisionMaker() {
       const processSpecialty = (text: string) => {
         const textLower = text.toLowerCase().trim();
         if (!textLower) return;
+
+        // Skip if it looks like a cinema theater or a movie-related entry (e.g. if category was misassigned)
+        if (v.category === 'Cinéma' || textLower.includes('cinéma') || textLower.includes('pathé') || textLower.includes('abc') || textLower.includes('amiral')) return;
 
         let matched = false;
         // 1. Try Map with keywords (Group by main specialty)
@@ -727,14 +730,17 @@ export default function DecisionMaker() {
                       {filteredSuggestions.map((p: { name: string; category: string; zone: string; specialties: string[] }, idx: number) => (
                         <div
                           key={idx}
-                          className="p-2 hover:bg-accent rounded-sm cursor-pointer text-sm flex items-center gap-2"
+                          className="p-2 hover:bg-accent rounded-sm cursor-pointer text-sm flex items-center justify-between gap-2"
                           onClick={() => {
                             setSelectedPlace(p.name);
                             setSearchQuery("");
                           }}
                         >
-                          <Building2 className="h-3 w-3 text-muted-foreground" />
-                          {p.name}
+                          <div className="flex items-center gap-2 truncate">
+                            <Building2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            <span className="truncate">{p.name}</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground opacity-70 whitespace-nowrap">({p.zone})</span>
                         </div>
                       ))}
                     </div>
