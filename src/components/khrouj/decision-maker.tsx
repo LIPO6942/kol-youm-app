@@ -559,8 +559,12 @@ export default function DecisionMaker() {
     }, [movieSearchQuery, selectedCat]);
 
     const cinemaOptions = useMemo(() => {
-      return (userProfile?.cinemaTheaters || []).sort();
-    }, [userProfile?.cinemaTheaters]);
+      const globalCinemas = allPlaces
+        .filter(p => p.category === 'Cinéma')
+        .map(p => p.name);
+      const userCinemas = userProfile?.cinemaTheaters || [];
+      return Array.from(new Set([...globalCinemas, ...userCinemas])).sort();
+    }, [allPlaces, userProfile?.cinemaTheaters]);
 
     const filteredSuggestions = useMemo(() => {
       if (!searchQuery) return [];

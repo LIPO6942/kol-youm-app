@@ -282,12 +282,12 @@ export default function SettingsPage() {
     }
   };
 
-  // Charger la base de données quand on active le mode base de données
+  // Charger la base de données quand on est sur l'onglet Khrouj
   useEffect(() => {
-    if (databaseMode && activeTab === 'khrouj') {
+    if (activeTab === 'khrouj') {
       loadPlacesDatabase();
     }
-  }, [databaseMode, activeTab]);
+  }, [activeTab]);
 
   // Sélectionner automatiquement la première zone et catégorie disponibles quand la base de données est chargée
   useEffect(() => {
@@ -371,16 +371,19 @@ export default function SettingsPage() {
   };
 
   const handleAddCinema = async () => {
-    if (!user || !newCinemaName.trim()) return;
+    if (!newCinemaName.trim()) return;
     setIsSavingCinema(true);
     try {
-      const currentTheaters = userProfile?.cinemaTheaters || [];
-      if (!currentTheaters.includes(newCinemaName.trim())) {
-        await updateCinemaTheaters(user.uid, [...currentTheaters, newCinemaName.trim()]);
+      const globalZone = "Cinéma";
+      const currentGlobalCinemas = getPlacesForZoneAndCategory(globalZone, 'cinemas');
+      
+      if (!currentGlobalCinemas.includes(newCinemaName.trim())) {
+        const updatedPlaces = [...currentGlobalCinemas, newCinemaName.trim()];
+        await handleUpdateZoneCategory(globalZone, updatedPlaces, 'cinemas');
         setNewCinemaName('');
-        toast({ title: 'Salle ajoutée ✓', description: `${newCinemaName.trim()} a été ajoutée à vos cinémas` });
+        toast({ title: 'Salle ajoutée ✓', description: `${newCinemaName.trim()} est maintenant disponible pour tous` });
       } else {
-        toast({ variant: 'destructive', title: 'Déjà présent', description: 'Cette salle est déjà dans votre liste' });
+        toast({ variant: 'destructive', title: 'Déjà présent', description: 'Cette salle est déjà dans la base de données' });
       }
     } catch (e) {
       toast({ variant: 'destructive', title: 'Erreur', description: "Impossible d'enregistrer la salle." });
@@ -390,11 +393,12 @@ export default function SettingsPage() {
   };
 
   const handleDeleteCinema = async (theater: string) => {
-    if (!user) return;
     try {
-      const currentTheaters = userProfile?.cinemaTheaters || [];
-      await updateCinemaTheaters(user.uid, currentTheaters.filter(t => t !== theater));
-      toast({ title: 'Salle supprimée' });
+      const globalZone = "Cinéma";
+      const currentGlobalCinemas = getPlacesForZoneAndCategory(globalZone, 'cinemas');
+      const updatedPlaces = currentGlobalCinemas.filter(t => t !== theater);
+      await handleUpdateZoneCategory(globalZone, updatedPlaces, 'cinemas');
+      toast({ title: 'Salle supprimée pour tous' });
     } catch (e) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer la salle.' });
     }
@@ -1206,6 +1210,9 @@ export default function SettingsPage() {
                                   <SelectItem value="shopping">
                                     Shopping ({getPlacesForZoneAndCategory(selectedZone, 'shopping').length})
                                   </SelectItem>
+                                  <SelectItem value="cinemas">
+                                    Cinémas ({getPlacesForZoneAndCategory(selectedZone, 'cinemas').length})
+                                  </SelectItem>
                                 </>
                               ) : (
                                 <SelectItem value="placeholder" disabled>Sélectionnez d'abord une zone</SelectItem>
@@ -1603,7 +1610,7 @@ export default function SettingsPage() {
                 </Button>
               </div>
 
-              {(!userProfile?.cinemaTheaters || userProfile.cinemaTheaters.length === 0) ? (
+              {getPlacesForZoneAndCategory("Cinéma", "cinemas").length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-6 text-center border border-dashed border-violet-200 dark:border-slate-700 rounded-xl bg-violet-50/20 dark:bg-slate-900/20">
                   <Film className="h-8 w-8 text-violet-200 dark:text-violet-900 mb-2" />
                   <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Aucune salle définie</p>
@@ -1611,7 +1618,7 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-2">
-                  {userProfile.cinemaTheaters.map((theater, idx) => (
+                  {getPlacesForZoneAndCategory("Cinéma", "cinemas").sort().map((theater, idx) => (
                     <TypedBadge key={idx} variant="secondary" className="pl-3 pr-1 gap-2 py-1.5 h-auto text-xs bg-white dark:bg-slate-800 border-violet-200 dark:border-violet-900 text-violet-700 dark:text-violet-300">
                       {theater}
                       <button
