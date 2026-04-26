@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat, Clapperboard, Film } from 'lucide-react';
+import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat, Clapperboard, Film, History } from 'lucide-react';
 import { updateCustomDishRules } from '@/lib/firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 const TypedBadge = Badge as any;
@@ -1629,6 +1629,27 @@ export default function SettingsPage() {
                       </button>
                     </TypedBadge>
                   ))}
+                </div>
+              )}
+
+              {/* Affichage des anciennes salles privées si elles existent */}
+              {userProfile?.cinemaTheaters && userProfile.cinemaTheaters.length > 0 && (
+                <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    <History className="h-3.5 w-3.5 text-slate-400" />
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Vos anciennes salles privées</h4>
+                  </div>
+                  <div className="flex flex-wrap gap-2 opacity-60">
+                    {userProfile.cinemaTheaters.sort().map((theater, idx) => (
+                      <TypedBadge key={idx} variant="outline" className="text-[10px] py-0.5 px-2 border-slate-200 text-slate-500">
+                        {theater}
+                      </TypedBadge>
+                    ))}
+                  </div>
+                  <p className="text-[9px] text-muted-foreground mt-2 italic">
+                    Ces salles sont conservées dans votre profil mais n'apparaissent plus dans la liste collaborative de Khrouj. 
+                    Vous pouvez les ajouter à la liste collaborative en haut si vous souhaitez les partager.
+                  </p>
                 </div>
               )}
             </CardContent>

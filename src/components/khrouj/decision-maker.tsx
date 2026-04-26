@@ -562,9 +562,8 @@ export default function DecisionMaker() {
       const globalCinemas = allPlaces
         .filter(p => p.category === 'Cinéma')
         .map(p => p.name);
-      const userCinemas = userProfile?.cinemaTheaters || [];
-      return Array.from(new Set([...globalCinemas, ...userCinemas])).sort();
-    }, [allPlaces, userProfile?.cinemaTheaters]);
+      return Array.from(new Set(globalCinemas)).sort();
+    }, [allPlaces]);
 
     const filteredSuggestions = useMemo(() => {
       if (!searchQuery) return [];
