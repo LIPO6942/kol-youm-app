@@ -30,6 +30,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { getAge } from '@/lib/age-utils';
 
+// Constante pour la zone globale des cinémas
+const GLOBAL_CINEMA_ZONE = "Cinéma";
+
 const formSchema = z.object({
   birthdate: z.string().optional(),
 });
@@ -289,6 +292,31 @@ export default function SettingsPage() {
     }
   }, [activeTab]);
 
+  // Migration automatique des salles privées vers la base globale
+  useEffect(() => {
+    const personalCinemas = userProfile?.cinemaTheaters || [];
+    if (activeTab === 'khrouj' && personalCinemas.length > 0 && placesDatabase && user) {
+      const migrateCinemas = async () => {
+        try {
+          const currentGlobalCinemas = getPlacesForZoneAndCategory(GLOBAL_CINEMA_ZONE, 'cinemas');
+          const combinedCinemas = Array.from(new Set([...currentGlobalCinemas, ...personalCinemas]));
+          
+          // Si on a des nouvelles salles à ajouter au global
+          if (combinedCinemas.length > currentGlobalCinemas.length) {
+            await handleUpdateZoneCategory(GLOBAL_CINEMA_ZONE, combinedCinemas, 'cinemas');
+          }
+          
+          // Une fois migré (ou si déjà présent), on vide la liste privée
+          await updateCinemaTheaters(user.uid, []);
+          console.log("Migration des cinémas terminée");
+        } catch (error) {
+          console.error("Erreur lors de la migration des cinémas:", error);
+        }
+      };
+      migrateCinemas();
+    }
+  }, [activeTab, userProfile?.cinemaTheaters, !!placesDatabase, user]);
+
   // Sélectionner automatiquement la première zone et catégorie disponibles quand la base de données est chargée
   useEffect(() => {
     if (placesDatabase && databaseMode && placesDatabase.zones.length > 0) {
@@ -374,12 +402,11 @@ export default function SettingsPage() {
     if (!newCinemaName.trim()) return;
     setIsSavingCinema(true);
     try {
-      const globalZone = "Cinéma";
-      const currentGlobalCinemas = getPlacesForZoneAndCategory(globalZone, 'cinemas');
+      const currentGlobalCinemas = getPlacesForZoneAndCategory(GLOBAL_CINEMA_ZONE, 'cinemas');
       
       if (!currentGlobalCinemas.includes(newCinemaName.trim())) {
         const updatedPlaces = [...currentGlobalCinemas, newCinemaName.trim()];
-        await handleUpdateZoneCategory(globalZone, updatedPlaces, 'cinemas');
+        await handleUpdateZoneCategory(GLOBAL_CINEMA_ZONE, updatedPlaces, 'cinemas');
         setNewCinemaName('');
         toast({ title: 'Salle ajoutée ✓', description: `${newCinemaName.trim()} est maintenant disponible pour tous` });
       } else {
@@ -394,10 +421,9 @@ export default function SettingsPage() {
 
   const handleDeleteCinema = async (theater: string) => {
     try {
-      const globalZone = "Cinéma";
-      const currentGlobalCinemas = getPlacesForZoneAndCategory(globalZone, 'cinemas');
+      const currentGlobalCinemas = getPlacesForZoneAndCategory(GLOBAL_CINEMA_ZONE, 'cinemas');
       const updatedPlaces = currentGlobalCinemas.filter(t => t !== theater);
-      await handleUpdateZoneCategory(globalZone, updatedPlaces, 'cinemas');
+      await handleUpdateZoneCategory(GLOBAL_CINEMA_ZONE, updatedPlaces, 'cinemas');
       toast({ title: 'Salle supprimée pour tous' });
     } catch (e) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer la salle.' });
@@ -1610,7 +1636,7 @@ export default function SettingsPage() {
                 </Button>
               </div>
 
-              {getPlacesForZoneAndCategory("Cinéma", "cinemas").length === 0 ? (
+              {getPlacesForZoneAndCategory(GLOBAL_CINEMA_ZONE, "cinemas").length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-6 text-center border border-dashed border-violet-200 dark:border-slate-700 rounded-xl bg-violet-50/20 dark:bg-slate-900/20">
                   <Film className="h-8 w-8 text-violet-200 dark:text-violet-900 mb-2" />
                   <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Aucune salle définie</p>
@@ -1618,7 +1644,7 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-2">
-                  {getPlacesForZoneAndCategory("Cinéma", "cinemas").sort().map((theater, idx) => (
+                  {getPlacesForZoneAndCategory(GLOBAL_CINEMA_ZONE, "cinemas").sort().map((theater, idx) => (
                     <TypedBadge key={idx} variant="secondary" className="pl-3 pr-1 gap-2 py-1.5 h-auto text-xs bg-white dark:bg-slate-800 border-violet-200 dark:border-violet-900 text-violet-700 dark:text-violet-300">
                       {theater}
                       <button
@@ -1629,27 +1655,6 @@ export default function SettingsPage() {
                       </button>
                     </TypedBadge>
                   ))}
-                </div>
-              )}
-
-              {/* Affichage des anciennes salles privées si elles existent */}
-              {userProfile?.cinemaTheaters && userProfile.cinemaTheaters.length > 0 && (
-                <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
-                  <div className="flex items-center gap-2 mb-3">
-                    <History className="h-3.5 w-3.5 text-slate-400" />
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Vos anciennes salles privées</h4>
-                  </div>
-                  <div className="flex flex-wrap gap-2 opacity-60">
-                    {userProfile.cinemaTheaters.sort().map((theater, idx) => (
-                      <TypedBadge key={idx} variant="outline" className="text-[10px] py-0.5 px-2 border-slate-200 text-slate-500">
-                        {theater}
-                      </TypedBadge>
-                    ))}
-                  </div>
-                  <p className="text-[9px] text-muted-foreground mt-2 italic">
-                    Ces salles sont conservées dans votre profil mais n'apparaissent plus dans la liste collaborative de Khrouj. 
-                    Vous pouvez les ajouter à la liste collaborative en haut si vous souhaitez les partager.
-                  </p>
                 </div>
               )}
             </CardContent>
