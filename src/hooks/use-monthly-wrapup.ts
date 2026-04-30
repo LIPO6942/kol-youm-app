@@ -22,6 +22,11 @@ export type WrapUpStats = {
     posters: string[];
     featured: { title: string; poster: string } | null;
   };
+  cinema?: {
+    total: number;
+    topCinema: string | null;
+    movieTitles: string[];
+  };
   totalMovies: number; // Sum of both for Persona
   userPersona: string;
 };
@@ -72,14 +77,29 @@ export function useMonthlyWrapUp(
     const beverageCounts: Record<string, number> = {};
     const neighborhoodCounts: Record<string, number> = {};
     const dayCounts: Record<string, number> = {};
+    const cinemaCounts: Record<string, number> = {};
     
     let featuredMomentyImage: string | null = null;
     let featuredMomentyDish: string | null = null;
+    let totalCinemaOutings = 0;
+
+    const cinemaMovieTitles: string[] = [];
 
     monthlyVisits.forEach((v) => {
       // Category count
       const cat = v.category || 'Autre';
       categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+
+      // Cinema specific tracking
+      if (cat.toLowerCase() === 'cinéma' || cat.toLowerCase() === 'cinema') {
+        totalCinemaOutings++;
+        if (v.placeName) {
+          cinemaCounts[v.placeName] = (cinemaCounts[v.placeName] || 0) + 1;
+        }
+        if (v.orderedItem && v.orderedItem !== "Découverte Gourmande") {
+          cinemaMovieTitles.push(v.orderedItem.trim());
+        }
+      }
       
       // Place count
       const place = v.placeName;
@@ -141,6 +161,7 @@ export function useMonthlyWrapUp(
     const topBeverage = getTop(beverageCounts);
     const topNeighborhood = getTop(neighborhoodCounts);
     const topDay = getTop(dayCounts);
+    const topCinemaPlace = getTop(cinemaCounts);
 
     // 3. Tfarrej Stats (Separated Movies and Series)
     const filterByDate = (history: any[], dateField: string) => {
@@ -219,6 +240,11 @@ export function useMonthlyWrapUp(
       featuredMomentyDish,
       movies: movies || undefined,
       series: series || undefined,
+      cinema: totalCinemaOutings > 0 ? {
+        total: totalCinemaOutings,
+        topCinema: topCinemaPlace?.name || null,
+        movieTitles: cinemaMovieTitles
+      } : undefined,
       totalMovies,
       userPersona
     };

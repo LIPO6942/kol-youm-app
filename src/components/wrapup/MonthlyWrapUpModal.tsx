@@ -188,10 +188,45 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
   const [progress, setProgress] = useState(0);
   const storyRef = useRef<HTMLDivElement>(null);
 
+  const [cinemaPosters, setCinemaPosters] = useState<string[]>([]);
+  useEffect(() => {
+    if (!isOpen || !stats?.cinema?.movieTitles?.length) {
+      setCinemaPosters([]);
+      return;
+    }
+    
+    async function fetchCinemaPosters() {
+      try {
+        const titles = stats!.cinema!.movieTitles;
+        // Déduplication des titres
+        const uniqueTitles = Array.from(new Set(titles));
+        const posters: string[] = [];
+        
+        await Promise.all(uniqueTitles.map(async (title) => {
+          const res = await fetch(`/api/tmdb-search?q=${encodeURIComponent(title)}&type=movie`);
+          const data = await res.json();
+          if (data.results && data.results.length > 0) {
+            const match = data.results.find((r: any) => r.posterUrl) || data.results[0];
+            if (match?.posterUrl) {
+                posters.push(match.posterUrl);
+            }
+          }
+        }));
+        
+        setCinemaPosters(posters);
+      } catch (e) {
+        console.error('Failed to fetch cinema posters', e);
+      }
+    }
+    
+    fetchCinemaPosters();
+  }, [isOpen, stats?.cinema]);
+
   const slides = stats ? [
     'intro',
     stats.topCategory ? 'category' : null,
     stats.topPlace ? 'place' : null,
+    stats.cinema && stats.cinema.total > 0 ? 'cinema' : null,
     stats.movies && stats.movies.total > 0 ? 'movies' : null,
     stats.series && stats.series.total > 0 ? 'series' : null,
     stats.featuredMomentyImage ? 'momenty' : null,
@@ -413,6 +448,42 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
                         </p>
                         <p className="text-white/50 text-xs uppercase tracking-widest mt-1">visites ce mois</p>
                       </motion.div>
+                    </motion.div>
+                  </SlideContainer>
+                )}
+
+                {/* ══ CINEMA OUTINGS ═══════════════════════════════════════════════════ */}
+                {slides[currentSlide] === 'cinema' && stats.cinema && (
+                  <SlideContainer key="cinema">
+                    {cinemaPosters.length > 0 ? (
+                      <>
+                        <CollageBackground posters={cinemaPosters} />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/30 z-[1]" />
+                      </>
+                    ) : (
+                      <>
+                        <div className="absolute inset-0 bg-gradient-to-br from-amber-950 via-orange-900 to-black" />
+                        <FloatingOrbs colors={['#78350f', '#92400e', '#b45309']} />
+                      </>
+                    )}
+                    
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="relative z-10 flex flex-col items-center text-center w-full">
+                      <motion.div variants={iconVariants} className="w-20 h-20 rounded-full bg-orange-500/20 border border-orange-400/30 backdrop-blur-md flex items-center justify-center shadow-[0_0_40px_rgba(249,115,22,0.3)] mb-6">
+                        <Clapperboard className="w-10 h-10 text-orange-400" />
+                      </motion.div>
+                      <motion.p variants={itemVariants} className="text-xs uppercase tracking-[0.3em] text-orange-300 font-bold mb-2">
+                        Sortie Grand Écran
+                      </motion.p>
+                      <motion.div variants={numberVariants} className="text-center mb-8">
+                        <p className="text-8xl font-black text-white leading-none"><CountUp to={stats.cinema.total} /></p>
+                        <p className="text-white/50 text-lg mt-1">fois au ciné</p>
+                      </motion.div>
+                      {stats.cinema.topCinema && (
+                        <motion.div variants={itemVariants} className="bg-black/40 backdrop-blur-xl border border-orange-500/20 rounded-2xl px-8 py-4 text-center shadow-[0_0_30px_rgba(249,115,22,0.1)]">
+                          <p className="text-white/40 text-[10px] uppercase tracking-widest mb-1">Ton spot préféré</p>
+                          <p className="text-xl font-bold text-white">{stats.cinema.topCinema}</p>
+                        </motion.div>
+                      )}
                     </motion.div>
                   </SlideContainer>
                 )}
