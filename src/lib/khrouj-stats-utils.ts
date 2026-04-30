@@ -54,7 +54,7 @@ export function getAvailableYears(): number[] {
 }
 
 const CUISINE_MAP: Record<string, string[]> = {
-    'Tunisien': ['lablebi', 'kefteji', 'mloukhia', 'couscous', 'brik', 'fricasse', 'chapati', 'ma9loub', 'makloub', 'baguette farcie', 'sahn tounsi', 'ojja', 'tunisien', 'tunisian'],
+    'Tunisien': ['lablebi', 'kefteji', 'kafteji', 'kaffteji', 'mloukhia', 'couscous', 'brik', 'fricasse', 'chapati', 'ma9loub', 'makloub', 'baguette farcie', 'sahn tounsi', 'ojja', 'tunisien', 'tunisian', 'mlawi', 'melaoui', 'fricassé'],
     'Oriental': [
         // === GRILLADES / VIANDES ===
         'kebab', 'kabab', 'kabeb', 'kebeb', 'kbab', 'kbeb', 'kebap', 'kabap',
@@ -131,8 +131,8 @@ function detectCuisine(visit: VisitLog, customRules: Record<string, string> = {}
     const possibleCats = (visit.possibleCategories || []).map(normalize);
     const cat = normalize(visit.category || "");
 
-    // 0. Explicit exclusion/skip for "Café" (handled in QG, not Passport)
-    if (cat.includes('cafe')) return null;
+    // 0. Explicit exclusion/skip for "Café" and "Cinéma"
+    if (cat.includes('cafe') || cat.includes('cinema')) return null;
 
     // 1. PRIORITY 0 — Custom user-defined rules (checked first, exact substring match)
     for (const [keyword, cuisine] of Object.entries(customRules)) {

@@ -9,7 +9,7 @@ import { z } from 'zod';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile } from '@/lib/firebase/firestore';
-import { addPlace, deletePlace, PlaceItem } from '@/lib/firebase/firestore';
+import { addPlace, deletePlace, updateCinemaTheaters, PlaceItem } from '@/lib/firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat } from 'lucide-react';
+import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat, Clapperboard, Film, History } from 'lucide-react';
 import { updateCustomDishRules } from '@/lib/firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 const TypedBadge = Badge as any;
@@ -29,6 +29,9 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/
 import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { getAge } from '@/lib/age-utils';
+
+// Constante pour la zone globale des cinémas
+const GLOBAL_CINEMA_ZONE = "Cinéma";
 
 const formSchema = z.object({
   birthdate: z.string().optional(),
@@ -61,6 +64,7 @@ interface CategoryPlaces {
   brunch?: string[];
   balade?: string[];
   shopping?: string[];
+  cinemas?: string[];
 }
 
 interface ZoneData {
@@ -240,6 +244,10 @@ export default function SettingsPage() {
   const [newDishCuisine, setNewDishCuisine] = useState('');
   const [isSavingDishRule, setIsSavingDishRule] = useState(false);
 
+  // Cinema Theaters state
+  const [newCinemaName, setNewCinemaName] = useState('');
+  const [isSavingCinema, setIsSavingCinema] = useState(false);
+
   const CUISINE_OPTIONS = [
     'Tunisien', 'Oriental', 'Italien', 'Américain', 'Français',
     'Japonaise', 'Chinoise', 'Mexicain', 'Thaïlandaise'
@@ -277,12 +285,37 @@ export default function SettingsPage() {
     }
   };
 
-  // Charger la base de données quand on active le mode base de données
+  // Charger la base de données quand on est sur l'onglet Khrouj
   useEffect(() => {
-    if (databaseMode && activeTab === 'khrouj') {
+    if (activeTab === 'khrouj') {
       loadPlacesDatabase();
     }
-  }, [databaseMode, activeTab]);
+  }, [activeTab]);
+
+  // Migration automatique des salles privées vers la base globale
+  useEffect(() => {
+    const personalCinemas = userProfile?.cinemaTheaters || [];
+    if (activeTab === 'khrouj' && personalCinemas.length > 0 && placesDatabase && user) {
+      const migrateCinemas = async () => {
+        try {
+          const currentGlobalCinemas = getPlacesForZoneAndCategory(GLOBAL_CINEMA_ZONE, 'cinemas');
+          const combinedCinemas = Array.from(new Set([...currentGlobalCinemas, ...personalCinemas]));
+          
+          // Si on a des nouvelles salles à ajouter au global
+          if (combinedCinemas.length > currentGlobalCinemas.length) {
+            await handleUpdateZoneCategory(GLOBAL_CINEMA_ZONE, combinedCinemas, 'cinemas');
+          }
+          
+          // Une fois migré (ou si déjà présent), on vide la liste privée
+          await updateCinemaTheaters(user.uid, []);
+          console.log("Migration des cinémas terminée");
+        } catch (error) {
+          console.error("Erreur lors de la migration des cinémas:", error);
+        }
+      };
+      migrateCinemas();
+    }
+  }, [activeTab, userProfile?.cinemaTheaters, !!placesDatabase, user]);
 
   // Sélectionner automatiquement la première zone et catégorie disponibles quand la base de données est chargée
   useEffect(() => {
@@ -365,6 +398,38 @@ export default function SettingsPage() {
     }
   };
 
+  const handleAddCinema = async () => {
+    if (!newCinemaName.trim()) return;
+    setIsSavingCinema(true);
+    try {
+      const currentGlobalCinemas = getPlacesForZoneAndCategory(GLOBAL_CINEMA_ZONE, 'cinemas');
+      
+      if (!currentGlobalCinemas.includes(newCinemaName.trim())) {
+        const updatedPlaces = [...currentGlobalCinemas, newCinemaName.trim()];
+        await handleUpdateZoneCategory(GLOBAL_CINEMA_ZONE, updatedPlaces, 'cinemas');
+        setNewCinemaName('');
+        toast({ title: 'Salle ajoutée ✓', description: `${newCinemaName.trim()} est maintenant disponible pour tous` });
+      } else {
+        toast({ variant: 'destructive', title: 'Déjà présent', description: 'Cette salle est déjà dans la base de données' });
+      }
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erreur', description: "Impossible d'enregistrer la salle." });
+    } finally {
+      setIsSavingCinema(false);
+    }
+  };
+
+  const handleDeleteCinema = async (theater: string) => {
+    try {
+      const currentGlobalCinemas = getPlacesForZoneAndCategory(GLOBAL_CINEMA_ZONE, 'cinemas');
+      const updatedPlaces = currentGlobalCinemas.filter(t => t !== theater);
+      await handleUpdateZoneCategory(GLOBAL_CINEMA_ZONE, updatedPlaces, 'cinemas');
+      toast({ title: 'Salle supprimée pour tous' });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer la salle.' });
+    }
+  };
+
   const handleDeleteDishRule = async (keyword: string) => {
     if (!user) return;
     try {
@@ -429,7 +494,8 @@ export default function SettingsPage() {
             category === 'Balade' ? 'balade' :
               category === 'Shopping' ? 'shopping' :
                 category === 'bars' ? 'bars' :
-                  category.toLowerCase();
+                  category === 'Cinéma' || category === 'cinemas' ? 'cinemas' :
+                    category.toLowerCase();
   };
 
   const handleAddPlaceToZoneCategory = (zone: string, category: string) => {
@@ -510,7 +576,8 @@ export default function SettingsPage() {
           category === 'Brunch' ? 'brunch' :
             category === 'Balade' ? 'balade' :
               category === 'Shopping' ? 'shopping' :
-                category.toLowerCase();
+                category === 'Cinéma' || category === 'cinemas' ? 'cinemas' :
+                  category.toLowerCase();
     return categories[categoryKey as keyof CategoryPlaces] || [];
   };
 
@@ -522,7 +589,8 @@ export default function SettingsPage() {
       'fastFoods': 'Fast Food',
       'brunch': 'Brunch',
       'balade': 'Balade',
-      'shopping': 'Shopping'
+      'shopping': 'Shopping',
+      'cinemas': 'Cinémas'
     };
     return names[category] || category.charAt(0).toUpperCase() + category.slice(1);
   };
@@ -1168,6 +1236,9 @@ export default function SettingsPage() {
                                   <SelectItem value="shopping">
                                     Shopping ({getPlacesForZoneAndCategory(selectedZone, 'shopping').length})
                                   </SelectItem>
+                                  <SelectItem value="cinemas">
+                                    Cinémas ({getPlacesForZoneAndCategory(selectedZone, 'cinemas').length})
+                                  </SelectItem>
                                 </>
                               ) : (
                                 <SelectItem value="placeholder" disabled>Sélectionnez d'abord une zone</SelectItem>
@@ -1529,6 +1600,61 @@ export default function SettingsPage() {
                       )}
                     </>
                   )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ── Mes Salles de Cinéma ── */}
+          <Card className="border-violet-100 dark:border-slate-800 shadow-sm overflow-hidden mb-6">
+            <CardHeader className="bg-gradient-to-r from-violet-500/10 to-purple-500/10 border-b border-violet-100/50">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-md shadow-violet-500/20">
+                  <Clapperboard className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm font-black uppercase tracking-tight">Mes Salles de Cinéma</CardTitle>
+                  <CardDescription className="text-xs font-normal">Définissez vos cinémas préférés pour les retrouver dans Khrouj.</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-5 pb-6">
+              <div className="flex gap-2 mb-4">
+                <Input
+                  placeholder="Nom de la salle (ex: Pathé Lac, Le Colisée...)"
+                  value={newCinemaName}
+                  onChange={(e) => setNewCinemaName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddCinema(); }}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={handleAddCinema}
+                  disabled={!newCinemaName.trim() || isSavingCinema}
+                  className="bg-violet-600 hover:bg-violet-700 text-white shrink-0"
+                >
+                  {isSavingCinema ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                </Button>
+              </div>
+
+              {getPlacesForZoneAndCategory(GLOBAL_CINEMA_ZONE, "cinemas").length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-6 text-center border border-dashed border-violet-200 dark:border-slate-700 rounded-xl bg-violet-50/20 dark:bg-slate-900/20">
+                  <Film className="h-8 w-8 text-violet-200 dark:text-violet-900 mb-2" />
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Aucune salle définie</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Ajoutez une salle ci-dessus pour l'utiliser dans Khrouj.</p>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {getPlacesForZoneAndCategory(GLOBAL_CINEMA_ZONE, "cinemas").sort().map((theater, idx) => (
+                    <TypedBadge key={idx} variant="secondary" className="pl-3 pr-1 gap-2 py-1.5 h-auto text-xs bg-white dark:bg-slate-800 border-violet-200 dark:border-violet-900 text-violet-700 dark:text-violet-300">
+                      {theater}
+                      <button
+                        onClick={() => handleDeleteCinema(theater)}
+                        className="hover:text-red-600 rounded-full hover:bg-red-50 dark:hover:bg-red-950/30 p-1 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </TypedBadge>
+                  ))}
                 </div>
               )}
             </CardContent>
