@@ -295,8 +295,9 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
         <motion.div
           initial={{ opacity: 0, scale: 0.94 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.94 }}
+          exit={{ opacity: 0, scale: 0.94, pointerEvents: 'none' }}
           transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          style={{ pointerEvents: isOpen ? 'auto' : 'none' }}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black sm:bg-black/80 backdrop-blur-sm"
         >
           <div className="relative w-full h-full sm:max-w-[390px] sm:h-[820px] sm:rounded-[44px] overflow-hidden bg-black text-white flex shadow-[0_32px_80px_rgba(0,0,0,0.8)]">
