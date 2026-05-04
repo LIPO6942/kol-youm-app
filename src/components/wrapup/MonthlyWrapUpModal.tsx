@@ -295,10 +295,9 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
         <motion.div
           initial={{ opacity: 0, scale: 0.94 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.94, pointerEvents: 'none' }}
+          exit={{ opacity: 0, scale: 0.94 }}
           transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-          style={{ pointerEvents: isOpen ? 'auto' : 'none' }}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black sm:bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black sm:bg-black/80 backdrop-blur-sm pointer-events-none"
         >
           <div className="relative w-full h-full sm:max-w-[390px] sm:h-[820px] sm:rounded-[44px] overflow-hidden bg-black text-white flex shadow-[0_32px_80px_rgba(0,0,0,0.8)]">
 
@@ -319,7 +318,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3 }}
-              className="absolute top-8 right-4 z-50 p-2 bg-black/30 rounded-full backdrop-blur-md border border-white/10 no-screenshot"
+              className="absolute top-8 right-4 z-50 p-2 bg-black/30 rounded-full backdrop-blur-md border border-white/10 no-screenshot pointer-events-auto"
               onClick={onClose}
             >
               <X className="w-4 h-4 text-white" />
@@ -682,7 +681,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
             </AnimatePresence>
 
             {/* ── NAVIGATION ZONES ── */}
-            <div className="absolute top-0 left-0 right-0 bottom-32 z-40 flex no-screenshot pointer-events-none">
+            <div className="absolute top-0 left-0 right-0 bottom-32 z-40 flex no-screenshot">
               <div
                 className="flex-1 bg-transparent cursor-pointer pointer-events-auto"
                 onClick={(e: any) => { e.stopPropagation(); handlePrevSlide(); }}
