@@ -153,7 +153,9 @@ function SlideContainer({ children, className = '', style }: { children: React.R
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Date() }: Props) {
+export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTargetDate }: Props) {
+  // Fix infinite loop: keep targetDate stable instead of creating a new Date on every render!
+  const [targetDate] = useState(() => passedTargetDate || new Date());
   const previousMonthDate = new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, 1);
 
   const [placesWithZones, setPlacesWithZones] = useState<{ name: string; zone: string }[]>([]);
@@ -181,8 +183,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
     fetchPlaces();
   }, [isOpen]);
 
-  const stats = useMonthlyWrapUp(user, previousMonthDate, placesWithZones);
-
+  const stats = useMonthlyWrapUp(user, new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, 1), placesWithZones);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -190,8 +191,10 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
 
   const [cinemaPosters, setCinemaPosters] = useState<string[]>([]);
   useEffect(() => {
+    // Only fetch if open AND we have titles
     if (!isOpen || !stats?.cinema?.movieTitles?.length) {
-      setCinemaPosters([]);
+      // Don't set to empty array on every render if it's already empty (prevents re-render loops)
+      setCinemaPosters(prev => prev.length === 0 ? prev : []);
       return;
     }
     
