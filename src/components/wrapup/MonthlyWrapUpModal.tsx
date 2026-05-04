@@ -293,13 +293,14 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
     <AnimatePresence>
       {isOpen && (
         <motion.div
+          key="wrapup-modal"
           initial={{ opacity: 0, scale: 0.94 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.94 }}
           transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black sm:bg-black/80 backdrop-blur-sm pointer-events-none"
         >
-          <div className="relative w-full h-full sm:max-w-[390px] sm:h-[820px] sm:rounded-[44px] overflow-hidden bg-black text-white flex shadow-[0_32px_80px_rgba(0,0,0,0.8)]">
+          <div className="relative w-full h-full sm:max-w-[390px] sm:h-[820px] sm:rounded-[44px] overflow-hidden bg-black text-white flex shadow-[0_32px_80px_rgba(0,0,0,0.8)]" style={{ pointerEvents: isOpen ? 'auto' : 'none' }}>
 
             {/* ── PROGRESS BARS ── */}
             <div className="absolute top-4 left-0 right-0 z-50 flex gap-1.5 px-4">
@@ -318,7 +319,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate = new Dat
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3 }}
-              className="absolute top-8 right-4 z-50 p-2 bg-black/30 rounded-full backdrop-blur-md border border-white/10 no-screenshot pointer-events-auto"
+              className={`absolute top-8 right-4 z-50 p-2 bg-black/30 rounded-full backdrop-blur-md border border-white/10 no-screenshot ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
               onClick={onClose}
             >
               <X className="w-4 h-4 text-white" />
