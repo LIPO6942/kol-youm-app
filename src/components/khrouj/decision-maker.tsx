@@ -28,6 +28,36 @@ import { WeekendHQCard } from './weekend-hq-card';
 import { CulinaryPassport } from './culinary-passport';
 import { HabitFrequency } from './habit-frequency';
 
+const getSeasonalBackground = () => {
+  const month = new Date().getMonth(); // 0 = Jan, 11 = Dec
+  // Winter: Dec (11), Jan (0), Feb (1)
+  if (month === 11 || month === 0 || month === 1) {
+    return {
+      url: '/images/khrouj/winter.png',
+      label: 'Hiver ❄️'
+    };
+  }
+  // Spring: Mar (2), Apr (3), May (4)
+  if (month >= 2 && month <= 4) {
+    return {
+      url: '/images/khrouj/spring.png',
+      label: 'Printemps 🌸'
+    };
+  }
+  // Summer: Jun (5), Jul (6), Aug (7)
+  if (month >= 5 && month <= 7) {
+    return {
+      url: '/images/khrouj/summer.png',
+      label: 'Été ☀️'
+    };
+  }
+  // Autumn: Sep (8), Oct (9), Nov (10)
+  return {
+    url: '/images/khrouj/autumn.png',
+    label: 'Automne 🍂'
+  };
+};
+
 const outingOptions: { id: string; label: string; icon: LucideIcon; description: string, colorClass: string, bgClass: string, hoverClass: string, selectedClass: string }[] = [
   { id: 'fast-food', label: 'Fast Food', icon: Sandwich, description: "Rapide et gourmand", colorClass: 'text-orange-700', bgClass: 'bg-orange-50', hoverClass: 'hover:bg-orange-100', selectedClass: 'border-orange-500 bg-orange-100' },
   { id: 'cafe', label: 'Café', icon: Coffee, description: "Pour se détendre", colorClass: 'text-amber-800', bgClass: 'bg-amber-50', hoverClass: 'hover:bg-amber-100', selectedClass: 'border-amber-600 bg-amber-100' },
@@ -1971,19 +2001,24 @@ export default function DecisionMaker() {
     );
   }
 
+  const seasonalBg = getSeasonalBackground();
+
   return (
     <Card className="relative overflow-hidden border border-border/50 shadow-md max-w-2xl mx-auto animate-in fade-in-50">
-      {/* Cinematic Tunisian Outing Background with Dynamic Fade Overlay */}
+      {/* Cinematic Tunisian Seasonal Outing Background with Dynamic Fade Overlay */}
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
         <div
-          className="absolute inset-0 bg-cover bg-center opacity-75 transform scale-105"
-          style={{ backgroundImage: "url('/images/khrouj/outings.png')" }}
+          className="absolute inset-0 bg-cover bg-center opacity-75 transform scale-105 transition-all duration-1000 ease-in-out"
+          style={{ backgroundImage: `url('${seasonalBg.url}')` }}
         />
         {/* Soft card linear gradient to fade and blend into the active light/dark theme */}
         <div className="absolute inset-0 bg-gradient-to-b from-card/85 via-card/15 to-card/90" />
       </div>
 
       <CardHeader className="relative z-10 text-center pb-7">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-3 backdrop-blur-sm animate-pulse mx-auto">
+          <span>Ambiance : {seasonalBg.label}</span>
+        </div>
         <CardTitle className="font-headline text-3xl mb-2">Quelle est votre envie ?</CardTitle>
         <CardDescription>Cliquez sur une catégorie et laissez la magie opérer.</CardDescription>
       </CardHeader>
