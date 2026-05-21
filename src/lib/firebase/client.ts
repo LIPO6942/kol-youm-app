@@ -12,9 +12,17 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Check if the configuration is valid and not a mock/undefined string during build time
+const isConfigValid = 
+  typeof window !== "undefined" &&
+  firebaseConfig.apiKey && 
+  firebaseConfig.apiKey !== "undefined" && 
+  firebaseConfig.apiKey !== "null" && 
+  firebaseConfig.apiKey.length > 0;
+
 const app: FirebaseApp | null = getApps().length
   ? getApp()
-  : (firebaseConfig.apiKey ? initializeApp(firebaseConfig) : null);
+  : (isConfigValid ? initializeApp(firebaseConfig) : null);
 
 const auth: Auth = app ? getAuth(app) : {} as Auth;
 const db: Firestore = app ? getFirestore(app) : {} as Firestore;
