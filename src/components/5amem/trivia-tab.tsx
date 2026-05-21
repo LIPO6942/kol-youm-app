@@ -207,43 +207,35 @@ const TRIVIA_DATABASE: TriviaItem[] = [
     title: "L'origine tchèque du mot Robot",
     content: "Le terme 'Robot' n'a pas été inventé par des ingénieurs, mais par l'écrivain tchèque Karel Čapek en 1920 dans sa pièce de théâtre R.U.R. Ce mot provient du terme slave 'robota', qui signifie 'travail forcé' ou 'corvée'.",
     imageUrl: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=600&auto=format&fit=crop'
-  }
-    {
-      id: 'robot-word-origin',
-      category: 'Culture',
-      title: "L'origine tchèque du mot Robot",
-      content: "Le terme 'Robot' n'a pas été inventé par des ingénieurs, mais par l'écrivain tchèque Karel Čapek en 1920 dans sa pièce de théâtre R.U.R. Ce mot provient du terme slave 'robota', qui signifie 'travail forcé' ou 'corvée'.",
-      imageUrl: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=600&auto=format&fit=crop'
-    },
-    // New global trivia items
-    {
-      id: 'northern-lights',
-      category: 'Science',
-      title: 'Les aurores boréales',
-      content: "Les aurores boréales sont des lumières colorées qui apparaissent dans le ciel des régions proches du pôle magnétique, créées par l'interaction de particules solaires avec l'atmosphère.",
-      imageUrl: 'https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?w=600&auto=format&fit=crop'
-    },
-    {
-      id: 'machu-picchu',
-      category: 'Géographie',
-      title: 'Machu Picchu, la cité perdue des Incas',
-      content: "Située au sommet des Andes péruviennes, Machu Picchu est une ancienne ville inca aujourd'hui classée au patrimoine mondial de l'UNESCO, connue pour ses terrasses et son architecture impressionnante.",
-      imageUrl: 'https://images.unsplash.com/photo-1523050854048-8b9e6c5ff4c2?w=600&auto=format&fit=crop'
-    },
-    {
-      id: 'sushi-art',
-      category: 'Gastronomie',
-      title: "L'art du sushi",
-      content: "Le sushi, originaire du Japon, est bien plus qu'un simple plat : c'est un art culinaire où le riz vinaigré et les poissons frais sont manipulés avec précision pour créer des bouchées esthétiques et savoureuses.",
-      imageUrl: 'https://images.unsplash.com/photo-1562967916-eb82221dfb36?w=600&auto=format&fit=crop'
-    },
-    {
-      id: 'great-barrier-reef',
-      category: 'Espace',
-      title: 'La Grande Barrière de Corail',
-      content: "Située au large de la côte est de l'Australie, la Grande Barrière de Corail est le plus grand système corallien du monde, abritant une biodiversité marine exceptionnelle.",
-      imageUrl: 'https://images.unsplash.com/photo-1518665785938-70c4a5c8e8e0?w=600&auto=format&fit=crop'
-    },
+  },
+  {
+    id: 'northern-lights',
+    category: 'Science',
+    title: 'Les aurores boréales',
+    content: "Les aurores boréales sont des lumières colorées qui apparaissent dans le ciel des régions proches du pôle magnétique, créées par l'interaction de particules solaires avec l'atmosphère.",
+    imageUrl: 'https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?w=600&auto=format&fit=crop'
+  },
+  {
+    id: 'machu-picchu',
+    category: 'Géographie',
+    title: 'Machu Picchu, la cité perdue des Incas',
+    content: "Située au sommet des Andes péruviennes, Machu Picchu est une ancienne ville inca aujourd'hui classée au patrimoine mondial de l'UNESCO, connue pour ses terrasses et son architecture impressionnante.",
+    imageUrl: 'https://images.unsplash.com/photo-1523050854048-8b9e6c5ff4c2?w=600&auto=format&fit=crop'
+  },
+  {
+    id: 'sushi-art',
+    category: 'Gastronomie',
+    title: "L'art du sushi",
+    content: "Le sushi, originaire du Japon, est bien plus qu'un simple plat : c'est un art culinaire où le riz vinaigré et les poissons frais sont manipulés avec précision pour créer des bouchées esthétiques et savoureuses.",
+    imageUrl: 'https://images.unsplash.com/photo-1562967916-eb82221dfb36?w=600&auto=format&fit=crop'
+  },
+  {
+    id: 'great-barrier-reef',
+    category: 'Géographie',
+    title: 'La Grande Barrière de Corail',
+    content: "Située au large de la côte est de l'Australie, la Grande Barrière de Corail est le plus grand système corallien du monde, abritant une biodiversité marine exceptionnelle.",
+    imageUrl: 'https://images.unsplash.com/photo-1518665785938-70c4a5c8e8e0?w=600&auto=format&fit=crop'
+  },
 ];
 
 export default function TriviaTab() {

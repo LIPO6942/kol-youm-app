@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import MovieSwiper from '@/components/tfarrej/movie-swiper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo, Settings } from 'lucide-react';
+import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo, Settings, Loader2 } from 'lucide-react';
 import { MovieListSheet } from '@/components/tfarrej/movie-list-sheet';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TfarrejStatsDialog } from '@/components/tfarrej/tfarrej-stats-dialog';
@@ -34,24 +34,17 @@ const GenreIcon = ({ iconName, className }: { iconName: string, className?: stri
 };
 
 
-function TfarrejContent() {
+function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 'movie' | 'tv') => void }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const genreFromUrl = searchParams.get('genre');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
-  const [type, setType] = useState<'movie' | 'tv'>('movie');
 
   useEffect(() => {
     if (genreFromUrl) {
       if (genres.some(g => g.name === genreFromUrl) || genreFromUrl === 'Historique') {
         setSelectedGenre(genreFromUrl);
       }
-    }
-
-    // Persist type selection
-    const savedType = localStorage.getItem('tfarrej-preference-type');
-    if (savedType === 'movie' || savedType === 'tv') {
-      setType(savedType);
     }
   }, [genreFromUrl]);
 
@@ -152,7 +145,7 @@ function TfarrejContent() {
 }
 
 
-import { useState, useEffect, Suspense } from 'react';
+
 
 // Existing imports remain unchanged
 
@@ -172,13 +165,26 @@ export default function TfarrejPage() {
 
   return (
     <div className="relative min-h-screen">
-      <div
-        className="absolute inset-0 bg-cover bg-center opacity-20 pointer-events-none"
-        style={{ backgroundImage: `url(${backgroundUrl})` }}
-      />
-      <Suspense fallback={<div>Chargement...</div>}>
-        <TfarrejContent />
-      </Suspense>
+      {/* Immersive cinematic background with dynamic switching overlay */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-15 transition-all duration-1000 ease-in-out transform scale-105"
+          style={{ backgroundImage: `url(${backgroundUrl})` }}
+        />
+        {/* Dark radial gradient vignette layer to blend the image perfectly into the dark theme */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-background/95" />
+      </div>
+
+      <div className="relative z-10">
+        <Suspense fallback={
+          <div className="flex flex-col justify-center items-center h-[400px]">
+            <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground text-sm">Chargement du Tinder du Cinéma...</p>
+          </div>
+        }>
+          <TfarrejContent type={type} setType={setType} />
+        </Suspense>
+      </div>
     </div>
   );
 }
