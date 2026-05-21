@@ -152,10 +152,33 @@ function TfarrejContent() {
 }
 
 
+import { useState, useEffect, Suspense } from 'react';
+
+// Existing imports remain unchanged
+
+// Add state for type at top level of page component
+const movieBg = 'https://images.unsplash.com/photo-1526470608268-f674ce90ebd4?w=1200&auto=format&fit=crop';
+const seriesBg = 'https://images.unsplash.com/photo-1512486130939-2c4f799b574e?w=1200&auto=format&fit=crop';
+
 export default function TfarrejPage() {
+  // Determine the preferred content type (movie or tv) from localStorage
+  const [type, setType] = useState<'movie' | 'tv'>('movie');
+  useEffect(() => {
+    const saved = localStorage.getItem('tfarrej-preference-type');
+    if (saved === 'movie' || saved === 'tv') setType(saved);
+  }, []);
+
+  const backgroundUrl = type === 'movie' ? movieBg : seriesBg;
+
   return (
-    <Suspense fallback={<div>Chargement...</div>}>
-      <TfarrejContent />
-    </Suspense>
-  )
+    <div className="relative min-h-screen">
+      <div
+        className="absolute inset-0 bg-cover bg-center opacity-20 pointer-events-none"
+        style={{ backgroundImage: `url(${backgroundUrl})` }}
+      />
+      <Suspense fallback={<div>Chargement...</div>}>
+        <TfarrejContent />
+      </Suspense>
+    </div>
+  );
 }
