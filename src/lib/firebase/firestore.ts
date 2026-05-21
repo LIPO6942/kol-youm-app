@@ -47,6 +47,12 @@ export type BrainAttempt = {
     date: number; // timestamp
 };
 
+export type TriviaFeedback = {
+    triviaId: string;
+    rating: 'interessant' | 'pas_interessant' | 'mi_interessant';
+    timestamp: number;
+};
+
 export type SeenMovie = {
     title: string;
     viewedAt: number; // timestamp of when the movie was watched
@@ -79,6 +85,9 @@ export type UserProfile = {
     places?: PlaceItem[];
     visits?: VisitLog[];
     brainAttempts?: BrainAttempt[];
+    seenQuestions?: string[];
+    seenTalla3Challenges?: string[];
+    triviaFeedback?: TriviaFeedback[];
     // Tfarrej preferences
     preferredCountries?: string[];
     preferredMinRating?: number;
@@ -122,6 +131,9 @@ export async function createUserProfile(uid: string, data: { email: string | nul
         customDishRules: {},
         cinemaTheaters: [],
         brainAttempts: [],
+        seenQuestions: [],
+        seenTalla3Challenges: [],
+        triviaFeedback: [],
     };
     const { fullBodyPhotoUrl, closeupPhotoUrl, ...firestoreProfile } = userProfile;
     await setDoc(doc(firestoreDb, "users", uid), firestoreProfile);
@@ -137,7 +149,7 @@ export async function updateUserProfile(uid: string, data: Partial<Omit<UserProf
         if (key === 'fullBodyPhotoUrl' || key === 'closeupPhotoUrl') {
             localData[key] = (data as any)[key];
         } else {
-            if (key === 'seenMovieTitles' || key === 'rejectedMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions' || key === 'wardrobe' || key === 'places' || key === 'cinemaTheaters' || key === 'brainAttempts') {
+            if (key === 'seenMovieTitles' || key === 'rejectedMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions' || key === 'wardrobe' || key === 'places' || key === 'cinemaTheaters' || key === 'brainAttempts' || key === 'seenQuestions' || key === 'seenTalla3Challenges' || key === 'triviaFeedback') {
                 firestoreData[key] = arrayUnion(...(data as any)[key]);
             } else {
                 firestoreData[key] = (data as any)[key];
@@ -193,6 +205,17 @@ export async function updateUserProfile(uid: string, data: Partial<Omit<UserProf
             const allItems = [...(localProfile.brainAttempts || []), ...data.brainAttempts];
             const uniqueItems = Array.from(new Map(allItems.map(item => [item.id, item])).values());
             updatedProfile.brainAttempts = uniqueItems;
+        }
+        if (data.seenQuestions) {
+            updatedProfile.seenQuestions = Array.from(new Set([...(localProfile.seenQuestions || []), ...data.seenQuestions]));
+        }
+        if (data.seenTalla3Challenges) {
+            updatedProfile.seenTalla3Challenges = Array.from(new Set([...(localProfile.seenTalla3Challenges || []), ...data.seenTalla3Challenges]));
+        }
+        if (data.triviaFeedback) {
+            const allItems = [...(localProfile.triviaFeedback || []), ...data.triviaFeedback];
+            const uniqueItems = Array.from(new Map(allItems.map(item => [item.triviaId, item])).values());
+            updatedProfile.triviaFeedback = uniqueItems;
         }
 
         await storeUserInDb(uid, updatedProfile);
@@ -294,6 +317,56 @@ export async function deletePlace(uid: string, placeToDelete: PlaceItem) {
         const updatedProfile = {
             ...localProfile,
             places: (localProfile.places || []).filter(p => p.id !== placeToDelete.id)
+        };
+        await storeUserInDb(uid, updatedProfile);
+    }
+}
+
+export async function addSeenQuestions(uid: string, questionIds: string[]) {
+    const userRef = doc(firestoreDb, 'users', uid);
+    await setDoc(userRef, {
+        seenQuestions: arrayUnion(...questionIds)
+    }, { merge: true });
+
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = {
+            ...localProfile,
+            seenQuestions: Array.from(new Set([...(localProfile.seenQuestions || []), ...questionIds]))
+        };
+        await storeUserInDb(uid, updatedProfile);
+    }
+}
+
+export async function addSeenTalla3Challenges(uid: string, challengeIds: string[]) {
+    const userRef = doc(firestoreDb, 'users', uid);
+    await setDoc(userRef, {
+        seenTalla3Challenges: arrayUnion(...challengeIds)
+    }, { merge: true });
+
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = {
+            ...localProfile,
+            seenTalla3Challenges: Array.from(new Set([...(localProfile.seenTalla3Challenges || []), ...challengeIds]))
+        };
+        await storeUserInDb(uid, updatedProfile);
+    }
+}
+
+export async function addTriviaFeedback(uid: string, feedback: TriviaFeedback) {
+    const userRef = doc(firestoreDb, 'users', uid);
+    await setDoc(userRef, {
+        triviaFeedback: arrayUnion(feedback)
+    }, { merge: true });
+
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const currentFeedback = localProfile.triviaFeedback || [];
+        const filteredFeedback = currentFeedback.filter(f => f.triviaId !== feedback.triviaId);
+        const updatedProfile = {
+            ...localProfile,
+            triviaFeedback: [...filteredFeedback, feedback]
         };
         await storeUserInDb(uid, updatedProfile);
     }

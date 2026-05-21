@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -39,7 +40,7 @@ const handleAiError = (error: any, toast: any) => {
 };
 
 export default function Talla3Game() {
-  const { user } = useAuth();
+  const { user, userProfile, updateUserProfile } = useAuth();
   const [challenges, setChallenges] = useState<Talla3Challenge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +57,8 @@ export default function Talla3Game() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await generateTalla3Challenges({ count: 5 });
+      const seenTalla3Challenges = userProfile?.seenTalla3Challenges || [];
+      const data = await generateTalla3Challenges({ count: 5, seenTalla3Challenges });
       setChallenges(data.challenges);
       setCurrentChallengeIndex(0);
     } catch (e: any) {
@@ -65,6 +67,7 @@ export default function Talla3Game() {
     } finally {
       setIsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast]);
   
   useEffect(() => {
@@ -101,8 +104,12 @@ export default function Talla3Game() {
         score: gameState === 'correct' ? 1 : 0,
         totalQuestions: 1
       }).catch(err => console.error("Error saving talla3 score", err));
+
+      updateUserProfile({
+        seenTalla3Challenges: [currentChallenge.id]
+      }).catch(err => console.error("Error saving seen talla3 challenge", err));
     }
-  }, [user, currentChallenge, gameState, hasSavedThisChallenge]);
+  }, [user, currentChallenge, gameState, hasSavedThisChallenge, updateUserProfile]);
 
 
   const handleItemClick = (item: string) => {
@@ -196,11 +203,25 @@ export default function Talla3Game() {
   }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle className="font-headline text-center">Talla3</CardTitle>
+    <Card className="w-full max-w-2xl mx-auto overflow-hidden border bg-card/60 backdrop-blur-xl shadow-xl">
+      <div className="relative w-full h-36 sm:h-40 bg-black/40">
+        <Image
+          src="/images/5amem/talla3.png"
+          alt="Talla3 Banner"
+          fill
+          className="object-cover opacity-90"
+          priority
+          sizes="(max-width: 768px) 100vw, 672px"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+        <div className="absolute bottom-3 left-6">
+          <h2 className="text-xl sm:text-2xl font-bold font-headline text-white drop-shadow-md">Défi Talla3</h2>
+          <p className="text-[10px] sm:text-xs text-gray-200 drop-shadow-md">Classez les éléments dans le bon ordre avant la fin du chrono !</p>
+        </div>
+      </div>
+      <CardHeader className="pt-4">
         <div className="flex justify-between items-center px-1">
-            <CardDescription className="text-center flex-grow">{currentChallenge.title}</CardDescription>
+            <CardDescription className="text-left flex-grow font-medium text-foreground">{currentChallenge.title}</CardDescription>
             <div className={cn(
                 "flex items-center gap-2 font-mono font-semibold text-lg ml-4 px-2 py-1 rounded-md transition-colors",
                 timeLeft <= 5 ? "text-destructive animate-pulse" : "text-muted-foreground"

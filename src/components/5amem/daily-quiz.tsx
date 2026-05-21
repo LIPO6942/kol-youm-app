@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -54,7 +55,7 @@ const handleAiError = (error: any, toast: any) => {
 
 
 export default function DailyQuiz() {
-  const { user } = useAuth();
+  const { user, userProfile, updateUserProfile } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [quizData, setQuizData] = useState<QuizData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -69,7 +70,7 @@ export default function DailyQuiz() {
 
   const isQuizFinished = quizData ? currentQuestionIndex >= quizData.questions.length : false;
 
-  // Save score when quiz is finished
+  // Save score and seen questions when quiz is finished
   useEffect(() => {
     if (isQuizFinished && user && quizData && !hasSavedScore) {
       setHasSavedScore(true);
@@ -79,8 +80,13 @@ export default function DailyQuiz() {
         score: score,
         totalQuestions: quizData.questions.length
       }).catch(err => console.error("Error saving quiz score", err));
+
+      const newSeen = quizData.questions.map(q => q.question);
+      updateUserProfile({
+        seenQuestions: newSeen
+      }).catch(err => console.error("Error saving seen questions", err));
     }
-  }, [isQuizFinished, user, quizData, selectedCategory, score, hasSavedScore]);
+  }, [isQuizFinished, user, quizData, selectedCategory, score, hasSavedScore, updateUserProfile]);
 
   useEffect(() => {
     if (isAnswered || isQuizFinished || isLoading || !quizData) {
@@ -114,7 +120,8 @@ export default function DailyQuiz() {
     setHasSavedScore(false);
     
     try {
-      const data = await generateQuiz({ category });
+      const seenQuestions = userProfile?.seenQuestions || [];
+      const data = await generateQuiz({ category, seenQuestions });
       setQuizData(data);
     } catch (error: any) {
       handleAiError(error, toast);
@@ -157,12 +164,23 @@ export default function DailyQuiz() {
 
   if (!selectedCategory) {
     return (
-      <Card className="w-full max-w-4xl mx-auto">
-        <CardHeader className="text-center">
-          <CardTitle className="font-headline text-2xl">Choisissez une Catégorie</CardTitle>
-          <CardDescription>Prêt(e) à mettre vos connaissances à l'épreuve ?</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 grid-cols-2 md:grid-cols-3">
+      <Card className="w-full max-w-4xl mx-auto overflow-hidden border bg-card/60 backdrop-blur-xl shadow-xl">
+        <div className="relative w-full h-44 sm:h-52 bg-black/40">
+          <Image
+            src="/images/5amem/daily_quiz.png"
+            alt="Quiz Quotidien Banner"
+            fill
+            className="object-cover opacity-90"
+            priority
+            sizes="(max-width: 1024px) 100vw, 896px"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+          <div className="absolute bottom-4 left-6">
+            <h2 className="text-2xl sm:text-3xl font-bold font-headline text-white drop-shadow-md">Quiz Quotidien</h2>
+            <p className="text-xs sm:text-sm text-gray-200 drop-shadow-md">Défiez vos connaissances à travers 6 thématiques passionnantes !</p>
+          </div>
+        </div>
+        <CardContent className="grid gap-4 grid-cols-2 md:grid-cols-3 pt-6">
           {quizCategories.map((cat) => (
             <div key={cat.id} className="flex flex-col rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer" onClick={() => handleCategorySelect(cat.id)}>
               <CardHeader className="items-center text-center p-4">

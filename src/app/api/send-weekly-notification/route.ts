@@ -47,70 +47,86 @@ const NOTIFICATION_MESSAGES = [
     {
         title: '🧠 Dormir moins bête : Le secret du Kafteji',
         body: "Pourquoi ce plat mythique s'appelle-t-il ainsi ? Découvre son histoire insolite et teste tes connaissances sur 5amem ! 🇹🇳",
+        link: '/5amem?tab=trivia',
     },
     {
         title: '🏛️ Le saviez-vous ? (Culture Tunisienne)',
         body: "Quelle ville de Tunisie abrite le plus grand amphithéâtre romain d'Afrique ? Viens répondre dans le Quiz de 5amem !",
+        link: '/5amem?tab=trivia',
     },
     {
         title: '🌸 Pourquoi le Jasmin est notre symbole ?',
         body: "D'où vient cette tradition parfumée en Tunisie ? Découvre l'anecdote historique ce soir sur 5amem !",
+        link: '/5amem?tab=trivia',
     },
     {
         title: '🏺 Une ruse légendaire à Carthage...',
         body: "Sais-tu comment la reine Didon a fondé Carthage avec une simple peau de bœuf ? Viens faire le quiz 5amem !",
+        link: '/5amem?tab=trivia',
     },
     {
         title: '🥖 Énigme du dimanche : Devine le mot !',
         body: "\"Je commence par M, croustillant, beurré, adoré au petit-déj en Tunisie.\" Entre ta réponse dans le jeu Talla3 !",
+        link: '/5amem?tab=trivia',
     },
     {
         title: '🌌 Pourquoi le ciel est-il bleu ?',
         body: "Ce n'est pas le reflet de la mer ! Viens découvrir la vraie explication scientifique dans le Quiz de ce dimanche.",
+        link: '/5amem?tab=trivia',
     },
     {
         title: '🧠 Gym des neurones avant lundi !',
         body: "Recharge tes batteries cérébrales avec le Quiz Quotidien. 10 questions pour démarrer la semaine au top !",
+        link: '/5amem?tab=trivia',
     },
     {
         title: '🏆 Défi Talla3 : Es-tu à la hauteur ?',
         body: "Remets les éléments dans le bon ordre en moins de 15 secondes. Viens tester tes réflexes sur 5amem !",
+        link: '/5amem?tab=trivia',
     },
     // --- KHROUJ (Sorties/Restos) ---
     {
         title: '📍 Tes sorties de la semaine ?',
         body: "N'oublie pas d'enregistrer tes nouvelles adresses et coups de cœur dans ton passeport culinaire !",
+        link: '/khrouj',
     },
     {
         title: '🌟 Où es-tu allé cette semaine ?',
         body: "Garde une trace de tes sorties ! Prends 2 minutes pour noter les lieux que tu as découverts.",
+        link: '/khrouj',
     },
     // --- TFARREJ (Films/Séries) ---
     {
         title: '🍿 Ciné-bilan de la semaine !',
         body: "Quels films as-tu vus ? Note-les vite dans kol youm avant d'oublier !",
+        link: '/tfarrej',
     },
     {
         title: '🎬 À jour dans tes films ?',
         body: "As-tu vu de bons films cette semaine ? Mets à jour ta liste et partage ton avis.",
+        link: '/tfarrej',
     },
     // --- STYLEK (Tenues/Garde-robe) ---
     {
         title: '👗 Ton look de la semaine',
         body: "As-tu créé de nouveaux outfits ? Ajoute-les à ton Stylek pour tes prochaines inspirations !",
+        link: '/stylek',
     },
     {
         title: '✨ Garde-robe à jour',
         body: "Prends un moment pour organiser tes tenues préférées et compléter ton dressing.",
+        link: '/stylek',
     },
     // --- MIXTE / GENERAL ---
     {
         title: '📝 Ton bilan kol youm',
         body: "Sorties, films, looks... c'est dimanche ! Prends 2 minutes pour tout noter et garder une trace de ta semaine.",
+        link: '/',
     },
     {
         title: '🎯 Rappel kol youm',
         body: "C'est le moment parfait pour faire le point sur ta semaine. Films, sorties, styles... tout compte !",
+        link: '/',
     },
 ];
 
@@ -243,6 +259,9 @@ async function sendWeeklyNotifications() {
             title: message.title,
             body: message.body,
         },
+        data: {
+            url: message.link || '/',
+        },
         webpush: {
             headers: {
                 Urgency: 'high',
@@ -255,7 +274,7 @@ async function sendWeeklyNotifications() {
                 renotify: true,
             },
             fcmOptions: {
-                link: '/',
+                link: message.link || '/',
             },
         },
     }));
