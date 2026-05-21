@@ -34,6 +34,9 @@ const GenreIcon = ({ iconName, className }: { iconName: string, className?: stri
 };
 
 
+const movieBg = '/images/tfarrej/movies.png';
+const seriesBg = '/images/tfarrej/series.png';
+
 function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 'movie' | 'tv') => void }) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -114,20 +117,42 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         </Tabs>
       </div>
 
-      <Card className="animate-in fade-in-50">
-        <CardHeader className="text-center">
+      <Card className="relative overflow-hidden border border-border/50 shadow-md animate-in fade-in-50">
+        {/* Dynamic cross-fade static backgrounds inside the card */}
+        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+          {/* Movie theme background */}
+          <div
+            className="absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out transform scale-105"
+            style={{ 
+              backgroundImage: `url(${movieBg})`,
+              opacity: type === 'movie' ? 0.35 : 0 
+            }}
+          />
+          {/* Series theme background */}
+          <div
+            className="absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out transform scale-105"
+            style={{ 
+              backgroundImage: `url(${seriesBg})`,
+              opacity: type === 'tv' ? 0.35 : 0 
+            }}
+          />
+          {/* Linear gradient overlay to beautifully fade and blend the static artwork */}
+          <div className="absolute inset-0 bg-gradient-to-b from-card/95 via-card/70 to-card/95" />
+        </div>
+
+        <CardHeader className="relative z-10 text-center">
           <CardTitle>Quelle est votre humeur ?</CardTitle>
           <CardDescription>Sélectionnez une catégorie de {type === 'movie' ? 'films' : 'séries'}.</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 grid-cols-2 md:grid-cols-3">
+        <CardContent className="relative z-10 grid gap-4 grid-cols-2 md:grid-cols-3">
           {genres.map((genre) => (
             <div
               key={genre.name}
               onClick={() => setSelectedGenre(genre.name)}
-              className="group flex flex-col rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+              className="group flex flex-col rounded-lg border border-border/40 bg-card/65 backdrop-blur-md text-card-foreground shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer hover:bg-card/85"
             >
               <CardHeader className="items-center text-center p-4">
-                <div className="p-3 bg-primary/10 rounded-full mb-2">
+                <div className="p-3 bg-primary/10 rounded-full mb-2 group-hover:scale-110 transition-transform duration-300">
                   <GenreIcon iconName={genre.iconName} className="h-8 w-8 text-primary" />
                 </div>
                 <CardTitle className="text-md font-semibold">{genre.name}</CardTitle>
@@ -144,15 +169,6 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
   );
 }
 
-
-
-
-// Existing imports remain unchanged
-
-// Add state for type at top level of page component
-const movieBg = '/images/tfarrej/movies.png';
-const seriesBg = '/images/tfarrej/series.png';
-
 export default function TfarrejPage() {
   // Determine the preferred content type (movie or tv) from localStorage
   const [type, setType] = useState<'movie' | 'tv'>('movie');
@@ -161,30 +177,16 @@ export default function TfarrejPage() {
     if (saved === 'movie' || saved === 'tv') setType(saved);
   }, []);
 
-  const backgroundUrl = type === 'movie' ? movieBg : seriesBg;
-
   return (
-    <div className="relative min-h-screen">
-      {/* Immersive cinematic background with dynamic switching overlay */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-25 transition-all duration-1000 ease-in-out transform scale-105"
-          style={{ backgroundImage: `url(${backgroundUrl})` }}
-        />
-        {/* Dark radial gradient vignette layer to blend the image perfectly into the dark theme */}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-background/95" />
-      </div>
-
-      <div className="relative z-10">
-        <Suspense fallback={
-          <div className="flex flex-col justify-center items-center h-[400px]">
-            <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-            <p className="text-muted-foreground text-sm">Chargement du Tinder du Cinéma...</p>
-          </div>
-        }>
-          <TfarrejContent type={type} setType={setType} />
-        </Suspense>
-      </div>
+    <div className="min-h-screen">
+      <Suspense fallback={
+        <div className="flex flex-col justify-center items-center h-[400px]">
+          <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+          <p className="text-muted-foreground text-sm">Chargement du Tinder du Cinéma...</p>
+        </div>
+      }>
+        <TfarrejContent type={type} setType={setType} />
+      </Suspense>
     </div>
   );
 }
