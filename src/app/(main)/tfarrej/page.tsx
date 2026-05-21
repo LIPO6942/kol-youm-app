@@ -125,7 +125,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
             className="absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out transform scale-105"
             style={{ 
               backgroundImage: `url(${movieBg})`,
-              opacity: type === 'movie' ? 0.35 : 0 
+              opacity: type === 'movie' ? 0.75 : 0 
             }}
           />
           {/* Series theme background */}
@@ -133,11 +133,11 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
             className="absolute inset-0 bg-cover bg-center transition-all duration-1000 ease-in-out transform scale-105"
             style={{ 
               backgroundImage: `url(${seriesBg})`,
-              opacity: type === 'tv' ? 0.35 : 0 
+              opacity: type === 'tv' ? 0.75 : 0 
             }}
           />
           {/* Linear gradient overlay to beautifully fade and blend the static artwork */}
-          <div className="absolute inset-0 bg-gradient-to-b from-card/95 via-card/70 to-card/95" />
+          <div className="absolute inset-0 bg-gradient-to-b from-card/80 via-card/15 to-card/85" />
         </div>
 
         <CardHeader className="relative z-10 text-center">
@@ -149,7 +149,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
             <div
               key={genre.name}
               onClick={() => setSelectedGenre(genre.name)}
-              className="group flex flex-col rounded-lg border border-border/40 bg-card/65 backdrop-blur-md text-card-foreground shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer hover:bg-card/85"
+              className="group flex flex-col rounded-lg border border-border/40 bg-card/45 backdrop-blur-md text-card-foreground shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer hover:bg-card/75"
             >
               <CardHeader className="items-center text-center p-4">
                 <div className="p-3 bg-primary/10 rounded-full mb-2 group-hover:scale-110 transition-transform duration-300">
