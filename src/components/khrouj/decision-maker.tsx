@@ -1972,12 +1972,22 @@ export default function DecisionMaker() {
   }
 
   return (
-    <Card className="max-w-2xl mx-auto">
-      <CardHeader className="text-center pb-7">
+    <Card className="relative overflow-hidden border border-border/50 shadow-md max-w-2xl mx-auto animate-in fade-in-50">
+      {/* Cinematic Tunisian Outing Background with Dynamic Fade Overlay */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-75 transform scale-105"
+          style={{ backgroundImage: "url('/images/khrouj/outings.png')" }}
+        />
+        {/* Soft card linear gradient to fade and blend into the active light/dark theme */}
+        <div className="absolute inset-0 bg-gradient-to-b from-card/85 via-card/15 to-card/90" />
+      </div>
+
+      <CardHeader className="relative z-10 text-center pb-7">
         <CardTitle className="font-headline text-3xl mb-2">Quelle est votre envie ?</CardTitle>
         <CardDescription>Cliquez sur une catégorie et laissez la magie opérer.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="relative z-10 space-y-6">
         <Collapsible className="space-y-2">
           <div className="flex justify-center items-center gap-2">
             <CollapsibleTrigger asChild>
@@ -1997,7 +2007,7 @@ export default function DecisionMaker() {
             )}
           </div>
           <CollapsibleContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 border rounded-md">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 border rounded-md bg-card/65 backdrop-blur-md">
               {availableZones.map((zone: string) => (
                 <div key={zone} className="flex items-center space-x-2">
                   <Checkbox
@@ -2019,20 +2029,50 @@ export default function DecisionMaker() {
         <div className="grid gap-4 grid-cols-2 md:grid-cols-3">
           {outingOptions.filter(o => o.id !== 'cinema').map((option: (typeof outingOptions)[0]) => {
             const Icon = option.icon;
+            
+            // Map categories to high-end frosted glass variants of their respective accent colors
+            let glassBg = "bg-primary/5 hover:bg-primary/10 border-primary/20";
+            let textColor = option.colorClass;
+            
+            switch (option.id) {
+              case 'fast-food':
+                glassBg = "bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/20 hover:border-orange-500/30";
+                textColor = "text-orange-600 dark:text-orange-400";
+                break;
+              case 'cafe':
+                glassBg = "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/20 hover:border-amber-500/30";
+                textColor = "text-amber-600 dark:text-amber-400";
+                break;
+              case 'brunch':
+                glassBg = "bg-yellow-500/10 hover:bg-yellow-500/20 border-yellow-500/20 hover:border-yellow-500/30";
+                textColor = "text-yellow-600 dark:text-yellow-400";
+                break;
+              case 'restaurant':
+                glassBg = "bg-red-500/10 hover:bg-red-500/20 border-red-500/20 hover:border-red-500/30";
+                textColor = "text-red-600 dark:text-red-400";
+                break;
+              case 'balade':
+                glassBg = "bg-green-500/10 hover:bg-green-500/20 border-green-500/20 hover:border-green-500/30";
+                textColor = "text-green-600 dark:text-green-400";
+                break;
+              case 'shopping':
+                glassBg = "bg-pink-500/10 hover:bg-pink-500/20 border-pink-500/20 hover:border-pink-500/30";
+                textColor = "text-pink-600 dark:text-pink-400";
+                break;
+            }
+
             return (
               <div
                 key={option.id}
                 onClick={() => handleCategorySelect(option)}
                 className={cn(
-                  "group flex flex-col items-center justify-center rounded-lg border-2 p-4 text-card-foreground shadow-sm hover:-translate-y-1 transition-all duration-300 cursor-pointer space-y-2",
-                  option.bgClass,
-                  option.hoverClass,
-                  "border-muted"
+                  "group flex flex-col items-center justify-center rounded-2xl border-2 p-5 text-card-foreground shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer space-y-2 backdrop-blur-md",
+                  glassBg
                 )}
               >
-                <Icon className={cn("h-8 w-8 mb-1 transition-colors duration-300", option.colorClass)} />
-                <h3 className={cn("text-md font-semibold transition-colors duration-300", option.colorClass)}>{option.label}</h3>
-                <p className="text-xs text-center text-muted-foreground">{option.description}</p>
+                <Icon className={cn("h-8 w-8 mb-1 transition-transform duration-300 group-hover:scale-110", textColor)} />
+                <h3 className={cn("text-md font-bold transition-colors duration-300", textColor)}>{option.label}</h3>
+                <p className="text-xs text-center text-muted-foreground/90 font-medium">{option.description}</p>
               </div>
             )
           })}
