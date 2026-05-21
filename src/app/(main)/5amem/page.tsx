@@ -23,11 +23,14 @@ function AmemTabsContent() {
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className="grid w-full grid-cols-4">
-        <TabsTrigger value="quiz" className="text-xs sm:text-sm">Quiz</TabsTrigger>
-        <TabsTrigger value="talla3" className="text-xs sm:text-sm">Talla3</TabsTrigger>
-        <TabsTrigger value="trivia" className="text-xs sm:text-sm">Dormir moins bête 💡</TabsTrigger>
-        <TabsTrigger value="scores" className="text-xs sm:text-sm">Scores</TabsTrigger>
+      <TabsList className="flex w-full overflow-x-auto md:grid md:grid-cols-4 select-none p-1 bg-muted/80 backdrop-blur-md rounded-xl [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <TabsTrigger value="quiz" className="flex-1 text-xs sm:text-sm py-2 px-3 whitespace-nowrap shrink-0">Quiz</TabsTrigger>
+        <TabsTrigger value="talla3" className="flex-1 text-xs sm:text-sm py-2 px-3 whitespace-nowrap shrink-0">Talla3</TabsTrigger>
+        <TabsTrigger value="trivia" className="flex-1 text-xs sm:text-sm py-2 px-3 whitespace-nowrap shrink-0">
+          <span className="hidden md:inline">Dormir moins bête 💡</span>
+          <span className="inline md:hidden">Trivia 💡</span>
+        </TabsTrigger>
+        <TabsTrigger value="scores" className="flex-1 text-xs sm:text-sm py-2 px-3 whitespace-nowrap shrink-0">Scores</TabsTrigger>
       </TabsList>
       <TabsContent value="quiz" className="mt-4">
         <DailyQuiz />

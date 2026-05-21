@@ -377,10 +377,10 @@ export default function ScoresDashboard() {
                     });
 
                     return (
-                      <div key={attempt.id} className="flex items-center justify-between py-4 group transition-all duration-300">
-                        <div className="flex items-center gap-3">
+                      <div key={attempt.id} className="flex items-center justify-between py-4 group transition-all duration-300 gap-3">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
                           {/* Left icon wrapper */}
-                          <div className={`p-2.5 rounded-xl border ${
+                          <div className={`p-2.5 rounded-xl border shrink-0 ${
                             isQuiz 
                               ? 'bg-indigo-500/10 border-indigo-500/20 text-indigo-500' 
                               : 'bg-pink-500/10 border-pink-500/20 text-pink-500'
@@ -389,12 +389,12 @@ export default function ScoresDashboard() {
                           </div>
 
                           {/* Text description */}
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-sm text-foreground">
+                          <div className="space-y-0.5 min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-sm text-foreground truncate">
                                 {isQuiz ? 'Quiz Quotidien' : 'Talla3'}
                               </span>
-                              <Badge variant="outline" className={`text-[10px] font-medium px-1.5 py-0 border-none ${
+                              <Badge variant="outline" className={`text-[10px] font-medium px-1.5 py-0 border-none shrink-0 ${
                                 isQuiz 
                                   ? 'bg-indigo-500/5 text-indigo-500' 
                                   : 'bg-pink-500/5 text-pink-500'
@@ -403,11 +403,11 @@ export default function ScoresDashboard() {
                               </Badge>
                             </div>
                             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <span className="font-medium truncate max-w-[150px] sm:max-w-[250px]">
+                              <span className="font-medium truncate max-w-[100px] sm:max-w-[200px]">
                                 {attempt.category || 'Culture Générale'}
                               </span>
-                              <span>•</span>
-                              <span className="flex items-center gap-0.5 font-mono text-[10px]">
+                              <span className="shrink-0">•</span>
+                              <span className="flex items-center gap-0.5 font-mono text-[10px] shrink-0">
                                 <Calendar className="h-2.5 w-2.5" />
                                 {dateFormatted}
                               </span>
@@ -416,10 +416,10 @@ export default function ScoresDashboard() {
                         </div>
 
                         {/* Right side: Score & Action */}
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
+                        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                          <div className="text-right shrink-0">
                             {isQuiz ? (
-                              <div className="flex flex-col items-end">
+                              <div className="flex flex-col items-end whitespace-nowrap">
                                 <span className="font-bold text-sm font-mono text-indigo-600 dark:text-indigo-400">
                                   {attempt.score} / {attempt.totalQuestions}
                                 </span>
@@ -430,12 +430,12 @@ export default function ScoresDashboard() {
                             ) : (
                               <div className="flex items-center gap-1">
                                 {attempt.score === 1 ? (
-                                  <Badge className="bg-emerald-500/10 border-none hover:bg-emerald-500/15 text-emerald-600 flex items-center gap-1 text-[11px] font-semibold">
-                                    <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Succès
+                                  <Badge className="bg-emerald-500/10 border-none hover:bg-emerald-500/15 text-emerald-600 flex items-center gap-1 text-[11px] font-semibold shrink-0">
+                                    <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" /> Succès
                                   </Badge>
                                 ) : (
-                                  <Badge className="bg-rose-500/10 border-none hover:bg-rose-500/15 text-rose-600 flex items-center gap-1 text-[11px] font-semibold">
-                                    <XCircle className="h-3 w-3 text-rose-500" /> Échec
+                                  <Badge className="bg-rose-500/10 border-none hover:bg-rose-500/15 text-rose-600 flex items-center gap-1 text-[11px] font-semibold shrink-0">
+                                    <XCircle className="h-3 w-3 text-rose-500 shrink-0" /> Échec
                                   </Badge>
                                 )}
                               </div>
@@ -447,7 +447,7 @@ export default function ScoresDashboard() {
                             size="icon"
                             onClick={() => handleDelete(attempt.id)}
                             disabled={isDeleting === attempt.id}
-                            className="text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 transition-all focus:opacity-100 h-8 w-8 rounded-full shrink-0"
+                            className="text-muted-foreground opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 transition-all focus:opacity-100 h-8 w-8 rounded-full shrink-0"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
