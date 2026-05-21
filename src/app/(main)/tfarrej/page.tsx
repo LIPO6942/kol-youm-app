@@ -150,8 +150,8 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
 // Existing imports remain unchanged
 
 // Add state for type at top level of page component
-const movieBg = 'https://images.unsplash.com/photo-1526470608268-f674ce90ebd4?w=1200&auto=format&fit=crop';
-const seriesBg = 'https://images.unsplash.com/photo-1512486130939-2c4f799b574e?w=1200&auto=format&fit=crop';
+const movieBg = '/images/tfarrej/movies.png';
+const seriesBg = '/images/tfarrej/series.png';
 
 export default function TfarrejPage() {
   // Determine the preferred content type (movie or tv) from localStorage
@@ -168,7 +168,7 @@ export default function TfarrejPage() {
       {/* Immersive cinematic background with dynamic switching overlay */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <div
-          className="absolute inset-0 bg-cover bg-center opacity-15 transition-all duration-1000 ease-in-out transform scale-105"
+          className="absolute inset-0 bg-cover bg-center opacity-25 transition-all duration-1000 ease-in-out transform scale-105"
           style={{ backgroundImage: `url(${backgroundUrl})` }}
         />
         {/* Dark radial gradient vignette layer to blend the image perfectly into the dark theme */}
