@@ -12,6 +12,8 @@ import { CheckCircle2, XCircle, Trophy, Globe, Clapperboard, Music, BookOpen, Fl
 import { generateQuiz } from '@/ai/flows/generate-quiz-flow-fixed';
 import type { GenerateQuizOutput } from '@/ai/flows/generate-quiz-flow.types';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
+import { addBrainAttempt } from '@/lib/firebase/firestore';
 
 type QuizData = GenerateQuizOutput;
 
@@ -52,6 +54,7 @@ const handleAiError = (error: any, toast: any) => {
 
 
 export default function DailyQuiz() {
+  const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [quizData, setQuizData] = useState<QuizData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -61,9 +64,23 @@ export default function DailyQuiz() {
   const [isAnswered, setIsAnswered] = useState(false);
   const [isTimeUp, setIsTimeUp] = useState(false);
   const [timeLeft, setTimeLeft] = useState(TIMER_DURATION);
+  const [hasSavedScore, setHasSavedScore] = useState(false);
   const { toast } = useToast();
 
   const isQuizFinished = quizData ? currentQuestionIndex >= quizData.questions.length : false;
+
+  // Save score when quiz is finished
+  useEffect(() => {
+    if (isQuizFinished && user && quizData && !hasSavedScore) {
+      setHasSavedScore(true);
+      addBrainAttempt(user.uid, {
+        type: 'quiz',
+        category: selectedCategory || 'Culture Générale',
+        score: score,
+        totalQuestions: quizData.questions.length
+      }).catch(err => console.error("Error saving quiz score", err));
+    }
+  }, [isQuizFinished, user, quizData, selectedCategory, score, hasSavedScore]);
 
   useEffect(() => {
     if (isAnswered || isQuizFinished || isLoading || !quizData) {
@@ -94,6 +111,7 @@ export default function DailyQuiz() {
     setIsAnswered(false);
     setIsTimeUp(false);
     setTimeLeft(TIMER_DURATION);
+    setHasSavedScore(false);
     
     try {
       const data = await generateQuiz({ category });
@@ -134,6 +152,7 @@ export default function DailyQuiz() {
     setIsTimeUp(false);
     setScore(0);
     setTimeLeft(TIMER_DURATION);
+    setHasSavedScore(false);
   }
 
   if (!selectedCategory) {

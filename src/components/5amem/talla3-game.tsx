@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/use-auth';
+import { addBrainAttempt } from '@/lib/firebase/firestore';
 import { Check, ChevronsUpDown, Trophy, RotateCcw, Loader2, ServerCrash, Timer } from 'lucide-react';
 import { generateTalla3Challenges } from '@/ai/flows/generate-talla3-challenge-flow-fixed';
 import type { Talla3Challenge } from '@/ai/flows/generate-talla3-challenge-flow.types';
@@ -37,6 +39,7 @@ const handleAiError = (error: any, toast: any) => {
 };
 
 export default function Talla3Game() {
+  const { user } = useAuth();
   const [challenges, setChallenges] = useState<Talla3Challenge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +49,7 @@ export default function Talla3Game() {
   const [remainingItems, setRemainingItems] = useState<string[]>([]);
   const [gameState, setGameState] = useState<'playing' | 'correct' | 'incorrect'>('playing');
   const [timeLeft, setTimeLeft] = useState(TIMER_DURATION);
+  const [hasSavedThisChallenge, setHasSavedThisChallenge] = useState(false);
   const { toast } = useToast();
 
   const fetchChallenges = useCallback(async () => {
@@ -80,11 +84,25 @@ export default function Talla3Game() {
     setRemainingItems([...challenge.items.map(i => i.item)].sort(() => Math.random() - 0.5));
     setGameState('playing');
     setTimeLeft(TIMER_DURATION);
+    setHasSavedThisChallenge(false);
   }, []);
 
   useEffect(() => {
     startChallenge(currentChallenge);
   }, [currentChallenge, startChallenge]);
+
+  // Save attempt when game finishes
+  useEffect(() => {
+    if (user && currentChallenge && gameState !== 'playing' && !hasSavedThisChallenge) {
+      setHasSavedThisChallenge(true);
+      addBrainAttempt(user.uid, {
+        type: 'talla3',
+        category: currentChallenge.title,
+        score: gameState === 'correct' ? 1 : 0,
+        totalQuestions: 1
+      }).catch(err => console.error("Error saving talla3 score", err));
+    }
+  }, [user, currentChallenge, gameState, hasSavedThisChallenge]);
 
 
   const handleItemClick = (item: string) => {

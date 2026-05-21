@@ -41,8 +41,41 @@ if (!getApps().length) {
 
 const CRON_SECRET = process.env.CRON_SECRET || 'kol-youm-weekly-notification-secret';
 
-// Messages variés par thématique (Khrouj, Tfarrej, Stylek)
+// Messages variés par thématique (Khrouj, Tfarrej, Stylek, 5amem / Dormir moins bête)
 const NOTIFICATION_MESSAGES = [
+    // --- DORMIR MOINS BÊTE & 5AMEM (Quiz/Talla3) ---
+    {
+        title: '🧠 Dormir moins bête : Le secret du Kafteji',
+        body: "Pourquoi ce plat mythique s'appelle-t-il ainsi ? Découvre son histoire insolite et teste tes connaissances sur 5amem ! 🇹🇳",
+    },
+    {
+        title: '🏛️ Le saviez-vous ? (Culture Tunisienne)',
+        body: "Quelle ville de Tunisie abrite le plus grand amphithéâtre romain d'Afrique ? Viens répondre dans le Quiz de 5amem !",
+    },
+    {
+        title: '🌸 Pourquoi le Jasmin est notre symbole ?',
+        body: "D'où vient cette tradition parfumée en Tunisie ? Découvre l'anecdote historique ce soir sur 5amem !",
+    },
+    {
+        title: '🏺 Une ruse légendaire à Carthage...',
+        body: "Sais-tu comment la reine Didon a fondé Carthage avec une simple peau de bœuf ? Viens faire le quiz 5amem !",
+    },
+    {
+        title: '🥖 Énigme du dimanche : Devine le mot !',
+        body: "\"Je commence par M, croustillant, beurré, adoré au petit-déj en Tunisie.\" Entre ta réponse dans le jeu Talla3 !",
+    },
+    {
+        title: '🌌 Pourquoi le ciel est-il bleu ?',
+        body: "Ce n'est pas le reflet de la mer ! Viens découvrir la vraie explication scientifique dans le Quiz de ce dimanche.",
+    },
+    {
+        title: '🧠 Gym des neurones avant lundi !',
+        body: "Recharge tes batteries cérébrales avec le Quiz Quotidien. 10 questions pour démarrer la semaine au top !",
+    },
+    {
+        title: '🏆 Défi Talla3 : Es-tu à la hauteur ?',
+        body: "Remets les éléments dans le bon ordre en moins de 15 secondes. Viens tester tes réflexes sur 5amem !",
+    },
     // --- KHROUJ (Sorties/Restos) ---
     {
         title: '📍 Tes sorties de la semaine ?',

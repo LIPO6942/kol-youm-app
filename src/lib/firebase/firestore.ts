@@ -38,6 +38,15 @@ export type VisitLog = {
     momentyImageUrl?: string;
 };
 
+export type BrainAttempt = {
+    id: string;
+    type: 'quiz' | 'talla3';
+    category?: string; // category of the quiz
+    score: number;
+    totalQuestions: number;
+    date: number; // timestamp
+};
+
 export type SeenMovie = {
     title: string;
     viewedAt: number; // timestamp of when the movie was watched
@@ -69,6 +78,7 @@ export type UserProfile = {
     wardrobe?: WardrobeItem[];
     places?: PlaceItem[];
     visits?: VisitLog[];
+    brainAttempts?: BrainAttempt[];
     // Tfarrej preferences
     preferredCountries?: string[];
     preferredMinRating?: number;
@@ -111,6 +121,7 @@ export async function createUserProfile(uid: string, data: { email: string | nul
         specialtyColors: {},
         customDishRules: {},
         cinemaTheaters: [],
+        brainAttempts: [],
     };
     const { fullBodyPhotoUrl, closeupPhotoUrl, ...firestoreProfile } = userProfile;
     await setDoc(doc(firestoreDb, "users", uid), firestoreProfile);
@@ -126,7 +137,7 @@ export async function updateUserProfile(uid: string, data: Partial<Omit<UserProf
         if (key === 'fullBodyPhotoUrl' || key === 'closeupPhotoUrl') {
             localData[key] = (data as any)[key];
         } else {
-            if (key === 'seenMovieTitles' || key === 'rejectedMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions' || key === 'wardrobe' || key === 'places' || key === 'cinemaTheaters') {
+            if (key === 'seenMovieTitles' || key === 'rejectedMovieTitles' || key === 'moviesToWatch' || key === 'seenKhroujSuggestions' || key === 'wardrobe' || key === 'places' || key === 'cinemaTheaters' || key === 'brainAttempts') {
                 firestoreData[key] = arrayUnion(...(data as any)[key]);
             } else {
                 firestoreData[key] = (data as any)[key];
@@ -177,6 +188,11 @@ export async function updateUserProfile(uid: string, data: Partial<Omit<UserProf
         }
         if (data.cinemaTheaters) {
             updatedProfile.cinemaTheaters = Array.from(new Set([...(localProfile.cinemaTheaters || []), ...data.cinemaTheaters]));
+        }
+        if (data.brainAttempts) {
+            const allItems = [...(localProfile.brainAttempts || []), ...data.brainAttempts];
+            const uniqueItems = Array.from(new Map(allItems.map(item => [item.id, item])).values());
+            updatedProfile.brainAttempts = uniqueItems;
         }
 
         await storeUserInDb(uid, updatedProfile);
@@ -590,6 +606,65 @@ export async function deleteVisitLog(uid: string, visitId: string) {
         visits: (localProfile.visits || []).filter(v => v.id !== visitId)
     };
     await storeUserInDb(uid, updatedProfile);
+}
+
+export async function addBrainAttempt(uid: string, attempt: Omit<BrainAttempt, 'id' | 'date'>) {
+    const newAttempt: BrainAttempt = {
+        ...attempt,
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        date: Date.now(),
+    };
+
+    const userRef = doc(firestoreDb, 'users', uid);
+    await updateDoc(userRef, {
+        brainAttempts: arrayUnion(newAttempt)
+    });
+
+    // Update local state
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = {
+            ...localProfile,
+            brainAttempts: [...(localProfile.brainAttempts || []), newAttempt]
+        };
+        await storeUserInDb(uid, updatedProfile);
+    }
+    return newAttempt;
+}
+
+export async function deleteBrainAttempt(uid: string, attemptId: string) {
+    const localProfile = await getUserFromDb(uid);
+    if (!localProfile) return;
+
+    const attemptToDelete = localProfile.brainAttempts?.find(a => a.id === attemptId);
+    if (!attemptToDelete) return;
+
+    const userRef = doc(firestoreDb, 'users', uid);
+    await updateDoc(userRef, {
+        brainAttempts: arrayRemove(attemptToDelete)
+    });
+
+    const updatedProfile = {
+        ...localProfile,
+        brainAttempts: (localProfile.brainAttempts || []).filter(a => a.id !== attemptId)
+    };
+    await storeUserInDb(uid, updatedProfile);
+}
+
+export async function clearBrainAttempts(uid: string) {
+    const userRef = doc(firestoreDb, 'users', uid);
+    await updateDoc(userRef, {
+        brainAttempts: []
+    });
+
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const updatedProfile = {
+            ...localProfile,
+            brainAttempts: []
+        };
+        await storeUserInDb(uid, updatedProfile);
+    }
 }
 
 export async function updateSpecialtyCustomization(uid: string, specialtyName: string, updates: { imageUrl?: string, color?: string }) {
