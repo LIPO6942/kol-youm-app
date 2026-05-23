@@ -13,12 +13,12 @@ const firebaseConfig = {
 };
 
 // Check if the configuration is valid and not a mock/undefined string during build time
+// Do NOT restrict to client-side (typeof window !== "undefined") because Genkit flows and SSR run on the server side
 const isConfigValid = 
-  typeof window !== "undefined" &&
-  firebaseConfig.apiKey && 
+  !!(firebaseConfig.apiKey && 
   firebaseConfig.apiKey !== "undefined" && 
   firebaseConfig.apiKey !== "null" && 
-  firebaseConfig.apiKey.length > 0;
+  firebaseConfig.apiKey.length > 0);
 
 const app: FirebaseApp | null = getApps().length
   ? getApp()
