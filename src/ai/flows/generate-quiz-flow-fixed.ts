@@ -6,6 +6,7 @@
  */
 
 import { GenerateQuizInputSchema, GenerateQuizOutputSchema, type GenerateQuizInput, type GenerateQuizOutput } from './generate-quiz-flow.types';
+import { generateQuiz as generateQuizAI } from './generate-quiz-flow';
 
 const quizDatabase = {
   'Culture Générale': {
@@ -519,9 +520,15 @@ export async function generateQuiz(input: GenerateQuizInput & { seenQuestions?: 
       q => !seenQuestions.includes(q.question)
     );
 
-    // Si on n'a plus aucune question non vue, on réinitialise
+    // Si on n'a plus aucune question non vue en local pour cette catégorie, on fait appel à l'IA pour générer un quiz unique à l'infini !
     if (availableQuestions.length === 0) {
-      availableQuestions = categoryData.questions;
+      try {
+        console.log(`Presets exhausted for category "${category}". Requesting fresh quiz from Gemini AI...`);
+        return await generateQuizAI(input);
+      } catch (err) {
+        console.error("AI quiz generation failed, resetting preset pool as fallback:", err);
+        availableQuestions = categoryData.questions;
+      }
     }
 
     // Mélanger et sélectionner 5 questions

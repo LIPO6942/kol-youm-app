@@ -6,6 +6,7 @@
  */
 
 import type { GenerateTalla3ChallengeInput, GenerateTalla3ChallengeOutput, Talla3Challenge } from './generate-talla3-challenge-flow.types';
+import { generateTalla3Challenges as generateTalla3ChallengesAI } from './generate-talla3-challenge-flow';
 
 const PRESET_CHALLENGES: Talla3Challenge[] = [
   {
@@ -193,9 +194,15 @@ export async function generateTalla3Challenges(input: GenerateTalla3ChallengeInp
   // Filtrer les défis non résolus
   let available = PRESET_CHALLENGES.filter(c => !seen.includes(c.id));
 
-  // Si on n'a plus aucun défi inédit, on réinitialise
+  // Si on n'a plus aucun défi inédit en local, on fait appel à l'IA pour générer de nouveaux défis uniques à l'infini !
   if (available.length === 0) {
-    available = PRESET_CHALLENGES;
+    try {
+      console.log("Presets exhausted for Talla3. Requesting fresh challenges from Gemini AI...");
+      return await generateTalla3ChallengesAI(input);
+    } catch (err) {
+      console.error("AI challenge generation failed, resetting preset pool as fallback:", err);
+      available = PRESET_CHALLENGES;
+    }
   }
 
   // Mélanger puis prendre `count` éléments
