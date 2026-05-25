@@ -11,7 +11,7 @@ import { Loader2, Trophy, RotateCcw, Timer, Check, ServerCrash, ChevronsUpDown }
 
 import { useAuth } from '@/hooks/use-auth';
 import { addBrainAttempt } from '@/lib/firebase/firestore';
-import { motion } from 'framer-motion';
+
 import { generateTalla3Challenges } from '@/ai/flows/generate-talla3-challenge-flow-fixed';
 import type { Talla3Challenge } from '@/ai/flows/generate-talla3-challenge-flow.types';
 
@@ -167,7 +167,13 @@ export default function Talla3Game() {
 
   const handleCheckAnswer = useCallback(() => {
     if (!currentChallenge) return;
-    const isCorrect = userOrder.length === currentChallenge.items.length && userOrder.every((item, index) => item === currentChallenge.items[index].item);
+    console.log("Checking answer:", {
+      userOrder,
+      correctOrder: currentChallenge.items.map(i => i.item)
+    });
+    const isCorrect = userOrder.length === currentChallenge.items.length && 
+      userOrder.every((item, index) => item.trim() === currentChallenge.items[index].item.trim());
+    console.log("Is correct?", isCorrect);
     setGameState(isCorrect ? 'correct' : 'incorrect');
   }, [currentChallenge, userOrder]);
 
@@ -317,25 +323,25 @@ const handleNextChallenge = () => {
           </Button>
         )}
         {gameState === 'correct' && (
-          <motion.div className="w-full text-center p-3 rounded-md bg-green-100 text-green-800" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}>
-            <p className="font-bold">Excellent ! C'est le bon ordre.</p>
-          </motion.div>
+          <div className="w-full text-center p-4 rounded-lg bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 shadow-sm transition-all duration-300 animate-in fade-in zoom-in-95">
+            <p className="font-bold text-lg">Excellent ! C'est le bon ordre. 🎉</p>
+          </div>
         )}
         {gameState === 'incorrect' && (
-          <motion.div className="w-full text-left p-4 rounded-lg bg-red-100 text-red-900 border border-red-200 space-y-2" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-              <p className="font-bold text-lg text-center">Oups ! Ce n'est pas tout à fait ça.</p>
-              <div className="text-sm bg-background/50 p-3 rounded-md">
-                  <p className="font-semibold mb-1">Le bon ordre était :</p>
-                  <ol className="list-decimal list-inside font-medium space-y-1">
+          <div className="w-full text-left p-5 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive dark:text-red-400 space-y-3 shadow-md transition-all duration-300 animate-in fade-in slide-in-from-top-4">
+              <p className="font-bold text-lg text-center">Oups ! Ce n'est pas tout à fait ça. 😕</p>
+              <div className="text-sm bg-background/60 dark:bg-black/30 p-3 rounded-lg border border-destructive/10 text-foreground">
+                  <p className="font-semibold mb-2 text-destructive dark:text-red-400">Le bon ordre était :</p>
+                  <ol className="list-decimal list-inside font-medium space-y-2">
                       {currentChallenge.items.map((item) => (
                         <li key={item.item}>
-                            {item.item}
-                            {item.detail && <span className="ml-2 font-normal text-muted-foreground">({item.detail})</span>}
+                            <span className="text-foreground">{item.item}</span>
+                            {item.detail && <span className="ml-2 font-normal text-muted-foreground text-xs">({item.detail})</span>}
                         </li>
                       ))}
                   </ol>
               </div>
-          </motion.div>
+          </div>
         )}
         
         <div className="grid grid-cols-2 gap-4 w-full">
