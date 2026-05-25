@@ -2058,6 +2058,23 @@ export default function DecisionMaker() {
 
   const seasonalBg = getSeasonalBackground();
 
+  const userName = user?.displayName || userProfile?.email?.split('@')[0] || '';
+  const firstName = userName ? userName.split(/[\s._-]/)[0] : '';
+  const capitalizedName = firstName ? firstName.charAt(0).toUpperCase() + firstName.slice(1) : '';
+
+  const getSeasonalAdjective = () => {
+    const month = new Date().getMonth();
+    if (month === 11 || month === 0 || month === 1) return "hivernale ❄️";
+    if (month >= 2 && month <= 4) return "printanière 🌸";
+    if (month >= 5 && month <= 7) return "estivale ☀️";
+    return "automnale 🍂";
+  };
+
+  const seasonalAdjective = getSeasonalAdjective();
+  const subtitleText = capitalizedName
+    ? `Tu hésites, ${capitalizedName} ? Laisse-nous choisir ta sortie ${seasonalAdjective}`
+    : `Tu hésites ? Laisse-nous choisir ta sortie ${seasonalAdjective}`;
+
   return (
     <div className="space-y-4">
       <div className="animate-in fade-in-50 duration-500">
@@ -2067,8 +2084,8 @@ export default function DecisionMaker() {
         )}>
           Décide pour moi !
         </h2>
-        <p className="text-muted-foreground text-sm sm:text-base mt-1">
-          Tu hésites ? Laisse-nous choisir ta prochaine sortie à Tunis.
+        <p className="text-muted-foreground text-sm sm:text-base mt-1 font-medium">
+          {subtitleText}
         </p>
       </div>
 
