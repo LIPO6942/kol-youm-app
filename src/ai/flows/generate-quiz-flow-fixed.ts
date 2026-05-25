@@ -519,8 +519,8 @@ export async function generateQuiz(input: GenerateQuizInput & { seenQuestions?: 
       q => !seenQuestions.includes(q.question)
     );
 
-    // Si on a moins de 5 questions non vues, on réinitialise l'exclusion (on utilise toutes les questions)
-    if (availableQuestions.length < 5) {
+    // Si on n'a plus aucune question non vue, on réinitialise
+    if (availableQuestions.length === 0) {
       availableQuestions = categoryData.questions;
     }
 

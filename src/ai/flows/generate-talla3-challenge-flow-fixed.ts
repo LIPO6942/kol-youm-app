@@ -193,8 +193,8 @@ export async function generateTalla3Challenges(input: GenerateTalla3ChallengeInp
   // Filtrer les défis non résolus
   let available = PRESET_CHALLENGES.filter(c => !seen.includes(c.id));
 
-  // Si on n'a plus assez de défis inédits, on réinitialise (on prend le pool complet)
-  if (available.length < count) {
+  // Si on n'a plus aucun défi inédit, on réinitialise
+  if (available.length === 0) {
     available = PRESET_CHALLENGES;
   }
 
