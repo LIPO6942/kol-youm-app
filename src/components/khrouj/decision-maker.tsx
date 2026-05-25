@@ -34,27 +34,31 @@ const getSeasonalBackground = () => {
   if (month === 11 || month === 0 || month === 1) {
     return {
       url: '/images/khrouj/winter.png',
-      label: 'Hiver ❄️'
+      label: 'Hiver ❄️',
+      borderColor: 'border-blue-400/50 shadow-blue-500/20'
     };
   }
   // Spring: Mar (2), Apr (3), May (4)
   if (month >= 2 && month <= 4) {
     return {
       url: '/images/khrouj/spring.png',
-      label: 'Printemps 🌸'
+      label: 'Printemps 🌸',
+      borderColor: 'border-pink-400/50 shadow-pink-500/20'
     };
   }
   // Summer: Jun (5), Jul (6), Aug (7)
   if (month >= 5 && month <= 7) {
     return {
       url: '/images/khrouj/summer.png',
-      label: 'Été ☀️'
+      label: 'Été ☀️',
+      borderColor: 'border-yellow-400/50 shadow-yellow-500/20'
     };
   }
   // Autumn: Sep (8), Oct (9), Nov (10)
   return {
     url: '/images/khrouj/autumn.png',
-    label: 'Automne 🍂'
+    label: 'Automne 🍂',
+    borderColor: 'border-orange-500/50 shadow-orange-500/20'
   };
 };
 
@@ -2039,7 +2043,7 @@ export default function DecisionMaker() {
   const seasonalBg = getSeasonalBackground();
 
   return (
-    <Card className="relative overflow-hidden border border-border/50 shadow-md max-w-2xl mx-auto animate-in fade-in-50">
+    <Card className={`relative overflow-hidden border ${seasonalBg.borderColor} shadow-lg max-w-2xl mx-auto animate-in fade-in-50`}>
       {/* Cinematic Tunisian Seasonal Outing Background with Dynamic Fade Overlay */}
       <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
         <div
