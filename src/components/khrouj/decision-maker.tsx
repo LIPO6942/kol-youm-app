@@ -2058,24 +2058,42 @@ export default function DecisionMaker() {
         <CardDescription>Cliquez sur une catégorie et laissez la magie opérer.</CardDescription>
       </CardHeader>
       <CardContent className="relative z-10 space-y-6">
-        <Collapsible className="space-y-2">
-          <div className="flex justify-center items-center gap-2">
+        <Collapsible className="space-y-4">
+          <div className="flex flex-wrap justify-center items-center gap-2">
             <CollapsibleTrigger asChild>
-              <Button variant="ocean">
+              <Button variant="ocean" className="h-10">
                 <Filter className="mr-2 h-4 w-4" />
-                {getFilterButtonText()}
+                <span className="hidden sm:inline">{getFilterButtonText()}</span>
+                <span className="sm:hidden">Zones</span>
               </Button>
             </CollapsibleTrigger>
-            <Button variant="outline" className="sm:gap-2" onClick={() => setView('stats')}>
+
+            <Select value={searchQuery} onValueChange={setSearchQuery}>
+              <SelectTrigger className="w-[180px] sm:w-[220px] h-10 bg-card/70 backdrop-blur-md border-primary/20 hover:border-primary/40 transition-colors">
+                <SelectValue placeholder="Spécialité ?" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Toutes spécialités</SelectItem>
+                {AVAILABLE_SPECIALTIES.map(s => (
+                  <SelectItem key={s.label} value={s.label}>
+                    {s.emoji} {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button variant="outline" className="h-10 sm:gap-2" onClick={() => setView('stats')}>
               <BarChart3 className="h-4 w-4 text-primary" />
               <span className="hidden sm:inline">Mes Stats</span>
             </Button>
+
             {selectedZones.length > 0 && (
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleClearZones}>
+              <Button variant="ghost" size="icon" className="h-10 w-10" onClick={handleClearZones}>
                 <X className="h-4 w-4" />
               </Button>
             )}
           </div>
+          
           <CollapsibleContent>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 border rounded-md bg-card/65 backdrop-blur-md">
               {availableZones.map((zone: string) => (
@@ -2096,25 +2114,6 @@ export default function DecisionMaker() {
             </div>
           </CollapsibleContent>
         </Collapsible>
-
-        <div className="flex justify-center mb-2 animate-in fade-in-75 delay-150">
-          <Select
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-          >
-            <SelectTrigger className="w-[280px] bg-card/70 backdrop-blur-md border-primary/20 hover:border-primary/40 transition-colors">
-              <SelectValue placeholder="Envie d'une spécialité ? (Optionnel)" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Toutes spécialités</SelectItem>
-              {AVAILABLE_SPECIALTIES.map(s => (
-                <SelectItem key={s.label} value={s.label}>
-                  {s.emoji} {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
 
         <div className="grid gap-4 grid-cols-2 md:grid-cols-3">
           {outingOptions.filter(o => o.id !== 'cinema').map((option: (typeof outingOptions)[0]) => {
