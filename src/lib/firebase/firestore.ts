@@ -824,3 +824,38 @@ export async function updateCinemaTheaters(
 
     return updatedTheaters;
 }
+
+export type CommunityTriviaItem = {
+    id: string;
+    category: string;
+    title: string;
+    content: string;
+    imageUrl?: string;
+    sourceUrl?: string;
+    createdAt: number;
+};
+
+export async function getCommunityTrivia(): Promise<CommunityTriviaItem[]> {
+    try {
+        const { collection, getDocs, query, orderBy } = await import("firebase/firestore");
+        const q = query(collection(firestoreDb, "trivia_ai_generated"), orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => doc.data() as CommunityTriviaItem);
+    } catch (error) {
+        console.error("Error fetching community trivia:", error);
+        return [];
+    }
+}
+
+export async function addCommunityTrivia(trivia: Omit<CommunityTriviaItem, 'id' | 'createdAt'>): Promise<CommunityTriviaItem> {
+    const { doc, setDoc } = await import("firebase/firestore");
+    const id = `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const newTrivia: CommunityTriviaItem = {
+        ...trivia,
+        id,
+        createdAt: Date.now(),
+    };
+    const docRef = doc(firestoreDb, "trivia_ai_generated", id);
+    await setDoc(docRef, newTrivia);
+    return newTrivia;
+}

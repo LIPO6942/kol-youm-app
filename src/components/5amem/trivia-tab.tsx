@@ -1,26 +1,28 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
-import { addTriviaFeedback, type TriviaFeedback } from '@/lib/firebase/firestore';
+import { addTriviaFeedback, getCommunityTrivia, type TriviaFeedback } from '@/lib/firebase/firestore';
+import { generateAndSaveTrivia } from '@/app/actions/generate-trivia';
 import { useToast } from '@/hooks/use-toast';
-import { ThumbsUp, ThumbsDown, Meh, Sparkles, Lightbulb, RotateCcw, Loader2, BookOpen } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Meh, Sparkles, Lightbulb, RotateCcw, Loader2, BookOpen, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type TriviaItem = {
   id: string;
-  category: 'Histoire' | 'Gastronomie' | 'Culture' | 'Géographie' | 'Art' | 'Science' | 'Espace';
+  category: string;
   title: string;
   content: string;
-  imageUrl: string;
+  imageUrl?: string;
   sourceUrl?: string;
 };
 
-const TRIVIA_DATABASE: TriviaItem[] = [
+const STATIC_TRIVIA_DATABASE: TriviaItem[] = [
   {
     id: 'jasmin-symbole',
     category: 'Culture',
@@ -281,25 +283,35 @@ const TRIVIA_DATABASE: TriviaItem[] = [
 
 export default function TriviaTab() {
   const searchParams = useSearchParams();
-  const urlId = searchParams.get('id');
   const { user, userProfile } = useAuth();
   const { toast } = useToast();
   const [currentTrivia, setCurrentTrivia] = useState<TriviaItem | null>(null);
+  const [communityTrivia, setCommunityTrivia] = useState<TriviaItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const [userRating, setUserRating] = useState<TriviaFeedback['rating'] | null>(null);
+  const [feedbackMap, setFeedbackMap] = useState<Map<string, TriviaFeedback['rating']>>(new Map());
 
-  const feedbackMap = useMemo(() => {
-    const map = new Map<string, TriviaFeedback['rating']>();
+  const combinedDatabase = useMemo(() => [...STATIC_TRIVIA_DATABASE, ...communityTrivia], [communityTrivia]);
+
+  useEffect(() => {
+    const fetchCommunityTrivia = async () => {
+      const dbTrivia = await getCommunityTrivia();
+      setCommunityTrivia(dbTrivia);
+    };
+    fetchCommunityTrivia();
+  }, []);
+
+  useEffect(() => {
     if (userProfile?.triviaFeedback) {
-      userProfile.triviaFeedback.forEach(f => {
-        map.set(f.triviaId, f.rating);
-      });
+      const map = new Map();
+      userProfile.triviaFeedback.forEach(fb => map.set(fb.triviaId, fb.rating));
+      setFeedbackMap(map);
     }
-    return map;
-  }, [userProfile?.triviaFeedback]);
+  }, [userProfile]);
 
-  // Recommendation engine: selects the next trivia card
-  const selectNextTrivia = () => {
+  const selectNextTrivia = useCallback(() => {
     const ratedIds = Array.from(feedbackMap.keys());
     let seenIds: string[] = [];
     try {
@@ -308,28 +320,25 @@ export default function TriviaTab() {
     } catch(e) {}
 
     const excludedIds = Array.from(new Set([...ratedIds, ...seenIds]));
-    let unratedTrivia = TRIVIA_DATABASE.filter(item => !excludedIds.includes(item.id));
+    let unratedTrivia = combinedDatabase.filter(item => !excludedIds.includes(item.id));
 
     if (unratedTrivia.length === 0) {
-      // If all are seen, but maybe not rated, we reset the local seen history
       seenIds = [];
       localStorage.setItem('kolyoum_trivia_seen', '[]');
-      unratedTrivia = TRIVIA_DATABASE.filter(item => !ratedIds.includes(item.id));
+      unratedTrivia = combinedDatabase.filter(item => !ratedIds.includes(item.id));
 
       if (unratedTrivia.length === 0) {
-        // Fallback: If all 32 items are literally rated, show a random one from the database
-        const randomItem = TRIVIA_DATABASE[Math.floor(Math.random() * TRIVIA_DATABASE.length)];
+        const randomItem = combinedDatabase[Math.floor(Math.random() * combinedDatabase.length)];
         setCurrentTrivia(randomItem);
         setUserRating(feedbackMap.get(randomItem.id) || null);
         return;
       }
     }
 
-    // Calculate affinity for categories based on positive and negative feedback
     const categoryAffinity: Record<string, number> = {};
     if (userProfile?.triviaFeedback) {
       userProfile.triviaFeedback.forEach(fb => {
-        const item = TRIVIA_DATABASE.find(t => t.id === fb.triviaId);
+        const item = combinedDatabase.find(t => t.id === fb.triviaId);
         if (item) {
           let score = 0;
           if (fb.rating === 'interessant') score = 2;
@@ -340,50 +349,67 @@ export default function TriviaTab() {
     }
 
     let chosen: TriviaItem;
-    // 30% serendipity: show a random unrated item to allow discovery of new categories
     const isSerendipity = Math.random() < 0.3;
     if (isSerendipity) {
       chosen = unratedTrivia[Math.floor(Math.random() * unratedTrivia.length)];
     } else {
-      // 70% affinity-based selection
       const sortedUnrated = [...unratedTrivia].sort((a, b) => {
         const affinityA = categoryAffinity[a.category] || 0;
         const affinityB = categoryAffinity[b.category] || 0;
         return affinityB - affinityA;
       });
-
       const topAffinity = categoryAffinity[sortedUnrated[0].category] || 0;
-      const candidates = sortedUnrated.filter(
-        item => (categoryAffinity[item.category] || 0) === topAffinity
-      );
+      const candidates = sortedUnrated.filter(item => (categoryAffinity[item.category] || 0) === topAffinity);
       chosen = candidates[Math.floor(Math.random() * candidates.length)];
     }
 
     setCurrentTrivia(chosen);
     setUserRating(null);
 
-    // Add to seenIds locally so it doesn't repeat within the session/days
     seenIds.push(chosen.id);
     try {
       localStorage.setItem('kolyoum_trivia_seen', JSON.stringify(seenIds));
     } catch(e) {}
-  };
+  }, [feedbackMap, combinedDatabase, userProfile?.triviaFeedback]);
 
-  // Initialize first trivia
   useEffect(() => {
-    if (TRIVIA_DATABASE.length > 0 && !currentTrivia) {
-      if (urlId) {
-        const specificTrivia = TRIVIA_DATABASE.find(t => t.id === urlId);
-        if (specificTrivia) {
-          setCurrentTrivia(specificTrivia);
-          setUserRating(feedbackMap.get(specificTrivia.id) || null);
-          return;
-        }
+    const linkedId = searchParams.get('id');
+    if (linkedId) {
+      const linkedItem = combinedDatabase.find(t => t.id === linkedId);
+      if (linkedItem) {
+        setCurrentTrivia(linkedItem);
+        return;
       }
+    }
+    if (!currentTrivia && combinedDatabase.length > 0) {
       selectNextTrivia();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [feedbackMap, currentTrivia, urlId]);
+  }, [searchParams, selectNextTrivia, currentTrivia, combinedDatabase]);
+
+  const handleGenerateAI = async () => {
+    setIsGenerating(true);
+    setGenerationError(null);
+    try {
+      const result = await generateAndSaveTrivia();
+      if (result.success && result.trivia) {
+        setCommunityTrivia(prev => [result.trivia!, ...prev]);
+        setCurrentTrivia(result.trivia);
+        setUserRating(null);
+        try {
+          const stored = localStorage.getItem('kolyoum_trivia_seen');
+          let seenIds: string[] = stored ? JSON.parse(stored) : [];
+          seenIds.push(result.trivia.id);
+          localStorage.setItem('kolyoum_trivia_seen', JSON.stringify(seenIds));
+        } catch(e) {}
+      } else {
+        setGenerationError(result.error || "Une erreur est survenue");
+      }
+    } catch(err) {
+      setGenerationError("Impossible de contacter l'IA.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleFeedback = async (rating: TriviaFeedback['rating']) => {
     if (!user || !currentTrivia || isSubmitting) return;
@@ -405,7 +431,6 @@ export default function TriviaTab() {
           : "Vos préférences nous aident à améliorer vos recommandations.",
       });
 
-      // Brief delay to allow feedback animation before loading next
       setTimeout(() => {
         selectNextTrivia();
         setIsSubmitting(false);
@@ -422,7 +447,7 @@ export default function TriviaTab() {
     }
   };
 
-  const getCategoryColor = (category: TriviaItem['category']) => {
+  const getCategoryColor = (category: string) => {
     switch (category) {
       case 'Histoire': return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
       case 'Gastronomie': return 'bg-rose-500/10 text-rose-500 border-rose-500/20';
@@ -436,7 +461,7 @@ export default function TriviaTab() {
   };
 
   const ratedCount = feedbackMap.size;
-  const progressPercent = Math.min(100, Math.round((ratedCount / TRIVIA_DATABASE.length) * 100));
+  const progressPercent = Math.min(100, Math.round((ratedCount / combinedDatabase.length) * 100));
 
   if (!currentTrivia) {
     return (
@@ -449,12 +474,11 @@ export default function TriviaTab() {
 
   return (
     <div className="w-full max-w-2xl mx-auto space-y-4">
-      {/* Progression Bar */}
       <div className="bg-card/50 backdrop-blur-md border rounded-xl p-3 flex items-center justify-between text-xs sm:text-sm">
         <div className="flex items-center gap-2">
           <BookOpen className="h-4 w-4 text-primary" />
           <span className="font-medium">
-            Anecdotes lues : {ratedCount} / {TRIVIA_DATABASE.length}
+            Anecdotes lues : {ratedCount} / {combinedDatabase.length}
           </span>
         </div>
         <div className="w-32 bg-secondary rounded-full h-2 overflow-hidden hidden sm:block">
@@ -466,62 +490,6 @@ export default function TriviaTab() {
         <span className="text-muted-foreground text-xs">{progressPercent}% complété</span>
       </div>
 
-      {/* Main Glassmorphic Card */}
-      <Card className="relative overflow-hidden border bg-card/60 backdrop-blur-xl shadow-xl transition-all duration-300 hover:shadow-2xl">
-        <div className="absolute top-0 right-0 p-4 opacity-5">
-          <Lightbulb className="h-48 w-48 text-primary" />
-        </div>
-
-        <CardHeader className="space-y-3 pb-4">
-          <div className="flex items-center justify-between">
-            <span className={cn(
-              "text-xs px-2.5 py-1 rounded-full border font-semibold tracking-wider uppercase",
-              getCategoryColor(currentTrivia.category)
-            )}>
-              {currentTrivia.category}
-            </span>
-            <div className="flex items-center gap-1.5 text-xs text-amber-500 font-medium">
-              <Sparkles className="h-3.5 w-3.5 fill-amber-500 animate-pulse" />
-              <span>Dormir Moins Bête</span>
-            </div>
-          </div>
-          <CardTitle className="text-xl sm:text-2xl font-headline tracking-tight leading-tight">
-            {currentTrivia.title}
-          </CardTitle>
-        </CardHeader>
-
-        <CardContent className="space-y-4 pb-6">
-          {/* Custom Illustration */}
-          <div className="relative w-full h-44 sm:h-52 rounded-xl overflow-hidden border bg-black/40 flex items-center justify-center">
-            <Image
-              src={currentTrivia.imageUrl}
-              alt={currentTrivia.title}
-              fill
-              className="object-cover opacity-90 transition-transform duration-700 hover:scale-105"
-              priority
-              sizes="(max-width: 768px) 100vw, 650px"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-            <div className="absolute bottom-3 left-3 bg-black/50 backdrop-blur-md border border-white/10 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
-              <Lightbulb className="h-4 w-4 text-amber-400" />
-              <span className="text-[10px] text-white font-medium">Le Saviez-vous ?</span>
-            </div>
-          </div>
-
-          <p className="text-card-foreground/90 text-sm sm:text-base leading-relaxed font-normal">
-            {currentTrivia.content}
-          </p>
-
-          {currentTrivia.sourceUrl && (
-            <div className="pt-2">
-              <a 
-                href={currentTrivia.sourceUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium underline-offset-4 hover:underline transition-colors"
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-                Lire davantage sur Wikipedia
               </a>
             </div>
           )}
