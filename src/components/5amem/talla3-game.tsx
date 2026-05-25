@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { addBrainAttempt } from '@/lib/firebase/firestore';
-import { Check, ChevronsUpDown, Trophy, RotateCcw, Loader2, ServerCrash, Timer } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { generateTalla3Challenges } from '@/ai/flows/generate-talla3-challenge-flow-fixed';
 import type { Talla3Challenge } from '@/ai/flows/generate-talla3-challenge-flow.types';
 
@@ -315,12 +315,12 @@ const handleNextChallenge = () => {
           </Button>
         )}
         {gameState === 'correct' && (
-          <div className="w-full text-center p-3 rounded-md bg-green-100 text-green-800">
+          <motion.div className="w-full text-center p-3 rounded-md bg-green-100 text-green-800" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.3 }}>
             <p className="font-bold">Excellent ! C'est le bon ordre.</p>
-          </div>
+          </motion.div>
         )}
         {gameState === 'incorrect' && (
-          <div className="w-full text-left p-4 rounded-lg bg-red-100 text-red-900 border border-red-200 space-y-2">
+          <motion.div className="w-full text-left p-4 rounded-lg bg-red-100 text-red-900 border border-red-200 space-y-2" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
               <p className="font-bold text-lg text-center">Oups ! Ce n'est pas tout à fait ça.</p>
               <div className="text-sm bg-background/50 p-3 rounded-md">
                   <p className="font-semibold mb-1">Le bon ordre était :</p>
@@ -333,7 +333,7 @@ const handleNextChallenge = () => {
                       ))}
                   </ol>
               </div>
-          </div>
+          </motion.div>
         )}
         
         <div className="grid grid-cols-2 gap-4 w-full">
