@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { Loader2, Trophy, RotateCcw, Timer, Check } from 'lucide-react';
+import { Loader2, Trophy, RotateCcw, Timer, Check, ServerCrash, ChevronsUpDown } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
 import { addBrainAttempt } from '@/lib/firebase/firestore';
