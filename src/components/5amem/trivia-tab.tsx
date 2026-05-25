@@ -490,70 +490,165 @@ export default function TriviaTab() {
         <span className="text-muted-foreground text-xs">{progressPercent}% complété</span>
       </div>
 
-              </a>
+      {/* AI Generation Button */}
+      <div className="flex justify-center mb-6">
+        <Button 
+          onClick={handleGenerateAI} 
+          disabled={isGenerating}
+          variant="outline"
+          className="rounded-full shadow-md bg-white hover:bg-slate-50 text-indigo-600 border-indigo-200"
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Génération en cours...
+            </>
+          ) : (
+            <>
+              <Sparkles className="mr-2 h-4 w-4" />
+              Générer une anecdote inédite avec l'IA
+            </>
+          )}
+        </Button>
+      </div>
+
+      {generationError && (
+        <div className="flex items-center text-sm text-red-500 mb-4 justify-center bg-red-50 p-2 rounded-lg">
+          <AlertCircle className="w-4 h-4 mr-2" />
+          {generationError}
+        </div>
+      )}
+
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentTrivia.id}
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, x: -20, scale: 0.95 }}
+          transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+        >
+          {/* Main Glassmorphic Card */}
+          <Card className="relative overflow-hidden border bg-card/60 backdrop-blur-xl shadow-xl transition-all duration-300 hover:shadow-2xl">
+            <div className="absolute top-0 right-0 p-4 opacity-5">
+              <Lightbulb className="h-48 w-48 text-primary" />
             </div>
-          )}
-        </CardContent>
 
-        <CardFooter className="flex flex-col gap-4 border-t pt-4 bg-muted/10">
-          <div className="w-full text-center text-xs text-muted-foreground">
-            Que pensez-vous de cette information ?
-          </div>
+            <CardHeader className="space-y-3 pb-4">
+              <div className="flex items-center justify-between">
+                <span className={cn(
+                  "text-xs px-2.5 py-1 rounded-full border font-semibold tracking-wider uppercase",
+                  getCategoryColor(currentTrivia.category)
+                )}>
+                  {currentTrivia.category}
+                </span>
+                <div className="flex items-center gap-1.5 text-xs text-amber-500 font-medium">
+                  <Sparkles className="h-3.5 w-3.5 fill-amber-500 animate-pulse" />
+                  <span>Dormir Moins Bête</span>
+                </div>
+              </div>
+              <CardTitle className="text-xl sm:text-2xl font-headline tracking-tight leading-tight">
+                {currentTrivia.title}
+              </CardTitle>
+            </CardHeader>
 
-          <div className="grid grid-cols-3 gap-2 w-full">
-            <Button
-              variant="outline"
-              disabled={isSubmitting}
-              onClick={() => handleFeedback('pas_interessant')}
-              className={cn(
-                "flex items-center justify-center gap-1.5 py-5 border-rose-500/20 hover:bg-rose-500/10 hover:text-rose-500 transition-all duration-200",
-                userRating === 'pas_interessant' && "bg-rose-500/25 border-rose-500 text-rose-500 font-semibold"
+            <CardContent className="space-y-4 pb-6">
+              {/* Custom Illustration */}
+              <div className="relative w-full h-44 sm:h-52 rounded-xl overflow-hidden border bg-black/40 flex items-center justify-center">
+                <Image
+                  src={currentTrivia.imageUrl || 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=600&auto=format&fit=crop'}
+                  alt={currentTrivia.title}
+                  fill
+                  className="object-cover opacity-90 transition-transform duration-700 hover:scale-105"
+                  priority
+                  sizes="(max-width: 768px) 100vw, 650px"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                <div className="absolute bottom-3 left-3 bg-black/50 backdrop-blur-md border border-white/10 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
+                  <Lightbulb className="h-4 w-4 text-amber-400" />
+                  <span className="text-[10px] text-white font-medium">Le Saviez-vous ?</span>
+                </div>
+              </div>
+
+              <p className="text-card-foreground/90 text-sm sm:text-base leading-relaxed font-normal">
+                {currentTrivia.content}
+              </p>
+
+              {currentTrivia.sourceUrl && (
+                <div className="pt-2">
+                  <a 
+                    href={currentTrivia.sourceUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium underline-offset-4 hover:underline transition-colors"
+                  >
+                    <BookOpen className="h-3.5 w-3.5" />
+                    Lire davantage sur Wikipedia
+                  </a>
+                </div>
               )}
-            >
-              <ThumbsDown className="h-4 w-4" />
-              <span className="text-xs sm:text-sm">Pas top 👎</span>
-            </Button>
+            </CardContent>
 
-            <Button
-              variant="outline"
-              disabled={isSubmitting}
-              onClick={() => handleFeedback('mi_interessant')}
-              className={cn(
-                "flex items-center justify-center gap-1.5 py-5 border-amber-500/20 hover:bg-amber-500/10 hover:text-amber-500 transition-all duration-200",
-                userRating === 'mi_interessant' && "bg-amber-500/25 border-amber-500 text-amber-500 font-semibold"
+            <CardFooter className="flex flex-col gap-4 border-t pt-4 bg-muted/10">
+              <div className="w-full text-center text-xs text-muted-foreground">
+                Que pensez-vous de cette information ?
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 w-full">
+                <Button
+                  variant="outline"
+                  disabled={isSubmitting}
+                  onClick={() => handleFeedback('pas_interessant')}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 py-5 border-rose-500/20 hover:bg-rose-500/10 hover:text-rose-500 transition-all duration-200",
+                    userRating === 'pas_interessant' && "bg-rose-500/25 border-rose-500 text-rose-500 font-semibold"
+                  )}
+                >
+                  <ThumbsDown className="h-4 w-4" />
+                  <span className="text-xs sm:text-sm">Pas top 👎</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  disabled={isSubmitting}
+                  onClick={() => handleFeedback('mi_interessant')}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 py-5 border-amber-500/20 hover:bg-amber-500/10 hover:text-amber-500 transition-all duration-200",
+                    userRating === 'mi_interessant' && "bg-amber-500/25 border-amber-500 text-amber-500 font-semibold"
+                  )}
+                >
+                  <Meh className="h-4 w-4" />
+                  <span className="text-xs sm:text-sm">Moyen 😐</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  disabled={isSubmitting}
+                  onClick={() => handleFeedback('interessant')}
+                  className={cn(
+                    "flex items-center justify-center gap-1.5 py-5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-500 transition-all duration-200",
+                    userRating === 'interessant' && "bg-emerald-500/25 border-emerald-500 text-emerald-500 font-semibold"
+                  )}
+                >
+                  <ThumbsUp className="h-4 w-4" />
+                  <span className="text-xs sm:text-sm">Super ! 👍</span>
+                </Button>
+              </div>
+
+              {/* Skip / Next button when already rated */}
+              {ratedCount === combinedDatabase.length && (
+                <Button
+                  variant="ghost"
+                  onClick={selectNextTrivia}
+                  className="mt-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Continuer la lecture (toutes lues)
+                </Button>
               )}
-            >
-              <Meh className="h-4 w-4" />
-              <span className="text-xs sm:text-sm">Moyen 😐</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              disabled={isSubmitting}
-              onClick={() => handleFeedback('interessant')}
-              className={cn(
-                "flex items-center justify-center gap-1.5 py-5 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-500 transition-all duration-200",
-                userRating === 'interessant' && "bg-emerald-500/25 border-emerald-500 text-emerald-500 font-semibold"
-              )}
-            >
-              <ThumbsUp className="h-4 w-4" />
-              <span className="text-xs sm:text-sm">Super ! 👍</span>
-            </Button>
-          </div>
-
-          {/* Skip / Next button when already rated */}
-          {ratedCount === TRIVIA_DATABASE.length && (
-            <Button
-              variant="ghost"
-              onClick={selectNextTrivia}
-              className="mt-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5"
-            >
-              <RotateCcw className="h-3 w-3" />
-              Continuer la lecture (toutes lues)
-            </Button>
-          )}
-        </CardFooter>
-      </Card>
+            </CardFooter>
+          </Card>
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
