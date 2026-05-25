@@ -68,7 +68,7 @@ const getTalla3CategoryAffinity = (talla3Cat: string, triviaFeedback?: any[]) =>
 };
 
 export default function Talla3Game() {
-  const { user, userProfile, updateUserProfile } = useAuth();
+  const { user, userProfile, updateUserProfile, loading } = useAuth();
   const [challenges, setChallenges] = useState<Talla3Challenge[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +79,7 @@ export default function Talla3Game() {
   const [gameState, setGameState] = useState<'playing' | 'correct' | 'incorrect'>('playing');
   const [timeLeft, setTimeLeft] = useState(TIMER_DURATION);
   const [hasSavedThisChallenge, setHasSavedThisChallenge] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
   const { toast } = useToast();
 
   const fetchChallenges = useCallback(async () => {
@@ -111,8 +112,11 @@ export default function Talla3Game() {
   }, [toast, userProfile?.seenTalla3Challenges, userProfile?.triviaFeedback]);
   
   useEffect(() => {
-    fetchChallenges();
-  }, [fetchChallenges]);
+    if (!loading && !hasFetched) {
+      setHasFetched(true);
+      fetchChallenges();
+    }
+  }, [loading, hasFetched, fetchChallenges]);
   
   const currentChallenge = useMemo(() => {
     if (challenges.length > 0 && currentChallengeIndex < challenges.length) {
