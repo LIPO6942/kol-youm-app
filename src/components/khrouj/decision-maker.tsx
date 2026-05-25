@@ -2068,7 +2068,7 @@ export default function DecisionMaker() {
           Décide pour moi !
         </h2>
         <p className="text-muted-foreground text-sm sm:text-base mt-1">
-          Tu hésites ? Laisse-nous choisir ta prochaine sortie à Tunis ({seasonalBg.label}).
+          Tu hésites ? Laisse-nous choisir ta prochaine sortie à Tunis.
         </p>
       </div>
 

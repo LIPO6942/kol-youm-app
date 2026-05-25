@@ -39,6 +39,32 @@ const handleAiError = (error: any, toast: any) => {
     console.error(error);
 };
 
+const TALLA3_TO_TRIVIA_CATEGORY_MAP: Record<string, string[]> = {
+  'Histoire': ['Histoire'],
+  'Sciences': ['Science', 'Espace'],
+  'Cinéma': ['Art', 'Culture'],
+  'Géographie': ['Géographie'],
+  'Technologie': ['Science'],
+  'Art': ['Art'],
+  'Sports': ['Culture'],
+  'Littérature': ['Art'],
+  'Musique': ['Art', 'Culture']
+};
+
+const getTalla3CategoryAffinity = (talla3Cat: string, triviaFeedback?: any[]) => {
+  let score = 0;
+  const mappedTriviaCats = TALLA3_TO_TRIVIA_CATEGORY_MAP[talla3Cat] || [];
+  if (triviaFeedback) {
+    triviaFeedback.forEach(fb => {
+      if (fb.category && mappedTriviaCats.includes(fb.category)) {
+        if (fb.rating === 'interessant') score += 5;
+        else if (fb.rating === 'pas_interessant') score -= 5;
+      }
+    });
+  }
+  return score;
+};
+
 export default function Talla3Game() {
   const { user, userProfile, updateUserProfile } = useAuth();
   const [challenges, setChallenges] = useState<Talla3Challenge[]>([]);
@@ -61,36 +87,9 @@ export default function Talla3Game() {
       // Fetch more challenges to have a good pool for sorting
       const data = await generateTalla3Challenges({ count: 12, seenTalla3Challenges });
       
-      // Calculate category affinity
-      const talla3ToTriviaCategoryMap: Record<string, string[]> = {
-        'Histoire': ['Histoire'],
-        'Sciences': ['Science', 'Espace'],
-        'Cinéma': ['Art', 'Culture'],
-        'Géographie': ['Géographie'],
-        'Technologie': ['Science'],
-        'Art': ['Art'],
-        'Sports': ['Culture'],
-        'Littérature': ['Art'],
-        'Musique': ['Art', 'Culture']
-      };
-
-      const getTalla3CategoryAffinity = (talla3Cat: string) => {
-        let score = 0;
-        const mappedTriviaCats = talla3ToTriviaCategoryMap[talla3Cat] || [];
-        if (userProfile?.triviaFeedback) {
-          userProfile.triviaFeedback.forEach(fb => {
-            if (fb.category && mappedTriviaCats.includes(fb.category)) {
-              if (fb.rating === 'interessant') score += 5;
-              else if (fb.rating === 'pas_interessant') score -= 5;
-            }
-          });
-        }
-        return score;
-      };
-
       // Sort fetched challenges by affinity and filter out highly disliked ones (score <= -10)
       const sortedChallenges = data.challenges
-        .map(c => ({ ...c, score: getTalla3CategoryAffinity(c.category || '') }))
+        .map(c => ({ ...c, score: getTalla3CategoryAffinity(c.category || '', userProfile?.triviaFeedback) }))
         .filter(c => c.score > -10)
         .sort((a, b) => b.score - a.score);
 

@@ -54,35 +54,35 @@ const handleAiError = (error: any, toast: any) => {
 };
 
 
+const QUIZ_TO_TRIVIA_CATEGORY_MAP: Record<string, string[]> = {
+  'Culture Générale': ['Culture'],
+  'Cinéma & Séries': ['Art', 'Culture'],
+  'Musique': ['Art', 'Culture'],
+  'Histoire & Mythologies': ['Histoire', 'Géographie'],
+  'Sciences & Découvertes': ['Science', 'Espace'],
+  'Art & Littérature': ['Art']
+};
+
+const getQuizCategoryAffinity = (quizCatId: string, triviaFeedback?: any[]) => {
+  let score = 0;
+  const mappedTriviaCats = QUIZ_TO_TRIVIA_CATEGORY_MAP[quizCatId] || [];
+  if (triviaFeedback) {
+    triviaFeedback.forEach(fb => {
+      if (fb.category && mappedTriviaCats.includes(fb.category)) {
+        if (fb.rating === 'interessant') score += 5;
+        else if (fb.rating === 'pas_interessant') score -= 5;
+      }
+    });
+  }
+  return score;
+};
+
 export default function DailyQuiz() {
   const { user, userProfile, updateUserProfile } = useAuth();
 
   const sortedCategories = useMemo(() => {
-    const quizToTriviaCategoryMap: Record<string, string[]> = {
-      'Culture Générale': ['Culture'],
-      'Cinéma & Séries': ['Art', 'Culture'],
-      'Musique': ['Art', 'Culture'],
-      'Histoire & Mythologies': ['Histoire', 'Géographie'],
-      'Sciences & Découvertes': ['Science', 'Espace'],
-      'Art & Littérature': ['Art']
-    };
-
-    const getQuizCategoryAffinity = (quizCatId: string) => {
-      let score = 0;
-      const mappedTriviaCats = quizToTriviaCategoryMap[quizCatId] || [];
-      if (userProfile?.triviaFeedback) {
-        userProfile.triviaFeedback.forEach(fb => {
-          if (fb.category && mappedTriviaCats.includes(fb.category)) {
-            if (fb.rating === 'interessant') score += 5;
-            else if (fb.rating === 'pas_interessant') score -= 5;
-          }
-        });
-      }
-      return score;
-    };
-
     const sorted = quizCategories
-      .map(cat => ({ ...cat, score: getQuizCategoryAffinity(cat.id) }))
+      .map(cat => ({ ...cat, score: getQuizCategoryAffinity(cat.id, userProfile?.triviaFeedback) }))
       .filter(cat => cat.score > -10)
       .sort((a, b) => b.score - a.score);
 
