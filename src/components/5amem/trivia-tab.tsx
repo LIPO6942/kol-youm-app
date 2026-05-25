@@ -50,7 +50,8 @@ const TRIVIA_DATABASE: TriviaItem[] = [
     category: 'Culture',
     title: 'Le bleu et blanc de Sidi Bou Saïd',
     content: "Le village pittoresque de Sidi Bou Saïd doit ses fameuses couleurs bleu et blanc au baron Rodolphe d'Erlanger. En 1915, il a réussi à faire promulguer un décret protégeant le village et imposant ces couleurs emblématiques pour préserver son charme unique.",
-    imageUrl: 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Sidi_Bou_Sa%C3%AFd'
   },
   {
     id: 'didon-carthage',
@@ -65,189 +66,216 @@ const TRIVIA_DATABASE: TriviaItem[] = [
     category: 'Gastronomie',
     title: "L'or rouge tunisien : La Harissa",
     content: "En 2022, le savoir-faire traditionnel de la Harissa tunisienne a été inscrit au patrimoine culturel immatériel de l'UNESCO. Plus qu'un simple condiment, elle fait partie intégrante de l'identité culinaire tunisienne.",
-    imageUrl: 'https://images.unsplash.com/photo-1596797038530-2c107229654b?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1596797038530-2c107229654b?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Harissa'
   },
   {
     id: 'chott-jerid-mirages',
     category: 'Géographie',
     title: 'Le Chott el-Jérid et ses mirages',
     content: "Le Chott el-Jérid est le plus grand lac salé d'Afrique du Nord. En été, sous l'effet du soleil de plomb, l'évaporation du sel crée de spectaculaires mirages où l'on croit apercevoir des oasis ou des caravanes de chameaux au loin.",
-    imageUrl: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Chott_el-J%C3%A9rid'
   },
   {
     id: 'zitouna-university',
     category: 'Histoire',
     title: 'La Mosquée Zitouna, phare universitaire',
     content: "Fondée en 732, la Mosquée Zitouna de Tunis abrite l'une des plus anciennes universités du monde islamique. Elle a formé d'immenses savants, dont l'historien et sociologue Ibn Khaldoun.",
-    imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Mosqu%C3%A9e_Zitouna'
   },
   {
     id: 'kerkennah-charfia',
     category: 'Culture',
     title: "Les îles Kerkennah et la pêche à la 'Charfia'",
     content: "Les pêcheurs de Kerkennah utilisent la 'Charfia', une méthode de pêche fixe et écologique unique au monde. Faite de palmes de dattiers plantées dans la mer, elle guide les poissons vers des nasses sans épuiser les ressources marines.",
-    imageUrl: 'https://images.unsplash.com/photo-1511556532299-8f662fc26c06?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1511556532299-8f662fc26c06?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Charfia'
   },
   {
     id: 'bardo-mosaics',
     category: 'Art',
     title: 'Le Bardo et sa collection mondiale de mosaïques',
     content: "Le Musée national du Bardo possède la plus grande et la plus riche collection de mosaïques romaines au monde, retraçant des siècles d'histoire d'Afrique du Nord avec une précision artistique et une conservation époustouflante.",
-    imageUrl: 'https://images.unsplash.com/photo-1595152772835-219674b2a8a6?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1595152772835-219674b2a8a6?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Mus%C3%A9e_national_du_Bardo_(Tunisie)'
   },
   {
     id: 'tunisia-name-origin',
     category: 'Histoire',
     title: "L'origine du nom 'Tunisie'",
     content: "Le nom de la Tunisie provient de celui de sa capitale, Tunis. Ce terme dérive lui-même de la racine berbère 'ENS' ou 'TNS', qui signifie 'se coucher' ou 'passer la nuit', désignant à l'origine un lieu d'étape.",
-    imageUrl: 'https://images.unsplash.com/photo-1582268611958-ebfd161ff975?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1582268611958-ebfd161ff975?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Tunisie#%C3%89tymologie'
   },
   {
     id: 'chambi-summit',
     category: 'Géographie',
     title: 'Le Jebel Chambi, toit de la Tunisie',
     content: "Le Jebel Chambi est le point culminant de la Tunisie, s'élevant à 1 544 mètres d'altitude. Il fait partie de la chaîne de l'Atlas et abrite un parc national protégeant une faune rare comme le mouflon à manchettes.",
-    imageUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Djebel_Chambi'
   },
   {
     id: 'guellala-pottery',
     category: 'Culture',
     title: 'La poterie de Guellala à Djerba',
     content: "Le village de Guellala, sur l'île de Djerba, est célèbre pour sa poterie artisanale depuis l'Antiquité. Les potiers utilisent l'argile locale pour fabriquer la fameuse gargoulette servant à conserver l'eau fraîche.",
-    imageUrl: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Guellala'
   },
   {
     id: 'gabes-maritime-oasis',
     category: 'Géographie',
     title: 'Les oasis maritimes uniques de Gabès',
     content: "Gabès abrite les uniques oasis maritimes au monde. Les palmiers poussent littéralement au bord de la mer Méditerranée, créant un microclimat exceptionnel associant cultures maraîchères et paysages marins.",
-    imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Oasis_de_Gab%C3%A8s'
   },
   {
     id: 'douz-sahara-festival',
     category: 'Culture',
     title: 'Le festival de Douz, porte du désert',
     content: "Chaque année, la ville de Douz accueille le Festival international du Sahara. C'est la plus ancienne manifestation célébrant la culture nomade saharienne à travers des courses de dromadaires et des spectacles traditionnels.",
-    imageUrl: 'https://images.unsplash.com/photo-1539650116574-8efeb43e2750?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1539650116574-8efeb43e2750?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Festival_international_du_Sahara'
   },
   {
     id: 'dougga-romian-ruins',
     category: 'Histoire',
     title: 'Le site archéologique de Dougga',
     content: "Dougga est considérée comme la ville romaine la mieux conservée d'Afrique du Nord. Classé à l'UNESCO, ce site exceptionnel présente un capitole magnifique, des thermes et un théâtre offrant une vue panoramique sur la vallée.",
-    imageUrl: 'https://images.unsplash.com/photo-1503177119275-0aa32b3a9368?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1503177119275-0aa32b3a9368?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Dougga'
   },
   {
     id: 'placebo-effect',
     category: 'Science',
     title: "La puissance de l'effet placebo",
     content: "Le cerveau humain est capable d'auto-guérison. Des études cliniques montrent que la prise d'une pilule de sucre (placebo), présentée comme un médicament actif, déclenche la libération de dopamine et d'endorphines dans le cerveau, réduisant la douleur de manière mesurable.",
-    imageUrl: 'https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Effet_placebo'
   },
   {
     id: 'venus-day',
     category: 'Espace',
     title: "Une journée plus longue qu'une année",
     content: "Sur la planète Vénus, une seule journée (période de rotation sur elle-même) dure plus longtemps qu'une année entière (temps de révolution autour du Soleil). Il lui faut 243 jours terrestres pour faire un tour sur elle-même, mais seulement 225 jours pour faire le tour du Soleil !",
-    imageUrl: 'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/V%C3%A9nus_(plan%C3%A8te)'
   },
   {
     id: 'tulip-mania',
     category: 'Histoire',
     title: "La tulipomanie hollandaise",
     content: "Au XVIIe siècle en Hollande, les tulipes sont devenues si précieuses qu'elles ont provoqué la première bulle spéculative de l'histoire. À son apogée en 1637, un seul bulbe de la variété 'Semper Augustus' s'échangeait contre le prix d'une luxueuse maison de canal à Amsterdam !",
-    imageUrl: 'https://images.unsplash.com/photo-1520763185298-1b434c919102?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1520763185298-1b434c919102?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Tulipomanie'
   },
   {
     id: 'russia-timezones',
     category: 'Géographie',
     title: "Les 11 fuseaux horaires de la Russie",
     content: "La Russie est si vaste qu'elle s'étend sur 11 fuseaux horaires différents. Lorsqu'un habitant de Vladivostok (à l'extrême Est) commence sa matinée à 7h, un autre à Kaliningrad (à l'extrême Ouest) se couche à 20h la veille !",
-    imageUrl: 'https://images.unsplash.com/photo-1527608823999-73bca5483059?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1527608823999-73bca5483059?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Heure_en_Russie'
   },
   {
     id: 'wasabi-authenticity',
     category: 'Gastronomie',
     title: "Le vrai wasabi est extrêmement rare",
     content: "Près de 95% du wasabi servi dans les restaurants hors du Japon est faux ! C'est en fait du raifort coloré en vert avec de la moutarde. Le vrai wasabi est issu de la plante Wasabia japonica, difficile à cultiver, et doit être râpé frais sur de la peau de requin pour en libérer la saveur.",
-    imageUrl: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Wasabi'
   },
   {
     id: 'mona-lisa-sfumato',
     category: 'Art',
     title: "Le secret du sourire de Mona Lisa",
     content: "Le sourire mystérieux de la Joconde doit son réalisme à la technique du 'Sfumato'. Léonard de Vinci a superposé des dizaines de couches de peinture translucides presque invisibles, éliminant les contours pour imiter la vision humaine et créer une transition parfaite d'ombre et de lumière.",
-    imageUrl: 'https://images.unsplash.com/photo-1605721911519-3dfeb3be25e7?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1605721911519-3dfeb3be25e7?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Sfumato'
   },
   {
     id: 'flamingo-color',
     category: 'Science',
     title: "Le secret de la couleur des flamants",
     content: "À la naissance, les flamants roses sont gris ! Leur plumage devient rose ou rouge au fil du temps grâce à leur alimentation riche en bêta-carotène, présente dans les petites crevettes et les algues qu'ils filtrent dans l'eau. Sans cette alimentation, ils redeviendraient blancs.",
-    imageUrl: 'https://images.unsplash.com/photo-1506506497397-21532f27b94b?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1506506497397-21532f27b94b?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Flamant_rose'
   },
   {
     id: 'europa-ocean',
     category: 'Espace',
     title: "Europe, la lune océan",
     content: "Europe, l'une des lunes géantes de Jupiter, possède un océan d'eau liquide salée caché sous une croûte de glace de 20 km d'épaisseur. Cet océan contiendrait deux fois plus d'eau que tous les océans de la Terre réunis, et est l'un des endroits les plus propices à la recherche de vie extraterrestre.",
-    imageUrl: 'https://images.unsplash.com/photo-1614313913007-2b4ae8ce32d6?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1614313913007-2b4ae8ce32d6?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Europe_(lune)'
   },
   {
     id: 'eiffel-tower-summer',
     category: 'Culture',
     title: "La Tour Eiffel grandit en été",
     content: "En raison du phénomène physique de dilatation thermique, la Tour Eiffel peut grandir jusqu'à 15 centimètres pendant les fortes chaleurs estivales ! Le fer de sa structure se dilate sous l'effet du soleil, provoquant également une légère inclinaison de la tour à l'opposé du soleil.",
-    imageUrl: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Tour_Eiffel'
   },
   {
     id: 'ecce-homo-restoration',
     category: 'Art',
     title: "Le chef-d'œuvre restauré par erreur",
     content: "En 2012, Cecilia Giménez, une paroissienne octogénaire pleine de bonne volonté, a tenté de restaurer elle-même une fresque du Christ datant du XIXe siècle dans une église de Borja (Espagne). Le résultat hilarant, rebaptisé 'le singe du Christ', est devenu un phénomène internet mondial !",
-    imageUrl: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Ecce_Homo_(Garc%C3%ADa_Mart%C3%ADnez)'
   },
   {
     id: 'baikal-lake',
     category: 'Géographie',
     title: "Le géant d'eau douce : Le Lac Baïkal",
     content: "Situé en Sibérie, le lac Baïkal est le lac le plus profond (1 642 mètres) et le plus ancien du monde (25 millions d'années). Il abrite 20% de l'eau douce liquide non gelée de la planète. Plus de 80% des espèces animales qui y vivent n'existent nulle part ailleurs.",
-    imageUrl: 'https://images.unsplash.com/photo-1498855926480-d98e83099315?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1498855926480-d98e83099315?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Lac_Ba%C3%AFkal'
   },
   {
     id: 'robot-word-origin',
     category: 'Culture',
     title: "L'origine tchèque du mot Robot",
     content: "Le terme 'Robot' n'a pas été inventé par des ingénieurs, mais par l'écrivain tchèque Karel Čapek en 1920 dans sa pièce de théâtre R.U.R. Ce mot provient du terme slave 'robota', qui signifie 'travail forcé' ou 'corvée'.",
-    imageUrl: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Robot'
   },
   {
     id: 'northern-lights',
     category: 'Science',
     title: 'Les aurores boréales',
     content: "Les aurores boréales sont des lumières colorées qui apparaissent dans le ciel des régions proches du pôle magnétique, créées par l'interaction de particules solaires avec l'atmosphère.",
-    imageUrl: 'https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Aurore_polaire'
   },
   {
     id: 'machu-picchu',
     category: 'Géographie',
     title: 'Machu Picchu, la cité perdue des Incas',
     content: "Située au sommet des Andes péruviennes, Machu Picchu est une ancienne ville inca aujourd'hui classée au patrimoine mondial de l'UNESCO, connue pour ses terrasses et son architecture impressionnante.",
-    imageUrl: 'https://images.unsplash.com/photo-1523050854048-8b9e6c5ff4c2?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1523050854048-8b9e6c5ff4c2?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Machu_Picchu'
   },
   {
     id: 'sushi-art',
     category: 'Gastronomie',
     title: "L'art du sushi",
     content: "Le sushi, originaire du Japon, est bien plus qu'un simple plat : c'est un art culinaire où le riz vinaigré et les poissons frais sont manipulés avec précision pour créer des bouchées esthétiques et savoureuses.",
-    imageUrl: 'https://images.unsplash.com/photo-1562967916-eb82221dfb36?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1562967916-eb82221dfb36?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Sushi'
   },
   {
     id: 'great-barrier-reef',
     category: 'Géographie',
     title: 'La Grande Barrière de Corail',
     content: "Située au large de la côte est de l'Australie, la Grande Barrière de Corail est le plus grand système corallien du monde, abritant une biodiversité marine exceptionnelle.",
-    imageUrl: 'https://images.unsplash.com/photo-1518665785938-70c4a5c8e8e0?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1518665785938-70c4a5c8e8e0?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Grande_Barri%C3%A8re_de_corail'
   },
 ];
 
@@ -273,14 +301,28 @@ export default function TriviaTab() {
   // Recommendation engine: selects the next trivia card
   const selectNextTrivia = () => {
     const ratedIds = Array.from(feedbackMap.keys());
-    const unratedTrivia = TRIVIA_DATABASE.filter(item => !ratedIds.includes(item.id));
+    let seenIds: string[] = [];
+    try {
+      const stored = localStorage.getItem('kolyoum_trivia_seen');
+      if (stored) seenIds = JSON.parse(stored);
+    } catch(e) {}
+
+    const excludedIds = Array.from(new Set([...ratedIds, ...seenIds]));
+    let unratedTrivia = TRIVIA_DATABASE.filter(item => !excludedIds.includes(item.id));
 
     if (unratedTrivia.length === 0) {
-      // Fallback: If all are rated, just show a random one from the database
-      const randomItem = TRIVIA_DATABASE[Math.floor(Math.random() * TRIVIA_DATABASE.length)];
-      setCurrentTrivia(randomItem);
-      setUserRating(feedbackMap.get(randomItem.id) || null);
-      return;
+      // If all are seen, but maybe not rated, we reset the local seen history
+      seenIds = [];
+      localStorage.setItem('kolyoum_trivia_seen', '[]');
+      unratedTrivia = TRIVIA_DATABASE.filter(item => !ratedIds.includes(item.id));
+
+      if (unratedTrivia.length === 0) {
+        // Fallback: If all 32 items are literally rated, show a random one from the database
+        const randomItem = TRIVIA_DATABASE[Math.floor(Math.random() * TRIVIA_DATABASE.length)];
+        setCurrentTrivia(randomItem);
+        setUserRating(feedbackMap.get(randomItem.id) || null);
+        return;
+      }
     }
 
     // Calculate affinity for categories based on positive and negative feedback
@@ -297,32 +339,34 @@ export default function TriviaTab() {
       });
     }
 
+    let chosen: TriviaItem;
     // 30% serendipity: show a random unrated item to allow discovery of new categories
     const isSerendipity = Math.random() < 0.3;
     if (isSerendipity) {
-      const chosen = unratedTrivia[Math.floor(Math.random() * unratedTrivia.length)];
-      setCurrentTrivia(chosen);
-      setUserRating(null);
-      return;
+      chosen = unratedTrivia[Math.floor(Math.random() * unratedTrivia.length)];
+    } else {
+      // 70% affinity-based selection
+      const sortedUnrated = [...unratedTrivia].sort((a, b) => {
+        const affinityA = categoryAffinity[a.category] || 0;
+        const affinityB = categoryAffinity[b.category] || 0;
+        return affinityB - affinityA;
+      });
+
+      const topAffinity = categoryAffinity[sortedUnrated[0].category] || 0;
+      const candidates = sortedUnrated.filter(
+        item => (categoryAffinity[item.category] || 0) === topAffinity
+      );
+      chosen = candidates[Math.floor(Math.random() * candidates.length)];
     }
-
-    // 70% affinity-based selection
-    // Sort unrated trivia by category affinity (descending)
-    const sortedUnrated = [...unratedTrivia].sort((a, b) => {
-      const affinityA = categoryAffinity[a.category] || 0;
-      const affinityB = categoryAffinity[b.category] || 0;
-      return affinityB - affinityA;
-    });
-
-    // Pick the best match (highest category affinity), or random if tied
-    const topAffinity = categoryAffinity[sortedUnrated[0].category] || 0;
-    const candidates = sortedUnrated.filter(
-      item => (categoryAffinity[item.category] || 0) === topAffinity
-    );
-    const chosen = candidates[Math.floor(Math.random() * candidates.length)];
 
     setCurrentTrivia(chosen);
     setUserRating(null);
+
+    // Add to seenIds locally so it doesn't repeat within the session/days
+    seenIds.push(chosen.id);
+    try {
+      localStorage.setItem('kolyoum_trivia_seen', JSON.stringify(seenIds));
+    } catch(e) {}
   };
 
   // Initialize first trivia
