@@ -7,8 +7,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
-import { addTriviaFeedback, getCommunityTrivia, type TriviaFeedback } from '@/lib/firebase/firestore';
+import { addTriviaFeedback, type TriviaFeedback } from '@/lib/firebase/firestore';
 import { generateAndSaveTrivia } from '@/app/actions/generate-trivia';
+import { getCommunityTriviaAction } from '@/app/actions/get-community-trivia';
 import { useToast } from '@/hooks/use-toast';
 import { ThumbsUp, ThumbsDown, Meh, Sparkles, Lightbulb, RotateCcw, Loader2, BookOpen, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -42,7 +43,7 @@ export default function TriviaTab() {
   useEffect(() => {
     const fetchCommunityTrivia = async () => {
       try {
-        const dbTrivia = await getCommunityTrivia();
+        const dbTrivia = await getCommunityTriviaAction();
         setCommunityTrivia(dbTrivia);
       } finally {
         setIsLoadingDb(false);

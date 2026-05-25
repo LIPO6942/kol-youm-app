@@ -1,7 +1,7 @@
 'use server';
 
 import { generateTriviaFlow } from '@/ai/flows/generate-trivia-flow';
-import { addCommunityTrivia } from '@/lib/firebase/firestore';
+import { getAdminFirestore } from '@/lib/firebase/admin';
 
 export async function generateAndSaveTrivia() {
   try {
@@ -20,13 +20,19 @@ export async function generateAndSaveTrivia() {
     
     const randomImage = backgroundImages[Math.floor(Math.random() * backgroundImages.length)];
     
-    const savedTrivia = await addCommunityTrivia({
+    const db = getAdminFirestore();
+    const docRef = db.collection('trivia_ai_generated').doc();
+    const savedTrivia = {
+      id: docRef.id,
       title: aiTrivia.title,
       content: aiTrivia.content,
       category: aiTrivia.category,
       sourceUrl: aiTrivia.sourceUrl,
       imageUrl: randomImage,
-    });
+      createdAt: Date.now()
+    };
+    
+    await docRef.set(savedTrivia);
     
     return { success: true, trivia: savedTrivia };
   } catch (error) {
