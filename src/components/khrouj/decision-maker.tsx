@@ -2060,15 +2060,15 @@ export default function DecisionMaker() {
         <Collapsible className="space-y-2">
           <div className="flex flex-wrap justify-center items-center gap-2">
             <CollapsibleTrigger asChild>
-              <Button variant="ocean" className="h-10">
-                <Filter className="mr-2 h-4 w-4" />
-                <span className="hidden sm:inline">{getFilterButtonText()}</span>
-                <span className="sm:hidden">Zones</span>
+              <Button variant="default" className="h-10 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-md border-0">
+                <Filter className="mr-2 h-4 w-4 text-white" />
+                <span className="hidden sm:inline font-medium">{getFilterButtonText()}</span>
+                <span className="sm:hidden font-medium">Zones</span>
               </Button>
             </CollapsibleTrigger>
 
             <Select value={searchQuery} onValueChange={setSearchQuery}>
-              <SelectTrigger className="w-[180px] sm:w-[220px] h-10 bg-card/70 backdrop-blur-md border-primary/20 hover:border-primary/40 transition-colors">
+              <SelectTrigger className="w-[180px] sm:w-[220px] h-10 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md border-0 transition-all font-medium data-[state=open]:ring-2 data-[state=open]:ring-orange-400">
                 <SelectValue placeholder="Spécialité ?" />
               </SelectTrigger>
               <SelectContent>
@@ -2081,14 +2081,14 @@ export default function DecisionMaker() {
               </SelectContent>
             </Select>
 
-            <Button variant="outline" className="h-10 sm:gap-2" onClick={() => setView('stats')}>
-              <BarChart3 className="h-4 w-4 text-primary" />
-              <span className="hidden sm:inline">Mes Stats</span>
+            <Button variant="default" className="h-10 sm:gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-md border-0" onClick={() => setView('stats')}>
+              <BarChart3 className="h-4 w-4 text-white" />
+              <span className="hidden sm:inline font-medium">Mes Stats</span>
             </Button>
 
             {selectedZones.length > 0 && (
-              <Button variant="ghost" size="icon" className="h-10 w-10" onClick={handleClearZones}>
-                <X className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="h-10 w-10 text-red-500 hover:bg-red-500/20 hover:text-red-600 transition-colors" onClick={handleClearZones}>
+                <X className="h-5 w-5" />
               </Button>
             )}
           </div>
