@@ -29,7 +29,7 @@ Le format JSON doit être exactement celui-ci :
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "llama3-70b-8192", // Fast and capable model
+        model: "llama-3.3-70b-versatile", // Fast and capable model
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: "Génère une nouvelle anecdote surprenante." }
