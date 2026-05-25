@@ -75,6 +75,28 @@ const zones = [
   "Mutuelleville / Alain Savary", "El Manar"
 ];
 
+const AVAILABLE_SPECIALTIES = [
+  { label: "Pizza", emoji: "🍕" },
+  { label: "Burger", emoji: "🍔" },
+  { label: "Tacos", emoji: "🌮" },
+  { label: "Ma9loub", emoji: "🥙" },
+  { label: "Mlawi", emoji: "🌯" },
+  { label: "Chapati", emoji: "🥪" },
+  { label: "Kaffteji", emoji: "🥘" },
+  { label: "Lablebi", emoji: "🍲" },
+  { label: "Couscous", emoji: "🍚" },
+  { label: "Baguette Farcie", emoji: "🥖" },
+  { label: "Pasta", emoji: "🍝" },
+  { label: "Sushi", emoji: "🍣" },
+  { label: "Brunch", emoji: "🍳" },
+  { label: "Crêpe/Gaufre", emoji: "🥞" },
+  { label: "Glace/Dessert", emoji: "🍦" },
+  { label: "Libanais/Oriental", emoji: "🥙" },
+  { label: "Salade/Bowl", emoji: "🥗" },
+  { label: "Grillade", emoji: "🍖" },
+  { label: "Plat Tunisien", emoji: "🇹🇳" }
+];
+
 const LoadingAnimation = ({ category }: { category: { label: string, icon: LucideIcon } | undefined }) => {
   if (!category) return null;
   const Icon = category.icon;
@@ -111,6 +133,7 @@ export default function DecisionMaker() {
   const [seenSuggestions, setSeenSuggestions] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<(typeof outingOptions)[0] | undefined>(undefined);
   const [selectedZones, setSelectedZones] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [availableZones, setAvailableZones] = useState<string[]>(zones);
   const [view, setView] = useState<'search' | 'stats'>('search');
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -259,11 +282,23 @@ export default function DecisionMaker() {
 
       if (newPlaceNames.length > 0) {
         await updateUserProfile(user.uid, { seenKhroujSuggestions: updatedSeenSuggestions } as any);
+        toast({
+          title: "Suggestions prêtes !",
+          description: `L'IA a trouvé ${newPlaceNames.length} idées pour vous.`,
+        });
+      } else {
+        toast({
+          title: "Aucune nouveauté",
+          description: "L'IA n'a pas trouvé de nouveaux lieux, voici à nouveau nos recommandations.",
+        });
       }
-
-    } catch (error: any) {
-      handleAiError(error);
-      setSelectedCategory(undefined);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: "Impossible d'obtenir des suggestions de l'IA.",
+      });
+      console.error(error);
     } finally {
       setIsLoading(false);
     }
@@ -272,7 +307,7 @@ export default function DecisionMaker() {
   const handleCategorySelect = (category: (typeof outingOptions)[0]) => {
     setSeenSuggestions([]); // Reset session memory for the new category
     setSelectedCategory(category);
-    fetchSuggestions(category, selectedZones);
+    fetchSuggestions(category, selectedZones, searchQuery === "none" ? undefined : searchQuery);
   };
 
   // Deep Linking Logic
@@ -365,7 +400,7 @@ export default function DecisionMaker() {
 
   const handleRefresh = () => {
     if (selectedCategory) {
-      fetchSuggestions(selectedCategory, selectedZones);
+      fetchSuggestions(selectedCategory, selectedZones, searchQuery === "none" ? undefined : searchQuery);
     }
   }
 
@@ -2061,6 +2096,26 @@ export default function DecisionMaker() {
             </div>
           </CollapsibleContent>
         </Collapsible>
+
+        <div className="flex justify-center mb-2 animate-in fade-in-75 delay-150">
+          <Select
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+          >
+            <SelectTrigger className="w-[280px] bg-card/70 backdrop-blur-md border-primary/20 hover:border-primary/40 transition-colors">
+              <SelectValue placeholder="Envie d'une spécialité ? (Optionnel)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Toutes spécialités</SelectItem>
+              {AVAILABLE_SPECIALTIES.map(s => (
+                <SelectItem key={s.label} value={s.label}>
+                  {s.emoji} {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="grid gap-4 grid-cols-2 md:grid-cols-3">
           {outingOptions.filter(o => o.id !== 'cinema').map((option: (typeof outingOptions)[0]) => {
             const Icon = option.icon;

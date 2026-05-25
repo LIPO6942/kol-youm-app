@@ -60,6 +60,31 @@ export default function TriviaTab() {
     }
   }, [userProfile]);
 
+  const handleGenerateAI = useCallback(async () => {
+    setIsGenerating(true);
+    setGenerationError(null);
+    try {
+      const result = await generateAndSaveTrivia();
+      if (result.success && result.trivia) {
+        setCommunityTrivia(prev => [result.trivia!, ...prev]);
+        setCurrentTrivia(result.trivia);
+        setUserRating(null);
+        try {
+          const stored = localStorage.getItem('kolyoum_trivia_seen');
+          let seenIds: string[] = stored ? JSON.parse(stored) : [];
+          seenIds.push(result.trivia.id);
+          localStorage.setItem('kolyoum_trivia_seen', JSON.stringify(seenIds));
+        } catch(e) {}
+      } else {
+        setGenerationError(result.error || "Une erreur est survenue");
+      }
+    } catch(err) {
+      setGenerationError("Impossible de contacter l'IA.");
+    } finally {
+      setIsGenerating(false);
+    }
+  }, []);
+
   const selectNextTrivia = useCallback(() => {
     const ratedIds = Array.from(feedbackMap.keys());
     let seenIds: string[] = [];
@@ -77,13 +102,9 @@ export default function TriviaTab() {
       unratedTrivia = combinedDatabase.filter(item => !ratedIds.includes(item.id));
 
       if (unratedTrivia.length === 0) {
-        if (combinedDatabase.length === 0) {
-          setCurrentTrivia(null);
-          return;
-        }
-        const randomItem = combinedDatabase[Math.floor(Math.random() * combinedDatabase.length)];
-        setCurrentTrivia(randomItem);
-        setUserRating(feedbackMap.get(randomItem.id) || null);
+        // No unrated trivia left (or database is empty)
+        setCurrentTrivia(null);
+        handleGenerateAI();
         return;
       }
     }
@@ -123,7 +144,7 @@ export default function TriviaTab() {
     try {
       localStorage.setItem('kolyoum_trivia_seen', JSON.stringify(seenIds));
     } catch(e) {}
-  }, [feedbackMap, combinedDatabase, userProfile?.triviaFeedback]);
+  }, [feedbackMap, combinedDatabase, userProfile?.triviaFeedback, handleGenerateAI]);
 
   useEffect(() => {
     const linkedId = searchParams.get('id');
@@ -139,30 +160,7 @@ export default function TriviaTab() {
     }
   }, [searchParams, selectNextTrivia, currentTrivia, combinedDatabase]);
 
-  const handleGenerateAI = async () => {
-    setIsGenerating(true);
-    setGenerationError(null);
-    try {
-      const result = await generateAndSaveTrivia();
-      if (result.success && result.trivia) {
-        setCommunityTrivia(prev => [result.trivia!, ...prev]);
-        setCurrentTrivia(result.trivia);
-        setUserRating(null);
-        try {
-          const stored = localStorage.getItem('kolyoum_trivia_seen');
-          let seenIds: string[] = stored ? JSON.parse(stored) : [];
-          seenIds.push(result.trivia.id);
-          localStorage.setItem('kolyoum_trivia_seen', JSON.stringify(seenIds));
-        } catch(e) {}
-      } else {
-        setGenerationError(result.error || "Une erreur est survenue");
-      }
-    } catch(err) {
-      setGenerationError("Impossible de contacter l'IA.");
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+
 
   const handleFeedback = async (rating: TriviaFeedback['rating']) => {
     if (!user || !currentTrivia || isSubmitting) return;
@@ -230,10 +228,21 @@ export default function TriviaTab() {
       <div className="w-full max-w-2xl mx-auto space-y-4">
         <Card className="min-h-[300px] flex flex-col justify-center items-center text-center p-6 bg-card/60 backdrop-blur-xl border border-dashed border-indigo-200">
           <Sparkles className="h-12 w-12 text-indigo-400 mb-4 opacity-50" />
-          <h3 className="text-xl font-headline font-semibold mb-2">Aucune anecdote trouvée</h3>
-          <p className="text-muted-foreground mb-6 max-w-sm">
-            La base de données est encore vide. Soyez le premier à générer une anecdote pour la communauté !
-          </p>
+          {isGenerating ? (
+            <>
+              <h3 className="text-xl font-headline font-semibold mb-2">Génération en cours...</h3>
+              <p className="text-muted-foreground mb-6 max-w-sm">
+                L'IA fouille dans ses archives pour vous dénicher une pépite de culture générale !
+              </p>
+            </>
+          ) : (
+            <>
+              <h3 className="text-xl font-headline font-semibold mb-2">Aucune anecdote trouvée</h3>
+              <p className="text-muted-foreground mb-6 max-w-sm">
+                Vous avez lu toutes les anecdotes ! L'IA va en générer une nouvelle...
+              </p>
+            </>
+          )}
           
           <Button 
             onClick={handleGenerateAI} 
@@ -243,12 +252,12 @@ export default function TriviaTab() {
             {isGenerating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Génération en cours...
+                Génération...
               </>
             ) : (
               <>
                 <Sparkles className="mr-2 h-4 w-4" />
-                Générer la première anecdote ✨
+                Forcer la génération
               </>
             )}
           </Button>

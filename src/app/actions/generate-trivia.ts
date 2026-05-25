@@ -49,7 +49,7 @@ Le format JSON doit être exactement celui-ci :
     const contentText = data.choices[0].message.content;
     const aiTrivia = JSON.parse(contentText);
     
-    // Abstract aesthetic backgrounds
+    // Abstract aesthetic backgrounds fallback
     const backgroundImages = [
       'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=600&auto=format&fit=crop',
       'https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=600&auto=format&fit=crop',
@@ -60,7 +60,28 @@ Le format JSON doit être exactement celui-ci :
       'https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?w=600&auto=format&fit=crop',
     ];
     
-    const randomImage = backgroundImages[Math.floor(Math.random() * backgroundImages.length)];
+    let finalImageUrl = backgroundImages[Math.floor(Math.random() * backgroundImages.length)];
+    
+    // Tentative de récupération de la vraie image depuis Wikipédia
+    try {
+      if (aiTrivia.sourceUrl && aiTrivia.sourceUrl.includes('wikipedia.org/wiki/')) {
+        const title = aiTrivia.sourceUrl.split('/wiki/').pop();
+        if (title) {
+          const domainMatch = aiTrivia.sourceUrl.match(/https?:\/\/([a-z]{2,3})\.wikipedia\.org/);
+          const lang = domainMatch ? domainMatch[1] : 'fr';
+          
+          const wikiResponse = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${title}`);
+          if (wikiResponse.ok) {
+            const wikiData = await wikiResponse.json();
+            if (wikiData.thumbnail && wikiData.thumbnail.source) {
+              finalImageUrl = wikiData.thumbnail.source;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Erreur récupération image Wikipedia:", e);
+    }
     
     const db = getAdminFirestore();
     const docRef = db.collection('trivia_ai_generated').doc();
@@ -70,7 +91,7 @@ Le format JSON doit être exactement celui-ci :
       content: aiTrivia.content,
       category: aiTrivia.category,
       sourceUrl: aiTrivia.sourceUrl || '',
-      imageUrl: randomImage,
+      imageUrl: finalImageUrl,
       createdAt: Date.now()
     };
     
