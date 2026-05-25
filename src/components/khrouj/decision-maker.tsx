@@ -2062,18 +2062,21 @@ export default function DecisionMaker() {
   const firstName = userName ? userName.split(/[\s._-]/)[0] : '';
   const capitalizedName = firstName ? firstName.charAt(0).toUpperCase() + firstName.slice(1) : '';
 
-  const getSeasonalAdjective = () => {
+  const getSeasonalEmoji = () => {
     const month = new Date().getMonth();
-    if (month === 11 || month === 0 || month === 1) return "hivernale ❄️";
-    if (month >= 2 && month <= 4) return "printanière 🌸";
-    if (month >= 5 && month <= 7) return "estivale ☀️";
-    return "automnale 🍂";
+    if (month === 11 || month === 0 || month === 1) return "❄️";
+    if (month >= 2 && month <= 4) return "🌸";
+    if (month >= 5 && month <= 7) return "☀️";
+    return "🍂";
   };
 
-  const seasonalAdjective = getSeasonalAdjective();
+  const isFemale = userProfile?.gender === 'Femme';
+  const hesitatingWord = isFemale ? "Hésitante" : "Hésitant";
+  const seasonalEmoji = getSeasonalEmoji();
+
   const subtitleText = capitalizedName
-    ? `Tu hésites, ${capitalizedName} ? Laisse-nous choisir ta sortie ${seasonalAdjective}`
-    : `Tu hésites ? Laisse-nous choisir ta sortie ${seasonalAdjective}`;
+    ? `${hesitatingWord}, ${capitalizedName} ? Laisse-moi choisir ta sortie du jour ${seasonalEmoji}`
+    : `${hesitatingWord} ? Laisse-moi choisir ta sortie du jour ${seasonalEmoji}`;
 
   return (
     <div className="space-y-4">
