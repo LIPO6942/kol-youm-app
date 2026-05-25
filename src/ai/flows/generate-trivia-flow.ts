@@ -9,7 +9,7 @@ export const generateTriviaFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await ai.generate({
-      model: 'googleai/gemini-1.5-flash-latest',
+      model: 'googleai/gemini-1.5-flash',
       prompt: `Génère une anecdote insolite, amusante et surtout VÉRIDIQUE qui permet de "dormir moins bête".
 Choisis un sujet original et inattendu (par exemple : science étonnante, histoire méconnue, espace, particularités de la culture tunisienne, animaux, gastronomie).
 Évite absolument les anecdotes trop connues (comme "les carottes rendent aimable" ou "la grande muraille de Chine visible depuis l'espace"). Surprends-moi !
