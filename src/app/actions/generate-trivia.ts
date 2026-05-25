@@ -5,7 +5,7 @@ import { addCommunityTrivia } from '@/lib/firebase/firestore';
 
 export async function generateAndSaveTrivia() {
   try {
-    const aiTrivia = await generateTriviaFlow();
+    const aiTrivia = await generateTriviaFlow({});
     
     // Abstract aesthetic backgrounds since AI can't generate specific real images reliably
     const backgroundImages = [

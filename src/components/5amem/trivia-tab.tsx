@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import { addTriviaFeedback, getCommunityTrivia, type TriviaFeedback } from '@/lib/firebase/firestore';
@@ -22,264 +22,7 @@ type TriviaItem = {
   sourceUrl?: string;
 };
 
-const STATIC_TRIVIA_DATABASE: TriviaItem[] = [
-  {
-    id: 'jasmin-symbole',
-    category: 'Culture',
-    title: 'Le Jasmin, symbole de la Tunisie',
-    content: "Originaire de l'Himalaya, le jasmin a été introduit en Tunisie par les Andalous au XVIe siècle. Il est devenu le symbole du pays, particulièrement le 'machmoum', ce petit bouquet rond de fleurs de jasmin piquées sur des tiges d'alfa que les hommes portent traditionnellement sur l'oreille ou à la main en été.",
-    imageUrl: 'https://images.unsplash.com/photo-1590082728271-e9de68ba3ba3?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Jasmin'
-  },
-  {
-    id: 'kafteji-origin',
-    category: 'Gastronomie',
-    title: 'Le secret du Kafteji',
-    content: "Le terme 'Kafteji' vient du mot turc 'Köfteci', qui désigne un vendeur de boulettes (Köfte). Pourtant, le Kafteji tunisien ne contient pas de viande ! C'est un mélange savoureux de piments, tomates, citrouille et œufs, frits puis coupés finement à l'aide de deux couteaux.",
-    imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Kafteji'
-  },
-  {
-    id: 'el-jem-amphitheatre',
-    category: 'Histoire',
-    title: "L'Amphithéâtre d'El Jem",
-    content: "Plus grand que le Colisée de Rome dans certaines de ses dimensions, l'Amphithéâtre d'El Jem pouvait accueillir jusqu'à 35 000 spectateurs. Il a été construit par l'empereur Gordien au IIIe siècle et est l'un des monuments romains les mieux conservés au monde.",
-    imageUrl: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Amphith%C3%A9%C3%A2tre_d%27El_Jem'
-  },
-  {
-    id: 'sidi-bou-said-colors',
-    category: 'Culture',
-    title: 'Le bleu et blanc de Sidi Bou Saïd',
-    content: "Le village pittoresque de Sidi Bou Saïd doit ses fameuses couleurs bleu et blanc au baron Rodolphe d'Erlanger. En 1915, il a réussi à faire promulguer un décret protégeant le village et imposant ces couleurs emblématiques pour préserver son charme unique.",
-    imageUrl: 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Sidi_Bou_Sa%C3%AFd'
-  },
-  {
-    id: 'didon-carthage',
-    category: 'Histoire',
-    title: 'La reine Didon et la fondation de Carthage',
-    content: "Pour fonder Carthage, la reine Didon (Elyssa) a négocié avec un chef local la surface qu'elle pourrait couvrir avec la peau d'un bœuf. Rusée, elle découpa la peau en lanières extrêmement fines pour encercler toute la colline de Byrsa !",
-    imageUrl: 'https://images.unsplash.com/photo-1608501821300-4f99e58bba77?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Didon'
-  },
-  {
-    id: 'harissa-unesco',
-    category: 'Gastronomie',
-    title: "L'or rouge tunisien : La Harissa",
-    content: "En 2022, le savoir-faire traditionnel de la Harissa tunisienne a été inscrit au patrimoine culturel immatériel de l'UNESCO. Plus qu'un simple condiment, elle fait partie intégrante de l'identité culinaire tunisienne.",
-    imageUrl: 'https://images.unsplash.com/photo-1596797038530-2c107229654b?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Harissa'
-  },
-  {
-    id: 'chott-jerid-mirages',
-    category: 'Géographie',
-    title: 'Le Chott el-Jérid et ses mirages',
-    content: "Le Chott el-Jérid est le plus grand lac salé d'Afrique du Nord. En été, sous l'effet du soleil de plomb, l'évaporation du sel crée de spectaculaires mirages où l'on croit apercevoir des oasis ou des caravanes de chameaux au loin.",
-    imageUrl: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Chott_el-J%C3%A9rid'
-  },
-  {
-    id: 'zitouna-university',
-    category: 'Histoire',
-    title: 'La Mosquée Zitouna, phare universitaire',
-    content: "Fondée en 732, la Mosquée Zitouna de Tunis abrite l'une des plus anciennes universités du monde islamique. Elle a formé d'immenses savants, dont l'historien et sociologue Ibn Khaldoun.",
-    imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Mosqu%C3%A9e_Zitouna'
-  },
-  {
-    id: 'kerkennah-charfia',
-    category: 'Culture',
-    title: "Les îles Kerkennah et la pêche à la 'Charfia'",
-    content: "Les pêcheurs de Kerkennah utilisent la 'Charfia', une méthode de pêche fixe et écologique unique au monde. Faite de palmes de dattiers plantées dans la mer, elle guide les poissons vers des nasses sans épuiser les ressources marines.",
-    imageUrl: 'https://images.unsplash.com/photo-1511556532299-8f662fc26c06?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Charfia'
-  },
-  {
-    id: 'bardo-mosaics',
-    category: 'Art',
-    title: 'Le Bardo et sa collection mondiale de mosaïques',
-    content: "Le Musée national du Bardo possède la plus grande et la plus riche collection de mosaïques romaines au monde, retraçant des siècles d'histoire d'Afrique du Nord avec une précision artistique et une conservation époustouflante.",
-    imageUrl: 'https://images.unsplash.com/photo-1595152772835-219674b2a8a6?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Mus%C3%A9e_national_du_Bardo_(Tunisie)'
-  },
-  {
-    id: 'tunisia-name-origin',
-    category: 'Histoire',
-    title: "L'origine du nom 'Tunisie'",
-    content: "Le nom de la Tunisie provient de celui de sa capitale, Tunis. Ce terme dérive lui-même de la racine berbère 'ENS' ou 'TNS', qui signifie 'se coucher' ou 'passer la nuit', désignant à l'origine un lieu d'étape.",
-    imageUrl: 'https://images.unsplash.com/photo-1582268611958-ebfd161ff975?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Tunisie#%C3%89tymologie'
-  },
-  {
-    id: 'chambi-summit',
-    category: 'Géographie',
-    title: 'Le Jebel Chambi, toit de la Tunisie',
-    content: "Le Jebel Chambi est le point culminant de la Tunisie, s'élevant à 1 544 mètres d'altitude. Il fait partie de la chaîne de l'Atlas et abrite un parc national protégeant une faune rare comme le mouflon à manchettes.",
-    imageUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Djebel_Chambi'
-  },
-  {
-    id: 'guellala-pottery',
-    category: 'Culture',
-    title: 'La poterie de Guellala à Djerba',
-    content: "Le village de Guellala, sur l'île de Djerba, est célèbre pour sa poterie artisanale depuis l'Antiquité. Les potiers utilisent l'argile locale pour fabriquer la fameuse gargoulette servant à conserver l'eau fraîche.",
-    imageUrl: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Guellala'
-  },
-  {
-    id: 'gabes-maritime-oasis',
-    category: 'Géographie',
-    title: 'Les oasis maritimes uniques de Gabès',
-    content: "Gabès abrite les uniques oasis maritimes au monde. Les palmiers poussent littéralement au bord de la mer Méditerranée, créant un microclimat exceptionnel associant cultures maraîchères et paysages marins.",
-    imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Oasis_de_Gab%C3%A8s'
-  },
-  {
-    id: 'douz-sahara-festival',
-    category: 'Culture',
-    title: 'Le festival de Douz, porte du désert',
-    content: "Chaque année, la ville de Douz accueille le Festival international du Sahara. C'est la plus ancienne manifestation célébrant la culture nomade saharienne à travers des courses de dromadaires et des spectacles traditionnels.",
-    imageUrl: 'https://images.unsplash.com/photo-1539650116574-8efeb43e2750?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Festival_international_du_Sahara'
-  },
-  {
-    id: 'dougga-romian-ruins',
-    category: 'Histoire',
-    title: 'Le site archéologique de Dougga',
-    content: "Dougga est considérée comme la ville romaine la mieux conservée d'Afrique du Nord. Classé à l'UNESCO, ce site exceptionnel présente un capitole magnifique, des thermes et un théâtre offrant une vue panoramique sur la vallée.",
-    imageUrl: 'https://images.unsplash.com/photo-1503177119275-0aa32b3a9368?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Dougga'
-  },
-  {
-    id: 'placebo-effect',
-    category: 'Science',
-    title: "La puissance de l'effet placebo",
-    content: "Le cerveau humain est capable d'auto-guérison. Des études cliniques montrent que la prise d'une pilule de sucre (placebo), présentée comme un médicament actif, déclenche la libération de dopamine et d'endorphines dans le cerveau, réduisant la douleur de manière mesurable.",
-    imageUrl: 'https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Effet_placebo'
-  },
-  {
-    id: 'venus-day',
-    category: 'Espace',
-    title: "Une journée plus longue qu'une année",
-    content: "Sur la planète Vénus, une seule journée (période de rotation sur elle-même) dure plus longtemps qu'une année entière (temps de révolution autour du Soleil). Il lui faut 243 jours terrestres pour faire un tour sur elle-même, mais seulement 225 jours pour faire le tour du Soleil !",
-    imageUrl: 'https://images.unsplash.com/photo-1614728894747-a83421e2b9c9?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/V%C3%A9nus_(plan%C3%A8te)'
-  },
-  {
-    id: 'tulip-mania',
-    category: 'Histoire',
-    title: "La tulipomanie hollandaise",
-    content: "Au XVIIe siècle en Hollande, les tulipes sont devenues si précieuses qu'elles ont provoqué la première bulle spéculative de l'histoire. À son apogée en 1637, un seul bulbe de la variété 'Semper Augustus' s'échangeait contre le prix d'une luxueuse maison de canal à Amsterdam !",
-    imageUrl: 'https://images.unsplash.com/photo-1520763185298-1b434c919102?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Tulipomanie'
-  },
-  {
-    id: 'russia-timezones',
-    category: 'Géographie',
-    title: "Les 11 fuseaux horaires de la Russie",
-    content: "La Russie est si vaste qu'elle s'étend sur 11 fuseaux horaires différents. Lorsqu'un habitant de Vladivostok (à l'extrême Est) commence sa matinée à 7h, un autre à Kaliningrad (à l'extrême Ouest) se couche à 20h la veille !",
-    imageUrl: 'https://images.unsplash.com/photo-1527608823999-73bca5483059?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Heure_en_Russie'
-  },
-  {
-    id: 'wasabi-authenticity',
-    category: 'Gastronomie',
-    title: "Le vrai wasabi est extrêmement rare",
-    content: "Près de 95% du wasabi servi dans les restaurants hors du Japon est faux ! C'est en fait du raifort coloré en vert avec de la moutarde. Le vrai wasabi est issu de la plante Wasabia japonica, difficile à cultiver, et doit être râpé frais sur de la peau de requin pour en libérer la saveur.",
-    imageUrl: 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Wasabi'
-  },
-  {
-    id: 'mona-lisa-sfumato',
-    category: 'Art',
-    title: "Le secret du sourire de Mona Lisa",
-    content: "Le sourire mystérieux de la Joconde doit son réalisme à la technique du 'Sfumato'. Léonard de Vinci a superposé des dizaines de couches de peinture translucides presque invisibles, éliminant les contours pour imiter la vision humaine et créer une transition parfaite d'ombre et de lumière.",
-    imageUrl: 'https://images.unsplash.com/photo-1605721911519-3dfeb3be25e7?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Sfumato'
-  },
-  {
-    id: 'flamingo-color',
-    category: 'Science',
-    title: "Le secret de la couleur des flamants",
-    content: "À la naissance, les flamants roses sont gris ! Leur plumage devient rose ou rouge au fil du temps grâce à leur alimentation riche en bêta-carotène, présente dans les petites crevettes et les algues qu'ils filtrent dans l'eau. Sans cette alimentation, ils redeviendraient blancs.",
-    imageUrl: 'https://images.unsplash.com/photo-1506506497397-21532f27b94b?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Flamant_rose'
-  },
-  {
-    id: 'europa-ocean',
-    category: 'Espace',
-    title: "Europe, la lune océan",
-    content: "Europe, l'une des lunes géantes de Jupiter, possède un océan d'eau liquide salée caché sous une croûte de glace de 20 km d'épaisseur. Cet océan contiendrait deux fois plus d'eau que tous les océans de la Terre réunis, et est l'un des endroits les plus propices à la recherche de vie extraterrestre.",
-    imageUrl: 'https://images.unsplash.com/photo-1614313913007-2b4ae8ce32d6?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Europe_(lune)'
-  },
-  {
-    id: 'eiffel-tower-summer',
-    category: 'Culture',
-    title: "La Tour Eiffel grandit en été",
-    content: "En raison du phénomène physique de dilatation thermique, la Tour Eiffel peut grandir jusqu'à 15 centimètres pendant les fortes chaleurs estivales ! Le fer de sa structure se dilate sous l'effet du soleil, provoquant également une légère inclinaison de la tour à l'opposé du soleil.",
-    imageUrl: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Tour_Eiffel'
-  },
-  {
-    id: 'ecce-homo-restoration',
-    category: 'Art',
-    title: "Le chef-d'œuvre restauré par erreur",
-    content: "En 2012, Cecilia Giménez, une paroissienne octogénaire pleine de bonne volonté, a tenté de restaurer elle-même une fresque du Christ datant du XIXe siècle dans une église de Borja (Espagne). Le résultat hilarant, rebaptisé 'le singe du Christ', est devenu un phénomène internet mondial !",
-    imageUrl: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Ecce_Homo_(Garc%C3%ADa_Mart%C3%ADnez)'
-  },
-  {
-    id: 'baikal-lake',
-    category: 'Géographie',
-    title: "Le géant d'eau douce : Le Lac Baïkal",
-    content: "Situé en Sibérie, le lac Baïkal est le lac le plus profond (1 642 mètres) et le plus ancien du monde (25 millions d'années). Il abrite 20% de l'eau douce liquide non gelée de la planète. Plus de 80% des espèces animales qui y vivent n'existent nulle part ailleurs.",
-    imageUrl: 'https://images.unsplash.com/photo-1498855926480-d98e83099315?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Lac_Ba%C3%AFkal'
-  },
-  {
-    id: 'robot-word-origin',
-    category: 'Culture',
-    title: "L'origine tchèque du mot Robot",
-    content: "Le terme 'Robot' n'a pas été inventé par des ingénieurs, mais par l'écrivain tchèque Karel Čapek en 1920 dans sa pièce de théâtre R.U.R. Ce mot provient du terme slave 'robota', qui signifie 'travail forcé' ou 'corvée'.",
-    imageUrl: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Robot'
-  },
-  {
-    id: 'northern-lights',
-    category: 'Science',
-    title: 'Les aurores boréales',
-    content: "Les aurores boréales sont des lumières colorées qui apparaissent dans le ciel des régions proches du pôle magnétique, créées par l'interaction de particules solaires avec l'atmosphère.",
-    imageUrl: 'https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Aurore_polaire'
-  },
-  {
-    id: 'machu-picchu',
-    category: 'Géographie',
-    title: 'Machu Picchu, la cité perdue des Incas',
-    content: "Située au sommet des Andes péruviennes, Machu Picchu est une ancienne ville inca aujourd'hui classée au patrimoine mondial de l'UNESCO, connue pour ses terrasses et son architecture impressionnante.",
-    imageUrl: 'https://images.unsplash.com/photo-1523050854048-8b9e6c5ff4c2?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Machu_Picchu'
-  },
-  {
-    id: 'sushi-art',
-    category: 'Gastronomie',
-    title: "L'art du sushi",
-    content: "Le sushi, originaire du Japon, est bien plus qu'un simple plat : c'est un art culinaire où le riz vinaigré et les poissons frais sont manipulés avec précision pour créer des bouchées esthétiques et savoureuses.",
-    imageUrl: 'https://images.unsplash.com/photo-1562967916-eb82221dfb36?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Sushi'
-  },
-  {
-    id: 'great-barrier-reef',
-    category: 'Géographie',
-    title: 'La Grande Barrière de Corail',
-    content: "Située au large de la côte est de l'Australie, la Grande Barrière de Corail est le plus grand système corallien du monde, abritant une biodiversité marine exceptionnelle.",
-    imageUrl: 'https://images.unsplash.com/photo-1518665785938-70c4a5c8e8e0?w=600&auto=format&fit=crop',
-    sourceUrl: 'https://fr.wikipedia.org/wiki/Grande_Barri%C3%A8re_de_corail'
-  },
-];
+const STATIC_TRIVIA_DATABASE: TriviaItem[] = [];
 
 export default function TriviaTab() {
   const searchParams = useSearchParams();
@@ -287,6 +30,7 @@ export default function TriviaTab() {
   const { toast } = useToast();
   const [currentTrivia, setCurrentTrivia] = useState<TriviaItem | null>(null);
   const [communityTrivia, setCommunityTrivia] = useState<TriviaItem[]>([]);
+  const [isLoadingDb, setIsLoadingDb] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -297,8 +41,12 @@ export default function TriviaTab() {
 
   useEffect(() => {
     const fetchCommunityTrivia = async () => {
-      const dbTrivia = await getCommunityTrivia();
-      setCommunityTrivia(dbTrivia);
+      try {
+        const dbTrivia = await getCommunityTrivia();
+        setCommunityTrivia(dbTrivia);
+      } finally {
+        setIsLoadingDb(false);
+      }
     };
     fetchCommunityTrivia();
   }, []);
@@ -328,6 +76,10 @@ export default function TriviaTab() {
       unratedTrivia = combinedDatabase.filter(item => !ratedIds.includes(item.id));
 
       if (unratedTrivia.length === 0) {
+        if (combinedDatabase.length === 0) {
+          setCurrentTrivia(null);
+          return;
+        }
         const randomItem = combinedDatabase[Math.floor(Math.random() * combinedDatabase.length)];
         setCurrentTrivia(randomItem);
         setUserRating(feedbackMap.get(randomItem.id) || null);
@@ -461,14 +213,50 @@ export default function TriviaTab() {
   };
 
   const ratedCount = feedbackMap.size;
-  const progressPercent = Math.min(100, Math.round((ratedCount / combinedDatabase.length) * 100));
+  const progressPercent = combinedDatabase.length > 0 ? Math.min(100, Math.round((ratedCount / combinedDatabase.length) * 100)) : 0;
+
+  if (isLoadingDb) {
+    return (
+      <Card className="max-w-2xl mx-auto min-h-[400px] flex flex-col justify-center items-center bg-card/60 backdrop-blur-xl border-dashed">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="mt-4 text-lg text-muted-foreground">Chargement des anecdotes...</p>
+      </Card>
+    );
+  }
 
   if (!currentTrivia) {
     return (
-      <Card className="max-w-2xl mx-auto min-h-[400px] flex flex-col justify-center items-center">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-muted-foreground">Préparation de l'anecdote...</p>
-      </Card>
+      <div className="w-full max-w-2xl mx-auto space-y-4">
+        <Card className="min-h-[300px] flex flex-col justify-center items-center text-center p-6 bg-card/60 backdrop-blur-xl border border-dashed border-indigo-200">
+          <Sparkles className="h-12 w-12 text-indigo-400 mb-4 opacity-50" />
+          <h3 className="text-xl font-headline font-semibold mb-2">Aucune anecdote trouvée</h3>
+          <p className="text-muted-foreground mb-6 max-w-sm">
+            La base de données est encore vide. Soyez le premier à générer une anecdote pour la communauté !
+          </p>
+          
+          <Button 
+            onClick={handleGenerateAI} 
+            disabled={isGenerating}
+            className="rounded-full shadow-lg bg-indigo-600 hover:bg-indigo-700 text-white"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Génération en cours...
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Générer la première anecdote ✨
+              </>
+            )}
+          </Button>
+
+          {generationError && (
+            <p className="text-sm text-red-500 mt-4">{generationError}</p>
+          )}
+        </Card>
+      </div>
     );
   }
 
@@ -490,7 +278,6 @@ export default function TriviaTab() {
         <span className="text-muted-foreground text-xs">{progressPercent}% complété</span>
       </div>
 
-      {/* AI Generation Button */}
       <div className="flex justify-center mb-6">
         <Button 
           onClick={handleGenerateAI} 
@@ -527,7 +314,6 @@ export default function TriviaTab() {
           exit={{ opacity: 0, x: -20, scale: 0.95 }}
           transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
         >
-          {/* Main Glassmorphic Card */}
           <Card className="relative overflow-hidden border bg-card/60 backdrop-blur-xl shadow-xl transition-all duration-300 hover:shadow-2xl">
             <div className="absolute top-0 right-0 p-4 opacity-5">
               <Lightbulb className="h-48 w-48 text-primary" />
@@ -552,7 +338,6 @@ export default function TriviaTab() {
             </CardHeader>
 
             <CardContent className="space-y-4 pb-6">
-              {/* Custom Illustration */}
               <div className="relative w-full h-44 sm:h-52 rounded-xl overflow-hidden border bg-black/40 flex items-center justify-center">
                 <Image
                   src={currentTrivia.imageUrl || 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=600&auto=format&fit=crop'}
@@ -634,8 +419,7 @@ export default function TriviaTab() {
                 </Button>
               </div>
 
-              {/* Skip / Next button when already rated */}
-              {ratedCount === combinedDatabase.length && (
+              {ratedCount === combinedDatabase.length && combinedDatabase.length > 0 && (
                 <Button
                   variant="ghost"
                   onClick={selectNextTrivia}
