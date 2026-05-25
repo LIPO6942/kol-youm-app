@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,22 +17,33 @@ type TriviaItem = {
   title: string;
   content: string;
   imageUrl: string;
+  sourceUrl?: string;
 };
 
 const TRIVIA_DATABASE: TriviaItem[] = [
+  {
+    id: 'jasmin-symbole',
+    category: 'Culture',
+    title: 'Le Jasmin, symbole de la Tunisie',
+    content: "Originaire de l'Himalaya, le jasmin a été introduit en Tunisie par les Andalous au XVIe siècle. Il est devenu le symbole du pays, particulièrement le 'machmoum', ce petit bouquet rond de fleurs de jasmin piquées sur des tiges d'alfa que les hommes portent traditionnellement sur l'oreille ou à la main en été.",
+    imageUrl: 'https://images.unsplash.com/photo-1590082728271-e9de68ba3ba3?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Jasmin'
+  },
   {
     id: 'kafteji-origin',
     category: 'Gastronomie',
     title: 'Le secret du Kafteji',
     content: "Le terme 'Kafteji' vient du mot turc 'Köfteci', qui désigne un vendeur de boulettes (Köfte). Pourtant, le Kafteji tunisien ne contient pas de viande ! C'est un mélange savoureux de piments, tomates, citrouille et œufs, frits puis coupés finement à l'aide de deux couteaux.",
-    imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Kafteji'
   },
   {
     id: 'el-jem-amphitheatre',
     category: 'Histoire',
     title: "L'Amphithéâtre d'El Jem",
     content: "Plus grand que le Colisée de Rome dans certaines de ses dimensions, l'Amphithéâtre d'El Jem pouvait accueillir jusqu'à 35 000 spectateurs. Il a été construit par l'empereur Gordien au IIIe siècle et est l'un des monuments romains les mieux conservés au monde.",
-    imageUrl: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Amphith%C3%A9%C3%A2tre_d%27El_Jem'
   },
   {
     id: 'sidi-bou-said-colors',
@@ -45,7 +57,8 @@ const TRIVIA_DATABASE: TriviaItem[] = [
     category: 'Histoire',
     title: 'La reine Didon et la fondation de Carthage',
     content: "Pour fonder Carthage, la reine Didon (Elyssa) a négocié avec un chef local la surface qu'elle pourrait couvrir avec la peau d'un bœuf. Rusée, elle découpa la peau en lanières extrêmement fines pour encercler toute la colline de Byrsa !",
-    imageUrl: 'https://images.unsplash.com/photo-1608501821300-4f99e58bba77?w=600&auto=format&fit=crop'
+    imageUrl: 'https://images.unsplash.com/photo-1608501821300-4f99e58bba77?w=600&auto=format&fit=crop',
+    sourceUrl: 'https://fr.wikipedia.org/wiki/Didon'
   },
   {
     id: 'harissa-unesco',
@@ -239,6 +252,8 @@ const TRIVIA_DATABASE: TriviaItem[] = [
 ];
 
 export default function TriviaTab() {
+  const searchParams = useSearchParams();
+  const urlId = searchParams.get('id');
   const { user, userProfile } = useAuth();
   const { toast } = useToast();
   const [currentTrivia, setCurrentTrivia] = useState<TriviaItem | null>(null);
@@ -313,10 +328,18 @@ export default function TriviaTab() {
   // Initialize first trivia
   useEffect(() => {
     if (TRIVIA_DATABASE.length > 0 && !currentTrivia) {
+      if (urlId) {
+        const specificTrivia = TRIVIA_DATABASE.find(t => t.id === urlId);
+        if (specificTrivia) {
+          setCurrentTrivia(specificTrivia);
+          setUserRating(feedbackMap.get(specificTrivia.id) || null);
+          return;
+        }
+      }
       selectNextTrivia();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [feedbackMap, currentTrivia]);
+  }, [feedbackMap, currentTrivia, urlId]);
 
   const handleFeedback = async (rating: TriviaFeedback['rating']) => {
     if (!user || !currentTrivia || isSubmitting) return;
@@ -444,6 +467,20 @@ export default function TriviaTab() {
           <p className="text-card-foreground/90 text-sm sm:text-base leading-relaxed font-normal">
             {currentTrivia.content}
           </p>
+
+          {currentTrivia.sourceUrl && (
+            <div className="pt-2">
+              <a 
+                href={currentTrivia.sourceUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-medium underline-offset-4 hover:underline transition-colors"
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                Lire davantage sur Wikipedia
+              </a>
+            </div>
+          )}
         </CardContent>
 
         <CardFooter className="flex flex-col gap-4 border-t pt-4 bg-muted/10">

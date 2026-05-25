@@ -47,42 +47,42 @@ const NOTIFICATION_MESSAGES = [
     {
         title: '🧠 Dormir moins bête : Le secret du Kafteji',
         body: "Pourquoi ce plat mythique s'appelle-t-il ainsi ? Découvre son histoire insolite et teste tes connaissances sur 5amem ! 🇹🇳",
-        link: '/5amem?tab=trivia',
+        link: '/5amem?tab=trivia&id=kafteji-origin',
     },
     {
         title: '🏛️ Le saviez-vous ? (Culture Tunisienne)',
         body: "Quelle ville de Tunisie abrite le plus grand amphithéâtre romain d'Afrique ? Viens répondre dans le Quiz de 5amem !",
-        link: '/5amem?tab=trivia',
+        link: '/5amem?tab=trivia&id=el-jem-amphitheatre',
     },
     {
         title: '🌸 Pourquoi le Jasmin est notre symbole ?',
         body: "D'où vient cette tradition parfumée en Tunisie ? Découvre l'anecdote historique ce soir sur 5amem !",
-        link: '/5amem?tab=trivia',
+        link: '/5amem?tab=trivia&id=jasmin-symbole',
     },
     {
         title: '🏺 Une ruse légendaire à Carthage...',
         body: "Sais-tu comment la reine Didon a fondé Carthage avec une simple peau de bœuf ? Viens faire le quiz 5amem !",
-        link: '/5amem?tab=trivia',
+        link: '/5amem?tab=trivia&id=didon-carthage',
     },
     {
         title: '🥖 Énigme du dimanche : Devine le mot !',
         body: "\"Je commence par M, croustillant, beurré, adoré au petit-déj en Tunisie.\" Entre ta réponse dans le jeu Talla3 !",
-        link: '/5amem?tab=trivia',
+        link: '/5amem?tab=talla3',
     },
     {
         title: '🌌 Pourquoi le ciel est-il bleu ?',
         body: "Ce n'est pas le reflet de la mer ! Viens découvrir la vraie explication scientifique dans le Quiz de ce dimanche.",
-        link: '/5amem?tab=trivia',
+        link: '/5amem?tab=quiz',
     },
     {
         title: '🧠 Gym des neurones avant lundi !',
         body: "Recharge tes batteries cérébrales avec le Quiz Quotidien. 10 questions pour démarrer la semaine au top !",
-        link: '/5amem?tab=trivia',
+        link: '/5amem?tab=quiz',
     },
     {
         title: '🏆 Défi Talla3 : Es-tu à la hauteur ?',
         body: "Remets les éléments dans le bon ordre en moins de 15 secondes. Viens tester tes réflexes sur 5amem !",
-        link: '/5amem?tab=trivia',
+        link: '/5amem?tab=talla3',
     },
     // --- KHROUJ (Sorties/Restos) ---
     {
