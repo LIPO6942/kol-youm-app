@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,6 +56,38 @@ const handleAiError = (error: any, toast: any) => {
 
 export default function DailyQuiz() {
   const { user, userProfile, updateUserProfile } = useAuth();
+
+  const sortedCategories = useMemo(() => {
+    const quizToTriviaCategoryMap: Record<string, string[]> = {
+      'Culture Générale': ['Culture'],
+      'Cinéma & Séries': ['Art', 'Culture'],
+      'Musique': ['Art', 'Culture'],
+      'Histoire & Mythologies': ['Histoire', 'Géographie'],
+      'Sciences & Découvertes': ['Science', 'Espace'],
+      'Art & Littérature': ['Art']
+    };
+
+    const getQuizCategoryAffinity = (quizCatId: string) => {
+      let score = 0;
+      const mappedTriviaCats = quizToTriviaCategoryMap[quizCatId] || [];
+      if (userProfile?.triviaFeedback) {
+        userProfile.triviaFeedback.forEach(fb => {
+          if (fb.category && mappedTriviaCats.includes(fb.category)) {
+            if (fb.rating === 'interessant') score += 5;
+            else if (fb.rating === 'pas_interessant') score -= 5;
+          }
+        });
+      }
+      return score;
+    };
+
+    const sorted = quizCategories
+      .map(cat => ({ ...cat, score: getQuizCategoryAffinity(cat.id) }))
+      .filter(cat => cat.score > -10)
+      .sort((a, b) => b.score - a.score);
+
+    return sorted.length > 0 ? sorted : quizCategories;
+  }, [userProfile?.triviaFeedback]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [quizData, setQuizData] = useState<QuizData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -181,7 +213,7 @@ export default function DailyQuiz() {
           </div>
         </div>
         <CardContent className="grid gap-4 grid-cols-2 md:grid-cols-3 pt-6">
-          {quizCategories.map((cat) => (
+          {sortedCategories.map((cat) => (
             <div key={cat.id} className="flex flex-col rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer" onClick={() => handleCategorySelect(cat.id)}>
               <CardHeader className="items-center text-center p-4">
                 <div className="p-3 bg-primary/10 rounded-full mb-2">

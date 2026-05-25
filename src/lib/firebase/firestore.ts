@@ -51,6 +51,7 @@ export type TriviaFeedback = {
     triviaId: string;
     rating: 'interessant' | 'pas_interessant' | 'mi_interessant';
     timestamp: number;
+    category?: string;
 };
 
 export type SeenMovie = {

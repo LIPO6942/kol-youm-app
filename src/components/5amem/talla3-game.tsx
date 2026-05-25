@@ -58,8 +58,48 @@ export default function Talla3Game() {
     setError(null);
     try {
       const seenTalla3Challenges = userProfile?.seenTalla3Challenges || [];
-      const data = await generateTalla3Challenges({ count: 5, seenTalla3Challenges });
-      setChallenges(data.challenges);
+      // Fetch more challenges to have a good pool for sorting
+      const data = await generateTalla3Challenges({ count: 12, seenTalla3Challenges });
+      
+      // Calculate category affinity
+      const talla3ToTriviaCategoryMap: Record<string, string[]> = {
+        'Histoire': ['Histoire'],
+        'Sciences': ['Science', 'Espace'],
+        'Cinéma': ['Art', 'Culture'],
+        'Géographie': ['Géographie'],
+        'Technologie': ['Science'],
+        'Art': ['Art'],
+        'Sports': ['Culture'],
+        'Littérature': ['Art'],
+        'Musique': ['Art', 'Culture']
+      };
+
+      const getTalla3CategoryAffinity = (talla3Cat: string) => {
+        let score = 0;
+        const mappedTriviaCats = talla3ToTriviaCategoryMap[talla3Cat] || [];
+        if (userProfile?.triviaFeedback) {
+          userProfile.triviaFeedback.forEach(fb => {
+            if (fb.category && mappedTriviaCats.includes(fb.category)) {
+              if (fb.rating === 'interessant') score += 5;
+              else if (fb.rating === 'pas_interessant') score -= 5;
+            }
+          });
+        }
+        return score;
+      };
+
+      // Sort fetched challenges by affinity and filter out highly disliked ones (score <= -10)
+      const sortedChallenges = data.challenges
+        .map(c => ({ ...c, score: getTalla3CategoryAffinity(c.category || '') }))
+        .filter(c => c.score > -10)
+        .sort((a, b) => b.score - a.score);
+
+      // Take the top 5 challenges (or fallback to original if list is empty)
+      const finalChallenges = sortedChallenges.length > 0 
+        ? sortedChallenges.slice(0, 5) 
+        : data.challenges.slice(0, 5);
+
+      setChallenges(finalChallenges.map(({ score, ...rest }) => rest as any));
       setCurrentChallengeIndex(0);
     } catch (e: any) {
       handleAiError(e, toast);
@@ -67,8 +107,7 @@ export default function Talla3Game() {
     } finally {
       setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast]);
+  }, [toast, userProfile?.seenTalla3Challenges, userProfile?.triviaFeedback]);
   
   useEffect(() => {
     fetchChallenges();

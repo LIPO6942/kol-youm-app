@@ -35,7 +35,8 @@ const getSeasonalBackground = () => {
     return {
       url: '/images/khrouj/winter.png',
       label: 'Hiver ❄️',
-      borderColor: 'border-blue-400/50 shadow-blue-500/20'
+      borderColor: 'border-blue-400/50 shadow-blue-500/20',
+      titleGradient: 'from-blue-600 via-indigo-500 to-cyan-500 dark:from-blue-400 dark:via-indigo-300 dark:to-cyan-300'
     };
   }
   // Spring: Mar (2), Apr (3), May (4)
@@ -43,7 +44,8 @@ const getSeasonalBackground = () => {
     return {
       url: '/images/khrouj/spring.png',
       label: 'Printemps 🌸',
-      borderColor: 'border-pink-400/50 shadow-pink-500/20'
+      borderColor: 'border-pink-400/50 shadow-pink-500/20',
+      titleGradient: 'from-pink-600 via-purple-500 to-rose-500 dark:from-pink-400 dark:via-purple-300 dark:to-rose-300'
     };
   }
   // Summer: Jun (5), Jul (6), Aug (7)
@@ -51,14 +53,16 @@ const getSeasonalBackground = () => {
     return {
       url: '/images/khrouj/summer.png',
       label: 'Été ☀️',
-      borderColor: 'border-yellow-400/50 shadow-yellow-500/20'
+      borderColor: 'border-yellow-400/50 shadow-yellow-500/20',
+      titleGradient: 'from-amber-500 via-orange-500 to-yellow-500 dark:from-yellow-400 dark:via-amber-300 dark:to-orange-400'
     };
   }
   // Autumn: Sep (8), Oct (9), Nov (10)
   return {
     url: '/images/khrouj/autumn.png',
     label: 'Automne 🍂',
-    borderColor: 'border-orange-500/50 shadow-orange-500/20'
+    borderColor: 'border-orange-500/50 shadow-orange-500/20',
+    titleGradient: 'from-orange-600 via-amber-600 to-red-500 dark:from-orange-400 dark:via-amber-400 dark:to-red-400'
   };
 };
 
@@ -1951,11 +1955,23 @@ export default function DecisionMaker() {
 
   if (view === 'stats') {
     return (
-      <Card className="max-w-2xl mx-auto">
-        <CardContent className="p-3 sm:p-6">
-          <StatsDashboard />
-        </CardContent>
-      </Card>
+      <div className="space-y-4 animate-in fade-in-50">
+        <div className="flex items-center gap-4 max-w-2xl mx-auto">
+          <Button variant="outline" size="icon" onClick={() => setView('search')}>
+            <ArrowLeft className="h-4 w-4" />
+            <span className="sr-only">Retour</span>
+          </Button>
+          <div>
+            <h2 className="text-2xl font-bold font-headline tracking-tight">Mes Statistiques Sorties</h2>
+            <p className="text-muted-foreground text-sm">Visualise tes pépites préférées et tes habitudes de sortie.</p>
+          </div>
+        </div>
+        <Card className="max-w-2xl mx-auto">
+          <CardContent className="p-3 sm:p-6">
+            <StatsDashboard />
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -2043,169 +2059,183 @@ export default function DecisionMaker() {
   const seasonalBg = getSeasonalBackground();
 
   return (
-    <Card className={`relative overflow-hidden border ${seasonalBg.borderColor} shadow-lg max-w-2xl mx-auto animate-in fade-in-50`}>
-      {/* Cinematic Tunisian Seasonal Outing Background with Dynamic Fade Overlay */}
-      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-75 transform scale-105 transition-all duration-1000 ease-in-out"
-          style={{ backgroundImage: `url('${seasonalBg.url}')` }}
-        />
-        {/* Soft card linear gradient to fade and blend into the active light/dark theme */}
-        <div className="absolute inset-0 bg-gradient-to-b from-card/85 via-card/15 to-card/90" />
+    <div className="space-y-4">
+      <div className="animate-in fade-in-50 duration-500">
+        <h2 className={cn(
+          "text-3xl font-extrabold font-headline tracking-tight bg-clip-text text-transparent bg-gradient-to-r",
+          seasonalBg.titleGradient
+        )}>
+          Décide pour moi !
+        </h2>
+        <p className="text-muted-foreground text-sm sm:text-base mt-1">
+          Tu hésites ? Laisse-nous choisir ta prochaine sortie à Tunis ({seasonalBg.label}).
+        </p>
       </div>
 
-      <CardHeader className="relative z-10 text-center pb-3 pt-4">
-        <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-2 backdrop-blur-sm animate-pulse mx-auto">
-          <span>Ambiance : {seasonalBg.label}</span>
+      <Card className={`relative overflow-hidden border ${seasonalBg.borderColor} shadow-lg max-w-2xl mx-auto animate-in fade-in-50`}>
+        {/* Cinematic Tunisian Seasonal Outing Background with Dynamic Fade Overlay */}
+        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+          <div
+            className="absolute inset-0 bg-cover bg-center opacity-75 transform scale-105 transition-all duration-1000 ease-in-out"
+            style={{ backgroundImage: `url('${seasonalBg.url}')` }}
+          />
+          {/* Soft card linear gradient to fade and blend into the active light/dark theme */}
+          <div className="absolute inset-0 bg-gradient-to-b from-card/85 via-card/15 to-card/90" />
         </div>
-        <CardTitle className="font-headline text-2xl mb-1">Quelle est votre envie ?</CardTitle>
-      </CardHeader>
-      <CardContent className="relative z-10 space-y-3 pb-4">
-        <Collapsible className="space-y-2">
-          <div className="flex flex-wrap justify-center items-center gap-2">
-            <CollapsibleTrigger asChild>
-              <Button variant="default" className="h-10 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-md border-0">
-                <Filter className="mr-2 h-4 w-4 text-white" />
-                <span className="hidden sm:inline font-medium">{getFilterButtonText()}</span>
-                <span className="sm:hidden font-medium">Zones</span>
-              </Button>
-            </CollapsibleTrigger>
 
-            <Select value={searchQuery} onValueChange={setSearchQuery}>
-              <SelectTrigger className="w-[180px] sm:w-[220px] h-10 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md border-0 transition-all font-medium data-[state=open]:ring-2 data-[state=open]:ring-orange-400">
-                <SelectValue placeholder="Spécialité ?" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Toutes spécialités</SelectItem>
-                {AVAILABLE_SPECIALTIES.map(s => (
-                  <SelectItem key={s.label} value={s.label}>
-                    {s.emoji} {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Button variant="default" className="h-10 sm:gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-md border-0" onClick={() => setView('stats')}>
-              <BarChart3 className="h-4 w-4 text-white" />
-              <span className="hidden sm:inline font-medium">Mes Stats</span>
-            </Button>
-
-            {selectedZones.length > 0 && (
-              <Button variant="ghost" size="icon" className="h-10 w-10 text-red-500 hover:bg-red-500/20 hover:text-red-600 transition-colors" onClick={handleClearZones}>
-                <X className="h-5 w-5" />
-              </Button>
-            )}
+        <CardHeader className="relative z-10 text-center pb-3 pt-4">
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-2 backdrop-blur-sm animate-pulse mx-auto">
+            <span>Ambiance : {seasonalBg.label}</span>
           </div>
-          
-          <CollapsibleContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 border rounded-md bg-card/65 backdrop-blur-md">
-              {availableZones.map((zone: string) => (
-                <div key={zone} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={zone}
-                    checked={selectedZones.includes(zone)}
-                    onCheckedChange={(checked: boolean | 'indeterminate') => handleZoneChange(zone, !!checked)}
-                  />
-                  <Label
-                    htmlFor={zone}
-                    className="text-sm font-normal cursor-pointer"
-                  >
-                    {zone}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-3">
-          {outingOptions.filter(o => o.id !== 'cinema').map((option: (typeof outingOptions)[0]) => {
-            const Icon = option.icon;
-            
-            // Map categories to high-end frosted glass variants of their respective accent colors
-            let glassBg = "bg-primary/5 hover:bg-primary/10 border-primary/20";
-            let textColor = option.colorClass;
-            
-            switch (option.id) {
-              case 'fast-food':
-                glassBg = "bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/20 hover:border-orange-500/30";
-                textColor = "text-orange-600 dark:text-orange-400";
-                break;
-              case 'cafe':
-                glassBg = "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/20 hover:border-amber-500/30";
-                textColor = "text-amber-600 dark:text-amber-400";
-                break;
-              case 'brunch':
-                glassBg = "bg-yellow-500/10 hover:bg-yellow-500/20 border-yellow-500/20 hover:border-yellow-500/30";
-                textColor = "text-yellow-600 dark:text-yellow-400";
-                break;
-              case 'restaurant':
-                glassBg = "bg-red-500/10 hover:bg-red-500/20 border-red-500/20 hover:border-red-500/30";
-                textColor = "text-red-600 dark:text-red-400";
-                break;
-              case 'balade':
-                glassBg = "bg-green-500/10 hover:bg-green-500/20 border-green-500/20 hover:border-green-500/30";
-                textColor = "text-green-600 dark:text-green-400";
-                break;
-              case 'shopping':
-                glassBg = "bg-pink-500/10 hover:bg-pink-500/20 border-pink-500/20 hover:border-pink-500/30";
-                textColor = "text-pink-600 dark:text-pink-400";
-                break;
-            }
-
-            return (
-              <div
-                key={option.id}
-                onClick={() => handleCategorySelect(option)}
-                className={cn(
-                  "group flex flex-col items-center justify-center rounded-2xl border-2 p-5 text-card-foreground shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer space-y-2 backdrop-blur-md",
-                  glassBg
-                )}
-              >
-                <Icon className={cn("h-8 w-8 mb-1 transition-transform duration-300 group-hover:scale-110", textColor)} />
-                <h3 className={cn("text-md font-bold transition-colors duration-300", textColor)}>{option.label}</h3>
-                <p className="text-xs text-center text-muted-foreground/90 font-medium">{option.description}</p>
-              </div>
-            )
-          })}
-        </div>
-      </CardContent>
-
-      <Dialog open={!!pendingVisit} onOpenChange={(open) => !open && setPendingVisit(null)}>
-        <DialogContent className="sm:max-w-md rounded-3xl">
-          <DialogHeader className="items-center text-center">
-            <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mb-4 animate-bounce">
-              <MapPin className="h-8 w-8 text-primary" />
-            </div>
-            <DialogTitle className="text-2xl font-black font-headline tracking-tight">Où avez-vous mangé ?</DialogTitle>
-            <DialogDescription className="text-base font-medium">
-              Le lieu <span className="text-primary font-bold">"{pendingVisit?.placeName}"</span> appartient à plusieurs catégories. Choisissez celle qui convient pour cette sortie :
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-3 py-4">
-            {pendingVisit?.possibleCategories?.map((catLabel) => {
-              const option = outingOptions.find(o => o.label === catLabel) || outingOptions[0];
-              const Icon = option.icon;
-              return (
-                <Button
-                  key={catLabel}
-                  variant="outline"
-                  className={cn(
-                    "flex flex-col items-center justify-center h-28 gap-2 rounded-2xl border-2 transition-all duration-300 hover:scale-105 active:scale-95",
-                    option.bgClass,
-                    option.hoverClass,
-                    "border-muted hover:border-primary/50"
-                  )}
-                  onClick={() => resolvePendingVisit(catLabel)}
-                >
-                  <Icon className={cn("h-7 w-7", option.colorClass)} />
-                  <span className={cn("font-bold text-sm", option.colorClass)}>{catLabel}</span>
+          <CardTitle className="font-headline text-2xl mb-1">Quelle est votre envie ?</CardTitle>
+        </CardHeader>
+        <CardContent className="relative z-10 space-y-3 pb-4">
+          <Collapsible className="space-y-2">
+            <div className="flex flex-wrap justify-center items-center gap-2">
+              <CollapsibleTrigger asChild>
+                <Button variant="default" className="h-10 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-md border-0">
+                  <Filter className="mr-2 h-4 w-4 text-white" />
+                  <span className="hidden sm:inline font-medium">{getFilterButtonText()}</span>
+                  <span className="sm:hidden font-medium">Zones</span>
                 </Button>
-              );
+              </CollapsibleTrigger>
+
+              <Select value={searchQuery} onValueChange={setSearchQuery}>
+                <SelectTrigger className="w-[180px] sm:w-[220px] h-10 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md border-0 transition-all font-medium data-[state=open]:ring-2 data-[state=open]:ring-orange-400">
+                  <SelectValue placeholder="Spécialité ?" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Toutes spécialités</SelectItem>
+                  {AVAILABLE_SPECIALTIES.map(s => (
+                    <SelectItem key={s.label} value={s.label}>
+                      {s.emoji} {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button variant="default" className="h-10 sm:gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-md border-0" onClick={() => setView('stats')}>
+                <BarChart3 className="h-4 w-4 text-white" />
+                <span className="hidden sm:inline font-medium">Mes Stats</span>
+              </Button>
+
+              {selectedZones.length > 0 && (
+                <Button variant="ghost" size="icon" className="h-10 w-10 text-red-500 hover:bg-red-500/20 hover:text-red-600 transition-colors" onClick={handleClearZones}>
+                  <X className="h-5 w-5" />
+                </Button>
+              )}
+            </div>
+            
+            <CollapsibleContent>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 border rounded-md bg-card/65 backdrop-blur-md">
+                {availableZones.map((zone: string) => (
+                  <div key={zone} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={zone}
+                      checked={selectedZones.includes(zone)}
+                      onCheckedChange={(checked: boolean | 'indeterminate') => handleZoneChange(zone, !!checked)}
+                    />
+                    <Label
+                      htmlFor={zone}
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      {zone}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-3">
+            {outingOptions.filter(o => o.id !== 'cinema').map((option: (typeof outingOptions)[0]) => {
+              const Icon = option.icon;
+              
+              // Map categories to high-end frosted glass variants of their respective accent colors
+              let glassBg = "bg-primary/5 hover:bg-primary/10 border-primary/20";
+              let textColor = option.colorClass;
+              
+              switch (option.id) {
+                case 'fast-food':
+                  glassBg = "bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/20 hover:border-orange-500/30";
+                  textColor = "text-orange-600 dark:text-orange-400";
+                  break;
+                case 'cafe':
+                  glassBg = "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/20 hover:border-amber-500/30";
+                  textColor = "text-amber-600 dark:text-amber-400";
+                  break;
+                case 'brunch':
+                  glassBg = "bg-yellow-500/10 hover:bg-yellow-500/20 border-yellow-500/20 hover:border-yellow-500/30";
+                  textColor = "text-yellow-600 dark:text-yellow-400";
+                  break;
+                case 'restaurant':
+                  glassBg = "bg-red-500/10 hover:bg-red-500/20 border-red-500/20 hover:border-red-500/30";
+                  textColor = "text-red-600 dark:text-red-400";
+                  break;
+                case 'balade':
+                  glassBg = "bg-green-500/10 hover:bg-green-500/20 border-green-500/20 hover:border-green-500/30";
+                  textColor = "text-green-600 dark:text-green-400";
+                  break;
+                case 'shopping':
+                  glassBg = "bg-pink-500/10 hover:bg-pink-500/20 border-pink-500/20 hover:border-pink-500/30";
+                  textColor = "text-pink-600 dark:text-pink-400";
+                  break;
+              }
+
+              return (
+                <div
+                  key={option.id}
+                  onClick={() => handleCategorySelect(option)}
+                  className={cn(
+                    "group flex flex-col items-center justify-center rounded-2xl border-2 p-5 text-card-foreground shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer space-y-2 backdrop-blur-md",
+                    glassBg
+                  )}
+                >
+                  <Icon className={cn("h-8 w-8 mb-1 transition-transform duration-300 group-hover:scale-110", textColor)} />
+                  <h3 className={cn("text-md font-bold transition-colors duration-300", textColor)}>{option.label}</h3>
+                  <p className="text-xs text-center text-muted-foreground/90 font-medium">{option.description}</p>
+                </div>
+              )
             })}
           </div>
-        </DialogContent>
-      </Dialog>
-    </Card>
+        </CardContent>
+
+        <Dialog open={!!pendingVisit} onOpenChange={(open) => !open && setPendingVisit(null)}>
+          <DialogContent className="sm:max-w-md rounded-3xl">
+            <DialogHeader className="items-center text-center">
+              <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mb-4 animate-bounce">
+                <MapPin className="h-8 w-8 text-primary" />
+              </div>
+              <DialogTitle className="text-2xl font-black font-headline tracking-tight">Où avez-vous mangé ?</DialogTitle>
+              <DialogDescription className="text-base font-medium">
+                Le lieu <span className="text-primary font-bold">"{pendingVisit?.placeName}"</span> appartient à plusieurs catégories. Choisissez celle qui convient pour cette sortie :
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-2 gap-3 py-4">
+              {pendingVisit?.possibleCategories?.map((catLabel) => {
+                const option = outingOptions.find(o => o.label === catLabel) || outingOptions[0];
+                const Icon = option.icon;
+                return (
+                  <Button
+                    key={catLabel}
+                    variant="outline"
+                    className={cn(
+                      "flex flex-col items-center justify-center h-28 gap-2 rounded-2xl border-2 transition-all duration-300 hover:scale-105 active:scale-95",
+                      option.bgClass,
+                      option.hoverClass,
+                      "border-muted hover:border-primary/50"
+                    )}
+                    onClick={() => resolvePendingVisit(catLabel)}
+                  >
+                    <Icon className={cn("h-7 w-7", option.colorClass)} />
+                    <span className={cn("font-bold text-sm", option.colorClass)}>{catLabel}</span>
+                  </Button>
+                );
+              })}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </Card>
+    </div>
   );
 }

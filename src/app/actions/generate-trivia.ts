@@ -2,7 +2,7 @@
 
 import { getAdminFirestore } from '@/lib/firebase/admin';
 
-export async function generateAndSaveTrivia() {
+export async function generateAndSaveTrivia(preferredCategories?: string[], dislikedCategories?: string[]) {
   try {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
@@ -22,6 +22,14 @@ Le format JSON doit être exactement celui-ci :
   "sourceUrl": "Un lien Wikipédia valide"
 }`;
 
+    let userPrompt = "Génère une nouvelle anecdote surprenante.";
+    if (preferredCategories && preferredCategories.length > 0) {
+      userPrompt += ` Choisis de préférence un sujet lié à l'une de ces catégories : ${preferredCategories.join(', ')}.`;
+    }
+    if (dislikedCategories && dislikedCategories.length > 0) {
+      userPrompt += ` N'écris absolument PAS d'anecdote sur les catégories suivantes : ${dislikedCategories.join(', ')}.`;
+    }
+
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -32,7 +40,7 @@ Le format JSON doit être exactement celui-ci :
         model: "llama-3.3-70b-versatile", // Fast and capable model
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: "Génère une nouvelle anecdote surprenante." }
+          { role: "user", content: userPrompt }
         ],
         temperature: 0.9,
         response_format: { type: "json_object" }

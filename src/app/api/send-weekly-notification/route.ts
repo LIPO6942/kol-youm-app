@@ -47,22 +47,22 @@ const NOTIFICATION_MESSAGES = [
     {
         title: '🧠 Dormir moins bête : Le secret du Kafteji',
         body: "Pourquoi ce plat mythique s'appelle-t-il ainsi ? Découvre son histoire insolite et teste tes connaissances sur 5amem ! 🇹🇳",
-        link: '/5amem?tab=trivia&id=kafteji-origin',
+        link: '/5amem?tab=trivia&id=kafteji-origin&sundayNotification=true',
     },
     {
         title: '🏛️ Le saviez-vous ? (Culture Tunisienne)',
         body: "Quelle ville de Tunisie abrite le plus grand amphithéâtre romain d'Afrique ? Viens répondre dans le Quiz de 5amem !",
-        link: '/5amem?tab=trivia&id=el-jem-amphitheatre',
+        link: '/5amem?tab=trivia&id=el-jem-amphitheatre&sundayNotification=true',
     },
     {
         title: '🌸 Pourquoi le Jasmin est notre symbole ?',
         body: "D'où vient cette tradition parfumée en Tunisie ? Découvre l'anecdote historique ce soir sur 5amem !",
-        link: '/5amem?tab=trivia&id=jasmin-symbole',
+        link: '/5amem?tab=trivia&id=jasmin-symbole&sundayNotification=true',
     },
     {
         title: '🏺 Une ruse légendaire à Carthage...',
         body: "Sais-tu comment la reine Didon a fondé Carthage avec une simple peau de bœuf ? Viens faire le quiz 5amem !",
-        link: '/5amem?tab=trivia&id=didon-carthage',
+        link: '/5amem?tab=trivia&id=didon-carthage&sundayNotification=true',
     },
     {
         title: '🥖 Énigme du dimanche : Devine le mot !',
