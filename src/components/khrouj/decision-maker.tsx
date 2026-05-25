@@ -2050,15 +2050,14 @@ export default function DecisionMaker() {
         <div className="absolute inset-0 bg-gradient-to-b from-card/85 via-card/15 to-card/90" />
       </div>
 
-      <CardHeader className="relative z-10 text-center pb-7">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-3 backdrop-blur-sm animate-pulse mx-auto">
+      <CardHeader className="relative z-10 text-center pb-3 pt-4">
+        <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary mb-2 backdrop-blur-sm animate-pulse mx-auto">
           <span>Ambiance : {seasonalBg.label}</span>
         </div>
-        <CardTitle className="font-headline text-3xl mb-2">Quelle est votre envie ?</CardTitle>
-        <CardDescription>Cliquez sur une catégorie et laissez la magie opérer.</CardDescription>
+        <CardTitle className="font-headline text-2xl mb-1">Quelle est votre envie ?</CardTitle>
       </CardHeader>
-      <CardContent className="relative z-10 space-y-6">
-        <Collapsible className="space-y-4">
+      <CardContent className="relative z-10 space-y-3 pb-4">
+        <Collapsible className="space-y-2">
           <div className="flex flex-wrap justify-center items-center gap-2">
             <CollapsibleTrigger asChild>
               <Button variant="ocean" className="h-10">
