@@ -13,7 +13,7 @@ import { Check, ChevronsUpDown, Trophy, RotateCcw, Loader2, ServerCrash, Timer }
 import { generateTalla3Challenges } from '@/ai/flows/generate-talla3-challenge-flow-fixed';
 import type { Talla3Challenge } from '@/ai/flows/generate-talla3-challenge-flow.types';
 
-const TIMER_DURATION = 15;
+const TIMER_DURATION = 20;
 
 const handleAiError = (error: any, toast: any) => {
     const errorMessage = String(error.message || '');
@@ -187,15 +187,22 @@ export default function Talla3Game() {
   }, [timeLeft, gameState, isLoading, currentChallenge, handleCheckAnswer]);
 
 
-  const handleNextChallenge = () => {
-    const nextIndex = currentChallengeIndex + 1;
-    if (nextIndex >= challenges.length) {
-        // fetch new challenges when list is exhausted
-        fetchChallenges();
-    } else {
-        setCurrentChallengeIndex(nextIndex);
-    }
-  };
+  
+
+const handleNextChallenge = () => {
+  // Si le jeu est encore en cours, on vérifie d'abord la réponse avant de changer de défi
+  if (gameState === 'playing') {
+    handleCheckAnswer();
+    return;
+  }
+  const nextIndex = currentChallengeIndex + 1;
+  if (nextIndex >= challenges.length) {
+    // fetch new challenges when list is exhausted
+    fetchChallenges();
+  } else {
+    setCurrentChallengeIndex(nextIndex);
+  }
+};
   
   const handleRestartThisChallenge = () => {
     startChallenge(currentChallenge);
