@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import confetti from 'canvas-confetti';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -1899,7 +1900,123 @@ export default function DecisionMaker() {
     );
   };
 
+  const triggerFireworks = () => {
+    const duration = 5 * 1000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+
+    const randomInRange = (min: number, max: number) => {
+      return Math.random() * (max - min) + min;
+    };
+
+    const interval: any = setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+      confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } } as any);
+      confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } } as any);
+    }, 250);
+  };
+
+  const triggerCategoryAnimation = (emojis: string[]) => {
+    const duration = 3 * 1000;
+    const end = Date.now() + duration;
+
+    const interval: any = setInterval(() => {
+      if (Date.now() > end) {
+        return clearInterval(interval);
+      }
+
+      confetti({
+        spread: 360,
+        ticks: 60,
+        gravity: 0.8,
+        decay: 0.94,
+        startVelocity: 30,
+        zIndex: 9999,
+        particleCount: 15,
+        scalar: 2.5,
+        shapes: ['text'],
+        shapeOptions: {
+          text: {
+            value: emojis
+          }
+        },
+        origin: {
+          x: Math.random(),
+          y: Math.random() - 0.2
+        }
+      } as any);
+    }, 200);
+  };
+
   const StatsDashboard = () => {
+    const [historyOpen, setHistoryOpen] = useState(false);
+
+    useEffect(() => {
+      if (!historyOpen) return;
+
+      const total = stats.total;
+      const cafeCount = stats.byCategory['Café'] || 0;
+      const restauCount = stats.byCategory['Restaurant'] || 0;
+      const brunchCount = stats.byCategory['Brunch'] || 0;
+
+      let delay = 200;
+
+      if (total > 0 && total % 100 === 0) {
+        setTimeout(() => {
+          triggerFireworks();
+          toast({
+            title: "🎉 Palier historique atteint !",
+            description: `Incroyable ! Vous avez visité ${total} lieux au total !`,
+            className: "bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white font-bold border-none",
+          });
+        }, delay);
+        delay += 2500;
+      }
+
+      if (cafeCount > 0 && cafeCount % 50 === 0) {
+        setTimeout(() => {
+          triggerCategoryAnimation(['☕', '🥐', '🍪', '🍩', '🥤', '🍰']);
+          toast({
+            title: "☕ Palier Café atteint !",
+            description: `Vous avez atteint ${cafeCount} cafés visités !`,
+            className: "bg-amber-100 dark:bg-amber-900 border border-amber-500 text-amber-900 dark:text-amber-100 font-semibold",
+          });
+        }, delay);
+        delay += 2500;
+      }
+
+      if (restauCount > 0 && restauCount % 50 === 0) {
+        setTimeout(() => {
+          triggerCategoryAnimation(['🍕', '🍔', '🍟', '🍝', '🌮', '🥗', '🍣', '🍜', '🍽️', '🍗']);
+          toast({
+            title: "🍕 Palier Restaurant atteint !",
+            description: `Vous avez atteint ${restauCount} restaurants visités !`,
+            className: "bg-red-100 dark:bg-red-900 border border-red-500 text-red-900 dark:text-red-100 font-semibold",
+          });
+        }, delay);
+        delay += 2500;
+      }
+
+      if (brunchCount > 0 && brunchCount % 50 === 0) {
+        setTimeout(() => {
+          triggerCategoryAnimation(['🥞', '🍳', '🧇', '🥓', '🥑', '🍞', '☕', '🍓', '🍊']);
+          toast({
+            title: "🥞 Palier Brunch atteint !",
+            description: `Vous avez atteint ${brunchCount} brunchs visités !`,
+            className: "bg-yellow-100 dark:bg-yellow-900 border border-yellow-500 text-yellow-900 dark:text-yellow-100 font-semibold",
+          });
+        }, delay);
+      }
+    }, [historyOpen]);
+
+    const totalHasMilestone = stats.total > 0 && stats.total % 100 === 0;
+
     return (
       <div className="space-y-6 animate-in fade-in-50">
         <div className="space-y-4">
@@ -1919,10 +2036,16 @@ export default function DecisionMaker() {
 
         {/* Global Overview Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-          <Dialog>
+          <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
             <DialogTrigger asChild>
-              <Card className="bg-primary/5 border-primary/20 group hover:border-primary/40 transition-all duration-300 cursor-pointer">
-                <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+              <Card className={cn(
+                "bg-primary/5 border-primary/20 group hover:border-primary/40 transition-all duration-300 cursor-pointer relative",
+                totalHasMilestone && "border-primary/60 shadow-lg shadow-primary/20"
+              )}>
+                <CardContent className="p-4 flex flex-col items-center justify-center text-center relative">
+                  {totalHasMilestone && (
+                    <span className="absolute top-1 right-1 text-xs animate-bounce">🎉</span>
+                  )}
                   <span className="text-3xl font-bold text-primary group-hover:scale-110 transition-transform duration-300">{stats.total}</span>
                   <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Total</span>
                 </CardContent>
@@ -1945,20 +2068,45 @@ export default function DecisionMaker() {
           {/* Location Dialog */}
           <ZoneExplorationDialog />
 
-          {outingOptions.slice(0, 4).map(opt => (
-            <Card key={opt.id} className={cn(
-              "transition-all duration-300 cursor-default border group",
-              opt.bgClass,
-              opt.hoverClass,
-              "hover:shadow-md hover:-translate-y-1"
-            )}>
-              <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                <opt.icon className={cn("h-6 w-6 mb-2 group-hover:scale-110 transition-transform duration-300", opt.colorClass)} />
-                <span className={cn("text-xl font-bold", opt.colorClass)}>{stats.byCategory[opt.label] || 0}</span>
-                <span className="text-[10px] text-muted-foreground font-medium">{opt.label}s</span>
-              </CardContent>
-            </Card>
-          ))}
+          {outingOptions.slice(0, 4).map(opt => {
+            const count = stats.byCategory[opt.label] || 0;
+            const hasMilestone = count > 0 && count % 50 === 0;
+
+            return (
+              <Card 
+                key={opt.id} 
+                className={cn(
+                  "transition-all duration-300 border group",
+                  hasMilestone ? "cursor-pointer border-primary/40 animate-pulse shadow-md shadow-primary/5" : "cursor-default",
+                  opt.bgClass,
+                  opt.hoverClass,
+                  "hover:shadow-md hover:-translate-y-1"
+                )}
+                onClick={() => {
+                  if (hasMilestone) {
+                    if (opt.label === 'Café') {
+                      triggerCategoryAnimation(['☕', '🥐', '🍪', '🍩', '🥤', '🍰']);
+                    } else if (opt.label === 'Restaurant') {
+                      triggerCategoryAnimation(['🍕', '🍔', '🍟', '🍝', '🌮', '🥗', '🍣', '🍜', '🍽️', '🍗']);
+                    } else if (opt.label === 'Brunch') {
+                      triggerCategoryAnimation(['🥞', '🍳', '🧇', '🥓', '🥑', '🍞', '☕', '🍓', '🍊']);
+                    } else {
+                      triggerCategoryAnimation(['🎉', '✨', '🥳', '🎈', '⭐']);
+                    }
+                  }
+                }}
+              >
+                <CardContent className="p-4 flex flex-col items-center justify-center text-center relative">
+                  {hasMilestone && (
+                    <span className="absolute top-1 right-1 text-xs animate-bounce">🎉</span>
+                  )}
+                  <opt.icon className={cn("h-6 w-6 mb-2 group-hover:scale-110 transition-transform duration-300", opt.colorClass)} />
+                  <span className={cn("text-xl font-bold", opt.colorClass)}>{count}</span>
+                  <span className="text-[10px] text-muted-foreground font-medium">{opt.label}s</span>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Top Places */}
