@@ -537,7 +537,8 @@ export default function DecisionMaker() {
       // Specialty stats logic - Only count for Restaurant, Brunch, and Fast Food
       if (['Restaurant', 'Brunch', 'Fast Food'].includes(v.category)) {
         if (v.orderedItem) {
-          processSpecialty(v.orderedItem);
+          const items = v.orderedItem.split(',').map(s => s.trim()).filter(Boolean);
+          items.forEach(item => processSpecialty(item));
         } else {
           // Fallback: If no dish was recorded, check the place's known specialties
           const placeData = allPlaces.find(p => p.name === v.placeName);
@@ -603,6 +604,10 @@ export default function DecisionMaker() {
     const [selectedCat, setSelectedCat] = useState("Café");
     const [searchQuery, setSearchQuery] = useState("");
     const [orderedItem, setOrderedItem] = useState("");
+    const [orderedItem2, setOrderedItem2] = useState("");
+    const [orderedItem3, setOrderedItem3] = useState("");
+    const [showSecondCommand, setShowSecondCommand] = useState(false);
+    const [showThirdCommand, setShowThirdCommand] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [viewedDate, setViewedDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -657,44 +662,61 @@ export default function DecisionMaker() {
       try {
         const cleanedName = cleanPlaceName(placeToSave);
         const dateMs = new Date(viewedDate).getTime();
-        
-        let finalOrderedItem = orderedItem.trim();
 
         if (selectedCat === 'Cinéma') {
-            finalOrderedItem = selectedMovie ? selectedMovie.title : movieSearchQuery.trim();
-        }
+          const finalOrderedItem = selectedMovie ? selectedMovie.title : movieSearchQuery.trim();
 
-        // Enregistrer la visite
-        await addVisitLog(user.uid, {
-          placeName: cleanedName,
-          category: selectedCat,
-          date: dateMs,
-          orderedItem: finalOrderedItem || undefined
-        });
+          // Enregistrer la visite
+          await addVisitLog(user.uid, {
+            placeName: cleanedName,
+            category: selectedCat,
+            date: dateMs,
+            orderedItem: finalOrderedItem || undefined
+          });
 
-        // Sync avec Tfarrej si c'est un cinéma
-        if (selectedCat === 'Cinéma' && finalOrderedItem) {
-            const movieData: any = {
-                title: finalOrderedItem,
-                viewedAt: dateMs,
-            };
-            if (selectedMovie) {
-                if (selectedMovie.posterUrl) movieData.posterUrl = selectedMovie.posterUrl;
-                if (selectedMovie.year) movieData.year = selectedMovie.year;
-                if (selectedMovie.rating) movieData.rating = selectedMovie.rating;
-            }
-            await addSeenMovieWithDate(user.uid, movieData);
-        }
+          // Sync avec Tfarrej si c'est un cinéma
+          if (finalOrderedItem) {
+              const movieData: any = {
+                  title: finalOrderedItem,
+                  viewedAt: dateMs,
+              };
+              if (selectedMovie) {
+                  if (selectedMovie.posterUrl) movieData.posterUrl = selectedMovie.posterUrl;
+                  if (selectedMovie.year) movieData.year = selectedMovie.year;
+                  if (selectedMovie.rating) movieData.rating = selectedMovie.rating;
+              }
+              await addSeenMovieWithDate(user.uid, movieData);
+          }
+        } else {
+          // For other categories, allow multiple commands in a single visit log (comma separated)
+          const commands = [orderedItem, orderedItem2, orderedItem3]
+            .map(c => c.trim())
+            .filter(Boolean);
 
-        // Si une nouvelle spécialité a été entrée, l'ajouter à la base de données du lieu
-        if (selectedCat !== 'Cinéma' && orderedItem.trim()) {
-          const trimmedItem = orderedItem.trim();
+          const finalOrderedItem = commands.length > 0 ? commands.join(', ') : undefined;
+
+          await addVisitLog(user.uid, {
+            placeName: cleanedName,
+            category: selectedCat,
+            date: dateMs,
+            orderedItem: finalOrderedItem
+          });
+
+          // Si de nouvelles spécialités ont été entrées, les ajouter à la base de données du lieu
           const placeData = allPlaces.find((p: { name: string; category: string; zone: string; specialties: string[] }) => p.name === cleanedName);
-
           if (placeData) {
             const existingSpecialties = placeData.specialties || [];
-            if (!existingSpecialties.some((s: string) => s.toLowerCase() === trimmedItem.toLowerCase())) {
-              // Appeler l'API pour mettre à jour les spécialités du lieu
+            let newSpecialties = [...existingSpecialties];
+            let updated = false;
+
+            for (const cmd of commands) {
+              if (cmd && !newSpecialties.some((s: string) => s.toLowerCase() === cmd.toLowerCase())) {
+                newSpecialties.push(cmd);
+                updated = true;
+              }
+            }
+
+            if (updated) {
               try {
                 await fetch('/api/places-database-firestore', {
                   method: 'POST',
@@ -702,7 +724,7 @@ export default function DecisionMaker() {
                   body: JSON.stringify({
                     action: 'update',
                     zone: placeData.zone,
-                    specialties: { [placeData.name]: [...existingSpecialties, trimmedItem] }
+                    specialties: { [placeData.name]: newSpecialties }
                   })
                 });
               } catch (e) {
@@ -717,6 +739,10 @@ export default function DecisionMaker() {
         setSelectedPlace("");
         setSearchQuery("");
         setOrderedItem("");
+        setOrderedItem2("");
+        setOrderedItem3("");
+        setShowSecondCommand(false);
+        setShowThirdCommand(false);
         setMovieSearchQuery("");
         setSelectedMovie(null);
         setViewedDate(new Date().toISOString().split('T')[0]);
@@ -884,13 +910,88 @@ export default function DecisionMaker() {
                   )}
                 </div>
             ) : (
-                <div className="space-y-2">
-                  <Label>Qu'avez-vous commandé ? (Optionnel)</Label>
-                  <Input
-                    placeholder="Ex: Chapati, Café crème, Pizza..."
-                    value={orderedItem}
-                    onChange={(e) => setOrderedItem(e.target.value)}
-                  />
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Qu'avez-vous commandé ? (Optionnel)</Label>
+                      {!showSecondCommand && (
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          className="h-6 px-2 text-xs text-primary hover:text-primary/80 hover:bg-primary/5 flex items-center gap-1"
+                          onClick={() => setShowSecondCommand(true)}
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Commande 2
+                        </Button>
+                      )}
+                    </div>
+                    <Input
+                      placeholder="Ex: Chapati, Café crème, Pizza..."
+                      value={orderedItem}
+                      onChange={(e) => setOrderedItem(e.target.value)}
+                    />
+                  </div>
+
+                  {showSecondCommand && (
+                    <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs text-muted-foreground">Deuxième commande (Optionnelle)</Label>
+                        <div className="flex items-center gap-1">
+                          {!showThirdCommand && (
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              className="h-6 px-2 text-xs text-primary hover:text-primary/80 hover:bg-primary/5 flex items-center gap-1"
+                              onClick={() => setShowThirdCommand(true)}
+                            >
+                              <Plus className="h-3.5 w-3.5" /> Commande 3
+                            </Button>
+                          )}
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            className="h-6 px-1.5 text-xs text-destructive hover:text-destructive/80 hover:bg-destructive/5"
+                            onClick={() => {
+                              setShowSecondCommand(false);
+                              setOrderedItem2("");
+                            }}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                      <Input
+                        placeholder="Ex: Thé, Tarte aux pommes..."
+                        value={orderedItem2}
+                        onChange={(e) => setOrderedItem2(e.target.value)}
+                      />
+                    </div>
+                  )}
+
+                  {showThirdCommand && (
+                    <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs text-muted-foreground">Troisième commande (Optionnelle)</Label>
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          className="h-6 px-1.5 text-xs text-destructive hover:text-destructive/80 hover:bg-destructive/5"
+                          onClick={() => {
+                            setShowThirdCommand(false);
+                            setOrderedItem3("");
+                          }}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      <Input
+                        placeholder="Ex: Coca-Cola, Frites..."
+                        value={orderedItem3}
+                        onChange={(e) => setOrderedItem3(e.target.value)}
+                      />
+                    </div>
+                  )}
+
                   {(selectedPlace || searchQuery) && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {allPlaces.find((p: { name: string }) => p.name === (selectedPlace || searchQuery))?.specialties.map((s: string, idx: number) => (
@@ -898,7 +999,19 @@ export default function DecisionMaker() {
                           key={idx}
                           variant="outline"
                           className="cursor-pointer hover:bg-primary/5 text-[10px] bg-white text-muted-foreground"
-                          onClick={() => setOrderedItem(s)}
+                          onClick={() => {
+                            if (!orderedItem) {
+                              setOrderedItem(s);
+                            } else if (!orderedItem2 || !showSecondCommand) {
+                              setShowSecondCommand(true);
+                              setOrderedItem2(s);
+                            } else if (!orderedItem3 || !showThirdCommand) {
+                              setShowThirdCommand(true);
+                              setOrderedItem3(s);
+                            } else {
+                              setOrderedItem(s);
+                            }
+                          }}
                         >
                           {s}
                         </TypedBadge>

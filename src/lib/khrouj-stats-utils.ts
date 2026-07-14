@@ -422,8 +422,10 @@ export function getCulinaryPassport(visits: VisitLog[] = [], customDishRules: Re
         cuisineStats[cuisine].places[visit.placeName].count += 1;
 
         if (visit.orderedItem) {
-            const item = visit.orderedItem.trim();
-            cuisineStats[cuisine].places[visit.placeName].items[item] = (cuisineStats[cuisine].places[visit.placeName].items[item] || 0) + 1;
+            const items = visit.orderedItem.split(',').map(s => s.trim()).filter(Boolean);
+            items.forEach(item => {
+                cuisineStats[cuisine].places[visit.placeName].items[item] = (cuisineStats[cuisine].places[visit.placeName].items[item] || 0) + 1;
+            });
         }
 
         if (visit.date > cuisineStats[cuisine].lastVisit) {

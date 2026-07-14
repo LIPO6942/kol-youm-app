@@ -108,14 +108,18 @@ export function useMonthlyWrapUp(
       // Top Dish — exclure les visites de catégorie "Café" (boissons ≠ plats)
       const isFoodCategory = cat !== 'Café';
       if (isFoodCategory && v.orderedItem && v.orderedItem !== "Découverte Gourmande") {
-        const dish = v.orderedItem.trim();
-        dishCounts[dish] = (dishCounts[dish] || 0) + 1;
+        const items = v.orderedItem.split(',').map(s => s.trim()).filter(Boolean);
+        items.forEach(dish => {
+          dishCounts[dish] = (dishCounts[dish] || 0) + 1;
+        });
       }
 
       // Top Beverage — uniquement les items commandés dans les Cafés
       if (cat === 'Café' && v.orderedItem && v.orderedItem !== "Découverte Gourmande") {
-        const bev = v.orderedItem.trim();
-        beverageCounts[bev] = (beverageCounts[bev] || 0) + 1;
+        const items = v.orderedItem.split(',').map(s => s.trim()).filter(Boolean);
+        items.forEach(bev => {
+          beverageCounts[bev] = (beverageCounts[bev] || 0) + 1;
+        });
       }
 
       // Top Neighborhood — priorité : base Firestore globale, sinon user.places.predefinedArea
