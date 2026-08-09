@@ -576,7 +576,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                         
                         <div className="absolute bottom-3 left-4 right-4">
                            <p className="text-[#222] font-serif italic text-base leading-tight truncate">
-                             {stats.topDish ? stats.topDish.name : stats.featuredMomentyDish}
+                             {stats.featuredMomentyDish || (stats.topDish ? stats.topDish.name : "Découverte Gourmande")}
                            </p>
                            <div className="flex justify-between items-center mt-1">
                              <p className="text-[#888] text-[8px] uppercase tracking-widest font-sans font-bold">
@@ -594,9 +594,10 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                           className="w-1.5 h-1.5 bg-white/20 rounded-full mb-2"
                         />
                         <p className="text-[10px] uppercase tracking-[0.25em] text-white/40 font-bold">
-                          {stats.topDish ? 'Votre péché mignon' : 'Moment capturé'}
+                          Moment capturé via Momenty
                         </p>
                       </motion.div>
+
                     </motion.div>
                   </SlideContainer>
                 )}

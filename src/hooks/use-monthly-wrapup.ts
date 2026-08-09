@@ -134,12 +134,21 @@ export function useMonthlyWrapUp(
       const dayName = DAY_NAMES[dayIndex];
       dayCounts[dayName] = (dayCounts[dayName] || 0) + 1;
 
-      // Extract a featured image from Momenty if available
-      if (!featuredMomentyImage && v.momentyImageUrl) {
-        featuredMomentyImage = v.momentyImageUrl;
-        featuredMomentyDish = v.orderedItem || "Découverte Gourmande";
+      // Extract a featured image & dish from Momenty if available
+      if (v.momentyImageUrl || v.source === 'momenty') {
+        if (!featuredMomentyImage && v.momentyImageUrl) {
+          featuredMomentyImage = v.momentyImageUrl;
+        }
+        if (!featuredMomentyDish && v.orderedItem) {
+          featuredMomentyDish = v.orderedItem;
+        }
       }
     });
+
+    if (featuredMomentyImage && !featuredMomentyDish) {
+      featuredMomentyDish = "Découverte Gourmande";
+    }
+
 
     const getTop = (counts: Record<string, number>): { name: string; count: number } | null => {
         let topItem: { name: string; count: number } | null = null;
