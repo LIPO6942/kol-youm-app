@@ -24,7 +24,7 @@ import { Badge } from '@/components/ui/badge';
 const TypedBadge = Badge as any;
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getWeekendHQ, getCulinaryPassport, getVisitFrequencies, getWeeklyHeatmap, getMonthlyHeatmap, getYearlyHeatmap } from '@/lib/khrouj-stats-utils';
+import { getWeekendHQ, getCulinaryPassport, getVisitFrequencies, getWeeklyHeatmap, getMonthlyHeatmap, getYearlyHeatmap, getDishEmoji } from '@/lib/khrouj-stats-utils';
 import { WeekendHQCard } from './weekend-hq-card';
 import { CulinaryPassport } from './culinary-passport';
 import { HabitFrequency } from './habit-frequency';
@@ -82,6 +82,8 @@ const getInitialLocalDateTime = () => {
   const minutes = String(now.getMinutes()).padStart(2, '0');
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
+
+
 
 
 const outingOptions: { id: string; label: string; icon: LucideIcon; description: string, colorClass: string, bgClass: string, hoverClass: string, selectedClass: string }[] = [
@@ -477,6 +479,10 @@ export default function DecisionMaker() {
       'Ma9loub': { keywords: ['ma9loub', 'makloub'], emoji: '🥙' },
       'Mlawi': { keywords: ['mlawi', 'melaoui'], emoji: '🌯' },
       'Chapati': { keywords: ['chapati', 'croque', 'sandwich rond'], emoji: '🥪' },
+      'Ciabatta': { keywords: ['ciabatta', 'ciabata'], emoji: '🥪' },
+      'Escalope / Poulet': { keywords: ['escalope', 'escalop', 'scalop', 'pané', 'panée'], emoji: '🍗' },
+      'Risotto / Riz': { keywords: ['risotto', 'paella'], emoji: '🥘' },
+      'Fruits de Mer / Crevettes': { keywords: ['crevette', 'crevettes', 'shrimp', 'seafood', 'fruit de mer', 'fruits de mer', 'calamar'], emoji: '🦐' },
       'Kaffteji': { keywords: ['kafteji', 'kaffteji'], emoji: '🥘' },
       'Lablebi': { keywords: ['lablebi', 'lablabi'], emoji: '🍲' },
       'Couscous': { keywords: ['couscous'], emoji: '🍚' },
@@ -541,11 +547,11 @@ export default function DecisionMaker() {
           }
         }
 
-        // 2. Fallback: Catch-all for unique dishes
+        // 2. Fallback: Catch-all for unique dishes with automatic emoji detection
         if (!matched) {
           const formattedName = textLower.charAt(0).toUpperCase() + textLower.slice(1);
           if (!bySpecialty[formattedName]) {
-            bySpecialty[formattedName] = { count: 0, topPlaces: {}, emoji: '🍽️' };
+            bySpecialty[formattedName] = { count: 0, topPlaces: {}, emoji: getDishEmoji(textLower) };
           }
           bySpecialty[formattedName].count++;
           bySpecialty[formattedName].topPlaces[v.placeName] = (bySpecialty[formattedName].topPlaces[v.placeName] || 0) + 1;
@@ -1717,7 +1723,8 @@ export default function DecisionMaker() {
                   {sortedSpecialties.map(([name, data]) => {
                     const customImage = userProfile?.specialtyImages?.[name];
                     const customColor = userProfile?.specialtyColors?.[name];
-                    const displayEmoji = customImage || data.emoji;
+                    const rawEmoji = (data.emoji && data.emoji !== '🍽️') ? data.emoji : getDishEmoji(name);
+                    const displayEmoji = customImage || rawEmoji;
 
                     const isUrl = displayEmoji.startsWith('http') || displayEmoji.startsWith('/') || displayEmoji.startsWith('data:');
                     const isLucide = displayEmoji.startsWith('lucide:');

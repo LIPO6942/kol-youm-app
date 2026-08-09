@@ -38,6 +38,66 @@ export type PeriodStats = {
     };
 };
 
+export function getDishEmoji(text: string): string {
+  if (!text) return '🍽️';
+  const t = text.toLowerCase().trim();
+
+  // Seafood / Crevettes / Poisson
+  if (t.includes('crevette') || t.includes('shrimp') || t.includes('prawn') || t.includes('langoustine')) return '🦐';
+  if (t.includes('calamar') || t.includes('poulpe') || t.includes('seiche') || t.includes('squid') || t.includes('octopus')) return '🦑';
+  if (t.includes('poisson') || t.includes('fish') || t.includes('saumon') || t.includes('thon') || t.includes('dorade') || t.includes('loup') || t.includes('merlan')) return '🐟';
+  if (t.includes('seafood') || t.includes('fruit de mer') || t.includes('fruits de mer')) return '🦐';
+
+  // Risotto / Paella / Rice
+  if (t.includes('risotto') || t.includes('paella')) return '🥘';
+  if (t.includes('riz') || t.includes('rice')) return '🍚';
+
+  // Ciabatta / Sandwich / Panini / Baguette / Escalope
+  if (t.includes('ciabatta') || t.includes('ciabata')) return '🥪';
+  if (t.includes('escalope') || t.includes('escalop') || t.includes('scalop') || t.includes('pané') || t.includes('panee') || t.includes('panée')) return '🍗';
+  if (t.includes('sandwich') || t.includes('panini') || t.includes('sub') || t.includes('wrap') || t.includes('club')) return '🥪';
+  if (t.includes('baguette')) return '🥖';
+
+  // Pizza / Pasta / Noodles
+  if (t.includes('pizza') || t.includes('calzone')) return '🍕';
+  if (t.includes('pasta') || t.includes('spaghetti') || t.includes('penne') || t.includes('lasagne') || t.includes('tagliatelle') || t.includes('pâte') || t.includes('pate')) return '🍝';
+  if (t.includes('nouille') || t.includes('noodle') || t.includes('ramen')) return '🍜';
+
+  // Burger / Tacos / Fast Food
+  if (t.includes('burger') || t.includes('cheeseburger') || t.includes('smash')) return '🍔';
+  if (t.includes('tacos')) return '🌮';
+  if (t.includes('maqloub') || t.includes('makloub') || t.includes('maklob')) return '🥙';
+  if (t.includes('chapati') || t.includes('chappati')) return '🥪';
+  if (t.includes('mlawi') || t.includes('melaoui') || t.includes('mlewi')) return '🌯';
+
+  // Tunisian Specialties
+  if (t.includes('fricassé') || t.includes('fricasse')) return '🥪';
+  if (t.includes('brik')) return '🥟';
+  if (t.includes('ojja')) return '🍳';
+  if (t.includes('kafteji') || t.includes('kaffteji')) return '🥘';
+  if (t.includes('lablebi') || t.includes('lablabi')) return '🍲';
+  if (t.includes('couscous') || t.includes('mesfouf')) return '🍚';
+
+  // Poultry & Meat
+  if (t.includes('poulet') || t.includes('chicken') || t.includes('chiken') || t.includes('nugget') || t.includes('tenders') || t.includes('wings')) return '🍗';
+  if (t.includes('viande') || t.includes('steak') || t.includes('entrecôte') || t.includes('grillade') || t.includes('brochette') || t.includes('merguez')) return '🥩';
+  if (t.includes('chawarma') || t.includes('shawarma') || t.includes('falafel') || t.includes('kebab') || t.includes('kabab') || t.includes('taouk')) return '🥙';
+  if (t.includes('sushi') || t.includes('maki') || t.includes('sashimi')) return '🍣';
+
+  // Soups & Bowls
+  if (t.includes('soupe') || t.includes('chorba') || t.includes('soup') || t.includes('potage')) return '🥣';
+  if (t.includes('salade') || t.includes('salad') || t.includes('bowl') || t.includes('caesar') || t.includes('cesar')) return '🥗';
+
+  // Desserts & Drinks
+  if (t.includes('cake') || t.includes('cheesecake') || t.includes('tiramisu') || t.includes('tarte') || t.includes('gâteau') || t.includes('gateau') || t.includes('brownie') || t.includes('mousse')) return '🍰';
+  if (t.includes('glace') || t.includes('ice cream') || t.includes('gelato') || t.includes('sorbet')) return '🍦';
+  if (t.includes('crêpe') || t.includes('crepe') || t.includes('gaufre') || t.includes('waffle') || t.includes('pancake')) return '🥞';
+  if (t.includes('café') || t.includes('cafe') || t.includes('espresso') || t.includes('cappuccino') || t.includes('latte')) return '☕';
+  if (t.includes('jus') || t.includes('smoothie') || t.includes('citronnade') || t.includes('frappé') || t.includes('shake') || t.includes('milkshake')) return '🥤';
+
+  return '🍽️';
+}
+
 // Helper: Normalize strings for comparsion
 const normalize = (str: string) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
