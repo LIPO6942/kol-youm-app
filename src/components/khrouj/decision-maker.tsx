@@ -67,6 +67,12 @@ const getSeasonalBackground = () => {
   };
 };
 
+const getDayName = (dateInput: Date | number) => {
+  const date = new Date(dateInput);
+  const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+  return days[date.getDay()];
+};
+
 const outingOptions: { id: string; label: string; icon: LucideIcon; description: string, colorClass: string, bgClass: string, hoverClass: string, selectedClass: string }[] = [
   { id: 'fast-food', label: 'Fast Food', icon: Sandwich, description: "Rapide et gourmand", colorClass: 'text-orange-700', bgClass: 'bg-orange-50', hoverClass: 'hover:bg-orange-100', selectedClass: 'border-orange-500 bg-orange-100' },
   { id: 'cafe', label: 'Café', icon: Coffee, description: "Pour se détendre", colorClass: 'text-amber-800', bgClass: 'bg-amber-50', hoverClass: 'hover:bg-amber-100', selectedClass: 'border-amber-600 bg-amber-100' },
@@ -1149,7 +1155,7 @@ export default function DecisionMaker() {
                     >
                       <div className="flex items-center gap-3 text-sm">
                         <Calendar className="h-4 w-4 text-primary" />
-                        <span>{new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                        <span>{getDayName(date)} {new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                         {visit.source === 'momenty' && (
                           <span className="inline-flex items-center gap-1">
                             <span className="text-[7px] text-muted-foreground/60 italic ml-1 select-none">via Momenty</span>
@@ -1288,7 +1294,7 @@ export default function DecisionMaker() {
                       )}
                     </p>
                     <TypedBadge variant="outline" className="text-[10px] h-5 px-1.5 font-normal bg-background/50 text-muted-foreground whitespace-nowrap group-hover:opacity-0 transition-opacity">
-                      {new Date(visit.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                      {getDayName(visit.date)} {new Date(visit.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
                     </TypedBadge>
                   </div>
                   <div className="flex flex-col gap-0.5">
