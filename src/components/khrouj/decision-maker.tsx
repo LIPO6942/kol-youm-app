@@ -73,6 +73,17 @@ const getDayName = (dateInput: Date | number) => {
   return days[date.getDay()];
 };
 
+const getInitialLocalDateTime = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+
 const outingOptions: { id: string; label: string; icon: LucideIcon; description: string, colorClass: string, bgClass: string, hoverClass: string, selectedClass: string }[] = [
   { id: 'fast-food', label: 'Fast Food', icon: Sandwich, description: "Rapide et gourmand", colorClass: 'text-orange-700', bgClass: 'bg-orange-50', hoverClass: 'hover:bg-orange-100', selectedClass: 'border-orange-500 bg-orange-100' },
   { id: 'cafe', label: 'Café', icon: Coffee, description: "Pour se détendre", colorClass: 'text-amber-800', bgClass: 'bg-amber-50', hoverClass: 'hover:bg-amber-100', selectedClass: 'border-amber-600 bg-amber-100' },
@@ -616,7 +627,7 @@ export default function DecisionMaker() {
     const [showSecondCommand, setShowSecondCommand] = useState(false);
     const [showThirdCommand, setShowThirdCommand] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [viewedDate, setViewedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [viewedDate, setViewedDate] = useState(getInitialLocalDateTime());
 
     // For Cinema
     const [movieSearchQuery, setMovieSearchQuery] = useState("");
@@ -668,7 +679,8 @@ export default function DecisionMaker() {
       setIsSaving(true);
       try {
         const cleanedName = cleanPlaceName(placeToSave);
-        const dateMs = new Date(viewedDate).getTime();
+        const parsedDate = new Date(viewedDate).getTime();
+        const dateMs = !isNaN(parsedDate) ? parsedDate : Date.now();
 
         if (selectedCat === 'Cinéma') {
           const finalOrderedItem = selectedMovie ? selectedMovie.title : movieSearchQuery.trim();
@@ -752,7 +764,7 @@ export default function DecisionMaker() {
         setShowThirdCommand(false);
         setMovieSearchQuery("");
         setSelectedMovie(null);
-        setViewedDate(new Date().toISOString().split('T')[0]);
+        setViewedDate(getInitialLocalDateTime());
       } finally {
         setIsSaving(false);
       }
@@ -1029,12 +1041,12 @@ export default function DecisionMaker() {
             )}
 
             <div className="space-y-2">
-              <Label>Date de la visite</Label>
+              <Label>Date et heure de la visite</Label>
               <Input
-                type="date"
+                type="datetime-local"
                 value={viewedDate}
                 onChange={(e) => setViewedDate(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
+                max={getInitialLocalDateTime()}
               />
             </div>
           </div>
