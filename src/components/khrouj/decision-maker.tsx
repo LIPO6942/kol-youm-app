@@ -1979,8 +1979,126 @@ export default function DecisionMaker() {
     }, 200);
   };
 
+  // Sub-component for category dialog content — needs its own state for "show all" toggle
+  const CategoryDialogContent = ({
+    opt,
+    categoryVisits,
+    sortedPlaces,
+    count,
+  }: {
+    opt: (typeof outingOptions)[0];
+    categoryVisits: VisitLog[];
+    sortedPlaces: [string, { count: number; lastDate: number; dates: number[]; orderedItems: string[] }][];
+    count: number;
+  }) => {
+    const INITIAL_SHOWN = 5;
+    const [showAllVisits, setShowAllVisits] = useState(false);
+    const visibleVisits = showAllVisits ? categoryVisits : categoryVisits.slice(0, INITIAL_SHOWN);
+    const hiddenCount = categoryVisits.length - INITIAL_SHOWN;
+
+    return (
+      <ScrollArea className="bg-white -mt-8 rounded-t-[2rem] relative z-20 min-h-0">
+        <div className="p-5 space-y-5 pb-8">
+          {count === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center gap-3 text-muted-foreground">
+              <opt.icon className="h-12 w-12 opacity-20" />
+              <p className="font-medium">Aucune sortie enregistrée.</p>
+              <p className="text-xs">Utilisez l'ajout manuel pour commencer !</p>
+            </div>
+          ) : (
+            <>
+              {/* Recent visits timeline */}
+              <div className="space-y-2">
+                <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                  <Calendar className="h-3 w-3" /> Toutes les sorties
+                  <span className="ml-auto font-black text-foreground">{categoryVisits.length}</span>
+                </h4>
+                <div className="space-y-2">
+                  {visibleVisits.map((v: VisitLog, idx: number) => (
+                    <div key={v.id || idx} className="flex items-start gap-3 p-2.5 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors animate-in fade-in-50 duration-200">
+                      <div className={cn("h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5", opt.bgClass)}>
+                        <opt.icon className={cn("h-4 w-4", opt.colorClass)} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm leading-tight truncate">{v.placeName}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {getDayName(v.date)} {new Date(v.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          {' · '}
+                          <span className="font-semibold text-foreground/70">{new Date(v.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                        </p>
+                        {v.orderedItem && (
+                          <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1 mt-0.5">
+                            <UtensilsCrossed className="h-2.5 w-2.5 flex-shrink-0" />
+                            {v.orderedItem}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Show more / less toggle */}
+                {categoryVisits.length > INITIAL_SHOWN && (
+                  <button
+                    onClick={() => setShowAllVisits(!showAllVisits)}
+                    className={cn(
+                      "w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all duration-200",
+                      opt.bgClass,
+                      opt.colorClass,
+                      "hover:opacity-80"
+                    )}
+                  >
+                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-300", showAllVisits && "rotate-180")} />
+                    {showAllVisits
+                      ? "Voir moins"
+                      : `Voir les ${hiddenCount} autre${hiddenCount > 1 ? 's' : ''} visite${hiddenCount > 1 ? 's' : ''}`}
+                  </button>
+                )}
+              </div>
+
+              {/* Top places for this category */}
+              {sortedPlaces.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <MapPin className="h-3 w-3" /> Lieux favoris
+                  </h4>
+                  <div className="space-y-2">
+                    {sortedPlaces.slice(0, 8).map(([placeName, data], idx) => {
+                      const barWidth = Math.max(8, Math.round((data.count / (sortedPlaces[0]?.[1]?.count || 1)) * 100));
+                      return (
+                        <div key={placeName} className="flex items-center gap-3">
+                          <span className={cn("text-[9px] font-black w-4 shrink-0 text-right", opt.colorClass)}>#{idx + 1}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-xs font-bold truncate">{placeName}</span>
+                              <span className={cn("text-xs font-black ml-2 shrink-0", opt.colorClass)}>{data.count}×</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-muted/40 rounded-full overflow-hidden">
+                              <div
+                                className={cn("h-full rounded-full transition-all duration-700", opt.barBgClass)}
+                                style={{ width: `${barWidth}%` }}
+                              />
+                            </div>
+                            <p className="text-[9px] text-muted-foreground mt-0.5">
+                              Dernière visite : {getDayName(data.lastDate)} {new Date(data.lastDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </ScrollArea>
+    );
+  };
+
   const StatsDashboard = () => {
     const [historyOpen, setHistoryOpen] = useState(false);
+
 
     useEffect(() => {
       if (!historyOpen) return;
@@ -2158,83 +2276,12 @@ export default function DecisionMaker() {
                     </DialogHeader>
                   </div>
 
-                  <ScrollArea className="bg-white -mt-8 rounded-t-[2rem] relative z-20 min-h-0">
-                    <div className="p-5 space-y-5 pb-8">
-                      {count === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-12 text-center gap-3 text-muted-foreground">
-                          <opt.icon className="h-12 w-12 opacity-20" />
-                          <p className="font-medium">Aucune sortie enregistrée.</p>
-                          <p className="text-xs">Utilisez l'ajout manuel pour commencer !</p>
-                        </div>
-                      ) : (
-                        <>
-                          {/* Recent visits timeline */}
-                          <div className="space-y-2">
-                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                              <Calendar className="h-3 w-3" /> Dernières sorties
-                            </h4>
-                            <div className="space-y-2">
-                              {categoryVisits.slice(0, 5).map((v: VisitLog, idx: number) => (
-                                <div key={v.id || idx} className="flex items-start gap-3 p-2.5 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
-                                  <div className={cn("h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5", opt.bgClass)}>
-                                    <opt.icon className={cn("h-4 w-4", opt.colorClass)} />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-bold text-sm leading-tight truncate">{v.placeName}</p>
-                                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                                      {getDayName(v.date)} {new Date(v.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                      {' · '}
-                                      {new Date(v.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                                    </p>
-                                    {v.orderedItem && (
-                                      <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1 mt-0.5">
-                                        <UtensilsCrossed className="h-2.5 w-2.5 flex-shrink-0" />
-                                        {v.orderedItem}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Top places for this category */}
-                          {sortedPlaces.length > 0 && (
-                            <div className="space-y-2">
-                              <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                                <MapPin className="h-3 w-3" /> Lieux favoris
-                              </h4>
-                              <div className="space-y-2">
-                                {sortedPlaces.slice(0, 8).map(([placeName, data], idx) => {
-                                  const barWidth = Math.max(8, Math.round((data.count / (sortedPlaces[0]?.[1]?.count || 1)) * 100));
-                                  return (
-                                    <div key={placeName} className="flex items-center gap-3">
-                                      <span className={cn("text-[9px] font-black w-4 shrink-0 text-right", opt.colorClass)}>#{idx + 1}</span>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between mb-0.5">
-                                          <span className="text-xs font-bold truncate">{placeName}</span>
-                                          <span className={cn("text-xs font-black ml-2 shrink-0", opt.colorClass)}>{data.count}×</span>
-                                        </div>
-                                        <div className="h-1.5 w-full bg-muted/40 rounded-full overflow-hidden">
-                                          <div
-                                            className={cn("h-full rounded-full transition-all duration-700", opt.barBgClass)}
-                                            style={{ width: `${barWidth}%` }}
-                                          />
-                                        </div>
-                                        <p className="text-[9px] text-muted-foreground mt-0.5">
-                                          Dernière visite : {getDayName(data.lastDate)} {new Date(data.lastDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </ScrollArea>
+                  <CategoryDialogContent
+                    opt={opt}
+                    categoryVisits={categoryVisits}
+                    sortedPlaces={sortedPlaces}
+                    count={count}
+                  />
                 </DialogContent>
               </Dialog>
             );
