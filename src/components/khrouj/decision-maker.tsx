@@ -86,14 +86,14 @@ const getInitialLocalDateTime = () => {
 
 
 
-const outingOptions: { id: string; label: string; icon: LucideIcon; description: string, colorClass: string, bgClass: string, hoverClass: string, selectedClass: string }[] = [
-  { id: 'fast-food', label: 'Fast Food', icon: Sandwich, description: "Rapide et gourmand", colorClass: 'text-orange-700', bgClass: 'bg-orange-50', hoverClass: 'hover:bg-orange-100', selectedClass: 'border-orange-500 bg-orange-100' },
-  { id: 'cafe', label: 'Café', icon: Coffee, description: "Pour se détendre", colorClass: 'text-amber-800', bgClass: 'bg-amber-50', hoverClass: 'hover:bg-amber-100', selectedClass: 'border-amber-600 bg-amber-100' },
-  { id: 'brunch', label: 'Brunch', icon: Sun, description: "Gourmandise du matin", colorClass: 'text-yellow-600', bgClass: 'bg-yellow-50', hoverClass: 'hover:bg-yellow-100', selectedClass: 'border-yellow-500 bg-yellow-100' },
-  { id: 'restaurant', label: 'Restaurant', icon: Pizza, description: "Un repas mémorable", colorClass: 'text-red-700', bgClass: 'bg-red-50', hoverClass: 'hover:bg-red-100', selectedClass: 'border-red-500 bg-red-100' },
-  { id: 'balade', label: 'Balade', icon: Mountain, description: "Prendre l'air", colorClass: 'text-green-700', bgClass: 'bg-green-50', hoverClass: 'hover:bg-green-100', selectedClass: 'border-green-500 bg-green-100' },
-  { id: 'shopping', label: 'Shopping', icon: ShoppingBag, description: "Trouver la perle", colorClass: 'text-pink-700', bgClass: 'bg-pink-50', hoverClass: 'hover:bg-pink-100', selectedClass: 'border-pink-500 bg-pink-100' },
-  { id: 'cinema', label: 'Cinéma', icon: Clapperboard, description: "Soirée 7ème art", colorClass: 'text-violet-700', bgClass: 'bg-violet-50', hoverClass: 'hover:bg-violet-100', selectedClass: 'border-violet-500 bg-violet-100' },
+const outingOptions: { id: string; label: string; icon: LucideIcon; description: string, colorClass: string, bgClass: string, hoverClass: string, selectedClass: string, barBgClass: string }[] = [
+  { id: 'fast-food', label: 'Fast Food', icon: Sandwich, description: "Rapide et gourmand", colorClass: 'text-orange-700', bgClass: 'bg-orange-50', hoverClass: 'hover:bg-orange-100', selectedClass: 'border-orange-500 bg-orange-100', barBgClass: 'bg-orange-500' },
+  { id: 'cafe', label: 'Café', icon: Coffee, description: "Pour se détendre", colorClass: 'text-amber-800', bgClass: 'bg-amber-50', hoverClass: 'hover:bg-amber-100', selectedClass: 'border-amber-600 bg-amber-100', barBgClass: 'bg-amber-700' },
+  { id: 'brunch', label: 'Brunch', icon: Sun, description: "Gourmandise du matin", colorClass: 'text-yellow-600', bgClass: 'bg-yellow-50', hoverClass: 'hover:bg-yellow-100', selectedClass: 'border-yellow-500 bg-yellow-100', barBgClass: 'bg-yellow-500' },
+  { id: 'restaurant', label: 'Restaurant', icon: Pizza, description: "Un repas mémorable", colorClass: 'text-red-700', bgClass: 'bg-red-50', hoverClass: 'hover:bg-red-100', selectedClass: 'border-red-500 bg-red-100', barBgClass: 'bg-red-600' },
+  { id: 'balade', label: 'Balade', icon: Mountain, description: "Prendre l'air", colorClass: 'text-green-700', bgClass: 'bg-green-50', hoverClass: 'hover:bg-green-100', selectedClass: 'border-green-500 bg-green-100', barBgClass: 'bg-green-600' },
+  { id: 'shopping', label: 'Shopping', icon: ShoppingBag, description: "Trouver la perle", colorClass: 'text-pink-700', bgClass: 'bg-pink-50', hoverClass: 'hover:bg-pink-100', selectedClass: 'border-pink-500 bg-pink-100', barBgClass: 'bg-pink-600' },
+  { id: 'cinema', label: 'Cinéma', icon: Clapperboard, description: "Soirée 7ème art", colorClass: 'text-violet-700', bgClass: 'bg-violet-50', hoverClass: 'hover:bg-violet-100', selectedClass: 'border-violet-500 bg-violet-100', barBgClass: 'bg-violet-600' },
 ];
 
 const zones = [
@@ -2097,39 +2097,146 @@ export default function DecisionMaker() {
             const count = stats.byCategory[opt.label] || 0;
             const hasMilestone = count > 0 && count % 50 === 0;
 
+            // Get all visits for this category, sorted by date desc
+            const categoryVisits = (userProfile?.visits || [])
+              .filter((v: VisitLog) => v.category === opt.label)
+              .sort((a: VisitLog, b: VisitLog) => b.date - a.date);
+
+            // Group by place with visit count and last date
+            const placeMap: Record<string, { count: number; lastDate: number; dates: number[]; orderedItems: string[] }> = {};
+            categoryVisits.forEach((v: VisitLog) => {
+              if (!placeMap[v.placeName]) {
+                placeMap[v.placeName] = { count: 0, lastDate: v.date, dates: [], orderedItems: [] };
+              }
+              placeMap[v.placeName].count++;
+              placeMap[v.placeName].dates.push(v.date);
+              if (v.orderedItem) placeMap[v.placeName].orderedItems.push(v.orderedItem);
+              if (v.date > placeMap[v.placeName].lastDate) placeMap[v.placeName].lastDate = v.date;
+            });
+            const sortedPlaces = Object.entries(placeMap).sort((a, b) => b[1].count - a[1].count);
+
             return (
-              <Card 
-                key={opt.id} 
-                className={cn(
-                  "transition-all duration-300 border group",
-                  hasMilestone ? "cursor-pointer border-primary/40 animate-pulse shadow-md shadow-primary/5" : "cursor-default",
-                  opt.bgClass,
-                  opt.hoverClass,
-                  "hover:shadow-md hover:-translate-y-1"
-                )}
-                onClick={() => {
-                  if (hasMilestone) {
-                    if (opt.label === 'Café') {
-                      triggerCategoryAnimation(['☕', '🥐', '🍪', '🍩', '🥤', '🍰']);
-                    } else if (opt.label === 'Restaurant') {
-                      triggerCategoryAnimation(['🍕', '🍔', '🍟', '🍝', '🌮', '🥗', '🍣', '🍜', '🍽️', '🍗']);
-                    } else if (opt.label === 'Brunch') {
-                      triggerCategoryAnimation(['🥞', '🍳', '🧇', '🥓', '🥑', '🍞', '☕', '🍓', '🍊']);
-                    } else {
-                      triggerCategoryAnimation(['🎉', '✨', '🥳', '🎈', '⭐']);
-                    }
-                  }
-                }}
-              >
-                <CardContent className="p-4 flex flex-col items-center justify-center text-center relative">
-                  {hasMilestone && (
-                    <span className="absolute top-1 right-1 text-xs animate-bounce">🎉</span>
-                  )}
-                  <opt.icon className={cn("h-6 w-6 mb-2 group-hover:scale-110 transition-transform duration-300", opt.colorClass)} />
-                  <span className={cn("text-xl font-bold", opt.colorClass)}>{count}</span>
-                  <span className="text-[10px] text-muted-foreground font-medium">{opt.label}s</span>
-                </CardContent>
-              </Card>
+              <Dialog key={opt.id}>
+                <DialogTrigger asChild>
+                  <Card
+                    className={cn(
+                      "transition-all duration-300 border group cursor-pointer",
+                      hasMilestone ? "border-primary/40 animate-pulse shadow-md shadow-primary/5" : "",
+                      opt.bgClass,
+                      opt.hoverClass,
+                      "hover:shadow-md hover:-translate-y-1"
+                    )}
+                  >
+                    <CardContent className="p-4 flex flex-col items-center justify-center text-center relative">
+                      {hasMilestone && (
+                        <span className="absolute top-1 right-1 text-xs animate-bounce">🎉</span>
+                      )}
+                      <opt.icon className={cn("h-6 w-6 mb-2 group-hover:scale-110 transition-transform duration-300", opt.colorClass)} />
+                      <span className={cn("text-xl font-bold", opt.colorClass)}>{count}</span>
+                      <span className="text-[10px] text-muted-foreground font-medium">{opt.label}s</span>
+                    </CardContent>
+                  </Card>
+                </DialogTrigger>
+                <DialogContent className="max-w-md w-[95%] rounded-2xl max-h-[85vh] overflow-hidden grid grid-rows-[auto_1fr] p-0 border-none shadow-2xl">
+                  {/* Header gradient */}
+                  <div className={cn("p-6 pb-10 relative overflow-hidden", opt.bgClass)}>
+                    <div className="absolute right-[-16px] top-[-16px] opacity-10 rotate-12">
+                      <opt.icon className="h-32 w-32" />
+                    </div>
+                    <DialogHeader className="relative z-10">
+                      <div className="flex items-center gap-3 mb-1">
+                        <div className="bg-white/60 p-2 rounded-xl backdrop-blur-md">
+                          <opt.icon className={cn("h-5 w-5", opt.colorClass)} />
+                        </div>
+                        <DialogTitle className={cn("text-2xl font-black font-headline tracking-tight", opt.colorClass)}>
+                          {opt.label}s
+                        </DialogTitle>
+                      </div>
+                      <DialogDescription className="text-muted-foreground font-medium">
+                        <span className="font-black text-foreground">{count}</span> sortie{count > 1 ? 's' : ''} · {sortedPlaces.length} lieu{sortedPlaces.length > 1 ? 'x' : ''} visité{sortedPlaces.length > 1 ? 's' : ''}
+                      </DialogDescription>
+                    </DialogHeader>
+                  </div>
+
+                  <ScrollArea className="bg-white -mt-8 rounded-t-[2rem] relative z-20 min-h-0">
+                    <div className="p-5 space-y-5 pb-8">
+                      {count === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-center gap-3 text-muted-foreground">
+                          <opt.icon className="h-12 w-12 opacity-20" />
+                          <p className="font-medium">Aucune sortie enregistrée.</p>
+                          <p className="text-xs">Utilisez l'ajout manuel pour commencer !</p>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Recent visits timeline */}
+                          <div className="space-y-2">
+                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                              <Calendar className="h-3 w-3" /> Dernières sorties
+                            </h4>
+                            <div className="space-y-2">
+                              {categoryVisits.slice(0, 5).map((v: VisitLog, idx: number) => (
+                                <div key={v.id || idx} className="flex items-start gap-3 p-2.5 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
+                                  <div className={cn("h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5", opt.bgClass)}>
+                                    <opt.icon className={cn("h-4 w-4", opt.colorClass)} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-bold text-sm leading-tight truncate">{v.placeName}</p>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                                      {getDayName(v.date)} {new Date(v.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                      {' · '}
+                                      {new Date(v.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                    {v.orderedItem && (
+                                      <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1 mt-0.5">
+                                        <UtensilsCrossed className="h-2.5 w-2.5 flex-shrink-0" />
+                                        {v.orderedItem}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Top places for this category */}
+                          {sortedPlaces.length > 0 && (
+                            <div className="space-y-2">
+                              <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                                <MapPin className="h-3 w-3" /> Lieux favoris
+                              </h4>
+                              <div className="space-y-2">
+                                {sortedPlaces.slice(0, 8).map(([placeName, data], idx) => {
+                                  const barWidth = Math.max(8, Math.round((data.count / (sortedPlaces[0]?.[1]?.count || 1)) * 100));
+                                  return (
+                                    <div key={placeName} className="flex items-center gap-3">
+                                      <span className={cn("text-[9px] font-black w-4 shrink-0 text-right", opt.colorClass)}>#{idx + 1}</span>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between mb-0.5">
+                                          <span className="text-xs font-bold truncate">{placeName}</span>
+                                          <span className={cn("text-xs font-black ml-2 shrink-0", opt.colorClass)}>{data.count}×</span>
+                                        </div>
+                                        <div className="h-1.5 w-full bg-muted/40 rounded-full overflow-hidden">
+                                          <div
+                                            className={cn("h-full rounded-full transition-all duration-700", opt.barBgClass)}
+                                            style={{ width: `${barWidth}%` }}
+                                          />
+                                        </div>
+                                        <p className="text-[9px] text-muted-foreground mt-0.5">
+                                          Dernière visite : {getDayName(data.lastDate)} {new Date(data.lastDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </DialogContent>
+              </Dialog>
             );
           })}
         </div>
