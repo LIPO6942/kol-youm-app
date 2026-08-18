@@ -78,10 +78,26 @@ export function getDishEmoji(text: string): string {
   if (t.includes('lablebi') || t.includes('lablabi')) return '🍲';
   if (t.includes('couscous') || t.includes('mesfouf')) return '🍚';
 
-  // Poultry & Meat
-  if (t.includes('poulet') || t.includes('chicken') || t.includes('chiken') || t.includes('nugget') || t.includes('tenders') || t.includes('wings')) return '🍗';
-  if (t.includes('viande') || t.includes('steak') || t.includes('entrecôte') || t.includes('grillade') || t.includes('brochette') || t.includes('merguez')) return '🥩';
-  if (t.includes('chawarma') || t.includes('shawarma') || t.includes('falafel') || t.includes('kebab') || t.includes('kabab') || t.includes('taouk')) return '🥙';
+  // Poultry & Chicken
+  if (t.includes('poulet') || t.includes('chicken') || t.includes('chiken') || t.includes('nugget') || t.includes('tenders') || t.includes('wings') || t.includes('djedj') || t.includes('djaj') || t.includes('taouk')) return '🍗';
+
+  // Meat / Viande / Lahma / Grillades / Steaks / Brochettes / Senia
+  if (
+    t.includes('viande') || t.includes('steak') || t.includes('entrecôte') || t.includes('entrecote') ||
+    t.includes('grillade') || t.includes('brochette') || t.includes('merguez') || t.includes('bavette') ||
+    t.includes('lahma') || t.includes('lahme') || t.includes('lahmé') || t.includes('lahem') ||
+    t.includes('lahm') || t.includes('lham') || t.includes('l7am') || t.includes('l7em') ||
+    t.includes('lhem') || t.includes('l7ma') || t.includes('لحمة') || t.includes('لحم') ||
+    t.includes('boeuf') || t.includes('bœuf') || t.includes('veau') || t.includes('agneau') ||
+    t.includes('mouton') || t.includes('cotelette') || t.includes('côtelette') || t.includes('boulette') ||
+    t.includes('kafta') || t.includes('kefta') || t.includes('kofta') || t.includes('kufta') ||
+    t.includes('kebab') || t.includes('kabab') || t.includes('senia') || t.includes('siniye') ||
+    t.includes('siniyeh') || t.includes('tahina') || t.includes('tahini') || t.includes('tahine') ||
+    t.includes('sfiha') || t.includes('arayes') || t.includes('makanek') || t.includes('soujouk') ||
+    t.includes('sujuk') || t.includes('mechoui') || t.includes('mchoui') || t.includes('machawi')
+  ) return '🥩';
+
+  if (t.includes('chawarma') || t.includes('shawarma') || t.includes('falafel') || t.includes('maajouka') || t.includes('mchakkel')) return '🥙';
   if (t.includes('sushi') || t.includes('maki') || t.includes('sashimi')) return '🍣';
 
   // Soups & Bowls
@@ -118,10 +134,10 @@ const CUISINE_MAP: Record<string, string[]> = {
     'Oriental': [
         // === GRILLADES / VIANDES ===
         'kebab', 'kabab', 'kabeb', 'kebeb', 'kbab', 'kbeb', 'kebap', 'kabap',
-        'kofta', 'kafta', 'kefta', 'kufta', 'kofte', 'köfte', 'kofte', 'koufte', 'keufta', 'kafté',
+        'kofta', 'kafta', 'kefta', 'kufta', 'kofte', 'köfte', 'koufte', 'keufta', 'kafté',
         'chich taouk', 'shish taouk', 'chiche taouk', 'chichtaouk', 'chishtaouk', 'chicha taouk',
         'shish kebab', 'chich kebab', 'chichekabab',
-        'chawarma', 'shawarma', 'chawalma', 'chawirma', 'shawirma', 'chawerma', 'shawerma', 'chaouerma', 'chaouerma',
+        'chawarma', 'shawarma', 'chawalma', 'chawirma', 'shawirma', 'chawerma', 'shawerma', 'chaouerma',
         'tikka', 'tika', 'chicken tikka',
         'meshwi', 'michawi', 'machawi', 'machaoui', 'mchoui', 'méchoui', 'mechoui',
         'ouzi', 'ouzy', 'ouzzi', 'uzi',
@@ -129,9 +145,13 @@ const CUISINE_MAP: Record<string, string[]> = {
         'madfoun', 'mdfoun',
         'biryani', 'briyani', 'biryane', 'bryani',
         'djaj mshoui', 'poulet oriental', 'poulet grille oriental',
+        'lahma', 'lahme', 'lahmé', 'lahem', 'lahm', 'lham', 'l7am', 'l7em', 'lhem', 'l7ma', 'لحمة', 'لحم',
+        'lahma bel senia', 'lahme bel senia', 'lahmé bel senia', 'lahma bi tahina', 'lahmé bi tahiné', 'lahm bi tahini',
+        'senia', 'siniye', 'siniyeh', 'tahina', 'tahini', 'tahine', 'tahiné', 'tehina', 'tehine',
+        'arayes', 'arayece', 'jawaneh', 'makanek', 'soujouk', 'sujuk', 'hummus bi lahme', 'houmous lahmé',
         // === SANDWICHS ORIENTAUX ===
         'mchakkel', 'mchakel', 'mechakkel', 'mechakel', 'mechakl', 'mchakl',
-        'maajouka', 'maajou9a', 'majouka', 'ma3jouka', 'maajouka', 'maajuka', 'ma9jouka',
+        'maajouka', 'maajou9a', 'majouka', 'ma3jouka', 'maajuka', 'ma9jouka',
         'sandwich kabab', 'sandwich kebab', 'sandwich chawarma', 'sandwich kofta', 'sandwich kafta',
         'sandwich oriental', 'sandwich libanais', 'sandwich syrien',
         // === MEZZÉ / ENTRÉES ===
@@ -139,7 +159,7 @@ const CUISINE_MAP: Record<string, string[]> = {
         'moutabal', 'mutabbal', 'motabbal', 'baba ghanouj', 'baba ganoush', 'baba ghannouj',
         'fattoush', 'fatouche', 'fatouch', 'fatoush',
         'taboulé', 'tabouleh', 'tabbouleh', 'taboule', 'tabbule',
-        'falafel', 'falafels', 'falafel', 'felafel', 'falafel', 'tameya', 'tamiya',
+        'falafel', 'falafels', 'felafel', 'tameya', 'tamiya',
         'fatayer', 'fatayr', 'fataer', 'fetatir',
         'sambousek', 'sambousak', 'samboussek', 'samboussak', 'sambusak',
         'labneh', 'labné', 'labne',
@@ -157,7 +177,7 @@ const CUISINE_MAP: Record<string, string[]> = {
         'harak osbao', 'harak osba3',
         'bamia', 'bamya', 'baamia',
         'dawoud basha', 'daoud bacha',
-        'kafta bi tahini', 'kafta tahini', 'kofta bi tahini',
+        'kafta bi tahini', 'kafta tahini', 'kofta bi tahini', 'kafta bel senia', 'kafta senia',
         'sheikh el mahshi', 'cheikh al mahchi', 'cheikh mahchi',
         'mahchi', 'mahshi', 'mahche', 'farci oriental',
         'riz bi djaj', 'riz djaj', 'riz au poulet oriental', 'ruz bi djaj',

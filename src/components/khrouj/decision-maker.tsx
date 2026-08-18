@@ -480,9 +480,9 @@ export default function DecisionMaker() {
       'Mlawi': { keywords: ['mlawi', 'melaoui'], emoji: '🌯' },
       'Chapati': { keywords: ['chapati', 'croque', 'sandwich rond'], emoji: '🥪' },
       'Ciabatta': { keywords: ['ciabatta', 'ciabata'], emoji: '🥪' },
-      'Escalope / Poulet': { keywords: ['escalope', 'escalop', 'scalop', 'pané', 'panée'], emoji: '🍗' },
+      'Escalope / Poulet': { keywords: ['escalope', 'escalop', 'scalop', 'pané', 'panée', 'poulet', 'chicken', 'djedj', 'djaj'], emoji: '🍗' },
       'Risotto / Riz': { keywords: ['risotto', 'paella'], emoji: '🥘' },
-      'Fruits de Mer / Crevettes': { keywords: ['crevette', 'crevettes', 'shrimp', 'seafood', 'fruit de mer', 'fruits de mer', 'calamar'], emoji: '🦐' },
+      'Fruits de Mer / Crevettes': { keywords: ['crevette', 'crevettes', 'shrimp', 'seafood', 'fruit de mer', 'fruits de mer', 'calamar', 'poisson', 'saumon'], emoji: '🦐' },
       'Kaffteji': { keywords: ['kafteji', 'kaffteji'], emoji: '🥘' },
       'Lablebi': { keywords: ['lablebi', 'lablabi'], emoji: '🍲' },
       'Couscous': { keywords: ['couscous'], emoji: '🍚' },
@@ -492,10 +492,10 @@ export default function DecisionMaker() {
       'Brunch': { keywords: ['brunch', 'oeuf', 'pancake', 'benedict'], emoji: '🍳' },
       'Crêpe/Gaufre': { keywords: ['crêpe', 'gaufre', 'crepe'], emoji: '🥞' },
       'Glace/Dessert': { keywords: ['glace', 'cake', 'pâtisserie', 'chocolat', 'donut'], emoji: '🍦' },
-      'Libanais/Oriental': { keywords: ['libanais', 'chawarma', 'shawarma', 'falafel', 'kebab', 'kabab', 'kabeb', 'kebeb', 'taouk', 'chich taouk', 'maajouka', 'maajou9a', 'mchakkel', 'mchakel'], emoji: '🥙' },
+      'Viande / Grillade': { keywords: ['viande', 'steak', 'entrecôte', 'entrecote', 'lahma', 'lahmé', 'lahme', 'lahem', 'lahm', 'lham', 'l7am', 'l7em', 'lhem', 'l7ma', 'لحمة', 'لحم', 'boeuf', 'bœuf', 'veau', 'agneau', 'mouton', 'côtelette', 'cotelette', 'bavette', 'filet de boeuf', 'kefta', 'kafta', 'kofta', 'senia', 'siniye', 'siniyeh', 'lahma bel senia', 'lahmé bi siniyé', 'mechoui', 'grillade'], emoji: '🥩' },
+      'Libanais/Oriental': { keywords: ['libanais', 'chawarma', 'shawarma', 'falafel', 'kebab', 'kabab', 'kabeb', 'kebeb', 'taouk', 'chich taouk', 'maajouka', 'maajou9a', 'mchakkel', 'mchakel', 'tahina', 'tahini', 'tahine', 'arayes', 'manakish', 'manouche'], emoji: '🥙' },
       'Salade/Bowl': { keywords: ['salade', 'healthy', 'bowl'], emoji: '🥗' },
-      'Grillade': { keywords: ['grillade', 'steak', 'entrecôte'], emoji: '🍖' },
-      'Plat Tunisien': { keywords: ['fricassé', 'ojja', 'kammounia', 'brik', 'couscous', 'tunisien'], emoji: '🇹🇳' },
+      'Plat Tunisien': { keywords: ['fricassé', 'ojja', 'kammounia', 'brik', 'couscous', 'tunisien', 'mloukhia'], emoji: '🇹🇳' },
     };
 
     // QG du Mois Logic (Last 30 days)
@@ -1350,27 +1350,6 @@ export default function DecisionMaker() {
             )}
           </div>
 
-          {/* Momenty Quick Toggle Button */}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setOnlyMomenty(!onlyMomenty)}
-            className={cn(
-              "h-10 px-3 rounded-xl border transition-all duration-300 flex items-center gap-1.5 text-xs font-bold shrink-0",
-              onlyMomenty
-                ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white border-transparent shadow-md shadow-pink-500/20 hover:from-pink-600 hover:to-rose-600"
-                : "bg-pink-50/70 dark:bg-pink-950/30 text-pink-700 dark:text-pink-300 border-pink-200/80 hover:bg-pink-100/80"
-            )}
-            title="Filtrer uniquement les sorties enregistrées via Momenty"
-          >
-            <Sparkles className={cn("h-3.5 w-3.5", onlyMomenty ? "text-white animate-spin" : "text-pink-600")} style={{ animationDuration: '3s' }} />
-            <span className="hidden sm:inline">Momenty</span>
-            <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-extrabold", onlyMomenty ? "bg-white/25 text-white" : "bg-pink-200/60 text-pink-800")}>
-              {totalMomentyVisits}
-            </span>
-          </Button>
-
           {/* Filter options toggle */}
           <Button
             type="button"
@@ -1378,65 +1357,64 @@ export default function DecisionMaker() {
             size="sm"
             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
             className={cn(
-              "h-10 px-2.5 rounded-xl border transition-all duration-200 shrink-0",
+              "h-10 px-3 rounded-xl border transition-all duration-200 shrink-0 flex items-center gap-1.5 text-xs font-semibold",
               showAdvancedFilters || selectedPeriod !== 'all' || sortBy !== 'newest'
-                ? "border-primary bg-primary/10 text-primary font-bold"
+                ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
                 : "text-muted-foreground hover:text-foreground"
             )}
             title="Options de tri et filtres temporels"
           >
             <SlidersHorizontal className="h-4 w-4" />
+            <span className="hidden sm:inline">Filtres</span>
           </Button>
         </div>
 
-        {/* Categories Horizontal Scrollbar */}
-        <div className="space-y-1.5">
-          <ScrollArea className="w-full whitespace-nowrap -mx-1 px-1">
-            <div className="flex gap-1.5 pb-1">
-              <button
-                type="button"
-                onClick={() => setSelectedCategory('all')}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 border flex items-center gap-1.5 shrink-0",
-                  selectedCategory === 'all'
-                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                    : "bg-muted/40 hover:bg-muted/80 text-muted-foreground border-transparent"
-                )}
-              >
-                <span>Tout</span>
-                <span className={cn("text-[10px] px-1 rounded-full", selectedCategory === 'all' ? "bg-white/20 text-white" : "bg-muted text-muted-foreground")}>
-                  {allVisits.length}
-                </span>
-              </button>
+        {/* Categories Horizontal Scrollbar - Native smooth horizontal scroll */}
+        <div className="relative w-full">
+          <div className="flex gap-1.5 overflow-x-auto pb-1.5 pt-0.5 scrollbar-none touch-pan-x scroll-smooth -mx-1 px-1">
+            <button
+              type="button"
+              onClick={() => setSelectedCategory('all')}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 border flex items-center gap-1.5 shrink-0 select-none",
+                selectedCategory === 'all'
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "bg-muted/40 hover:bg-muted/80 text-muted-foreground border-transparent"
+              )}
+            >
+              <span>Tout</span>
+              <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full", selectedCategory === 'all' ? "bg-white/20 text-white" : "bg-muted text-muted-foreground")}>
+                {allVisits.length}
+              </span>
+            </button>
 
-              {outingOptions.map((opt) => {
-                const count = allVisits.filter(v => v.category === opt.label).length;
-                if (count === 0) return null;
-                const isSelected = selectedCategory === opt.label;
-                const Icon = opt.icon;
+            {outingOptions.map((opt) => {
+              const count = allVisits.filter(v => v.category === opt.label).length;
+              if (count === 0) return null;
+              const isSelected = selectedCategory === opt.label;
+              const Icon = opt.icon;
 
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setSelectedCategory(isSelected ? 'all' : opt.label)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 border flex items-center gap-1.5 shrink-0",
-                      isSelected
-                        ? cn(opt.bgClass, opt.colorClass, "border-current shadow-sm ring-1 ring-current/20")
-                        : "bg-muted/40 hover:bg-muted/80 text-muted-foreground border-transparent"
-                    )}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    <span>{opt.label}</span>
-                    <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-bold", isSelected ? "bg-black/10 text-current" : "bg-muted text-muted-foreground")}>
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </ScrollArea>
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setSelectedCategory(isSelected ? 'all' : opt.label)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 border flex items-center gap-1.5 shrink-0 select-none",
+                    isSelected
+                      ? cn(opt.bgClass, opt.colorClass, "border-current shadow-sm ring-1 ring-current/20")
+                      : "bg-muted/40 hover:bg-muted/80 text-muted-foreground border-transparent"
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span>{opt.label}</span>
+                  <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-bold", isSelected ? "bg-black/10 text-current" : "bg-muted text-muted-foreground")}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Collapsible Advanced Filters: Period & Sort */}
@@ -1927,9 +1905,16 @@ export default function DecisionMaker() {
       'Tunisien': { gradient: 'from-red-500/20 to-primary/20', tint: 'text-primary' },
       'Salade': { gradient: 'from-green-300/20 to-emerald-400/20', tint: 'text-green-700' },
       'Viande': { gradient: 'from-rose-600/20 to-red-700/20', tint: 'text-rose-800' },
+      'Viande / Grillade': { gradient: 'from-rose-600/20 to-red-700/20', tint: 'text-rose-800' },
+      'Grillade': { gradient: 'from-amber-700/20 to-red-800/20', tint: 'text-red-800' },
+      'Lahma': { gradient: 'from-rose-600/20 to-red-700/20', tint: 'text-rose-800' },
+      'Lahmé': { gradient: 'from-rose-600/20 to-red-700/20', tint: 'text-rose-800' },
+      'Libanais/Oriental': { gradient: 'from-amber-500/20 to-orange-600/20', tint: 'text-amber-800' },
+      'Oriental': { gradient: 'from-amber-500/20 to-orange-600/20', tint: 'text-amber-800' },
       'Chapati': { gradient: 'from-orange-200 to-orange-400/40', tint: 'text-orange-800' },
       'Mlawi': { gradient: 'from-amber-200 to-amber-500/40', tint: 'text-amber-900' },
       'Poulet': { gradient: 'from-orange-400/20 to-red-400/20', tint: 'text-orange-700' },
+      'Escalope / Poulet': { gradient: 'from-orange-400/20 to-red-400/20', tint: 'text-orange-700' },
       'Petit Déj': { gradient: 'from-blue-100 to-cyan-300/30', tint: 'text-blue-700' },
       'Baguette Farcie': { gradient: 'from-yellow-200 to-amber-400/30', tint: 'text-amber-800' },
       'Kaffteji': { gradient: 'from-red-300/20 to-orange-400/20', tint: 'text-red-700' },
