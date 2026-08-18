@@ -61,6 +61,8 @@ export type SeenMovie = {
     posterUrl?: string;
     year?: number;
     rating?: number;
+    watchedInCinema?: boolean;
+    cinemaPlace?: string;
 };
 
 export type UserProfile = {
@@ -468,6 +470,7 @@ export async function addSeenSeriesWithDate(
     if (series.rating !== undefined && series.rating !== null) seenSeries.rating = series.rating;
 
     await setDoc(userRef, {
+        seriesToWatch: arrayRemove(series.title),
         seenSeriesTitles: arrayUnion(series.title),
         seenSeriesData: arrayUnion(seenSeries)
     }, { merge: true });
@@ -476,6 +479,7 @@ export async function addSeenSeriesWithDate(
     if (localProfile) {
         const updatedProfile = {
             ...localProfile,
+            seriesToWatch: (localProfile.seriesToWatch || []).filter((t: string) => t.toLowerCase() !== series.title.toLowerCase()),
             seenSeriesTitles: Array.from(new Set([...(localProfile.seenSeriesTitles || []), series.title])),
             seenSeriesData: [...(localProfile.seenSeriesData || []).filter(m => m.title !== series.title), seenSeries]
         };
@@ -492,6 +496,8 @@ export async function addSeenMovieWithDate(
         posterUrl?: string;
         year?: number;
         rating?: number;
+        watchedInCinema?: boolean;
+        cinemaPlace?: string;
     }
 ) {
     const userRef = doc(firestoreDb, "users", uid);
@@ -506,8 +512,11 @@ export async function addSeenMovieWithDate(
     if (movie.posterUrl) seenMovie.posterUrl = movie.posterUrl;
     if (movie.year !== undefined && movie.year !== null) seenMovie.year = movie.year;
     if (movie.rating !== undefined && movie.rating !== null) seenMovie.rating = movie.rating;
+    if (movie.watchedInCinema) seenMovie.watchedInCinema = movie.watchedInCinema;
+    if (movie.cinemaPlace) seenMovie.cinemaPlace = movie.cinemaPlace;
 
     await setDoc(userRef, {
+        moviesToWatch: arrayRemove(movie.title),
         seenMovieTitles: arrayUnion(movie.title),
         seenMoviesData: arrayUnion(seenMovie)
     }, { merge: true });
@@ -516,6 +525,7 @@ export async function addSeenMovieWithDate(
     if (localProfile) {
         const updatedProfile = {
             ...localProfile,
+            moviesToWatch: (localProfile.moviesToWatch || []).filter((t: string) => t.toLowerCase() !== movie.title.toLowerCase()),
             seenMovieTitles: Array.from(new Set([...(localProfile.seenMovieTitles || []), movie.title])),
             seenMoviesData: [...(localProfile.seenMoviesData || []).filter(m => m.title !== movie.title), seenMovie]
         };

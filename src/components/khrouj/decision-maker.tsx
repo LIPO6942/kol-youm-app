@@ -704,13 +704,34 @@ export default function DecisionMaker() {
               const movieData: any = {
                   title: finalOrderedItem,
                   viewedAt: dateMs,
+                  watchedInCinema: true,
+                  cinemaPlace: cleanedName,
               };
               if (selectedMovie) {
                   if (selectedMovie.posterUrl) movieData.posterUrl = selectedMovie.posterUrl;
                   if (selectedMovie.year) movieData.year = selectedMovie.year;
                   if (selectedMovie.rating) movieData.rating = selectedMovie.rating;
               }
+
+              // Check if the movie was in watchlist ('moviesToWatch')
+              const wasInWatchlist = userProfile?.moviesToWatch?.some(
+                (t: string) => t.toLowerCase() === finalOrderedItem.toLowerCase()
+              );
+
               await addSeenMovieWithDate(user.uid, movieData);
+
+              if (wasInWatchlist) {
+                toast({
+                  title: "🎬 Film transféré depuis 'À voir' !",
+                  description: `"${finalOrderedItem}" était dans votre liste 'À voir'. Il a été automatiquement retiré de 'À voir' et ajouté à vos 'Films vus' !`,
+                  className: "bg-emerald-600 text-white font-bold border-none shadow-lg",
+                });
+              } else {
+                toast({
+                  title: "🎬 Sortie Cinéma enregistrée",
+                  description: `"${finalOrderedItem}" a été ajouté à vos films vus au cinéma.`,
+                });
+              }
           }
         } else {
           // For other categories, allow multiple commands in a single visit log (comma separated)
@@ -1562,7 +1583,11 @@ export default function DecisionMaker() {
 
                         {visit.orderedItem && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-muted/60 text-muted-foreground text-[11px] font-medium max-w-full truncate">
-                            <UtensilsCrossed className="h-3 w-3 text-muted-foreground/80 shrink-0" />
+                            {visit.category === 'Cinéma' ? (
+                              <Film className="h-3 w-3 text-violet-600 shrink-0" />
+                            ) : (
+                              <UtensilsCrossed className="h-3 w-3 text-muted-foreground/80 shrink-0" />
+                            )}
                             <span className="truncate">{visit.orderedItem}</span>
                           </span>
                         )}
@@ -2291,8 +2316,12 @@ export default function DecisionMaker() {
                         </p>
                         {v.orderedItem && (
                           <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1 mt-0.5">
-                            <UtensilsCrossed className="h-2.5 w-2.5 flex-shrink-0" />
-                            {v.orderedItem}
+                            {opt.label === 'Cinéma' ? (
+                              <Film className="h-2.5 w-2.5 flex-shrink-0 text-violet-600" />
+                            ) : (
+                              <UtensilsCrossed className="h-2.5 w-2.5 flex-shrink-0" />
+                            )}
+                            <span>{v.orderedItem}</span>
                           </p>
                         )}
                       </div>

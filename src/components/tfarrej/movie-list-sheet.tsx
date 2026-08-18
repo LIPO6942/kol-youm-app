@@ -670,11 +670,26 @@ function MovieListContent({
                     )}
                   </div>
                 )}
-                {/* Show when the movie was watched */}
+                {/* Show when the movie was watched and Cinema badge */}
                 {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && viewedAt && (
-                  <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    <span>Vu le {formatViewedDate(viewedAt)}</span>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3 text-primary/70" />
+                      <span>Vu le {formatViewedDate(viewedAt)}</span>
+                    </div>
+                    {(() => {
+                      const cinemaVisit = userProfile?.visits?.find(v => v.category === 'Cinéma' && v.orderedItem?.toLowerCase() === movieTitle.toLowerCase());
+                      const isCinema = seenData?.watchedInCinema || !!cinemaVisit;
+                      const place = seenData?.cinemaPlace || cinemaVisit?.placeName;
+                      if (!isCinema) return null;
+
+                      return (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950/80 border border-violet-200 dark:border-violet-800 text-[9px] font-bold text-violet-700 dark:text-violet-300">
+                          <Clapperboard className="h-2.5 w-2.5" />
+                          Vu au Cinéma{place ? ` · ${place}` : ''}
+                        </span>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
@@ -742,6 +757,21 @@ function MovieListContent({
         className="group relative aspect-[2/3] rounded-lg overflow-hidden bg-muted cursor-pointer hover:ring-2 hover:ring-primary transition-all"
         title={`${movieTitle}${viewedAt ? ` - Vu le ${formatViewedDate(viewedAt)}` : ''}`}
       >
+        {/* Cinema badge in grid view */}
+        {(() => {
+          const cinemaVisit = userProfile?.visits?.find(v => v.category === 'Cinéma' && v.orderedItem?.toLowerCase() === movieTitle.toLowerCase());
+          const isCinema = seenData?.watchedInCinema || !!cinemaVisit;
+          if (!isCinema) return null;
+
+          return (
+            <div className="absolute top-1.5 left-1.5 z-20">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-950/90 border border-violet-700/60 text-violet-200 text-[8px] font-bold shadow-sm backdrop-blur-xs">
+                <Clapperboard className="h-2.5 w-2.5 text-violet-300" />
+                Cinéma
+              </span>
+            </div>
+          );
+        })()}
         {/* Custom rendering for missing posters in grid view to ensure contrast */}
         {(!posterUrl || (posterUrl && !posterUrl.startsWith('default:') && !posterUrl.startsWith('http'))) ? (
           <div className="w-full h-full bg-slate-800 flex flex-col items-center justify-center p-2 text-center relative">
@@ -1206,6 +1236,10 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
     }
 
     try {
+      const wasInWatchlist = (type === 'movie' ? userProfile?.moviesToWatch : userProfile?.seriesToWatch)?.some(
+        (t: string) => t.toLowerCase() === movie.title.toLowerCase()
+      );
+
       if (type === 'movie') {
         await addSeenMovieWithDate(user.uid, {
           title: movie.title,
@@ -1224,7 +1258,15 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
         });
       }
 
-      toast({ title: `"${movie.title}" ajouté aux vus.` });
+      if (wasInWatchlist) {
+        toast({
+          title: `🎬 Transféré depuis 'À voir' !`,
+          description: `"${movie.title}" figurait dans votre liste 'À voir'. Il a été automatiquement retiré de 'À voir' et ajouté à vos ${type === 'movie' ? 'films' : 'séries'} vus !`,
+          className: "bg-emerald-600 text-white font-bold border-none shadow-lg",
+        });
+      } else {
+        toast({ title: `"${movie.title}" ajouté aux vus.` });
+      }
 
       // If we are moving from a watchlist, remove it from there
       if (userProfile?.moviesToWatch?.includes(movie.title)) {
