@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { Suggestion } from '@/ai/flows/decision-maker-flow.types';
-import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2, Crown, Compass, Award, Home, Zap, Star, Soup, Cake, IceCream, Fish, Drumstick, Cherry, Apple, Carrot, Cookie, Beer, Wine, GlassWater, Beef, Egg, Flame, ExternalLink, Search, Clapperboard, Film, ChevronDown } from 'lucide-react';
+import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2, Crown, Compass, Award, Home, Zap, Star, Soup, Cake, IceCream, Fish, Drumstick, Cherry, Apple, Carrot, Cookie, Beer, Wine, GlassWater, Beef, Egg, Flame, ExternalLink, Search, Clapperboard, Film, ChevronDown, Sparkles, Clock, SlidersHorizontal, ArrowUpDown, FilterX, Layers } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile, addVisitLog, deleteVisitLog, updateVisitLog, updateSpecialtyCustomization, addSeenMovieWithDate, type VisitLog } from '@/lib/firebase/firestore';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
@@ -1221,134 +1221,412 @@ export default function DecisionMaker() {
   const GlobalHistoryList = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchFocused, setIsSearchFocused] = useState(false);
+    const [onlyMomenty, setOnlyMomenty] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
+    const [selectedPeriod, setSelectedPeriod] = useState<string>('all');
+    const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name'>('newest');
+    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
     if (!userProfile?.visits || userProfile.visits.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center py-10 text-center gap-2 text-muted-foreground">
-          <History className="h-12 w-12 opacity-20" />
-          <p>Aucune sortie enregistrée.</p>
+        <div className="flex flex-col items-center justify-center py-16 text-center gap-3 text-muted-foreground">
+          <div className="h-16 w-16 bg-muted/40 rounded-full flex items-center justify-center">
+            <History className="h-8 w-8 opacity-40" />
+          </div>
+          <p className="font-semibold text-foreground/80 text-base">Aucune sortie enregistrée</p>
+          <p className="text-xs text-muted-foreground max-w-xs">Enregistrez vos premières sorties manuellement ou importez-les depuis Momenty !</p>
         </div>
       );
     }
 
-    const sortedVisits = [...userProfile.visits].sort((a, b) => b.date - a.date);
-    const filteredVisits = searchQuery.length >= 2
-      ? sortedVisits.filter(v =>
-          v.placeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (v.orderedItem && v.orderedItem.toLowerCase().includes(searchQuery.toLowerCase()))
-        )
-      : sortedVisits;
+    const allVisits = userProfile.visits;
+    const totalMomentyVisits = allVisits.filter(v => (v as any).source === 'momenty').length;
+    const uniquePlacesTotal = new Set(allVisits.map(v => v.placeName)).size;
+
+    // Filter Logic
+    const filteredVisits = allVisits.filter(v => {
+      // 1. Momenty filter
+      if (onlyMomenty && (v as any).source !== 'momenty') return false;
+
+      // 2. Category filter
+      if (selectedCategory !== 'all' && v.category !== selectedCategory) return false;
+
+      // 3. Period filter
+      if (selectedPeriod === '30days') {
+        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        if (v.date < thirtyDaysAgo) return false;
+      } else if (selectedPeriod === 'thisYear') {
+        const currentYear = new Date().getFullYear();
+        if (new Date(v.date).getFullYear() !== currentYear) return false;
+      } else if (selectedPeriod === 'lastYear') {
+        const lastYear = new Date().getFullYear() - 1;
+        if (new Date(v.date).getFullYear() !== lastYear) return false;
+      }
+
+      // 4. Search query
+      if (searchQuery.trim().length > 0) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesName = v.placeName.toLowerCase().includes(q);
+        const matchesDish = v.orderedItem && v.orderedItem.toLowerCase().includes(q);
+        const matchesCategory = v.category && v.category.toLowerCase().includes(q);
+        return matchesName || matchesDish || matchesCategory;
+      }
+
+      return true;
+    });
+
+    // Sort Logic
+    const sortedVisits = [...filteredVisits].sort((a, b) => {
+      if (sortBy === 'newest') return b.date - a.date;
+      if (sortBy === 'oldest') return a.date - b.date;
+      if (sortBy === 'name') return a.placeName.localeCompare(b.placeName);
+      return 0;
+    });
+
+    const isAnyFilterActive = onlyMomenty || selectedCategory !== 'all' || selectedPeriod !== 'all' || searchQuery.trim().length > 0 || sortBy !== 'newest';
+
+    const handleResetFilters = () => {
+      setSearchQuery('');
+      setOnlyMomenty(false);
+      setSelectedCategory('all');
+      setSelectedPeriod('all');
+      setSortBy('newest');
+    };
 
     return (
-      <div className="flex flex-col h-full space-y-2">
-        <div className="px-6 flex justify-end">
-          <div className={cn(
-            "relative transition-all duration-300 ease-out flex items-center rounded-full mt-1",
-            isSearchFocused || searchQuery.length > 0 
-              ? "w-full bg-muted/40 border border-primary/20 shadow-sm" 
-              : "w-9 h-9 bg-muted/30 border border-transparent hover:bg-muted/50 cursor-pointer"
-          )}>
-            <div className="absolute left-2.5 z-10 flex items-center justify-center pointer-events-none">
-              <Search className={cn("h-4 w-4 transition-colors duration-300", isSearchFocused ? "text-primary" : "text-muted-foreground/70")} />
+      <div className="flex flex-col h-full space-y-3">
+        {/* Top Stats Banner */}
+        <div className="grid grid-cols-3 gap-2 px-1 pt-1">
+          <div className="bg-primary/5 border border-primary/15 rounded-2xl p-2.5 flex flex-col items-center justify-center text-center">
+            <span className="text-lg font-black text-primary leading-none">{allVisits.length}</span>
+            <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-tight mt-0.5">Total</span>
+          </div>
+
+          <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-2.5 flex flex-col items-center justify-center text-center">
+            <span className="text-lg font-black text-slate-700 dark:text-slate-200 leading-none">{uniquePlacesTotal}</span>
+            <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-tight mt-0.5">Lieux</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setOnlyMomenty(!onlyMomenty)}
+            className={cn(
+              "rounded-2xl p-2.5 flex flex-col items-center justify-center text-center transition-all duration-300 border cursor-pointer group",
+              onlyMomenty
+                ? "bg-gradient-to-br from-amber-500/20 via-pink-500/20 to-purple-500/20 border-pink-500/50 shadow-md shadow-pink-500/10 ring-2 ring-pink-500/30"
+                : "bg-pink-50/60 dark:bg-pink-950/30 border-pink-200/80 dark:border-pink-900 hover:bg-pink-100/60"
+            )}
+          >
+            <div className="flex items-center gap-1">
+              <Sparkles className={cn("h-3.5 w-3.5 text-pink-600 transition-transform duration-300", onlyMomenty ? "scale-125 rotate-12" : "group-hover:rotate-12")} />
+              <span className="text-lg font-black text-pink-600 leading-none">{totalMomentyVisits}</span>
             </div>
+            <span className="text-[10px] text-pink-700 dark:text-pink-300 font-bold uppercase tracking-tight mt-0.5 flex items-center gap-0.5">
+              Momenty
+              {onlyMomenty && <span className="h-1.5 w-1.5 rounded-full bg-pink-600 inline-block animate-ping" />}
+            </span>
+          </button>
+        </div>
+
+        {/* Search Bar and Quick Actions */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className={cn("absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 transition-colors duration-200", isSearchFocused ? "text-primary" : "text-muted-foreground/60")} />
             <Input
-              placeholder="Lieu ou plat..."
+              placeholder="Rechercher un lieu, un plat..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => setIsSearchFocused(false)}
-              className={cn(
-                "h-9 pl-9 pr-8 border-none bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm",
-                isSearchFocused || searchQuery.length > 0 ? "opacity-100 placeholder:text-muted-foreground/50" : "opacity-0 cursor-pointer"
-              )}
+              className="h-10 pl-9 pr-8 bg-muted/40 border-muted-foreground/20 rounded-xl text-sm focus-visible:ring-primary/20 focus-visible:border-primary"
             />
             {searchQuery.length > 0 && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 z-20 flex items-center justify-center h-5 w-5 rounded-full hover:bg-muted-foreground/20 text-muted-foreground transition-colors"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center justify-center h-5 w-5 rounded-full hover:bg-muted text-muted-foreground transition-colors"
               >
                 <X className="h-3 w-3" />
               </button>
             )}
           </div>
+
+          {/* Momenty Quick Toggle Button */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setOnlyMomenty(!onlyMomenty)}
+            className={cn(
+              "h-10 px-3 rounded-xl border transition-all duration-300 flex items-center gap-1.5 text-xs font-bold shrink-0",
+              onlyMomenty
+                ? "bg-gradient-to-r from-pink-500 to-rose-500 text-white border-transparent shadow-md shadow-pink-500/20 hover:from-pink-600 hover:to-rose-600"
+                : "bg-pink-50/70 dark:bg-pink-950/30 text-pink-700 dark:text-pink-300 border-pink-200/80 hover:bg-pink-100/80"
+            )}
+            title="Filtrer uniquement les sorties enregistrées via Momenty"
+          >
+            <Sparkles className={cn("h-3.5 w-3.5", onlyMomenty ? "text-white animate-spin" : "text-pink-600")} style={{ animationDuration: '3s' }} />
+            <span className="hidden sm:inline">Momenty</span>
+            <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-extrabold", onlyMomenty ? "bg-white/25 text-white" : "bg-pink-200/60 text-pink-800")}>
+              {totalMomentyVisits}
+            </span>
+          </Button>
+
+          {/* Filter options toggle */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            className={cn(
+              "h-10 px-2.5 rounded-xl border transition-all duration-200 shrink-0",
+              showAdvancedFilters || selectedPeriod !== 'all' || sortBy !== 'newest'
+                ? "border-primary bg-primary/10 text-primary font-bold"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            title="Options de tri et filtres temporels"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+          </Button>
         </div>
-        <ScrollArea className="h-[60vh] -mx-6 px-6">
-        <div className="space-y-3 pb-6">
-          {filteredVisits.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground">
-              Aucun résultat pour "{searchQuery}"
-            </div>
-          ) : (
-            filteredVisits.map((visit: VisitLog) => {
-            const cat = outingOptions.find((o: (typeof outingOptions)[0]) => o.label === visit.category) || {
-              icon: MapPin,
-              colorClass: "text-slate-600",
-              bgClass: "bg-slate-100",
-              label: visit.category
-            };
 
-            return (
-              <div key={visit.id} className="group flex items-center gap-3 p-3 rounded-xl border bg-card/50 hover:bg-white hover:shadow-md hover:border-primary/20 transition-all duration-300 relative overflow-hidden">
-                <div className={cn("h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 transition-transform duration-300 group-hover:scale-110", cat.bgClass)}>
-                  <cat.icon className={cn("h-5 w-5", cat.colorClass)} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <p className="font-bold text-sm sm:text-base text-foreground/90 group-hover:text-primary transition-colors leading-tight break-words">
-                      {visit.placeName}
-                      {(visit as any).source === 'momenty' && (
-                        <span className="inline-flex items-center gap-1">
-                          <span className="text-[7px] text-muted-foreground/60 italic ml-1.5 align-middle select-none">via Momenty</span>
-                          <Link
-                            href={visit.momentyUrl ? normalizeMomentyUrl(visit.momentyUrl) : 'https://momenty-ten.vercel.app/plats'}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary/70 hover:text-primary transition-colors ml-0.5"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink className="h-2 w-2" />
-                          </Link>
-                        </span>
-                      )}
-                    </p>
-                    <TypedBadge variant="outline" className="text-[10px] h-5 px-1.5 font-normal bg-background/50 text-muted-foreground whitespace-nowrap group-hover:opacity-0 transition-opacity">
-                      {getDayName(visit.date)} {new Date(visit.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
-                    </TypedBadge>
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <p className={cn("text-xs font-bold", cat.colorClass)}>
-                      {cat.label}
-                      {visit.orderedItem && (
-                        <span className="text-muted-foreground font-medium ml-1 text-[11px]">
-                          - {visit.orderedItem}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                </div>
+        {/* Categories Horizontal Scrollbar */}
+        <div className="space-y-1.5">
+          <ScrollArea className="w-full whitespace-nowrap -mx-1 px-1">
+            <div className="flex gap-1.5 pb-1">
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('all')}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 border flex items-center gap-1.5 shrink-0",
+                  selectedCategory === 'all'
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : "bg-muted/40 hover:bg-muted/80 text-muted-foreground border-transparent"
+                )}
+              >
+                <span>Tout</span>
+                <span className={cn("text-[10px] px-1 rounded-full", selectedCategory === 'all' ? "bg-white/20 text-white" : "bg-muted text-muted-foreground")}>
+                  {allVisits.length}
+                </span>
+              </button>
 
-                {/* Safe Delete Button - Only visible on hover/group-hover */}
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-full"
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      if (!user) return;
-                      await deleteVisitLog(user.uid, visit.id);
-                      toast({ title: "Visite supprimée" });
-                    }}
+              {outingOptions.map((opt) => {
+                const count = allVisits.filter(v => v.category === opt.label).length;
+                if (count === 0) return null;
+                const isSelected = selectedCategory === opt.label;
+                const Icon = opt.icon;
+
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setSelectedCategory(isSelected ? 'all' : opt.label)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-xs font-bold transition-all duration-200 border flex items-center gap-1.5 shrink-0",
+                      isSelected
+                        ? cn(opt.bgClass, opt.colorClass, "border-current shadow-sm ring-1 ring-current/20")
+                        : "bg-muted/40 hover:bg-muted/80 text-muted-foreground border-transparent"
+                    )}
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                    <Icon className="h-3.5 w-3.5" />
+                    <span>{opt.label}</span>
+                    <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full font-bold", isSelected ? "bg-black/10 text-current" : "bg-muted text-muted-foreground")}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </div>
+
+        {/* Collapsible Advanced Filters: Period & Sort */}
+        {showAdvancedFilters && (
+          <div className="p-3 bg-muted/30 border border-muted-foreground/15 rounded-2xl space-y-2.5 animate-in fade-in-50 slide-in-from-top-2 duration-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {/* Period Filter */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <Calendar className="h-3 w-3" /> Période
+                </span>
+                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                  <SelectTrigger className="h-8 text-xs bg-background rounded-lg border-muted-foreground/20">
+                    <SelectValue placeholder="Période" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les dates</SelectItem>
+                    <SelectItem value="30days">30 derniers jours</SelectItem>
+                    <SelectItem value="thisYear">Cette année ({new Date().getFullYear()})</SelectItem>
+                    <SelectItem value="lastYear">Année précédente ({new Date().getFullYear() - 1})</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            );
-          })
+
+              {/* Sort By Filter */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <ArrowUpDown className="h-3 w-3" /> Ordre de tri
+                </span>
+                <Select value={sortBy} onValueChange={(val: any) => setSortBy(val)}>
+                  <SelectTrigger className="h-8 text-xs bg-background rounded-lg border-muted-foreground/20">
+                    <SelectValue placeholder="Tri" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">Plus récentes en premier ⬇️</SelectItem>
+                    <SelectItem value="oldest">Plus anciennes en premier ⬆️</SelectItem>
+                    <SelectItem value="name">Nom du lieu (A-Z)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Active Filters Summary bar */}
+        <div className="flex items-center justify-between text-xs px-1 text-muted-foreground">
+          <div className="flex items-center gap-1.5 font-medium">
+            <span className="font-bold text-foreground">{sortedVisits.length}</span> sortie{sortedVisits.length > 1 ? 's' : ''}
+            {isAnyFilterActive && (
+              <span className="text-[11px] text-muted-foreground">
+                sur {allVisits.length}
+              </span>
+            )}
+            {onlyMomenty && (
+              <TypedBadge className="bg-pink-100 text-pink-700 dark:bg-pink-950 dark:text-pink-300 border-none text-[9px] h-4 px-1.5 flex items-center gap-0.5">
+                <Sparkles className="h-2.5 w-2.5" /> Momenty seul
+              </TypedBadge>
+            )}
+          </div>
+
+          {isAnyFilterActive && (
+            <button
+              onClick={handleResetFilters}
+              className="text-[11px] font-bold text-primary hover:text-primary/80 hover:underline flex items-center gap-1 transition-colors"
+            >
+              <FilterX className="h-3 w-3" />
+              Réinitialiser
+            </button>
           )}
         </div>
-      </ScrollArea>
+
+        {/* Main List of Visits */}
+        <ScrollArea className="h-[55vh] -mx-6 px-6">
+          <div className="space-y-2.5 pb-6">
+            {sortedVisits.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center gap-3 text-muted-foreground">
+                <div className="h-12 w-12 bg-muted/40 rounded-full flex items-center justify-center">
+                  <Search className="h-6 w-6 opacity-30" />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-semibold text-foreground/80 text-sm">Aucune sortie trouvée</p>
+                  <p className="text-xs text-muted-foreground">Modifiez vos critères de recherche ou réinitialisez les filtres.</p>
+                </div>
+                {isAnyFilterActive && (
+                  <Button variant="outline" size="sm" onClick={handleResetFilters} className="text-xs rounded-xl h-8 gap-1.5 mt-1">
+                    <FilterX className="h-3.5 w-3.5" />
+                    Effacer les filtres
+                  </Button>
+                )}
+              </div>
+            ) : (
+              sortedVisits.map((visit: VisitLog) => {
+                const cat = outingOptions.find((o: (typeof outingOptions)[0]) => o.label === visit.category) || {
+                  icon: MapPin,
+                  colorClass: "text-slate-600",
+                  bgClass: "bg-slate-100",
+                  label: visit.category || 'Autre'
+                };
+                const isMomenty = (visit as any).source === 'momenty';
+
+                return (
+                  <div
+                    key={visit.id}
+                    className={cn(
+                      "group flex items-start gap-3 p-3 rounded-2xl border transition-all duration-300 relative overflow-hidden",
+                      isMomenty
+                        ? "bg-card/70 border-pink-200/50 dark:border-pink-900/40 hover:border-pink-400 hover:shadow-md hover:bg-white dark:hover:bg-card"
+                        : "bg-card/50 hover:bg-white dark:hover:bg-card hover:shadow-md hover:border-primary/20"
+                    )}
+                  >
+                    {/* Category Icon Badge */}
+                    <div className={cn("h-10 w-10 rounded-2xl flex items-center justify-center flex-shrink-0 transition-transform duration-300 group-hover:scale-105 mt-0.5", cat.bgClass)}>
+                      <cat.icon className={cn("h-5 w-5", cat.colorClass)} />
+                    </div>
+
+                    {/* Visit Info */}
+                    <div className="flex-1 min-w-0 pr-6">
+                      <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                        <p className="font-bold text-sm sm:text-base text-foreground/90 group-hover:text-primary transition-colors leading-tight break-words flex items-center gap-1.5 flex-wrap">
+                          <span>{visit.placeName}</span>
+                          {isMomenty && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-pink-500/15 via-rose-500/15 to-purple-500/15 border border-pink-400/30 text-[9px] font-extrabold text-pink-700 dark:text-pink-300">
+                              <Sparkles className="h-2.5 w-2.5 text-pink-600 animate-pulse" />
+                              Momenty
+                              <Link
+                                href={visit.momentyUrl ? normalizeMomentyUrl(visit.momentyUrl) : 'https://momenty-ten.vercel.app/plats'}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-pink-600 hover:text-pink-800 transition-colors ml-0.5"
+                                onClick={(e) => e.stopPropagation()}
+                                title="Voir sur Momenty"
+                              >
+                                <ExternalLink className="h-2.5 w-2.5" />
+                              </Link>
+                            </span>
+                          )}
+                        </p>
+                      </div>
+
+                      {/* Category and Orders */}
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <span className={cn("text-xs font-bold", cat.colorClass)}>
+                          {cat.label}
+                        </span>
+
+                        {visit.orderedItem && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-muted/60 text-muted-foreground text-[11px] font-medium max-w-full truncate">
+                            <UtensilsCrossed className="h-3 w-3 text-muted-foreground/80 shrink-0" />
+                            <span className="truncate">{visit.orderedItem}</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Date & Time display */}
+                      <div className="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3 text-primary/70" />
+                          <span className="font-semibold text-foreground/80">{getDayName(visit.date)}</span> {new Date(visit.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1 font-mono text-[10px]">
+                          <Clock className="h-2.5 w-2.5 text-muted-foreground/70" />
+                          {new Date(visit.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Safe Delete Button */}
+                    <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-xl"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (!user) return;
+                          await deleteVisitLog(user.uid, visit.id);
+                          toast({ title: "Visite supprimée" });
+                        }}
+                        title="Supprimer cette visite"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </ScrollArea>
       </div>
     );
   };
@@ -2182,29 +2460,52 @@ export default function DecisionMaker() {
           <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
             <DialogTrigger asChild>
               <Card className={cn(
-                "bg-primary/5 border-primary/20 group hover:border-primary/40 transition-all duration-300 cursor-pointer relative",
+                "bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 border-primary/20 group hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 cursor-pointer relative overflow-hidden",
                 totalHasMilestone && "border-primary/60 shadow-lg shadow-primary/20"
               )}>
                 <CardContent className="p-4 flex flex-col items-center justify-center text-center relative">
                   {totalHasMilestone && (
                     <span className="absolute top-1 right-1 text-xs animate-bounce">🎉</span>
                   )}
+                  <div className="absolute -right-2 -bottom-2 opacity-10 pointer-events-none group-hover:scale-110 transition-transform duration-300">
+                    <History className="h-12 w-12 text-primary" />
+                  </div>
                   <span className="text-3xl font-bold text-primary group-hover:scale-110 transition-transform duration-300">{stats.total}</span>
                   <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Total</span>
+                  {userProfile?.visits?.some(v => (v as any).source === 'momenty') && (
+                    <span className="inline-flex items-center gap-0.5 text-[8px] text-pink-600 dark:text-pink-400 font-extrabold bg-pink-100/90 dark:bg-pink-950/60 px-1.5 py-0.5 rounded-full mt-1.5 shadow-xs">
+                      <Sparkles className="h-2 w-2" />
+                      {userProfile.visits.filter(v => (v as any).source === 'momenty').length} Momenty
+                    </span>
+                  )}
                 </CardContent>
               </Card>
             </DialogTrigger>
-            <DialogContent className="max-w-md w-[95%] rounded-2xl">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-bold font-headline flex items-center gap-2">
-                  <History className="h-5 w-5 text-primary" />
-                  Historique Complet
-                </DialogTitle>
-                <DialogDescription>
-                  Retrouvez toutes vos sorties chronologiquement.
-                </DialogDescription>
-              </DialogHeader>
-              <GlobalHistoryList />
+            <DialogContent className="max-w-lg sm:max-w-xl w-[95%] rounded-3xl max-h-[88vh] overflow-hidden grid grid-rows-[auto_1fr] p-0 border-none shadow-2xl">
+              <div className="bg-gradient-to-br from-primary/15 via-primary/5 to-background p-5 sm:p-6 pb-4 relative overflow-hidden border-b">
+                <div className="absolute right-[-10px] top-[-10px] opacity-10 rotate-12 pointer-events-none">
+                  <History className="h-28 w-28 text-primary" />
+                </div>
+                <DialogHeader className="relative z-10 text-left">
+                  <div className="flex items-center gap-2.5 mb-1">
+                    <div className="bg-primary/10 p-2 rounded-xl text-primary backdrop-blur-md">
+                      <History className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-xl sm:text-2xl font-black font-headline tracking-tight text-foreground">
+                        Historique Complet
+                      </DialogTitle>
+                    </div>
+                  </div>
+                  <DialogDescription className="text-muted-foreground text-xs sm:text-sm font-medium">
+                    Toutes vos sorties enregistrées avec filtres rapides, Momenty et recherche instantanée.
+                  </DialogDescription>
+                </DialogHeader>
+              </div>
+
+              <div className="p-4 sm:p-5 pt-3 overflow-hidden">
+                <GlobalHistoryList />
+              </div>
             </DialogContent>
           </Dialog>
 
