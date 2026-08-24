@@ -818,25 +818,6 @@ export default function DecisionMaker() {
       setSelectedPlace(p.name);
       setSearchQuery("");
       if (p.zone) setSelectedZoneToAdd(p.zone);
-
-      // Pre-fill tags / activities if the place has them
-      if (p.specialties && p.specialties.length > 0) {
-        setOrderedItem(p.specialties[0] || "");
-        if (p.specialties.length > 1) {
-          setShowSecondCommand(true);
-          setOrderedItem2(p.specialties[1] || "");
-        } else {
-          setShowSecondCommand(false);
-          setOrderedItem2("");
-        }
-        if (p.specialties.length > 2) {
-          setShowThirdCommand(true);
-          setOrderedItem3(p.specialties[2] || "");
-        } else {
-          setShowThirdCommand(false);
-          setOrderedItem3("");
-        }
-      }
     };
 
     const currentMatchedPlace = useMemo(() => {
