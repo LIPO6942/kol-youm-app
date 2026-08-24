@@ -293,7 +293,11 @@ export default function DecisionMaker() {
     // Push each missing place to Firestore silently
     uniqueMissing.forEach(async (v: VisitLog) => {
       try {
-        const zone = availableZones[0] || 'La Marsa';
+        // Try to find zone from combinedPlaces, fallback to 'La Marsa'
+        const knownPlace = combinedPlaces.find(
+          p => p.name.toLowerCase() === v.placeName.toLowerCase() && p.category === 'Kharjet'
+        );
+        const zone = knownPlace?.zone || 'La Marsa';
         const tags = (v.orderedItem || '').split(',').map((s: string) => s.trim()).filter(Boolean);
         await fetch('/api/places-database-firestore', {
           method: 'POST',
@@ -1532,9 +1536,13 @@ export default function DecisionMaker() {
                         />
                       </div>
                       <div className="flex items-center gap-2">
-                        <UtensilsCrossed className="h-4 w-4 text-primary flex-shrink-0" />
+                        {(visit.category === 'Kharjet' || visit.category === 'Balade') ? (
+                          <Layers className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                        ) : (
+                          <UtensilsCrossed className="h-4 w-4 text-primary flex-shrink-0" />
+                        )}
                         <Input
-                          placeholder="Plat commandé..."
+                          placeholder={(visit.category === 'Kharjet' || visit.category === 'Balade') ? "Tags / activités..." : "Plat commandé..."}
                           value={editedDish}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditedDish(e.target.value)}
                           className="h-8 text-sm"
@@ -1586,7 +1594,11 @@ export default function DecisionMaker() {
                       </div>
                       {visit.orderedItem && (
                         <div className="flex items-center gap-2 pl-7">
-                          <UtensilsCrossed className="h-3 w-3 text-muted-foreground" />
+                          {(visit.category === 'Kharjet' || visit.category === 'Balade') ? (
+                            <Layers className="h-3 w-3 text-emerald-500" />
+                          ) : (
+                            <UtensilsCrossed className="h-3 w-3 text-muted-foreground" />
+                          )}
                           <span className="text-[11px] font-medium text-muted-foreground">{visit.orderedItem}</span>
                         </div>
                       )}
@@ -2171,6 +2183,26 @@ export default function DecisionMaker() {
                             `Légende d'Hollywood 🎬`
                           ]
                         },
+                        'Kharjet': {
+                          icon: Compass, color: 'text-emerald-700', bg: 'bg-emerald-50',
+                          titles: [
+                            `Explorateur de Sorties`,
+                            `Globe-Trotter Local`,
+                            `Aventurier Urbain`,
+                            `Maître des Khrejat`,
+                            `Légende de la Kharjet ✨`
+                          ]
+                        },
+                        'Balade': {
+                          icon: Compass, color: 'text-emerald-700', bg: 'bg-emerald-50',
+                          titles: [
+                            `Explorateur de Sorties`,
+                            `Globe-Trotter Local`,
+                            `Aventurier Urbain`,
+                            `Maître des Khrejat`,
+                            `Légende de la Kharjet ✨`
+                          ]
+                        },
                       };
 
                       const config = configs[topCat] || { icon: Compass, color: "text-blue-600", bg: "bg-blue-50", titles: ["Citadin Curieux", "Citadin Actif", "Habitant de Zone", "Expert Local", "Légende du Quartier"] };
@@ -2705,6 +2737,8 @@ export default function DecisionMaker() {
                           <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1 mt-0.5">
                             {opt.label === 'Cinéma' ? (
                               <Film className="h-2.5 w-2.5 flex-shrink-0 text-violet-600" />
+                            ) : opt.label === 'Kharjet' ? (
+                              <Layers className="h-2.5 w-2.5 flex-shrink-0 text-emerald-500" />
                             ) : (
                               <UtensilsCrossed className="h-2.5 w-2.5 flex-shrink-0" />
                             )}
