@@ -113,7 +113,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { action, zone, places, category, specialties, initFromLocal } = await request.json();
+    const { action, zone, places, category, placeName: bodyPlaceName, specialties, initFromLocal } = await request.json();
 
     console.log('Firestore API Request:', { action, zone, places: places?.length, category, hasSpecialties: !!specialties, initFromLocal });
 
@@ -280,7 +280,7 @@ export async function POST(request: NextRequest) {
     };
 
     if (action === 'addPlace') {
-      const { placeName } = await request.clone().json().catch(() => ({}));
+      const placeName = bodyPlaceName;
       if (!zone || !placeName) {
         return NextResponse.json({ success: false, error: 'Zone and placeName are required' }, { status: 400 });
       }

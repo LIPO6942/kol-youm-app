@@ -695,6 +695,7 @@ export default function DecisionMaker() {
     const [orderedItem, setOrderedItem] = useState("");
     const [orderedItem2, setOrderedItem2] = useState("");
     const [orderedItem3, setOrderedItem3] = useState("");
+    const [kharjetNote, setKharjetNote] = useState("");
     const [showSecondCommand, setShowSecondCommand] = useState(false);
     const [showThirdCommand, setShowThirdCommand] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -852,7 +853,8 @@ export default function DecisionMaker() {
             placeName: cleanedName,
             category: selectedCat,
             date: dateMs,
-            orderedItem: finalOrderedItem
+            orderedItem: finalOrderedItem,
+            note: selectedCat === 'Kharjet' && kharjetNote.trim() ? kharjetNote.trim() : undefined
           });
 
           const existingPlace = allPlaces.find((p: { name: string; category: string; zone: string; specialties: string[] }) =>
@@ -939,6 +941,7 @@ export default function DecisionMaker() {
         setOrderedItem("");
         setOrderedItem2("");
         setOrderedItem3("");
+        setKharjetNote("");
         setShowSecondCommand(false);
         setShowThirdCommand(false);
         setMovieSearchQuery("");
@@ -984,6 +987,7 @@ export default function DecisionMaker() {
                       setOrderedItem("");
                       setOrderedItem2("");
                       setOrderedItem3("");
+                      setKharjetNote("");
                       setShowSecondCommand(false);
                       setShowThirdCommand(false);
                       setMovieSearchQuery("");
@@ -1358,6 +1362,26 @@ export default function DecisionMaker() {
                 </div>
             )}
 
+            {/* Kharjet-only free text note */}
+            {selectedCat === 'Kharjet' && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                <Label className="flex items-center gap-1.5">
+                  <span>📝</span>
+                  <span>Note libre (Optionnel)</span>
+                </Label>
+                <textarea
+                  rows={3}
+                  placeholder="Raconte cette sortie en quelques mots... ambiance, anecdote, avec qui tu étais, ce que tu as ressenti ✨"
+                  value={kharjetNote}
+                  onChange={(e) => setKharjetNote(e.target.value)}
+                  className="w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-colors"
+                />
+                {kharjetNote.length > 0 && (
+                  <p className="text-[10px] text-muted-foreground text-right">{kharjetNote.length} caractères</p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Date et heure de la visite</Label>
               <Input
@@ -1552,8 +1576,10 @@ export default function DecisionMaker() {
     }
 
     const allVisits = userProfile.visits;
+    // Kharjet has its own dedicated widget — exclude it from the "Total" counter
+    const nonKharjetVisits = allVisits.filter(v => v.category !== 'Kharjet' && v.category !== 'Balade');
     const totalMomentyVisits = allVisits.filter(v => (v as any).source === 'momenty').length;
-    const uniquePlacesTotal = new Set(allVisits.map(v => v.placeName)).size;
+    const uniquePlacesTotal = new Set(nonKharjetVisits.map(v => v.placeName)).size;
 
     // Filter Logic
     const filteredVisits = allVisits.filter(v => {
@@ -1610,7 +1636,7 @@ export default function DecisionMaker() {
         {/* Top Stats Banner */}
         <div className="grid grid-cols-3 gap-2 px-1 pt-1">
           <div className="bg-primary/5 border border-primary/15 rounded-2xl p-2.5 flex flex-col items-center justify-center text-center">
-            <span className="text-lg font-black text-primary leading-none">{allVisits.length}</span>
+            <span className="text-lg font-black text-primary leading-none">{nonKharjetVisits.length}</span>
             <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-tight mt-0.5">Total</span>
           </div>
 
@@ -1883,6 +1909,14 @@ export default function DecisionMaker() {
                           </span>
                         )}
                       </div>
+
+                      {/* Free-text note for Kharjet */}
+                      {visit.note && (
+                        <p className="mt-1.5 text-[10px] text-emerald-700 dark:text-emerald-400 italic flex items-start gap-1 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-lg px-2 py-1 border border-emerald-200/60 dark:border-emerald-800/50 leading-relaxed">
+                          <span className="flex-shrink-0 mt-px">📝</span>
+                          <span>{visit.note}</span>
+                        </p>
+                      )}
 
                       {/* Date & Time display */}
                       <div className="flex items-center gap-2 mt-1.5 text-[11px] text-muted-foreground">
@@ -2613,6 +2647,12 @@ export default function DecisionMaker() {
                               <UtensilsCrossed className="h-2.5 w-2.5 flex-shrink-0" />
                             )}
                             <span>{v.orderedItem}</span>
+                          </p>
+                        )}
+                        {v.note && (
+                          <p className="text-[10px] text-emerald-700 dark:text-emerald-400 flex items-start gap-1 mt-1 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-lg px-2 py-1 border border-emerald-200/60 dark:border-emerald-800/50">
+                            <span className="flex-shrink-0 mt-px">📝</span>
+                            <span className="italic leading-relaxed">{v.note}</span>
                           </p>
                         )}
                       </div>

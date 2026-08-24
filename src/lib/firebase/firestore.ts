@@ -31,6 +31,7 @@ export type VisitLog = {
     category: string;
     date: number; // timestamp
     orderedItem?: string;
+    note?: string; // free-text note (used for Kharjet outings)
     source?: 'momenty' | 'app';
     isPending?: boolean;
     possibleCategories?: string[];
