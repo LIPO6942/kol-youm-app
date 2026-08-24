@@ -290,7 +290,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     return null;
   }
 
-  const catEmoji = stats.topCategory?.name === 'Fast Food' ? '🍔' : stats.topCategory?.name === 'Brunch' ? '🥞' : stats.topCategory?.name === 'Café' ? '☕' : stats.topCategory?.name === 'Restaurant' ? '🍽️' : stats.topCategory?.name === 'Balade' ? '🌿' : '🎯';
+  const catEmoji = stats.topCategory?.name === 'Fast Food' ? '🍔' : stats.topCategory?.name === 'Brunch' ? '🥞' : stats.topCategory?.name === 'Café' ? '☕' : stats.topCategory?.name === 'Restaurant' ? '🍽️' : (stats.topCategory?.name === 'Kharjet' || stats.topCategory?.name === 'Balade') ? '✨' : '🎯';
 
   return (
     <AnimatePresence>

@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CategoryFrequency, getAvailableYears, getStatsForPeriod, PeriodStats } from '@/lib/khrouj-stats-utils';
-import { Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Clock, Calendar, type LucideIcon, TrendingUp, BarChart3 } from 'lucide-react';
+import { Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Clock, Calendar, type LucideIcon, TrendingUp, BarChart3, Compass } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -29,7 +29,7 @@ const CATEGORY_CONFIG: Record<string, {
 }> = {
     'Café': {
         icon: Coffee,
-        color: 'text-amber-600',
+        color: 'text-amber-700',
         bg: 'bg-amber-50/50',
         border: 'border-amber-100',
         text: 'text-amber-900',
@@ -59,13 +59,21 @@ const CATEGORY_CONFIG: Record<string, {
         text: 'text-yellow-900',
         accent: 'bg-yellow-500'
     },
+    'Kharjet': {
+        icon: Compass,
+        color: 'text-emerald-600',
+        bg: 'bg-emerald-50/50',
+        border: 'border-emerald-100',
+        text: 'text-emerald-900',
+        accent: 'bg-emerald-500'
+    },
     'Balade': {
-        icon: Mountain,
-        color: 'text-green-600',
-        bg: 'bg-green-50/50',
-        border: 'border-green-100',
-        text: 'text-green-900',
-        accent: 'bg-green-500'
+        icon: Compass,
+        color: 'text-emerald-600',
+        bg: 'bg-emerald-50/50',
+        border: 'border-emerald-100',
+        text: 'text-emerald-900',
+        accent: 'bg-emerald-500'
     },
     'Shopping': {
         icon: ShoppingBag,

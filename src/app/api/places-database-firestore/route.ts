@@ -37,6 +37,7 @@ interface CategoryPlaces {
   restaurants?: string[];
   fastFoods?: string[];
   brunch?: string[];
+  kharjet?: string[];
   balade?: string[];
   shopping?: string[];
   cinemas?: string[];
@@ -84,7 +85,7 @@ export async function GET() {
           restaurants: data.restaurants || [],
           fastFoods: data.fastFoods || [],
           brunch: data.brunch || [],
-          balade: data.balade || [],
+          kharjet: data.kharjet || data.balade || [],
           shopping: data.shopping || [],
           cinemas: data.cinemas || []
         },
@@ -266,6 +267,76 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const normalizeCatKey = (cat: string) => {
+      const lower = cat?.toLowerCase() || '';
+      if (lower === 'cafés' || lower === 'café' || lower === 'cafes') return 'cafes';
+      if (lower === 'restaurant' || lower === 'restaurants') return 'restaurants';
+      if (lower === 'fast-food' || lower === 'fast food' || lower === 'fastfoods' || lower === 'fastfoods') return 'fastFoods';
+      if (lower === 'brunch') return 'brunch';
+      if (lower === 'kharjet' || lower === 'balade') return 'kharjet';
+      if (lower === 'shopping') return 'shopping';
+      if (lower === 'cinéma' || lower === 'cinemas') return 'cinemas';
+      return lower;
+    };
+
+    if (action === 'addPlace') {
+      const { placeName } = await request.clone().json().catch(() => ({}));
+      if (!zone || !placeName) {
+        return NextResponse.json({ success: false, error: 'Zone and placeName are required' }, { status: 400 });
+      }
+
+      const zoneId = zone
+        .replace(/\//g, '-')
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '_')
+        .toLowerCase();
+
+      const zoneDoc = await getDoc(doc(db, 'zones', zoneId));
+      let zoneData: any = {
+        zone: zone,
+        cafes: [],
+        restaurants: [],
+        fastFoods: [],
+        brunch: [],
+        kharjet: [],
+        shopping: [],
+        cinemas: []
+      };
+
+      if (zoneDoc.exists()) {
+        zoneData = zoneDoc.data();
+        if (!zoneData.cafes) zoneData.cafes = [];
+        if (!zoneData.restaurants) zoneData.restaurants = [];
+        if (!zoneData.fastFoods) zoneData.fastFoods = [];
+        if (!zoneData.brunch) zoneData.brunch = [];
+        if (!zoneData.kharjet) zoneData.kharjet = zoneData.balade || [];
+        if (!zoneData.shopping) zoneData.shopping = [];
+        if (!zoneData.cinemas) zoneData.cinemas = [];
+      }
+
+      const categoryKey = normalizeCatKey(category || 'kharjet');
+      if (!zoneData[categoryKey]) zoneData[categoryKey] = [];
+
+      const cleanName = placeName.split('[')[0].trim();
+      const existingPlaces: string[] = zoneData[categoryKey];
+      const placeExists = existingPlaces.some(p => p.split('[')[0].trim().toLowerCase() === cleanName.toLowerCase());
+
+      if (!placeExists) {
+        zoneData[categoryKey].push(cleanName);
+      }
+
+      if (specialties && Array.isArray(specialties) && specialties.length > 0) {
+        if (!zoneData.specialties) zoneData.specialties = {};
+        const prevSpecialties = zoneData.specialties[cleanName] || [];
+        const mergedSpecialties = Array.from(new Set([...prevSpecialties, ...specialties]));
+        zoneData.specialties[cleanName] = mergedSpecialties;
+      }
+
+      await setDoc(doc(db, 'zones', zoneId), zoneData);
+      console.log(`Added place ${cleanName} to zone ${zoneId} under ${categoryKey}`);
+      return NextResponse.json({ success: true, zoneId, placeName: cleanName, category: categoryKey });
+    }
+
     if (action === 'update') {
       // Créer un ID safe pour la zone
       const zoneId = zone
@@ -283,7 +354,7 @@ export async function POST(request: NextRequest) {
         restaurants: [],
         fastFoods: [],
         brunch: [],
-        balade: [],
+        kharjet: [],
         shopping: [],
         cinemas: []
       };
@@ -295,23 +366,13 @@ export async function POST(request: NextRequest) {
         if (!zoneData.restaurants) zoneData.restaurants = [];
         if (!zoneData.fastFoods) zoneData.fastFoods = [];
         if (!zoneData.brunch) zoneData.brunch = [];
-        if (!zoneData.balade) zoneData.balade = [];
+        if (!zoneData.kharjet) zoneData.kharjet = zoneData.balade || [];
         if (!zoneData.shopping) zoneData.shopping = [];
         if (!zoneData.cinemas) zoneData.cinemas = [];
       }
 
       if (category) {
-        // Mettre à jour la catégorie spécifique
-        // Normaliser le nom de la catégorie
-        const categoryKey = category === 'cafés' || category === 'Café' || category === 'cafes' ? 'cafes' :
-          category === 'restaurant' || category === 'Restaurant' || category === 'restaurants' ? 'restaurants' :
-            category === 'fast-food' || category === 'Fast Food' || category === 'fastFoods' || category === 'fastfoods' ? 'fastFoods' :
-              category === 'Brunch' || category === 'brunch' ? 'brunch' :
-                category === 'Balade' || category === 'balade' ? 'balade' :
-                  category === 'Shopping' || category === 'shopping' ? 'shopping' :
-                    category === 'Cinéma' || category === 'cinemas' ? 'cinemas' :
-                      category.toLowerCase();
-
+        const categoryKey = normalizeCatKey(category);
         zoneData[categoryKey] = places;
       }
 

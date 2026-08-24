@@ -91,7 +91,7 @@ const outingOptions: { id: string; label: string; icon: LucideIcon; description:
   { id: 'cafe', label: 'Café', icon: Coffee, description: "Pour se détendre", colorClass: 'text-amber-800', bgClass: 'bg-amber-50', hoverClass: 'hover:bg-amber-100', selectedClass: 'border-amber-600 bg-amber-100', barBgClass: 'bg-amber-700' },
   { id: 'brunch', label: 'Brunch', icon: Sun, description: "Gourmandise du matin", colorClass: 'text-yellow-600', bgClass: 'bg-yellow-50', hoverClass: 'hover:bg-yellow-100', selectedClass: 'border-yellow-500 bg-yellow-100', barBgClass: 'bg-yellow-500' },
   { id: 'restaurant', label: 'Restaurant', icon: Pizza, description: "Un repas mémorable", colorClass: 'text-red-700', bgClass: 'bg-red-50', hoverClass: 'hover:bg-red-100', selectedClass: 'border-red-500 bg-red-100', barBgClass: 'bg-red-600' },
-  { id: 'balade', label: 'Balade', icon: Mountain, description: "Prendre l'air", colorClass: 'text-green-700', bgClass: 'bg-green-50', hoverClass: 'hover:bg-green-100', selectedClass: 'border-green-500 bg-green-100', barBgClass: 'bg-green-600' },
+  { id: 'kharjet', label: 'Kharjet', icon: Compass, description: "Baignades, soirées, glaces & sorties", colorClass: 'text-emerald-700 dark:text-emerald-400', bgClass: 'bg-emerald-50 dark:bg-emerald-950/30', hoverClass: 'hover:bg-emerald-100 dark:hover:bg-emerald-900/40', selectedClass: 'border-emerald-500 bg-emerald-100 dark:bg-emerald-900/50', barBgClass: 'bg-emerald-600' },
   { id: 'shopping', label: 'Shopping', icon: ShoppingBag, description: "Trouver la perle", colorClass: 'text-pink-700', bgClass: 'bg-pink-50', hoverClass: 'hover:bg-pink-100', selectedClass: 'border-pink-500 bg-pink-100', barBgClass: 'bg-pink-600' },
   { id: 'cinema', label: 'Cinéma', icon: Clapperboard, description: "Soirée 7ème art", colorClass: 'text-violet-700', bgClass: 'bg-violet-50', hoverClass: 'hover:bg-violet-100', selectedClass: 'border-violet-500 bg-violet-100', barBgClass: 'bg-violet-600' },
 ];
@@ -104,6 +104,14 @@ const zones = [
 ];
 
 const AVAILABLE_SPECIALTIES = [
+  { label: "Baignade/Plage", emoji: "🏖️" },
+  { label: "Soirée/Sunset", emoji: "🌅" },
+  { label: "Glace/Dessert", emoji: "🍦" },
+  { label: "Plein air/Nature", emoji: "🌲" },
+  { label: "Activité/Loisir", emoji: "🎯" },
+  { label: "Vue Mer", emoji: "🌊" },
+  { label: "Randonnée", emoji: "🥾" },
+  { label: "Salon de thé", emoji: "🫖" },
   { label: "Pizza", emoji: "🍕" },
   { label: "Burger", emoji: "🍔" },
   { label: "Tacos", emoji: "🌮" },
@@ -118,7 +126,6 @@ const AVAILABLE_SPECIALTIES = [
   { label: "Sushi", emoji: "🍣" },
   { label: "Brunch", emoji: "🍳" },
   { label: "Crêpe/Gaufre", emoji: "🥞" },
-  { label: "Glace/Dessert", emoji: "🍦" },
   { label: "Libanais/Oriental", emoji: "🥙" },
   { label: "Salade/Bowl", emoji: "🥗" },
   { label: "Grillade", emoji: "🍖" },
@@ -222,7 +229,8 @@ export default function DecisionMaker() {
                 restaurants: 'Restaurant',
                 fastFoods: 'Fast Food',
                 brunch: 'Brunch',
-                balade: 'Balade',
+                kharjet: 'Kharjet',
+                balade: 'Kharjet',
                 shopping: 'Shopping',
                 cinemas: 'Cinéma'
               };
@@ -626,6 +634,7 @@ export default function DecisionMaker() {
     const [open, setOpen] = useState(false);
     const [selectedPlace, setSelectedPlace] = useState("");
     const [selectedCat, setSelectedCat] = useState("Café");
+    const [selectedZoneToAdd, setSelectedZoneToAdd] = useState<string>("La Marsa");
     const [searchQuery, setSearchQuery] = useState("");
     const [orderedItem, setOrderedItem] = useState("");
     const [orderedItem2, setOrderedItem2] = useState("");
@@ -748,10 +757,43 @@ export default function DecisionMaker() {
             orderedItem: finalOrderedItem
           });
 
-          // Si de nouvelles spécialités ont été entrées, les ajouter à la base de données du lieu
-          const placeData = allPlaces.find((p: { name: string; category: string; zone: string; specialties: string[] }) => p.name === cleanedName);
-          if (placeData) {
-            const existingSpecialties = placeData.specialties || [];
+          const existingPlace = allPlaces.find((p: { name: string; category: string; zone: string; specialties: string[] }) =>
+            p.name.toLowerCase() === cleanedName.toLowerCase()
+          );
+
+          const targetZone = existingPlace ? existingPlace.zone : (selectedZoneToAdd || availableZones[0] || 'La Marsa');
+
+          if (!existingPlace) {
+            // C'est un nouveau lieu : l'enregistrer dans Firestore et dans allPlaces
+            try {
+              const catKey = selectedCat === 'Kharjet' ? 'kharjet' : selectedCat.toLowerCase();
+              await fetch('/api/places-database-firestore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'addPlace',
+                  zone: targetZone,
+                  category: catKey,
+                  placeName: cleanedName,
+                  specialties: commands
+                })
+              });
+
+              setAllPlaces(prev => [
+                ...prev,
+                {
+                  name: cleanedName,
+                  category: selectedCat,
+                  zone: targetZone,
+                  specialties: commands
+                }
+              ]);
+            } catch (e) {
+              console.error("Erreur lors de l'ajout du nouveau lieu à la base", e);
+            }
+          } else {
+            // Le lieu existe déjà : mettre à jour ses tags/spécialités si de nouvelles ont été entrées
+            const existingSpecialties = existingPlace.specialties || [];
             let newSpecialties = [...existingSpecialties];
             let updated = false;
 
@@ -769,18 +811,29 @@ export default function DecisionMaker() {
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     action: 'update',
-                    zone: placeData.zone,
-                    specialties: { [placeData.name]: newSpecialties }
+                    zone: existingPlace.zone,
+                    specialties: { [existingPlace.name]: newSpecialties }
                   })
                 });
+
+                setAllPlaces(prev =>
+                  prev.map(p =>
+                    p.name === existingPlace.name && p.zone === existingPlace.zone
+                      ? { ...p, specialties: newSpecialties }
+                      : p
+                  )
+                );
               } catch (e) {
-                console.error("Erreur lors de l'ajout de la spécialité au lieu", e);
+                console.error("Erreur lors de la mise à jour des spécialités du lieu", e);
               }
             }
           }
         }
 
-        toast({ title: "Visite ajoutée", description: `${placeToSave} a été ajouté à vos statistiques.` });
+        toast({
+          title: selectedCat === 'Kharjet' ? "✨ Kharja enregistrée !" : "Visite ajoutée",
+          description: `${placeToSave} a été enregistré avec succès.`
+        });
         setOpen(false);
         setSelectedPlace("");
         setSearchQuery("");
@@ -838,7 +891,7 @@ export default function DecisionMaker() {
               </div>
             </div>
             <div className="space-y-2 relative">
-              <Label>{selectedCat === 'Cinéma' ? 'Salle de Cinéma' : 'Lieu'}</Label>
+              <Label>{selectedCat === 'Cinéma' ? 'Salle de Cinéma' : 'Lieu / Nom du spot'}</Label>
               {selectedCat === 'Cinéma' ? (
                 <Select
                   value={selectedPlace}
@@ -863,7 +916,7 @@ export default function DecisionMaker() {
                 </Select>
               ) : (
                 <Input
-                  placeholder="Ex: Café Matignon..."
+                  placeholder={selectedCat === 'Kharjet' ? "Ex: Plage Ghar El Melh, Gelateria Marsa, Rooftop..." : "Ex: Café Matignon, Baguette & Baguette..."}
                   value={selectedPlace || searchQuery}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                     setSearchQuery(e.target.value);
@@ -896,6 +949,24 @@ export default function DecisionMaker() {
                 </Card>
               )}
             </div>
+
+            {!selectedPlace && selectedCat !== 'Cinéma' && (
+              <div className="space-y-1.5 animate-in fade-in">
+                <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5 text-primary" /> Zone / Emplacement du lieu
+                </Label>
+                <Select value={selectedZoneToAdd} onValueChange={setSelectedZoneToAdd}>
+                  <SelectTrigger className="w-full bg-background h-9 text-sm">
+                    <SelectValue placeholder="Choisir la zone..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableZones.map((z: string) => (
+                      <SelectItem key={z} value={z}>{z}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {selectedCat === 'Cinéma' ? (
                 <div className="space-y-2">
@@ -959,7 +1030,9 @@ export default function DecisionMaker() {
                 <div className="space-y-3">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label>Qu'avez-vous commandé ? (Optionnel)</Label>
+                      <Label>
+                        {selectedCat === 'Kharjet' ? "Tags & Activités (ex: Baignade, Glace, Soirée...)" : "Qu'avez-vous commandé ? (Optionnel)"}
+                      </Label>
                       {!showSecondCommand && (
                         <Button 
                           type="button" 
@@ -967,21 +1040,51 @@ export default function DecisionMaker() {
                           className="h-6 px-2 text-xs text-primary hover:text-primary/80 hover:bg-primary/5 flex items-center gap-1"
                           onClick={() => setShowSecondCommand(true)}
                         >
-                          <Plus className="h-3.5 w-3.5" /> Commande 2
+                          <Plus className="h-3.5 w-3.5" /> {selectedCat === 'Kharjet' ? "Tag 2" : "Commande 2"}
                         </Button>
                       )}
                     </div>
                     <Input
-                      placeholder="Ex: Chapati, Café crème, Pizza..."
+                      placeholder={selectedCat === 'Kharjet' ? "Ex: Plage, Glace, Soirée coucher de soleil..." : "Ex: Chapati, Café crème, Pizza..."}
                       value={orderedItem}
                       onChange={(e) => setOrderedItem(e.target.value)}
                     />
                   </div>
 
+                  {selectedCat === 'Kharjet' && (
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {["🏖️ Baignade", "🍦 Glace", "🌅 Soirée", "🌇 Sunset", "🌲 Nature", "🎯 Activité", "🌊 Vue Mer", "☕ Café"].map((tag, idx) => (
+                        <TypedBadge
+                          key={idx}
+                          variant="outline"
+                          className="cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/40 text-[11px] bg-background border-emerald-200 dark:border-emerald-800 transition-colors py-0.5"
+                          onClick={() => {
+                            const cleanTag = tag.replace(/^[^\w\s\u0600-\u06FF]+/u, '').trim();
+                            if (!orderedItem) {
+                              setOrderedItem(cleanTag);
+                            } else if (!orderedItem2 || !showSecondCommand) {
+                              setShowSecondCommand(true);
+                              setOrderedItem2(cleanTag);
+                            } else if (!orderedItem3 || !showThirdCommand) {
+                              setShowThirdCommand(true);
+                              setOrderedItem3(cleanTag);
+                            } else {
+                              setOrderedItem(cleanTag);
+                            }
+                          }}
+                        >
+                          {tag}
+                        </TypedBadge>
+                      ))}
+                    </div>
+                  )}
+
                   {showSecondCommand && (
                     <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
                       <div className="flex items-center justify-between">
-                        <Label className="text-xs text-muted-foreground">Deuxième commande (Optionnelle)</Label>
+                        <Label className="text-xs text-muted-foreground">
+                          {selectedCat === 'Kharjet' ? "Deuxième tag (Optionnel)" : "Deuxième commande (Optionnelle)"}
+                        </Label>
                         <div className="flex items-center gap-1">
                           {!showThirdCommand && (
                             <Button 
@@ -990,7 +1093,7 @@ export default function DecisionMaker() {
                               className="h-6 px-2 text-xs text-primary hover:text-primary/80 hover:bg-primary/5 flex items-center gap-1"
                               onClick={() => setShowThirdCommand(true)}
                             >
-                              <Plus className="h-3.5 w-3.5" /> Commande 3
+                              <Plus className="h-3.5 w-3.5" /> {selectedCat === 'Kharjet' ? "Tag 3" : "Commande 3"}
                             </Button>
                           )}
                           <Button 
@@ -1007,7 +1110,7 @@ export default function DecisionMaker() {
                         </div>
                       </div>
                       <Input
-                        placeholder="Ex: Thé, Tarte aux pommes..."
+                        placeholder={selectedCat === 'Kharjet' ? "Ex: Sunset, Vue mer..." : "Ex: Thé, Tarte aux pommes..."}
                         value={orderedItem2}
                         onChange={(e) => setOrderedItem2(e.target.value)}
                       />
@@ -1017,7 +1120,9 @@ export default function DecisionMaker() {
                   {showThirdCommand && (
                     <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
                       <div className="flex items-center justify-between">
-                        <Label className="text-xs text-muted-foreground">Troisième commande (Optionnelle)</Label>
+                        <Label className="text-xs text-muted-foreground">
+                          {selectedCat === 'Kharjet' ? "Troisième tag (Optionnel)" : "Troisième commande (Optionnelle)"}
+                        </Label>
                         <Button 
                           type="button" 
                           variant="ghost" 
@@ -1031,7 +1136,7 @@ export default function DecisionMaker() {
                         </Button>
                       </div>
                       <Input
-                        placeholder="Ex: Coca-Cola, Frites..."
+                        placeholder={selectedCat === 'Kharjet' ? "Ex: Randonnée, Baignade..." : "Ex: Coca-Cola, Frites..."}
                         value={orderedItem3}
                         onChange={(e) => setOrderedItem3(e.target.value)}
                       />
@@ -2947,9 +3052,10 @@ export default function DecisionMaker() {
                   glassBg = "bg-red-500/10 hover:bg-red-500/20 border-red-500/20 hover:border-red-500/30";
                   textColor = "text-red-600 dark:text-red-400";
                   break;
+                case 'kharjet':
                 case 'balade':
-                  glassBg = "bg-green-500/10 hover:bg-green-500/20 border-green-500/20 hover:border-green-500/30";
-                  textColor = "text-green-600 dark:text-green-400";
+                  glassBg = "bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/20 hover:border-emerald-500/30";
+                  textColor = "text-emerald-600 dark:text-emerald-400";
                   break;
                 case 'shopping':
                   glassBg = "bg-pink-500/10 hover:bg-pink-500/20 border-pink-500/20 hover:border-pink-500/30";

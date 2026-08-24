@@ -62,6 +62,7 @@ interface CategoryPlaces {
   restaurants?: string[];
   fastFoods?: string[];
   brunch?: string[];
+  kharjet?: string[];
   balade?: string[];
   shopping?: string[];
   cinemas?: string[];
@@ -487,15 +488,16 @@ export default function SettingsPage() {
 
   // Normaliser le nom de la catégorie pour l'API
   const normalizeCategoryForAPI = (category: string) => {
-    return category === 'cafés' || category === 'Café' ? 'cafes' :
-      category === 'restaurant' || category === 'Restaurant' ? 'restaurants' :
-        category === 'fast-food' || category === 'Fast Food' || category === 'fastFoods' ? 'fastFoods' :
-          category === 'Brunch' ? 'brunch' :
-            category === 'Balade' ? 'balade' :
-              category === 'Shopping' ? 'shopping' :
-                category === 'bars' ? 'bars' :
-                  category === 'Cinéma' || category === 'cinemas' ? 'cinemas' :
-                    category.toLowerCase();
+    const lower = category?.toLowerCase() || '';
+    return lower === 'cafés' || lower === 'café' || lower === 'cafes' ? 'cafes' :
+      lower === 'restaurant' || lower === 'restaurants' ? 'restaurants' :
+        lower === 'fast-food' || lower === 'fast food' || lower === 'fastfoods' ? 'fastFoods' :
+          lower === 'brunch' ? 'brunch' :
+            lower === 'kharjet' || lower === 'balade' ? 'kharjet' :
+              lower === 'shopping' ? 'shopping' :
+                lower === 'bars' ? 'bars' :
+                  lower === 'cinéma' || lower === 'cinemas' ? 'cinemas' :
+                    lower;
   };
 
   const handleAddPlaceToZoneCategory = (zone: string, category: string) => {
@@ -534,11 +536,17 @@ export default function SettingsPage() {
   const handleAddPlaceToEditing = () => {
     if (!newPlaceName || !newPlaceName.trim()) return;
     setEditedPlaces([...editedPlaces, newPlaceName.trim()]);
-    setNewPlaceName('');
+    setNewPlaceName(null);
   };
 
   const handleRemovePlaceFromEditing = (placeToRemove: string) => {
     setEditedPlaces(editedPlaces.filter((p: string) => p !== placeToRemove));
+  };
+
+  const handleCancelEditing = () => {
+    setEditingZone(null);
+    setEditedPlaces([]);
+    setNewPlaceName(null);
   };
 
   const handleAddZone = async () => {
@@ -555,7 +563,7 @@ export default function SettingsPage() {
   };
 
   // Obtenir toutes les zones disponibles
-  const getAllZones = () => {
+  const getAvailableZones = () => {
     if (!placesDatabase) return [];
     return placesDatabase.zones || [];
   };
@@ -570,14 +578,10 @@ export default function SettingsPage() {
   // Obtenir les lieux pour une zone et catégorie spécifiques
   const getPlacesForZoneAndCategory = (zone: string, category: string) => {
     const categories = getCategoriesForZone(zone);
-    const categoryKey = category === 'cafés' || category === 'Café' ? 'cafes' :
-      category === 'restaurant' || category === 'Restaurant' ? 'restaurants' :
-        category === 'fast-food' || category === 'Fast Food' || category === 'fastFoods' ? 'fastFoods' :
-          category === 'Brunch' ? 'brunch' :
-            category === 'Balade' ? 'balade' :
-              category === 'Shopping' ? 'shopping' :
-                category === 'Cinéma' || category === 'cinemas' ? 'cinemas' :
-                  category.toLowerCase();
+    const categoryKey = normalizeCategoryForAPI(category);
+    if (categoryKey === 'kharjet') {
+      return categories.kharjet || categories.balade || [];
+    }
     return categories[categoryKey as keyof CategoryPlaces] || [];
   };
 
@@ -588,7 +592,8 @@ export default function SettingsPage() {
       'restaurants': 'Restaurants',
       'fastFoods': 'Fast Food',
       'brunch': 'Brunch',
-      'balade': 'Balade',
+      'kharjet': 'Kharjet',
+      'balade': 'Kharjet',
       'shopping': 'Shopping',
       'cinemas': 'Cinémas'
     };
@@ -1230,8 +1235,8 @@ export default function SettingsPage() {
                                   <SelectItem value="brunch">
                                     Brunch ({getPlacesForZoneAndCategory(selectedZone, 'brunch').length})
                                   </SelectItem>
-                                  <SelectItem value="balade">
-                                    Balade ({getPlacesForZoneAndCategory(selectedZone, 'balade').length})
+                                  <SelectItem value="kharjet">
+                                    Kharjet ({getPlacesForZoneAndCategory(selectedZone, 'kharjet').length})
                                   </SelectItem>
                                   <SelectItem value="shopping">
                                     Shopping ({getPlacesForZoneAndCategory(selectedZone, 'shopping').length})

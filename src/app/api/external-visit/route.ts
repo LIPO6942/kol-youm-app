@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
                         ...(data.restaurants || []),
                         ...(data.fastFoods || []),
                         ...(data.brunch || []),
-                        ...(data.balade || []),
+                        ...(data.kharjet || data.balade || []),
                         ...(data.shopping || [])
                     ];
 

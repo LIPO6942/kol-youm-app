@@ -39,7 +39,7 @@ const makeDecisionFlow = ai.defineFlow(
         else if (lowerCat.includes('restaurant')) { primaryKey = 'restaurants'; }
         else if (lowerCat.includes('fast') || lowerCat.includes('food')) { primaryKey = 'fastFoods'; fallbackKey = 'fastfoods'; }
         else if (lowerCat.includes('brunch')) { primaryKey = 'brunch'; }
-        else if (lowerCat.includes('balade')) { primaryKey = 'balade'; }
+        else if (lowerCat.includes('kharjet') || lowerCat.includes('balade') || lowerCat.includes('baignade') || lowerCat.includes('plage') || lowerCat.includes('glace') || lowerCat.includes('soir')) { primaryKey = 'kharjet'; fallbackKey = 'balade'; }
         else if (lowerCat.includes('shopping')) { primaryKey = 'shopping'; }
         else { primaryKey = lowerCat; }
 
