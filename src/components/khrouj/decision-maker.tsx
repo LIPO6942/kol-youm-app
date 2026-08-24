@@ -105,13 +105,11 @@ const zones = [
 
 const AVAILABLE_SPECIALTIES = [
   { label: "Baignade/Plage", emoji: "🏖️" },
-  { label: "Soirée/Sunset", emoji: "🌅" },
+  { label: "Soirée", emoji: "🌅" },
   { label: "Glace/Dessert", emoji: "🍦" },
   { label: "Plein air/Nature", emoji: "🌲" },
   { label: "Activité/Loisir", emoji: "🎯" },
-  { label: "Vue Mer", emoji: "🌊" },
   { label: "Randonnée", emoji: "🥾" },
-  { label: "Salon de thé", emoji: "🫖" },
   { label: "Pizza", emoji: "🍕" },
   { label: "Burger", emoji: "🍔" },
   { label: "Tacos", emoji: "🌮" },
@@ -605,8 +603,11 @@ export default function DecisionMaker() {
       }
     });
 
+    const totalWithoutKharjet = visits.filter(v => v.category !== 'Kharjet' && v.category !== 'Balade').length;
+
     return {
-      total: visits.length,
+      total: totalWithoutKharjet,
+      allTotal: visits.length,
       byCategory,
       byPlace: Object.entries(byPlaceMap).sort((a, b) => {
         if (b[1].count !== a[1].count) {
@@ -1053,7 +1054,7 @@ export default function DecisionMaker() {
 
                   {selectedCat === 'Kharjet' && (
                     <div className="flex flex-wrap gap-1.5 pt-0.5">
-                      {["🏖️ Baignade", "🍦 Glace", "🌅 Soirée", "🌇 Sunset", "🌲 Nature", "🎯 Activité", "🌊 Vue Mer", "☕ Café"].map((tag, idx) => (
+                      {["🏖️ Baignade", "🍦 Glace", "🌅 Soirée", "🌲 Nature", "🎯 Activité", "🥾 Randonnée"].map((tag, idx) => (
                         <TypedBadge
                           key={idx}
                           variant="outline"
@@ -1110,7 +1111,7 @@ export default function DecisionMaker() {
                         </div>
                       </div>
                       <Input
-                        placeholder={selectedCat === 'Kharjet' ? "Ex: Sunset, Vue mer..." : "Ex: Thé, Tarte aux pommes..."}
+                        placeholder={selectedCat === 'Kharjet' ? "Ex: Soirée, Glace, Activité..." : "Ex: Thé, Tarte aux pommes..."}
                         value={orderedItem2}
                         onChange={(e) => setOrderedItem2(e.target.value)}
                       />
@@ -2707,6 +2708,155 @@ export default function DecisionMaker() {
             );
           })}
         </div>
+
+        {/* Full-width Kharjet & Outings Widget */}
+        {(() => {
+          const kharjetOpt = outingOptions.find(o => o.id === 'kharjet') || outingOptions[4];
+          const kharjetVisits = (userProfile?.visits || [])
+            .filter((v: VisitLog) => v.category === 'Kharjet' || v.category === 'Balade')
+            .sort((a: VisitLog, b: VisitLog) => b.date - a.date);
+          const count = kharjetVisits.length;
+
+          // Group by place
+          const placeMap: Record<string, { count: number; lastDate: number; dates: number[]; orderedItems: string[] }> = {};
+          const tagCounts: Record<string, number> = {};
+
+          kharjetVisits.forEach((v: VisitLog) => {
+            if (!placeMap[v.placeName]) {
+              placeMap[v.placeName] = { count: 0, lastDate: v.date, dates: [], orderedItems: [] };
+            }
+            placeMap[v.placeName].count++;
+            placeMap[v.placeName].dates.push(v.date);
+            if (v.orderedItem) placeMap[v.placeName].orderedItems.push(v.orderedItem);
+            if (v.date > placeMap[v.placeName].lastDate) placeMap[v.placeName].lastDate = v.date;
+
+            const rawTags = (v.orderedItem || '').split(',').map(s => s.trim()).filter(Boolean);
+            if (rawTags.length > 0) {
+              rawTags.forEach(tag => {
+                const cleanTag = tag.trim();
+                tagCounts[cleanTag] = (tagCounts[cleanTag] || 0) + 1;
+              });
+            } else {
+              const placeData = allPlaces.find(p => p.name === v.placeName);
+              if (placeData && placeData.specialties && placeData.specialties.length > 0) {
+                placeData.specialties.forEach((spec: string) => {
+                  tagCounts[spec] = (tagCounts[spec] || 0) + 1;
+                });
+              }
+            }
+          });
+
+          const sortedPlaces = Object.entries(placeMap).sort((a, b) => b[1].count - a[1].count);
+          const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]);
+
+          return (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Card className="w-full relative overflow-hidden border border-emerald-500/25 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-background hover:border-emerald-500/45 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-300 cursor-pointer group">
+                  <div className="absolute right-[-12px] top-[-12px] opacity-10 group-hover:opacity-15 transition-opacity duration-300 pointer-events-none rotate-12">
+                    <Compass className="h-32 w-32 text-emerald-600" />
+                  </div>
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-11 w-11 rounded-2xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform duration-300 shadow-xs">
+                          <Compass className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-base sm:text-lg font-bold font-headline text-foreground group-hover:text-emerald-600 transition-colors">
+                              Kharjet
+                            </h3>
+                            <TypedBadge variant="outline" className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 px-2 py-0.2">
+                              Non-food & activités
+                            </TypedBadge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Baignades, soirées, glaces, parcs & loisirs
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 self-start sm:self-center">
+                        <div className="text-left sm:text-right">
+                          <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 leading-none">
+                            {count}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground font-medium block">
+                            sortie{count > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </div>
+
+                    {/* Comptabilisation par tags en petit */}
+                    {sortedTags.length > 0 ? (
+                      <div className="pt-2.5 border-t border-emerald-500/15">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                            <Sparkles className="h-3 w-3 text-emerald-500" /> Répartition par tags
+                          </span>
+                          <span className="text-[10px] text-muted-foreground font-semibold">
+                            {sortedPlaces.length} spot{sortedPlaces.length > 1 ? 's' : ''} visité{sortedPlaces.length > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {sortedTags.map(([tag, tagCount]) => {
+                            const tagEmoji = getDishEmoji(tag.toLowerCase());
+                            return (
+                              <span
+                                key={tag}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/50 border border-emerald-200/80 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-100 text-xs font-medium"
+                              >
+                                <span className="text-sm">{tagEmoji !== '🍽️' ? tagEmoji : '✨'}</span>
+                                <span className="truncate max-w-[130px] font-semibold">{tag}</span>
+                                <span className="h-4 min-w-4 px-1 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center">
+                                  {tagCount}
+                                </span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="pt-2.5 border-t border-emerald-500/15 flex items-center justify-between text-xs text-muted-foreground">
+                        <span className="italic">Aucune sortie Kharjet enregistrée pour le moment.</span>
+                        <span className="text-[11px] font-bold text-emerald-600">Ajouter une sortie +</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </DialogTrigger>
+              <DialogContent className="max-w-md w-[95%] rounded-2xl max-h-[85vh] overflow-hidden grid grid-rows-[auto_1fr] p-0 border-none shadow-2xl">
+                <div className="p-6 pb-10 relative overflow-hidden bg-emerald-50 dark:bg-emerald-950/40">
+                  <div className="absolute right-[-16px] top-[-16px] opacity-10 rotate-12">
+                    <Compass className="h-32 w-32 text-emerald-600" />
+                  </div>
+                  <DialogHeader className="relative z-10">
+                    <div className="flex items-center gap-3 mb-1">
+                      <div className="bg-white/60 dark:bg-black/30 p-2 rounded-xl backdrop-blur-md">
+                        <Compass className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <DialogTitle className="text-2xl font-black font-headline tracking-tight text-emerald-700 dark:text-emerald-300">
+                        Kharjet
+                      </DialogTitle>
+                    </div>
+                    <DialogDescription className="text-muted-foreground font-medium">
+                      <span className="font-black text-foreground">{count}</span> sortie{count > 1 ? 's' : ''} · {sortedPlaces.length} lieu{sortedPlaces.length > 1 ? 'x' : ''} visité{sortedPlaces.length > 1 ? 's' : ''}
+                    </DialogDescription>
+                  </DialogHeader>
+                </div>
+
+                <CategoryDialogContent
+                  opt={kharjetOpt}
+                  categoryVisits={kharjetVisits}
+                  sortedPlaces={sortedPlaces}
+                  count={count}
+                />
+              </DialogContent>
+            </Dialog>
+          );
+        })()}
 
         {/* Top Places */}
         <div className="space-y-4">

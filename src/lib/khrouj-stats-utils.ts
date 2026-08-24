@@ -109,7 +109,17 @@ export function getDishEmoji(text: string): string {
   if (t.includes('glace') || t.includes('ice cream') || t.includes('gelato') || t.includes('sorbet')) return '🍦';
   if (t.includes('crêpe') || t.includes('crepe') || t.includes('gaufre') || t.includes('waffle') || t.includes('pancake')) return '🥞';
   if (t.includes('café') || t.includes('cafe') || t.includes('espresso') || t.includes('cappuccino') || t.includes('latte')) return '☕';
+  if (t.includes('thé') || t.includes('the') || t.includes('chicha') || t.includes('tisane')) return '🫖';
   if (t.includes('jus') || t.includes('smoothie') || t.includes('citronnade') || t.includes('frappé') || t.includes('shake') || t.includes('milkshake')) return '🥤';
+
+  // Kharjet / Activités & Nature
+  if (t.includes('baignade') || t.includes('plage') || t.includes('beach') || t.includes('mer') || t.includes('piscine')) return '🏖️';
+  if (t.includes('sunset') || t.includes('coucher de soleil') || t.includes('soirée') || t.includes('soiree') || t.includes('night')) return '🌅';
+  if (t.includes('parc') || t.includes('nature') || t.includes('plein air') || t.includes('forêt') || t.includes('jardin')) return '🌲';
+  if (t.includes('randonnée') || t.includes('randonnee') || t.includes('hike') || t.includes('trek')) return '🥾';
+  if (t.includes('activité') || t.includes('activite') || t.includes('jeu') || t.includes('arcade') || t.includes('karting') || t.includes('bowling') || t.includes('loisir')) return '🎯';
+  if (t.includes('bateau') || t.includes('kayak') || t.includes('paddle') || t.includes('nautique')) return '⛵';
+  if (t.includes('vue mer') || t.includes('falaise')) return '🌊';
 
   return '🍽️';
 }
