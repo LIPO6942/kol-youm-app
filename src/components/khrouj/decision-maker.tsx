@@ -262,6 +262,65 @@ export default function DecisionMaker() {
     fetchAllPlaces();
   }, []);
 
+  // Retroactive sync: push Kharjet visit-places that are missing from Firestore
+  useEffect(() => {
+    if (!userProfile?.visits || allPlaces.length === 0) return;
+
+    const kharjetVisits = userProfile.visits.filter(
+      (v: VisitLog) => v.category === 'Kharjet' || v.category === 'Balade'
+    );
+    if (kharjetVisits.length === 0) return;
+
+    const kharjetInDb = new Set(
+      allPlaces.filter(p => p.category === 'Kharjet').map(p => p.name.toLowerCase())
+    );
+
+    const missing = kharjetVisits.filter(
+      (v: VisitLog) => !kharjetInDb.has(v.placeName.toLowerCase())
+    );
+
+    if (missing.length === 0) return;
+
+    // Deduplicate by placeName
+    const seen = new Set<string>();
+    const uniqueMissing = missing.filter((v: VisitLog) => {
+      const key = v.placeName.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // Push each missing place to Firestore silently
+    uniqueMissing.forEach(async (v: VisitLog) => {
+      try {
+        const zone = availableZones[0] || 'La Marsa';
+        const tags = (v.orderedItem || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+        await fetch('/api/places-database-firestore', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'addPlace',
+            zone,
+            category: 'kharjet',
+            placeName: v.placeName,
+            specialties: tags
+          })
+        });
+        // Update local state
+        setAllPlaces(prev => {
+          const alreadyThere = prev.some(
+            p => p.name.toLowerCase() === v.placeName.toLowerCase() && p.category === 'Kharjet'
+          );
+          if (alreadyThere) return prev;
+          return [...prev, { name: v.placeName, category: 'Kharjet', zone, specialties: tags }];
+        });
+      } catch (e) {
+        console.error('Retroactive Kharjet sync failed for', v.placeName, e);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allPlaces.length, userProfile?.visits]);
+
   // Consolidated list of places combining Firestore database and all past user visits with tags
   const combinedPlaces = useMemo(() => {
     const map = new Map<string, { name: string; category: string; zone: string; specialties: string[]; visitCount: number; lastVisited?: number }>();
@@ -1583,6 +1642,9 @@ export default function DecisionMaker() {
 
     // Filter Logic
     const filteredVisits = allVisits.filter(v => {
+      // Always exclude Kharjet — it has its own dedicated widget
+      if (v.category === 'Kharjet' || v.category === 'Balade') return false;
+
       // 1. Momenty filter
       if (onlyMomenty && (v as any).source !== 'momenty') return false;
 
@@ -1722,12 +1784,12 @@ export default function DecisionMaker() {
             >
               <span>Tout</span>
               <span className={cn("text-[10px] px-1.5 py-0.2 rounded-full", selectedCategory === 'all' ? "bg-white/20 text-white" : "bg-muted text-muted-foreground")}>
-                {allVisits.length}
+                {nonKharjetVisits.length}
               </span>
             </button>
 
-            {outingOptions.map((opt) => {
-              const count = allVisits.filter(v => v.category === opt.label).length;
+            {outingOptions.filter(opt => opt.id !== 'kharjet').map((opt) => {
+              const count = nonKharjetVisits.filter(v => v.category === opt.label).length;
               if (count === 0) return null;
               const isSelected = selectedCategory === opt.label;
               const Icon = opt.icon;
