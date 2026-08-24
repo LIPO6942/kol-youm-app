@@ -240,7 +240,7 @@ export default function DecisionMaker() {
                   name: cleanedName,
                   category: categoryLabel,
                   zone: zone.zone,
-                  specialties: specialtiesMap[name] || [] // Keep original name for specialty lookup if necessary or use cleaned if appropriate
+                  specialties: specialtiesMap[name] || specialtiesMap[cleanedName] || []
                 });
               });
             });
@@ -261,6 +261,61 @@ export default function DecisionMaker() {
     }
     fetchAllPlaces();
   }, []);
+
+  // Consolidated list of places combining Firestore database and all past user visits with tags
+  const combinedPlaces = useMemo(() => {
+    const map = new Map<string, { name: string; category: string; zone: string; specialties: string[]; visitCount: number; lastVisited?: number }>();
+
+    // 1. Add places from Firestore database
+    allPlaces.forEach(p => {
+      const key = `${p.category.toLowerCase()}:::${p.name.toLowerCase()}`;
+      map.set(key, {
+        name: p.name,
+        category: p.category,
+        zone: p.zone,
+        specialties: [...(p.specialties || [])],
+        visitCount: 0
+      });
+    });
+
+    // 2. Add or enrich with user's past visits from userProfile?.visits
+    (userProfile?.visits || []).forEach((v: VisitLog) => {
+      if (!v.placeName) return;
+      const cat = (v.category === 'Balade' || v.category === 'Kharjet') ? 'Kharjet' : (v.category || 'Autre');
+      const cleanPlace = v.placeName.split('[')[0].trim();
+      const key = `${cat.toLowerCase()}:::${cleanPlace.toLowerCase()}`;
+
+      const visitTags = (v.orderedItem || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      if (map.has(key)) {
+        const existing = map.get(key)!;
+        existing.visitCount = (existing.visitCount || 0) + 1;
+        if (!existing.lastVisited || v.date > existing.lastVisited) {
+          existing.lastVisited = v.date;
+        }
+        // Merge tags/specialties
+        visitTags.forEach(t => {
+          if (!existing.specialties.some(s => s.toLowerCase() === t.toLowerCase())) {
+            existing.specialties.push(t);
+          }
+        });
+      } else {
+        map.set(key, {
+          name: cleanPlace,
+          category: cat,
+          zone: availableZones[0] || 'La Marsa',
+          specialties: visitTags,
+          visitCount: 1,
+          lastVisited: v.date
+        });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [allPlaces, userProfile?.visits, availableZones]);
 
   const handleAiError = (error: any) => {
     const errorMessage = String(error.message || '');
@@ -678,17 +733,59 @@ export default function DecisionMaker() {
     }, [allPlaces]);
 
     const filteredSuggestions = useMemo(() => {
-      if (!searchQuery) return [];
-      return allPlaces
-        .filter((p: { name: string; category: string; zone: string; specialties: string[] }) =>
-          p.category === selectedCat &&
-          p.name.toLowerCase().includes(searchQuery.toLowerCase())
+      const query = searchQuery.trim().toLowerCase();
+      if (!query) return [];
+      return combinedPlaces
+        .filter((p) =>
+          p.category.toLowerCase() === selectedCat.toLowerCase() &&
+          p.name.toLowerCase().includes(query)
         )
-        .slice(0, 5);
-    }, [searchQuery, selectedCat, allPlaces]);
+        .sort((a, b) => {
+          const aStarts = a.name.toLowerCase().startsWith(query);
+          const bStarts = b.name.toLowerCase().startsWith(query);
+          if (aStarts && !bStarts) return -1;
+          if (!aStarts && bStarts) return 1;
+          return (b.visitCount || 0) - (a.visitCount || 0);
+        })
+        .slice(0, 6);
+    }, [searchQuery, selectedCat, combinedPlaces]);
+
+    const handleSelectPlace = (p: { name: string; category: string; zone: string; specialties: string[] }) => {
+      setSelectedPlace(p.name);
+      setSearchQuery("");
+      if (p.zone) setSelectedZoneToAdd(p.zone);
+
+      // Pre-fill tags / activities if the place has them
+      if (p.specialties && p.specialties.length > 0) {
+        setOrderedItem(p.specialties[0] || "");
+        if (p.specialties.length > 1) {
+          setShowSecondCommand(true);
+          setOrderedItem2(p.specialties[1] || "");
+        } else {
+          setShowSecondCommand(false);
+          setOrderedItem2("");
+        }
+        if (p.specialties.length > 2) {
+          setShowThirdCommand(true);
+          setOrderedItem3(p.specialties[2] || "");
+        } else {
+          setShowThirdCommand(false);
+          setOrderedItem3("");
+        }
+      }
+    };
+
+    const currentMatchedPlace = useMemo(() => {
+      const targetName = (selectedPlace || searchQuery).trim().toLowerCase();
+      if (!targetName) return null;
+      return combinedPlaces.find(p =>
+        p.category.toLowerCase() === selectedCat.toLowerCase() &&
+        p.name.toLowerCase() === targetName
+      );
+    }, [selectedPlace, searchQuery, selectedCat, combinedPlaces]);
 
     const handleSave = async () => {
-      const placeToSave = selectedPlace || searchQuery;
+      const placeToSave = selectedPlace || searchQuery.trim();
       if (!placeToSave) return;
       if (!user) return;
 
@@ -744,7 +841,7 @@ export default function DecisionMaker() {
               }
           }
         } else {
-          // For other categories, allow multiple commands in a single visit log (comma separated)
+          // For other categories, allow multiple commands / tags in a single visit log (comma separated)
           const commands = [orderedItem, orderedItem2, orderedItem3]
             .map(c => c.trim())
             .filter(Boolean);
@@ -759,7 +856,8 @@ export default function DecisionMaker() {
           });
 
           const existingPlace = allPlaces.find((p: { name: string; category: string; zone: string; specialties: string[] }) =>
-            p.name.toLowerCase() === cleanedName.toLowerCase()
+            p.name.toLowerCase() === cleanedName.toLowerCase() &&
+            p.category.toLowerCase() === selectedCat.toLowerCase()
           );
 
           const targetZone = existingPlace ? existingPlace.zone : (selectedZoneToAdd || availableZones[0] || 'La Marsa');
@@ -819,7 +917,7 @@ export default function DecisionMaker() {
 
                 setAllPlaces(prev =>
                   prev.map(p =>
-                    p.name === existingPlace.name && p.zone === existingPlace.zone
+                    p.name.toLowerCase() === existingPlace.name.toLowerCase() && p.category.toLowerCase() === selectedCat.toLowerCase()
                       ? { ...p, specialties: newSpecialties }
                       : p
                   )
@@ -833,7 +931,7 @@ export default function DecisionMaker() {
 
         toast({
           title: selectedCat === 'Kharjet' ? "✨ Kharja enregistrée !" : "Visite ajoutée",
-          description: `${placeToSave} a été enregistré avec succès.`
+          description: `${cleanedName} a été enregistré avec succès.`
         });
         setOpen(false);
         setSelectedPlace("");
@@ -882,6 +980,12 @@ export default function DecisionMaker() {
                     onClick={() => {
                       setSelectedCat(opt.label);
                       setSelectedPlace("");
+                      setSearchQuery("");
+                      setOrderedItem("");
+                      setOrderedItem2("");
+                      setOrderedItem3("");
+                      setShowSecondCommand(false);
+                      setShowThirdCommand(false);
                       setMovieSearchQuery("");
                       setSelectedMovie(null);
                     }}
@@ -915,39 +1019,99 @@ export default function DecisionMaker() {
                     )}
                   </SelectContent>
                 </Select>
-              ) : (
-                <Input
-                  placeholder={selectedCat === 'Kharjet' ? "Ex: Plage Ghar El Melh, Gelateria Marsa, Rooftop..." : "Ex: Café Matignon, Baguette & Baguette..."}
-                  value={selectedPlace || searchQuery}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    setSearchQuery(e.target.value);
-                    setSelectedPlace("");
-                  }}
-                />
-              )}
-              {filteredSuggestions.length > 0 && !selectedPlace && selectedCat !== 'Cinéma' && (
-                <Card className="absolute z-50 w-full mt-1 shadow-lg border-primary/20">
-                  <ScrollArea className="h-auto max-h-[200px]">
-                    <div className="p-1">
-                      {filteredSuggestions.map((p: { name: string; category: string; zone: string; specialties: string[] }, idx: number) => (
-                        <div
-                          key={idx}
-                          className="p-2 hover:bg-accent rounded-sm cursor-pointer text-sm flex items-center justify-between gap-2"
-                          onClick={() => {
-                            setSelectedPlace(p.name);
-                            setSearchQuery("");
-                          }}
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            <Building2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                            <span className="truncate">{p.name}</span>
-                          </div>
-                          <span className="text-[10px] text-muted-foreground opacity-70 whitespace-nowrap">({p.zone})</span>
-                        </div>
-                      ))}
+              ) : selectedPlace ? (
+                <div className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                  selectedCat === 'Kharjet'
+                    ? 'border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/30'
+                    : 'border-primary/30 bg-primary/5'
+                }`}>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      selectedCat === 'Kharjet'
+                        ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-primary/20 text-primary'
+                    }`}>
+                      {selectedCat === 'Kharjet' ? <Compass className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
                     </div>
-                  </ScrollArea>
-                </Card>
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm text-foreground truncate">{selectedPlace}</p>
+                      <p className="text-[11px] text-muted-foreground">{selectedZoneToAdd || 'Zone principale'}</p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setSelectedPlace("");
+                      setSearchQuery("");
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Input
+                    placeholder={selectedCat === 'Kharjet' ? "Ex: Plage Ghar El Melh, Gelateria Marsa, Rooftop..." : "Ex: Café Matignon, Baguette & Baguette..."}
+                    value={searchQuery}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      setSearchQuery(e.target.value);
+                    }}
+                  />
+                  {filteredSuggestions.length > 0 && (
+                    <Card className="absolute z-50 w-full mt-1 shadow-xl border-emerald-500/30 bg-popover/95 backdrop-blur-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                      <ScrollArea className="h-auto max-h-[220px]">
+                        <div className="p-1.5 space-y-1">
+                          {filteredSuggestions.map((p, idx) => (
+                            <div
+                              key={idx}
+                              className="p-2.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-lg cursor-pointer text-sm flex flex-col gap-1 transition-colors border border-transparent hover:border-emerald-500/20"
+                              onClick={() => handleSelectPlace(p)}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 truncate">
+                                  {selectedCat === 'Kharjet' ? (
+                                    <Compass className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                                  ) : (
+                                    <Building2 className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                                  )}
+                                  <span className="font-semibold text-foreground truncate">{p.name}</span>
+                                </div>
+                                <span className="text-[10px] text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">
+                                  {p.zone}
+                                </span>
+                              </div>
+
+                              {p.specialties && p.specialties.length > 0 && (
+                                <div className="flex flex-wrap items-center gap-1 pl-5.5 pt-0.5">
+                                  <span className="text-[10px] text-muted-foreground font-medium">Tag{p.specialties.length > 1 ? 's' : ''} :</span>
+                                  {p.specialties.map((spec, sIdx) => {
+                                    const emoji = selectedCat === 'Kharjet' ? getDishEmoji(spec.toLowerCase()) : '🍽️';
+                                    return (
+                                      <span
+                                        key={sIdx}
+                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                          selectedCat === 'Kharjet'
+                                            ? 'bg-emerald-100/80 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-700/60'
+                                            : 'bg-primary/10 text-primary border border-primary/20'
+                                        }`}
+                                      >
+                                        {selectedCat === 'Kharjet' && emoji !== '🍽️' && <span>{emoji}</span>}
+                                        {spec}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </Card>
+                  )}
+                </div>
               )}
             </div>
 
@@ -1052,31 +1216,79 @@ export default function DecisionMaker() {
                     />
                   </div>
 
+                  {/* Badges de tags habituels enregistrés pour ce spot */}
+                  {currentMatchedPlace && currentMatchedPlace.specialties && currentMatchedPlace.specialties.length > 0 && (
+                    <div className="p-2.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/20 space-y-1.5 animate-in fade-in">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                          <Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                          {selectedCat === 'Kharjet' ? "Tags associés à ce lieu :" : "Spécialités de ce lieu :"}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">Cliquez pour appliquer</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {currentMatchedPlace.specialties.map((s: string, idx: number) => {
+                          const emoji = selectedCat === 'Kharjet' ? getDishEmoji(s.toLowerCase()) : '🍽️';
+                          return (
+                            <TypedBadge
+                              key={idx}
+                              variant="outline"
+                              className="cursor-pointer hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-500 dark:hover:text-black text-[11px] bg-background border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-100 transition-colors py-0.5 px-2 rounded-md flex items-center gap-1"
+                              onClick={() => {
+                                if (!orderedItem) {
+                                  setOrderedItem(s);
+                                } else if (orderedItem.toLowerCase() === s.toLowerCase()) {
+                                  // already tag 1
+                                } else if (!orderedItem2 || !showSecondCommand) {
+                                  setShowSecondCommand(true);
+                                  setOrderedItem2(s);
+                                } else if (orderedItem2.toLowerCase() === s.toLowerCase()) {
+                                  // already tag 2
+                                } else if (!orderedItem3 || !showThirdCommand) {
+                                  setShowThirdCommand(true);
+                                  setOrderedItem3(s);
+                                } else {
+                                  setOrderedItem(s);
+                                }
+                              }}
+                            >
+                              {selectedCat === 'Kharjet' && (emoji !== '🍽️' ? `${emoji} ` : '✨ ')}{s}
+                            </TypedBadge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Suggestions de tags prédéfinis pour Kharjet */}
                   {selectedCat === 'Kharjet' && (
-                    <div className="flex flex-wrap gap-1.5 pt-0.5">
-                      {["🏖️ Baignade", "🍦 Glace", "🌅 Soirée", "🌲 Nature", "🎯 Activité", "🥾 Randonnée"].map((tag, idx) => (
-                        <TypedBadge
-                          key={idx}
-                          variant="outline"
-                          className="cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/40 text-[11px] bg-background border-emerald-200 dark:border-emerald-800 transition-colors py-0.5"
-                          onClick={() => {
-                            const cleanTag = tag.replace(/^[^\w\s\u0600-\u06FF]+/u, '').trim();
-                            if (!orderedItem) {
-                              setOrderedItem(cleanTag);
-                            } else if (!orderedItem2 || !showSecondCommand) {
-                              setShowSecondCommand(true);
-                              setOrderedItem2(cleanTag);
-                            } else if (!orderedItem3 || !showThirdCommand) {
-                              setShowThirdCommand(true);
-                              setOrderedItem3(cleanTag);
-                            } else {
-                              setOrderedItem(cleanTag);
-                            }
-                          }}
-                        >
-                          {tag}
-                        </TypedBadge>
-                      ))}
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-semibold text-muted-foreground block">Suggestions rapides :</span>
+                      <div className="flex flex-wrap gap-1.5 pt-0.5">
+                        {["🏖️ Baignade", "🍦 Glace", "🌅 Soirée", "🌲 Nature", "🎯 Activité", "🥾 Randonnée", "☕ Pause Café", "🍹 Rooftop"].map((tag, idx) => (
+                          <TypedBadge
+                            key={idx}
+                            variant="outline"
+                            className="cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/40 text-[11px] bg-background border-emerald-200 dark:border-emerald-800 transition-colors py-0.5"
+                            onClick={() => {
+                              const cleanTag = tag.replace(/^[^\w\s\u0600-\u06FF]+/u, '').trim();
+                              if (!orderedItem) {
+                                setOrderedItem(cleanTag);
+                              } else if (!orderedItem2 || !showSecondCommand) {
+                                setShowSecondCommand(true);
+                                setOrderedItem2(cleanTag);
+                              } else if (!orderedItem3 || !showThirdCommand) {
+                                setShowThirdCommand(true);
+                                setOrderedItem3(cleanTag);
+                              } else {
+                                setOrderedItem(cleanTag);
+                              }
+                            }}
+                          >
+                            {tag}
+                          </TypedBadge>
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -1141,33 +1353,6 @@ export default function DecisionMaker() {
                         value={orderedItem3}
                         onChange={(e) => setOrderedItem3(e.target.value)}
                       />
-                    </div>
-                  )}
-
-                  {(selectedPlace || searchQuery) && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {allPlaces.find((p: { name: string }) => p.name === (selectedPlace || searchQuery))?.specialties.map((s: string, idx: number) => (
-                        <TypedBadge
-                          key={idx}
-                          variant="outline"
-                          className="cursor-pointer hover:bg-primary/5 text-[10px] bg-white text-muted-foreground"
-                          onClick={() => {
-                            if (!orderedItem) {
-                              setOrderedItem(s);
-                            } else if (!orderedItem2 || !showSecondCommand) {
-                              setShowSecondCommand(true);
-                              setOrderedItem2(s);
-                            } else if (!orderedItem3 || !showThirdCommand) {
-                              setShowThirdCommand(true);
-                              setOrderedItem3(s);
-                            } else {
-                              setOrderedItem(s);
-                            }
-                          }}
-                        >
-                          {s}
-                        </TypedBadge>
-                      ))}
                     </div>
                   )}
                 </div>
@@ -2737,7 +2922,7 @@ export default function DecisionMaker() {
                 tagCounts[cleanTag] = (tagCounts[cleanTag] || 0) + 1;
               });
             } else {
-              const placeData = allPlaces.find(p => p.name === v.placeName);
+              const placeData = combinedPlaces.find(p => p.name.toLowerCase() === v.placeName.toLowerCase());
               if (placeData && placeData.specialties && placeData.specialties.length > 0) {
                 placeData.specialties.forEach((spec: string) => {
                   tagCounts[spec] = (tagCounts[spec] || 0) + 1;

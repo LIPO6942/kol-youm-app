@@ -376,8 +376,18 @@ export async function POST(request: NextRequest) {
         zoneData[categoryKey] = places;
       }
 
-      if (specialties) {
-        zoneData.specialties = { ...(zoneData.specialties || {}), ...specialties };
+      if (specialties && typeof specialties === 'object') {
+        if (!zoneData.specialties) zoneData.specialties = {};
+        Object.entries(specialties).forEach(([pName, specs]) => {
+          if (Array.isArray(specs)) {
+            const existingKey = Object.keys(zoneData.specialties).find(k => k.toLowerCase() === pName.toLowerCase()) || pName;
+            const prev = zoneData.specialties[existingKey] || [];
+            const merged = Array.from(new Set([...prev, ...specs]));
+            zoneData.specialties[existingKey] = merged;
+          } else {
+            zoneData.specialties[pName] = specs;
+          }
+        });
       }
 
       // Sauvegarder dans Firestore
