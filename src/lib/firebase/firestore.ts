@@ -625,10 +625,15 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
 }
 
 export async function addVisitLog(uid: string, visit: Omit<VisitLog, 'id'>) {
-    const newVisit: VisitLog = {
+    const rawVisit: VisitLog = {
         ...visit,
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     };
+
+    // Firestore does not accept undefined values — strip them out
+    const newVisit = Object.fromEntries(
+        Object.entries(rawVisit).filter(([, v]) => v !== undefined)
+    ) as VisitLog;
 
     const userRef = doc(firestoreDb, 'users', uid);
     await updateDoc(userRef, {
