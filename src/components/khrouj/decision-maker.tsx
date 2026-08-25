@@ -545,8 +545,18 @@ export default function DecisionMaker() {
   // Normalize Momenty URLs
   const normalizeMomentyUrl = (url: string, category?: string) => {
     let cleanUrl = url.replace('momenty.vercel.app', 'momenty-ten.vercel.app');
-    if (category !== 'Kharjet' && category !== 'Balade' && cleanUrl.includes('/timeline?id=')) {
-      cleanUrl = cleanUrl.replace('/timeline?id=', '/plats?id=');
+    if (category === 'Kharjet' || category === 'Balade') {
+      if (cleanUrl.includes('/timeline?id=')) {
+        cleanUrl = cleanUrl.replace('/timeline?id=', '/?instant=');
+      } else if (cleanUrl.includes('/plats?id=')) {
+        cleanUrl = cleanUrl.replace('/plats?id=', '/?instant=');
+      }
+    } else {
+      if (cleanUrl.includes('/timeline?id=')) {
+        cleanUrl = cleanUrl.replace('/timeline?id=', '/plats?id=');
+      } else if (cleanUrl.includes('/?instant=')) {
+        cleanUrl = cleanUrl.replace('/?instant=', '/plats?id=');
+      }
     }
     return cleanUrl;
   };
