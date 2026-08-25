@@ -325,6 +325,24 @@ export default function DecisionMaker() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allPlaces.length, userProfile?.visits]);
 
+  // Base general zones (default predefined Tunis zones + any zone from DB that has non-Kharjet categories)
+  const generalZones = useMemo(() => {
+    const nonKharjetZonesInDb = allPlaces
+      .filter(p => p.category !== 'Kharjet' && p.category !== 'Balade')
+      .map(p => p.zone)
+      .filter(Boolean);
+    return Array.from(new Set([...zones, ...nonKharjetZonesInDb])).sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [allPlaces]);
+
+  // Kharjet-specific zones (includes all general zones + any zone specific to Kharjet/outdoor visits)
+  const kharjetZones = useMemo(() => {
+    const kharjetZonesInDb = allPlaces
+      .filter(p => p.category === 'Kharjet' || p.category === 'Balade')
+      .map(p => p.zone)
+      .filter(Boolean);
+    return Array.from(new Set([...generalZones, ...kharjetZonesInDb])).sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [allPlaces, generalZones]);
+
   // Consolidated list of places combining Firestore database and all past user visits with tags
   const combinedPlaces = useMemo(() => {
     const map = new Map<string, { name: string; category: string; zone: string; specialties: string[]; visitCount: number; lastVisited?: number }>();
@@ -369,7 +387,7 @@ export default function DecisionMaker() {
         map.set(key, {
           name: cleanPlace,
           category: cat,
-          zone: availableZones[0] || 'La Marsa',
+          zone: (cat === 'Kharjet' ? kharjetZones[0] : generalZones[0]) || 'La Marsa',
           specialties: visitTags,
           visitCount: 1,
           lastVisited: v.date
@@ -378,7 +396,7 @@ export default function DecisionMaker() {
     });
 
     return Array.from(map.values());
-  }, [allPlaces, userProfile?.visits, availableZones]);
+  }, [allPlaces, userProfile?.visits, generalZones, kharjetZones]);
 
   const handleAiError = (error: any) => {
     const errorMessage = String(error.message || '');
@@ -754,6 +772,8 @@ export default function DecisionMaker() {
     const [selectedPlace, setSelectedPlace] = useState("");
     const [selectedCat, setSelectedCat] = useState("Café");
     const [selectedZoneToAdd, setSelectedZoneToAdd] = useState<string>("La Marsa");
+    const [isCreatingNewZone, setIsCreatingNewZone] = useState(false);
+    const [newCustomZone, setNewCustomZone] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
     const [orderedItem, setOrderedItem] = useState("");
     const [orderedItem2, setOrderedItem2] = useState("");
@@ -818,6 +838,8 @@ export default function DecisionMaker() {
       setSelectedPlace(p.name);
       setSearchQuery("");
       if (p.zone) setSelectedZoneToAdd(p.zone);
+      setIsCreatingNewZone(false);
+      setNewCustomZone("");
     };
 
     const currentMatchedPlace = useMemo(() => {
@@ -906,7 +928,12 @@ export default function DecisionMaker() {
             p.category.toLowerCase() === selectedCat.toLowerCase()
           );
 
-          const targetZone = existingPlace ? existingPlace.zone : (selectedZoneToAdd || availableZones[0] || 'La Marsa');
+          const customZoneName = newCustomZone.trim();
+          const finalZone = (selectedCat === 'Kharjet' && isCreatingNewZone && customZoneName)
+            ? customZoneName
+            : (selectedZoneToAdd || (selectedCat === 'Kharjet' ? kharjetZones[0] : generalZones[0]) || 'La Marsa');
+
+          const targetZone = existingPlace ? existingPlace.zone : finalZone;
 
           if (!existingPlace) {
             // C'est un nouveau lieu : l'enregistrer dans Firestore et dans allPlaces
@@ -990,6 +1017,8 @@ export default function DecisionMaker() {
         setShowThirdCommand(false);
         setMovieSearchQuery("");
         setSelectedMovie(null);
+        setIsCreatingNewZone(false);
+        setNewCustomZone("");
         setViewedDate(getInitialLocalDateTime());
       } finally {
         setIsSaving(false);
@@ -1036,6 +1065,17 @@ export default function DecisionMaker() {
                       setShowThirdCommand(false);
                       setMovieSearchQuery("");
                       setSelectedMovie(null);
+                      setIsCreatingNewZone(false);
+                      setNewCustomZone("");
+                      if (opt.label === 'Kharjet') {
+                        if (!kharjetZones.includes(selectedZoneToAdd)) {
+                          setSelectedZoneToAdd(kharjetZones[0] || "La Marsa");
+                        }
+                      } else {
+                        if (!generalZones.includes(selectedZoneToAdd)) {
+                          setSelectedZoneToAdd(generalZones[0] || "La Marsa");
+                        }
+                      }
                     }}
                   >
                     {opt.label}
@@ -1165,19 +1205,76 @@ export default function DecisionMaker() {
 
             {!selectedPlace && selectedCat !== 'Cinéma' && (
               <div className="space-y-1.5 animate-in fade-in">
-                <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 text-primary" /> Zone / Emplacement du lieu
-                </Label>
-                <Select value={selectedZoneToAdd} onValueChange={setSelectedZoneToAdd}>
-                  <SelectTrigger className="w-full bg-background h-9 text-sm">
-                    <SelectValue placeholder="Choisir la zone..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableZones.map((z: string) => (
-                      <SelectItem key={z} value={z}>{z}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-primary" /> Zone / Emplacement du lieu
+                  </Label>
+                  {selectedCat === 'Kharjet' && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-1 font-medium"
+                      onClick={() => {
+                        setIsCreatingNewZone(!isCreatingNewZone);
+                        if (!isCreatingNewZone) {
+                          setNewCustomZone("");
+                        }
+                      }}
+                    >
+                      {isCreatingNewZone ? (
+                        <>
+                          <X className="h-3 w-3" /> Choisir existante
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-3 w-3" /> Nouvelle zone
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+
+                {selectedCat === 'Kharjet' && isCreatingNewZone ? (
+                  <div className="space-y-1.5 animate-in fade-in duration-200">
+                    <Input
+                      placeholder="Ex: Ghar El Melh, Zaghouan, Haouaria, Cap Angela..."
+                      value={newCustomZone}
+                      onChange={(e) => setNewCustomZone(e.target.value)}
+                      className="h-9 text-sm border-emerald-500/40 focus-visible:ring-emerald-500"
+                      autoFocus
+                    />
+                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                      ✨ Cette zone sera enregistrée spécifiquement pour la catégorie « Kharjet ».
+                    </p>
+                  </div>
+                ) : (
+                  <Select
+                    value={selectedZoneToAdd}
+                    onValueChange={(val) => {
+                      if (val === '__new_kharjet_zone__') {
+                        setIsCreatingNewZone(true);
+                        setNewCustomZone("");
+                      } else {
+                        setSelectedZoneToAdd(val);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full bg-background h-9 text-sm">
+                      <SelectValue placeholder="Choisir la zone..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(selectedCat === 'Kharjet' ? kharjetZones : generalZones).map((z: string) => (
+                        <SelectItem key={z} value={z}>{z}</SelectItem>
+                      ))}
+                      {selectedCat === 'Kharjet' && (
+                        <SelectItem value="__new_kharjet_zone__" className="text-emerald-600 dark:text-emerald-400 font-semibold cursor-pointer border-t border-muted mt-1 pt-1">
+                          ✨ + Ajouter une nouvelle zone...
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             )}
 
@@ -3460,7 +3557,7 @@ export default function DecisionMaker() {
             
             <CollapsibleContent>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 border rounded-md bg-card/65 backdrop-blur-md">
-                {availableZones.map((zone: string) => (
+                {generalZones.map((zone: string) => (
                   <div key={zone} className="flex items-center space-x-2">
                     <Checkbox
                       id={zone}
