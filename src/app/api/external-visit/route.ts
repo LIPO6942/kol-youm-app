@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirestore, collection, query, where, getDocs, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, doc, updateDoc, setDoc, arrayUnion } from 'firebase/firestore';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 
 // Configuration Firebase (Same as other API routes for consistency)
@@ -234,8 +234,20 @@ export async function POST(request: NextRequest) {
                                 }
                             } : {})
                         });
-                        console.log(`[External Visit API] Added new Kharjet place "${placeName}" to zone "${existingZoneDoc.id}"`);
+                        console.log(`[External Visit API] Added new Kharjet place "${placeName}" to existing zone "${existingZoneDoc.id}"`);
                     }
+                } else {
+                    // Créer la nouvelle zone directement dans Firestore
+                    await setDoc(doc(db, 'zones', cleanCityName), {
+                        zone: cleanCityName,
+                        kharjet: [placeName.trim()],
+                        cafes: [],
+                        restaurants: [],
+                        fastFoods: [],
+                        brunch: [],
+                        specialties: dishName ? { [placeName.trim()]: [dishName.trim()] } : {}
+                    });
+                    console.log(`[External Visit API] Created new zone document "${cleanCityName}" with Kharjet place "${placeName}"`);
                 }
             } else if (targetZoneDoc && dishName) {
                 const placeKey = Object.keys(currentSpecialties).find(k => k.toLowerCase() === normalizedPlace) || placeName;
