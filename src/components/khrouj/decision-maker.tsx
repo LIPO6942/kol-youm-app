@@ -541,11 +541,13 @@ export default function DecisionMaker() {
     return name.split('[')[0].trim();
   };
 
-  // Fix old /timeline?id= links to the correct /plats?id= route
-  const normalizeMomentyUrl = (url: string) => {
-    return url
-      .replace('momenty.vercel.app', 'momenty-ten.vercel.app')
-      .replace('/timeline?id=', '/plats?id=');
+  // Normalize Momenty URLs
+  const normalizeMomentyUrl = (url: string, category?: string) => {
+    let cleanUrl = url.replace('momenty.vercel.app', 'momenty-ten.vercel.app');
+    if (category !== 'Kharjet' && category !== 'Balade' && cleanUrl.includes('/timeline?id=')) {
+      cleanUrl = cleanUrl.replace('/timeline?id=', '/plats?id=');
+    }
+    return cleanUrl;
   };
 
   const handleVisit = async (suggestion: Suggestion) => {
@@ -1659,7 +1661,7 @@ export default function DecisionMaker() {
                           <span className="inline-flex items-center gap-1">
                             <span className="text-[7px] text-muted-foreground/60 italic ml-1 select-none">via Momenty</span>
                             <Link
-                              href={visit.momentyUrl ? normalizeMomentyUrl(visit.momentyUrl) : 'https://momenty-ten.vercel.app/plats'}
+                              href={visit.momentyUrl ? normalizeMomentyUrl(visit.momentyUrl, visit.category) : ((visit.category === 'Kharjet' || visit.category === 'Balade') ? 'https://momenty-ten.vercel.app/timeline' : 'https://momenty-ten.vercel.app/plats')}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-primary/70 hover:text-primary transition-colors ml-0.5"

@@ -81,6 +81,9 @@ export async function POST(request: NextRequest) {
             if (lower === 'cafe' || lower === 'café' || lower === 'cafes' || lower === 'cafés') return 'Café';
             if (lower === 'restaurant' || lower === 'restaurants') return 'Restaurant';
             if (lower === 'brunch' || lower === 'brunchs') return 'Brunch';
+            if (lower === 'kharjet' || lower === 'kharja' || lower === 'balade' || lower === 'sortie' || lower === 'sorties') return 'Kharjet';
+            if (lower === 'cinema' || lower === 'cinéma' || lower === 'cinemas' || lower === 'cinémas') return 'Cinéma';
+            if (lower === 'shopping') return 'Shopping';
             // Garder la valeur originale si pas de match évident, en mettant la première lettre en majuscule
             return cat.charAt(0).toUpperCase() + cat.slice(1);
         };
@@ -114,6 +117,9 @@ export async function POST(request: NextRequest) {
                 if (matchesInList(data.cafes, normalizedPlace)) dbCategories.push('Café');
                 if (matchesInList(data.fastFoods, normalizedPlace)) dbCategories.push('Fast Food');
                 if (matchesInList(data.brunch, normalizedPlace)) dbCategories.push('Brunch');
+                if (matchesInList(data.kharjet || data.balade, normalizedPlace)) dbCategories.push('Kharjet');
+                if (matchesInList(data.cinemas, normalizedPlace)) dbCategories.push('Cinéma');
+                if (matchesInList(data.shopping, normalizedPlace)) dbCategories.push('Shopping');
             }
             // Dédupliquer (un lieu pourrait être dans la même catégorie dans plusieurs zones)
             dbCategories = [...new Set(dbCategories)];
