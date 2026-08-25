@@ -1659,18 +1659,18 @@ export default function DecisionMaker() {
                         <Calendar className="h-4 w-4 text-primary" />
                         <span>{getDayName(date)} {new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                         {visit.source === 'momenty' && (
-                          <span className="inline-flex items-center gap-1">
-                            <span className="text-[7px] text-muted-foreground/60 italic ml-1 select-none">via Momenty</span>
-                            <Link
-                              href={visit.momentyUrl ? normalizeMomentyUrl(visit.momentyUrl, visit.category) : ((visit.category === 'Kharjet' || visit.category === 'Balade') ? 'https://momenty-ten.vercel.app/timeline' : 'https://momenty-ten.vercel.app/plats')}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary/70 hover:text-primary transition-colors ml-0.5"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <ExternalLink className="h-2 w-2" />
-                            </Link>
-                          </span>
+                          <Link
+                            href={visit.momentyUrl ? normalizeMomentyUrl(visit.momentyUrl, visit.category) : ((visit.category === 'Kharjet' || visit.category === 'Balade') ? 'https://momenty-ten.vercel.app/timeline' : 'https://momenty-ten.vercel.app/plats')}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[9px] font-bold text-pink-600 dark:text-pink-400 bg-pink-50 dark:bg-pink-950/50 px-2 py-0.5 rounded-full border border-pink-200 dark:border-pink-800 hover:bg-pink-100 dark:hover:bg-pink-900/50 transition-colors shadow-2xs ml-auto sm:ml-2"
+                            onClick={(e) => e.stopPropagation()}
+                            title="Voir ce moment sur Momenty"
+                          >
+                            <Sparkles className="h-2.5 w-2.5 text-pink-500 animate-pulse" />
+                            <span>Momenty</span>
+                            <ExternalLink className="h-2 w-2 ml-0.5" />
+                          </Link>
                         )}
                       </div>
                       {visit.orderedItem && (
@@ -1730,7 +1730,7 @@ export default function DecisionMaker() {
     const allVisits = userProfile.visits;
     // Kharjet has its own dedicated widget — exclude it from the "Total" counter
     const nonKharjetVisits = allVisits.filter(v => v.category !== 'Kharjet' && v.category !== 'Balade');
-    const totalMomentyVisits = allVisits.filter(v => (v as any).source === 'momenty').length;
+    const totalMomentyVisits = nonKharjetVisits.filter(v => (v as any).source === 'momenty').length;
     const uniquePlacesTotal = new Set(nonKharjetVisits.map(v => v.placeName)).size;
 
     // Filter Logic
@@ -2808,7 +2808,23 @@ export default function DecisionMaker() {
                         <opt.icon className={cn("h-4 w-4", opt.colorClass)} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm leading-tight truncate">{v.placeName}</p>
+                        <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                          <p className="font-bold text-sm leading-tight truncate">{v.placeName}</p>
+                          {((v as any).source === 'momenty' || (v as any).momentyUrl) && (
+                            <Link
+                              href={(v as any).momentyUrl ? normalizeMomentyUrl((v as any).momentyUrl, v.category) : ((v.category === 'Kharjet' || v.category === 'Balade') ? 'https://momenty-ten.vercel.app/timeline' : 'https://momenty-ten.vercel.app/plats')}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[9px] font-bold text-pink-600 dark:text-pink-400 bg-pink-50 dark:bg-pink-950/50 px-2 py-0.5 rounded-full border border-pink-200 dark:border-pink-800 hover:bg-pink-100 dark:hover:bg-pink-900/50 transition-colors shadow-2xs"
+                              onClick={(e) => e.stopPropagation()}
+                              title="Voir ce moment sur Momenty"
+                            >
+                              <Sparkles className="h-2.5 w-2.5 text-pink-500 animate-pulse" />
+                              <span>Momenty</span>
+                              <ExternalLink className="h-2.5 w-2.5 ml-0.5" />
+                            </Link>
+                          )}
+                        </div>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
                           {getDayName(v.date)} {new Date(v.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
                           {' · '}
@@ -2994,10 +3010,10 @@ export default function DecisionMaker() {
                   </div>
                   <span className="text-3xl font-bold text-primary group-hover:scale-110 transition-transform duration-300">{stats.total}</span>
                   <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mt-1">Total</span>
-                  {userProfile?.visits?.some(v => (v as any).source === 'momenty') && (
+                  {userProfile?.visits?.some(v => (v as any).source === 'momenty' && v.category !== 'Kharjet' && v.category !== 'Balade') && (
                     <span className="inline-flex items-center gap-0.5 text-[8px] text-pink-600 dark:text-pink-400 font-extrabold bg-pink-100/90 dark:bg-pink-950/60 px-1.5 py-0.5 rounded-full mt-1.5 shadow-xs">
                       <Sparkles className="h-2 w-2" />
-                      {userProfile.visits.filter(v => (v as any).source === 'momenty').length} Momenty
+                      {userProfile.visits.filter(v => (v as any).source === 'momenty' && v.category !== 'Kharjet' && v.category !== 'Balade').length} Momenty
                     </span>
                   )}
                 </CardContent>
@@ -3165,13 +3181,19 @@ export default function DecisionMaker() {
                           <Compass className="h-6 w-6" />
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-base sm:text-lg font-bold font-headline text-foreground group-hover:text-emerald-600 transition-colors">
                               Kharjet
                             </h3>
                             <TypedBadge variant="outline" className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 px-2 py-0.2">
                               Non-food & activités
                             </TypedBadge>
+                            {kharjetVisits.some(v => (v as any).source === 'momenty') && (
+                              <span className="inline-flex items-center gap-0.5 text-[8px] text-pink-600 dark:text-pink-400 font-extrabold bg-pink-100/90 dark:bg-pink-950/60 px-1.5 py-0.5 rounded-full shadow-xs">
+                                <Sparkles className="h-2 w-2" />
+                                {kharjetVisits.filter(v => (v as any).source === 'momenty').length} Momenty
+                              </span>
+                            )}
                           </div>
                           <p className="text-xs text-muted-foreground">
                             Baignades, soirées, glaces, parcs & loisirs
