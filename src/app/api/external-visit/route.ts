@@ -178,13 +178,60 @@ export async function POST(request: NextRequest) {
 
         console.log(`[External Visit API] Saving visit object:`, JSON.stringify(newVisit));
 
-        // 6. Ajouter la visite au tableau 'visits' de l'utilisateur
+        // 6. Ajouter ou mettre à jour la visite dans le tableau 'visits' de l'utilisateur
         const userRef = doc(db, 'users', userId);
-        await updateDoc(userRef, {
-            visits: arrayUnion(newVisit)
-        });
+        const userData = userDoc.data();
+        const existingVisits = (userData.visits || []) as Record<string, any>[];
 
-        console.log(`[External Visit API] Successfully added visit for ${userEmail} at ${placeName} | zone: ${cleanCityName} | category: ${finalCategory} | dish: ${dishName || 'N/A'} | input category was: ${category}`);
+        const extractInstantId = (url?: string) => {
+            if (!url) return null;
+            const match = url.match(/[?&](?:instant|id)=([^&]+)/);
+            return match ? match[1] : null;
+        };
+
+        const incomingInstantId = extractInstantId(postUrl);
+        let wasUpdated = false;
+        const finalVisitsArray = [...existingVisits];
+
+        if (incomingInstantId) {
+            const existingIndex = existingVisits.findIndex(v => {
+                if (v.momentyUrl && extractInstantId(v.momentyUrl) === incomingInstantId) return true;
+                if (v.id === incomingInstantId) return true;
+                return false;
+            });
+
+            if (existingIndex !== -1) {
+                // Mettre à jour la visite existante (ex: modification de date, lieu, zone, etc.)
+                const existing = existingVisits[existingIndex];
+                const updatedVisit: Record<string, any> = {
+                    ...existing,
+                    placeName: placeName,
+                    category: finalCategory,
+                    date: date,
+                    zone: cleanCityName,
+                    cityName: cleanCityName,
+                };
+                if (postUrl) updatedVisit.momentyUrl = postUrl;
+                if (momentyImageUrl) updatedVisit.momentyImageUrl = momentyImageUrl;
+                if (dishName && dishName.trim()) updatedVisit.orderedItem = dishName.trim();
+
+                finalVisitsArray[existingIndex] = updatedVisit;
+                wasUpdated = true;
+                console.log(`[External Visit API] Updated existing visit for instant ${incomingInstantId}:`, JSON.stringify(updatedVisit));
+            }
+        }
+
+        if (wasUpdated) {
+            await updateDoc(userRef, {
+                visits: finalVisitsArray
+            });
+            console.log(`[External Visit API] Successfully UPDATED visit for ${userEmail} at ${placeName} | date: ${date} | zone: ${cleanCityName}`);
+        } else {
+            await updateDoc(userRef, {
+                visits: arrayUnion(newVisit)
+            });
+            console.log(`[External Visit API] Successfully ADDED new visit for ${userEmail} at ${placeName} | zone: ${cleanCityName} | category: ${finalCategory}`);
+        }
 
         // 7. Synchroniser le lieu / plat dans la base globale des zones
         try {
