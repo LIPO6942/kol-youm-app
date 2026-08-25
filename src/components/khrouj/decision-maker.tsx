@@ -293,11 +293,11 @@ export default function DecisionMaker() {
     // Push each missing place to Firestore silently
     uniqueMissing.forEach(async (v: VisitLog) => {
       try {
-        // Try to find zone from combinedPlaces, fallback to 'La Marsa'
+        // Try to find zone from visit itself, combinedPlaces, or fallback to 'La Marsa'
         const knownPlace = combinedPlaces.find(
           p => p.name.toLowerCase() === v.placeName.toLowerCase() && p.category === 'Kharjet'
         );
-        const zone = knownPlace?.zone || 'La Marsa';
+        const zone = (v as any).zone || (v as any).cityName || knownPlace?.zone || 'La Marsa';
         const tags = (v.orderedItem || '').split(',').map((s: string) => s.trim()).filter(Boolean);
         await fetch('/api/places-database-firestore', {
           method: 'POST',
@@ -384,10 +384,11 @@ export default function DecisionMaker() {
           }
         });
       } else {
+        const fallbackZone = (v as any).zone || (v as any).cityName || (cat === 'Kharjet' ? 'La Marsa' : generalZones[0]) || 'La Marsa';
         map.set(key, {
           name: cleanPlace,
           category: cat,
-          zone: (cat === 'Kharjet' ? kharjetZones[0] : generalZones[0]) || 'La Marsa',
+          zone: fallbackZone,
           specialties: visitTags,
           visitCount: 1,
           lastVisited: v.date
@@ -718,12 +719,12 @@ export default function DecisionMaker() {
 
       // Place stats
       if (!byPlaceMap[v.placeName]) {
-        const placeDetails = allPlaces.find((p: any) => p.name === v.placeName);
+        const placeDetails = allPlaces.find((p: any) => p.name?.toLowerCase() === v.placeName?.toLowerCase());
         byPlaceMap[v.placeName] = {
           count: 0,
           category: v.category,
           dates: [],
-          zone: placeDetails?.zone
+          zone: (v as any).zone || (v as any).cityName || placeDetails?.zone
         };
       }
       byPlaceMap[v.placeName].count++;

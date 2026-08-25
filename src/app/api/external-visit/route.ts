@@ -147,7 +147,11 @@ export async function POST(request: NextRequest) {
         // 5. Préparer l'objet visite — IMPORTANT: NE PAS inclure de valeurs `undefined`
         // car Firestore rejette les objets contenant des champs `undefined`, ce qui fait
         // échouer silencieusement le `updateDoc`.
+        // 5. Préparer l'objet visite — IMPORTANT: NE PAS inclure de valeurs `undefined`
+        // car Firestore rejette les objets contenant des champs `undefined`, ce qui fait
+        // échouer silencieusement le `updateDoc`.
         const visitId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const cleanCityName = cityName?.trim() || 'La Marsa';
         const newVisit: Record<string, any> = {
             id: visitId,
             placeName: placeName,
@@ -155,6 +159,8 @@ export async function POST(request: NextRequest) {
             date: date,
             source: 'momenty',
             isPending: isAmbiguous,
+            zone: cleanCityName,
+            cityName: cleanCityName,
         };
 
         if (postUrl) newVisit.momentyUrl = postUrl;
@@ -178,56 +184,77 @@ export async function POST(request: NextRequest) {
             visits: arrayUnion(newVisit)
         });
 
-        console.log(`[External Visit API] Successfully added visit for ${userEmail} at ${placeName} | category: ${finalCategory} | dish: ${dishName || 'N/A'} | input category was: ${category}`);
+        console.log(`[External Visit API] Successfully added visit for ${userEmail} at ${placeName} | zone: ${cleanCityName} | category: ${finalCategory} | dish: ${dishName || 'N/A'} | input category was: ${category}`);
 
-        // 7. Synchroniser le plat dans la base globale (Spécialités)
-        if (dishName && placeName) {
-            try {
-                const zonesSnap = await getDocs(collection(db, 'zones'));
+        // 7. Synchroniser le lieu / plat dans la base globale des zones
+        try {
+            const zonesSnap = await getDocs(collection(db, 'zones'));
+            const normalizedPlace = placeName.trim().toLowerCase();
+            let targetZoneDoc = null;
+            let currentSpecialties: Record<string, string[]> = {};
 
-                const normalizedPlace = placeName.trim().toLowerCase();
-                let targetZoneDoc = null;
-                let currentSpecialties: Record<string, string[]> = {};
+            // Chercher si le lieu existe déjà dans une zone
+            for (const zoneDoc of zonesSnap.docs) {
+                const data = zoneDoc.data();
+                const allPlacesInZone = [
+                    ...(data.cafes || []),
+                    ...(data.restaurants || []),
+                    ...(data.fastFoods || []),
+                    ...(data.brunch || []),
+                    ...(data.kharjet || data.balade || []),
+                    ...(data.shopping || [])
+                ];
 
-                // Parcourir les zones pour trouver le lieu (avec fuzzy matching)
-                for (const zoneDoc of zonesSnap.docs) {
-                    const data = zoneDoc.data();
-                    const allPlacesInZone = [
-                        ...(data.cafes || []),
-                        ...(data.restaurants || []),
-                        ...(data.fastFoods || []),
-                        ...(data.brunch || []),
-                        ...(data.kharjet || data.balade || []),
-                        ...(data.shopping || [])
-                    ];
-
-                    const matchedPlace = allPlacesInZone.find(p => fuzzyMatch(p.toLowerCase(), normalizedPlace));
-                    if (matchedPlace) {
-                        targetZoneDoc = zoneDoc;
-                        currentSpecialties = data.specialties || {};
-                        break;
-                    }
+                const matchedPlace = allPlacesInZone.find(p => fuzzyMatch(p.toLowerCase(), normalizedPlace));
+                if (matchedPlace) {
+                    targetZoneDoc = zoneDoc;
+                    currentSpecialties = data.specialties || {};
+                    break;
                 }
-
-                if (targetZoneDoc) {
-                    const placeKey = Object.keys(currentSpecialties).find(k => k.toLowerCase() === normalizedPlace) || placeName;
-                    const existingDishList = currentSpecialties[placeKey] || [];
-
-                    if (!existingDishList.some(d => d.toLowerCase() === dishName.trim().toLowerCase())) {
-                        const updatedSpecialties = {
-                            ...currentSpecialties,
-                            [placeKey]: [...existingDishList, dishName.trim()]
-                        };
-
-                        await updateDoc(doc(db, 'zones', targetZoneDoc.id), {
-                            specialties: updatedSpecialties
-                        });
-                        console.log(`[External Visit API] Specialty added for ${placeName}: ${dishName}`);
-                    }
-                }
-            } catch (pError) {
-                console.error('[External Visit API] Failed to sync global specialty:', pError);
             }
+
+            // Si le lieu n'existe pas encore et que c'est un Kharjet, l'ajouter à la zone cible (cleanCityName)
+            if (!targetZoneDoc && cleanCityName) {
+                const existingZoneDoc = zonesSnap.docs.find(d => 
+                    d.id.toLowerCase() === cleanCityName.toLowerCase() || 
+                    (d.data().zone && d.data().zone.toLowerCase() === cleanCityName.toLowerCase())
+                );
+
+                if (existingZoneDoc) {
+                    targetZoneDoc = existingZoneDoc;
+                    const existingData = existingZoneDoc.data();
+                    const existingKharjet = existingData.kharjet || existingData.balade || [];
+                    if (!existingKharjet.some((p: string) => p.toLowerCase() === normalizedPlace)) {
+                        await updateDoc(doc(db, 'zones', existingZoneDoc.id), {
+                            kharjet: arrayUnion(placeName.trim()),
+                            ...(dishName ? {
+                                specialties: {
+                                    ...(existingData.specialties || {}),
+                                    [placeName.trim()]: [dishName.trim()]
+                                }
+                            } : {})
+                        });
+                        console.log(`[External Visit API] Added new Kharjet place "${placeName}" to zone "${existingZoneDoc.id}"`);
+                    }
+                }
+            } else if (targetZoneDoc && dishName) {
+                const placeKey = Object.keys(currentSpecialties).find(k => k.toLowerCase() === normalizedPlace) || placeName;
+                const existingDishList = currentSpecialties[placeKey] || [];
+
+                if (!existingDishList.some(d => d.toLowerCase() === dishName.trim().toLowerCase())) {
+                    const updatedSpecialties = {
+                        ...currentSpecialties,
+                        [placeKey]: [...existingDishList, dishName.trim()]
+                    };
+
+                    await updateDoc(doc(db, 'zones', targetZoneDoc.id), {
+                        specialties: updatedSpecialties
+                    });
+                    console.log(`[External Visit API] Specialty added for ${placeName}: ${dishName}`);
+                }
+            }
+        } catch (pError) {
+            console.error('[External Visit API] Failed to sync global place/specialty:', pError);
         }
 
         return NextResponse.json({
