@@ -46,11 +46,13 @@ export type WrapUpStats = {
   momentyMoments: MomentyMoment[];
   movies?: {
     total: number;
+    titles: string[];
     posters: string[];
     featured: { title: string; poster: string } | null;
   };
   series?: {
     total: number;
+    titles: string[];
     posters: string[];
     featured: { title: string; poster: string } | null;
   };
@@ -179,16 +181,20 @@ export function useMonthlyWrapUp(
           kharjetZoneCounts[area] = (kharjetZoneCounts[area] || 0) + 1;
         }
 
+        const kharjetImg = v.momentyImageUrl || (v as any).photoUrl || (v as any).photoDataUri || (v as any).imageUrl || (v as any).image;
+
+        const kharjetDesc = (v as any).description || v.note || (v.orderedItem && v.orderedItem !== "Découverte Gourmande" ? v.orderedItem : '') || '';
+
         kharjetOutings.push({
-          id: v.id,
-          placeName: v.placeName,
+          id: v.id || `${v.date}-${Math.random().toString(36).substr(2, 5)}`,
+          placeName: v.placeName || 'Escapade',
           date: v.date,
           zone: area,
           note: v.note,
-          description: v.note || v.orderedItem,
-          imageUrl: v.momentyImageUrl,
+          description: kharjetDesc,
+          imageUrl: kharjetImg,
           momentyUrl: v.momentyUrl,
-          source: v.source
+          source: v.source || (v.momentyUrl || kharjetImg ? 'momenty' : 'kolyoum')
         });
       }
       
@@ -229,21 +235,24 @@ export function useMonthlyWrapUp(
       dayCounts[dayName] = (dayCounts[dayName] || 0) + 1;
 
       // Extract all Momenty moments
-      if (v.momentyImageUrl || v.source === 'momenty') {
-        if (!featuredMomentyImage && v.momentyImageUrl) {
-          featuredMomentyImage = v.momentyImageUrl;
+      const img = v.momentyImageUrl || (v as any).photoUrl || (v as any).photoDataUri || (v as any).imageUrl || (v as any).image;
+      const momentDesc = (v as any).description || v.note || (v.orderedItem && v.orderedItem !== "Découverte Gourmande" && v.orderedItem !== "Moment Momenty" ? v.orderedItem : '') || '';
+
+      if (img || v.source === 'momenty') {
+        if (!featuredMomentyImage && img) {
+          featuredMomentyImage = img;
         }
-        if (!featuredMomentyDish && v.orderedItem) {
-          featuredMomentyDish = v.orderedItem;
+        if (!featuredMomentyDish && momentDesc) {
+          featuredMomentyDish = momentDesc;
         }
 
-        if (v.momentyImageUrl) {
+        if (img) {
           momentyMoments.push({
-            id: v.id,
-            placeName: v.placeName,
+            id: v.id || `${v.date}-${Math.random().toString(36).substr(2, 5)}`,
+            placeName: v.placeName || 'Moment capturé',
             category: rawCat,
-            imageUrl: v.momentyImageUrl,
-            description: v.orderedItem || v.note,
+            imageUrl: img,
+            description: momentDesc || v.placeName || 'Moment capturé',
             note: v.note,
             date: v.date,
             momentyUrl: v.momentyUrl
@@ -333,9 +342,11 @@ export function useMonthlyWrapUp(
     const getTfarrejStats = (list: any[]) => {
         if (list.length === 0) return null;
         const posters = list.map(m => m.posterUrl || m.posterPath).filter(Boolean);
+        const titles = list.map(m => m.title).filter(Boolean);
         const feat = list[list.length - 1];
         return {
             total: list.length,
+            titles: titles as string[],
             posters: posters as string[],
             featured: feat ? { title: feat.title, poster: feat.posterUrl || feat.posterPath } : null
         };

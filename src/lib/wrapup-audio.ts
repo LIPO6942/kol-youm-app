@@ -1,243 +1,177 @@
-// Web Audio API ambient soundtrack generator for Monthly Wrap-Up
-// Generates soft, warm, atmospheric chord progressions and melodic arpeggios tailored to each month.
+// Web Audio API energetic soundtrack engine for Monthly Wrap-Up
+// Produces loud, vibrant, upbeat, and rhythmic synth melodies & grooves tailored for smartphone speakers.
 
-type MonthlyTheme = {
+type UpbeatTheme = {
   name: string;
   bpm: number;
-  rootFreq: number; // Base root frequency (Hz)
-  scale: number[];  // Frequency multipliers for chords/harmonics
-  chordProgression: number[][]; // Indices into the scale
-  waveform: OscillatorType;
-  filterFreq: number; // Warm lowpass filter cutoff
-  reverbDecay: number;
+  rootFreq: number; // Hz
+  scale: number[];  // Frequency multipliers
+  bassProgression: number[]; // Bass notes
+  leadPattern: number[]; // 16-step rhythmic melody
+  chordStabs: number[][];
 };
 
-// 12 distinct musical mood themes for each month of the year
-const MONTHLY_THEMES: Record<number, MonthlyTheme> = {
-  // Janvier: Lofi Winter Chill (D minor 9th / F major 7th) - Soft, cozy, introspective
+const UPBEAT_MONTHLY_THEMES: Record<number, UpbeatTheme> = {
+  // Janvier: Energetic Nu-Disco / Electro-Pop (118 BPM)
   0: {
-    name: 'Hiver Feutré',
-    bpm: 58,
-    rootFreq: 146.83, // D3
-    scale: [1, 1.2, 1.334, 1.5, 1.682, 1.888, 2.0, 2.4], // D natural minor
-    chordProgression: [
-      [0, 2, 4, 6], // Dm9
-      [4, 6, 8, 10], // Bb maj7
-      [2, 4, 6, 8], // F maj7
-      [3, 5, 7, 9], // G min7
-    ],
-    waveform: 'triangle',
-    filterFreq: 650,
-    reverbDecay: 2.2,
+    name: 'Électro Hivernale',
+    bpm: 118,
+    rootFreq: 220, // A3
+    scale: [1, 1.125, 1.25, 1.334, 1.5, 1.667, 1.875, 2.0, 2.25, 2.5],
+    bassProgression: [0, 0, 3, 3, 5, 5, 4, 4],
+    leadPattern: [0, 4, 7, 9, 7, 4, 2, 4, 0, 7, 9, 11, 9, 7, 4, 2],
+    chordStabs: [[0, 2, 4], [3, 5, 7], [5, 7, 9], [4, 6, 8]],
   },
-  // Février: Romance & Velvet (G major 7th / E minor 9th) - Smooth, warm
+  // Février: Funky Groove (120 BPM)
   1: {
-    name: 'Douceur Velours',
-    bpm: 62,
-    rootFreq: 196.00, // G3
-    scale: [1, 1.125, 1.25, 1.334, 1.5, 1.667, 1.875, 2.0], // G major
-    chordProgression: [
-      [0, 2, 4, 6], // Gmaj7
-      [5, 7, 9, 11], // Em9
-      [3, 5, 7, 9], // Cmaj7
-      [1, 3, 5, 7], // Am7
-    ],
-    waveform: 'sine',
-    filterFreq: 800,
-    reverbDecay: 2.5,
+    name: 'Funky Vibe',
+    bpm: 120,
+    rootFreq: 196, // G3
+    scale: [1, 1.125, 1.25, 1.414, 1.5, 1.667, 1.78, 2.0, 2.25, 2.5],
+    bassProgression: [0, 0, 4, 4, 2, 2, 5, 5],
+    leadPattern: [0, 2, 4, 7, 4, 2, 0, 7, 4, 7, 9, 7, 4, 2, 4, 0],
+    chordStabs: [[0, 2, 4], [4, 6, 8], [2, 4, 6], [5, 7, 9]],
   },
-  // Mars: Éveil Printanier (C major 7th / A minor 9th) - Fresh, uplifting chime
+  // Mars: Spring Anthem / Uplifting House (122 BPM)
   2: {
-    name: 'Éveil Printanier',
-    bpm: 72,
+    name: 'Renouveau Festif',
+    bpm: 122,
     rootFreq: 261.63, // C4
-    scale: [1, 1.125, 1.25, 1.334, 1.5, 1.667, 1.875, 2.0], // C major
-    chordProgression: [
-      [0, 2, 4, 6], // Cmaj7
-      [5, 7, 9, 11], // Am9
-      [3, 5, 7, 9], // Fmaj7
-      [4, 6, 8, 10], // G6
-    ],
-    waveform: 'sine',
-    filterFreq: 950,
-    reverbDecay: 2.0,
+    scale: [1, 1.125, 1.25, 1.334, 1.5, 1.667, 1.875, 2.0, 2.25, 2.5],
+    bassProgression: [0, 0, 5, 5, 3, 3, 4, 4],
+    leadPattern: [0, 4, 7, 4, 9, 7, 4, 2, 0, 4, 7, 9, 11, 9, 7, 4],
+    chordStabs: [[0, 2, 4], [5, 7, 9], [3, 5, 7], [4, 6, 8]],
   },
-  // Avril: Brise Douce (F major 7th / D minor 7th) - Light, airy arpeggios
+  // Avril: Sunny Pop Groove (120 BPM)
   3: {
-    name: 'Brise Douce',
-    bpm: 76,
-    rootFreq: 174.61, // F3
-    scale: [1, 1.125, 1.25, 1.334, 1.5, 1.667, 1.875, 2.0], // F major
-    chordProgression: [
-      [0, 2, 4, 6], // Fmaj7
-      [3, 5, 7, 9], // Bbmaj7
-      [5, 7, 9, 11], // Dm7
-      [2, 4, 6, 8], // Am7
-    ],
-    waveform: 'triangle',
-    filterFreq: 850,
-    reverbDecay: 2.4,
+    name: 'Rythme Solaire',
+    bpm: 120,
+    rootFreq: 220, // A3
+    scale: [1, 1.125, 1.25, 1.334, 1.5, 1.667, 1.875, 2.0, 2.25, 2.5],
+    bassProgression: [0, 0, 3, 3, 4, 4, 5, 5],
+    leadPattern: [2, 4, 7, 9, 7, 4, 2, 0, 4, 7, 9, 12, 9, 7, 4, 2],
+    chordStabs: [[0, 2, 4], [3, 5, 7], [4, 6, 8], [5, 7, 9]],
   },
-  // Mai: Floraison Radieuse (D major 7th / G major 7th) - Sunlit, energetic
+  // Mai: Tropical Dance (124 BPM)
   4: {
-    name: 'Floraison Solaire',
-    bpm: 80,
-    rootFreq: 220.00, // A3
-    scale: [1, 1.125, 1.26, 1.334, 1.5, 1.682, 1.888, 2.0], // D major relative
-    chordProgression: [
-      [0, 2, 4, 6],
-      [4, 6, 8, 10],
-      [2, 4, 6, 8],
-      [5, 7, 9, 11],
-    ],
-    waveform: 'triangle',
-    filterFreq: 1100,
-    reverbDecay: 1.8,
-  },
-  // Juin: Soleil Levant (A major / E major) - Warm summer breeze
-  5: {
-    name: 'Soleil Levant',
-    bpm: 86,
-    rootFreq: 220.00, // A3
-    scale: [1, 1.125, 1.26, 1.334, 1.5, 1.682, 1.888, 2.0],
-    chordProgression: [
-      [0, 2, 4, 6], // Amaj7
-      [4, 6, 8, 10], // Emaj7
-      [5, 7, 9, 11], // F#m7
-      [3, 5, 7, 9], // Dmaj7
-    ],
-    waveform: 'sine',
-    filterFreq: 1200,
-    reverbDecay: 2.0,
-  },
-  // Juillet: Énergie Estivale (Tropical Synthwave / D maj) - Upbeat, radiant
-  6: {
-    name: 'Vibes Estivales',
-    bpm: 90,
+    name: 'Énergie Printanière',
+    bpm: 124,
     rootFreq: 293.66, // D4
-    scale: [1, 1.125, 1.25, 1.334, 1.5, 1.667, 1.875, 2.0],
-    chordProgression: [
-      [0, 2, 4, 6], // Dmaj7
-      [3, 5, 7, 9], // Gmaj7
-      [5, 7, 9, 11], // Bm7
-      [4, 6, 8, 10], // A7
-    ],
-    waveform: 'triangle',
-    filterFreq: 1300,
-    reverbDecay: 1.6,
+    scale: [1, 1.125, 1.26, 1.334, 1.5, 1.682, 1.888, 2.0, 2.25, 2.5],
+    bassProgression: [0, 0, 4, 4, 1, 1, 3, 3],
+    leadPattern: [0, 2, 4, 7, 9, 7, 4, 2, 0, 4, 7, 9, 7, 4, 2, 0],
+    chordStabs: [[0, 2, 4], [4, 6, 8], [1, 3, 5], [3, 5, 7]],
   },
-  // Août: Nuit Étoilée & Sunset (E major / A major) - Lush golden hour pads
+  // Juin: Summer Kickoff / Festival Beat (124 BPM)
+  5: {
+    name: 'Summer Hits',
+    bpm: 124,
+    rootFreq: 220, // A3
+    scale: [1, 1.125, 1.25, 1.334, 1.5, 1.667, 1.875, 2.0, 2.25, 2.5],
+    bassProgression: [0, 0, 5, 5, 3, 3, 4, 4],
+    leadPattern: [0, 4, 7, 9, 11, 9, 7, 4, 0, 7, 9, 12, 11, 9, 7, 4],
+    chordStabs: [[0, 2, 4], [5, 7, 9], [3, 5, 7], [4, 6, 8]],
+  },
+  // Juillet: Tropical Synthwave Party (125 BPM)
+  6: {
+    name: 'Fiesta Estivale',
+    bpm: 125,
+    rootFreq: 261.63, // C4
+    scale: [1, 1.125, 1.25, 1.334, 1.5, 1.667, 1.875, 2.0, 2.25, 2.5],
+    bassProgression: [0, 0, 3, 3, 4, 4, 5, 5],
+    leadPattern: [0, 2, 4, 7, 9, 7, 4, 7, 0, 4, 7, 9, 12, 9, 7, 4],
+    chordStabs: [[0, 2, 4], [3, 5, 7], [4, 6, 8], [5, 7, 9]],
+  },
+  // Août: Golden Sunset Dance (122 BPM)
   7: {
-    name: 'Golden Hour',
-    bpm: 82,
-    rootFreq: 164.81, // E3
-    scale: [1, 1.125, 1.26, 1.334, 1.5, 1.682, 1.888, 2.0],
-    chordProgression: [
-      [0, 2, 4, 6], // Emaj7
-      [3, 5, 7, 9], // Amaj7
-      [1, 3, 5, 7], // F#m7
-      [4, 6, 8, 10], // B7
-    ],
-    waveform: 'sine',
-    filterFreq: 950,
-    reverbDecay: 2.8,
+    name: 'Golden Hour Beat',
+    bpm: 122,
+    rootFreq: 196, // G3
+    scale: [1, 1.125, 1.25, 1.334, 1.5, 1.667, 1.875, 2.0, 2.25, 2.5],
+    bassProgression: [0, 0, 4, 4, 5, 5, 3, 3],
+    leadPattern: [4, 7, 9, 11, 9, 7, 4, 2, 0, 4, 7, 9, 7, 4, 2, 0],
+    chordStabs: [[0, 2, 4], [4, 6, 8], [5, 7, 9], [3, 5, 7]],
   },
-  // Septembre: Rentrée & Jazz Lofi (F major 7th / D minor 7th) - Mellow, nostalgic
+  // Septembre: Upbeat Back-to-School Bounce (120 BPM)
   8: {
-    name: 'Rentrée Lofi',
-    bpm: 72,
-    rootFreq: 174.61, // F3
-    scale: [1, 1.125, 1.2, 1.334, 1.5, 1.6, 1.875, 2.0],
-    chordProgression: [
-      [0, 2, 4, 6], // Fmaj7
-      [5, 7, 9, 11], // Dm9
-      [1, 3, 5, 7], // Gm7
-      [4, 6, 8, 10], // C7
-    ],
-    waveform: 'triangle',
-    filterFreq: 750,
-    reverbDecay: 2.2,
+    name: 'Rentrée Énergique',
+    bpm: 120,
+    rootFreq: 220, // A3
+    scale: [1, 1.125, 1.2, 1.334, 1.5, 1.6, 1.875, 2.0, 2.25, 2.5],
+    bassProgression: [0, 0, 5, 5, 3, 3, 4, 4],
+    leadPattern: [0, 3, 7, 9, 7, 3, 0, 7, 3, 7, 10, 7, 3, 0, 3, 7],
+    chordStabs: [[0, 2, 4], [5, 7, 9], [3, 5, 7], [4, 6, 8]],
   },
-  // Octobre: Feuilles Dorées (A minor 7th / F major 7th) - Cozy fireplace chords
+  // Octobre: Funky Autumn Beats (118 BPM)
   9: {
-    name: 'Feuilles Dorées',
-    bpm: 66,
-    rootFreq: 220.00, // A3
-    scale: [1, 1.125, 1.2, 1.334, 1.5, 1.6, 1.78, 2.0], // A minor
-    chordProgression: [
-      [0, 2, 4, 6], // Am7
-      [5, 7, 9, 11], // Fmaj7
-      [2, 4, 6, 8], // Cmaj7
-      [4, 6, 8, 10], // Em7
-    ],
-    waveform: 'sine',
-    filterFreq: 700,
-    reverbDecay: 2.6,
+    name: 'Groove d’Automne',
+    bpm: 118,
+    rootFreq: 196, // G3
+    scale: [1, 1.125, 1.25, 1.334, 1.5, 1.667, 1.875, 2.0, 2.25, 2.5],
+    bassProgression: [0, 0, 4, 4, 2, 2, 5, 5],
+    leadPattern: [0, 4, 7, 4, 9, 7, 4, 2, 0, 4, 7, 9, 7, 4, 2, 0],
+    chordStabs: [[0, 2, 4], [4, 6, 8], [2, 4, 6], [5, 7, 9]],
   },
-  // Novembre: Pluie Douce & Cinématique (C# minor 7th / A major 7th) - Deep ambient
+  // Novembre: Neon Synth Drive (120 BPM)
   10: {
-    name: 'Brume Nocturne',
-    bpm: 60,
-    rootFreq: 138.59, // C#3
-    scale: [1, 1.125, 1.2, 1.334, 1.5, 1.6, 1.78, 2.0],
-    chordProgression: [
-      [0, 2, 4, 6], // C#m7
-      [5, 7, 9, 11], // Amaj7
-      [3, 5, 7, 9], // F#m7
-      [4, 6, 8, 10], // G#m7
-    ],
-    waveform: 'sine',
-    filterFreq: 620,
-    reverbDecay: 3.0,
+    name: 'Nuit Synthwave',
+    bpm: 120,
+    rootFreq: 220, // A3
+    scale: [1, 1.125, 1.2, 1.334, 1.5, 1.6, 1.78, 2.0, 2.25, 2.5],
+    bassProgression: [0, 0, 3, 3, 5, 5, 4, 4],
+    leadPattern: [0, 3, 7, 8, 7, 3, 0, 7, 0, 3, 7, 10, 8, 7, 3, 0],
+    chordStabs: [[0, 2, 4], [3, 5, 7], [5, 7, 9], [4, 6, 8]],
   },
-  // Décembre: Fêtes & Harmonies Célestes (G major / C major / D major) - Festive warm sparkle
+  // Décembre: Celebratory Holiday Dance (124 BPM)
   11: {
-    name: 'Magie d’Hiver',
-    bpm: 74,
-    rootFreq: 196.00, // G3
-    scale: [1, 1.125, 1.25, 1.334, 1.5, 1.667, 1.875, 2.0],
-    chordProgression: [
-      [0, 2, 4, 6], // Gmaj7
-      [3, 5, 7, 9], // Cmaj7
-      [4, 6, 8, 10], // D6
-      [5, 7, 9, 11], // Em7
-    ],
-    waveform: 'triangle',
-    filterFreq: 1050,
-    reverbDecay: 2.8,
+    name: 'Célébration d’Hiver',
+    bpm: 124,
+    rootFreq: 261.63, // C4
+    scale: [1, 1.125, 1.25, 1.334, 1.5, 1.667, 1.875, 2.0, 2.25, 2.5],
+    bassProgression: [0, 0, 5, 5, 3, 3, 4, 4],
+    leadPattern: [0, 4, 7, 11, 9, 7, 4, 2, 0, 4, 7, 9, 12, 11, 9, 7],
+    chordStabs: [[0, 2, 4], [5, 7, 9], [3, 5, 7], [4, 6, 8]],
   },
 };
 
 export class WrapUpAudioEngine {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
+  private compressor: DynamicsCompressorNode | null = null;
   private filterNode: BiquadFilterNode | null = null;
-  private activeOscillators: OscillatorNode[] = [];
-  private activeGains: GainNode[] = [];
-  private intervalId: any = null;
+  private stepInterval: any = null;
   private isPlaying = false;
   private isMuted = false;
   private currentMonth = 0;
-  private chordIndex = 0;
+  private step = 0;
 
-  constructor() {
-    // AudioContext will be initialized on user interaction
-  }
+  constructor() {}
 
   private initContext() {
     if (!this.ctx && typeof window !== 'undefined') {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioCtx) {
         this.ctx = new AudioCtx();
-        this.masterGain = this.ctx.createGain();
+        
+        // Multi-band compressor to maximize loudness and punch on phone speakers without clipping
+        this.compressor = this.ctx.createDynamicsCompressor();
+        this.compressor.threshold.setValueAtTime(-18, this.ctx.currentTime);
+        this.compressor.knee.setValueAtTime(10, this.ctx.currentTime);
+        this.compressor.ratio.setValueAtTime(6, this.ctx.currentTime);
+        this.compressor.attack.setValueAtTime(0.003, this.ctx.currentTime);
+        this.compressor.release.setValueAtTime(0.15, this.ctx.currentTime);
+
         this.filterNode = this.ctx.createBiquadFilter();
-
         this.filterNode.type = 'lowpass';
-        this.filterNode.frequency.setValueAtTime(800, this.ctx.currentTime);
-        this.filterNode.Q.setValueAtTime(1.2, this.ctx.currentTime);
+        this.filterNode.frequency.setValueAtTime(2600, this.ctx.currentTime); // Bright & clear
+        this.filterNode.Q.setValueAtTime(1.5, this.ctx.currentTime);
 
+        this.masterGain = this.ctx.createGain();
         this.masterGain.gain.setValueAtTime(0, this.ctx.currentTime);
-        this.filterNode.connect(this.masterGain);
+
+        // Chain: Filter -> Compressor -> MasterGain -> Destination
+        this.filterNode.connect(this.compressor);
+        this.compressor.connect(this.masterGain);
         this.masterGain.connect(this.ctx.destination);
       }
     }
@@ -254,100 +188,158 @@ export class WrapUpAudioEngine {
     }
 
     this.currentMonth = Math.max(0, Math.min(11, monthIndex));
-    const theme = MONTHLY_THEMES[this.currentMonth] || MONTHLY_THEMES[0];
+    const theme = UPBEAT_MONTHLY_THEMES[this.currentMonth] || UPBEAT_MONTHLY_THEMES[0];
 
-    this.filterNode.frequency.setValueAtTime(theme.filterFreq, this.ctx.currentTime);
     this.isPlaying = true;
-    this.chordIndex = 0;
+    this.step = 0;
 
-    // Smooth fade in
-    const targetVolume = this.isMuted ? 0 : 0.22;
+    // Loud, punchy master volume (0.85)
+    const targetVolume = this.isMuted ? 0 : 0.85;
     this.masterGain.gain.cancelScheduledValues(this.ctx.currentTime);
     this.masterGain.gain.setValueAtTime(0.001, this.ctx.currentTime);
-    this.masterGain.gain.exponentialRampToValueAtTime(Math.max(0.001, targetVolume), this.ctx.currentTime + 1.5);
+    this.masterGain.gain.linearRampToValueAtTime(Math.max(0.001, targetVolume), this.ctx.currentTime + 0.4);
 
-    // Play first chord immediately
-    this.playNextChord(theme);
+    // 16th note step sequencer timing (BPM based)
+    const stepDurationMs = (60 / theme.bpm / 4) * 1000;
+    
+    // Play first step immediately
+    this.playStep(theme);
 
-    // Schedule subsequent chords according to BPM
-    const chordDurationMs = (60 / theme.bpm) * 4 * 1000;
-    this.intervalId = setInterval(() => {
+    this.stepInterval = setInterval(() => {
       if (this.isPlaying && this.ctx && this.ctx.state === 'running') {
-        this.playNextChord(theme);
+        this.step++;
+        this.playStep(theme);
       }
-    }, chordDurationMs);
+    }, stepDurationMs);
   }
 
-  private playNextChord(theme: MonthlyTheme) {
+  private playStep(theme: UpbeatTheme) {
     if (!this.ctx || !this.filterNode || !this.isPlaying) return;
 
-    const progression = theme.chordProgression;
-    const chordNoteIndices = progression[this.chordIndex % progression.length];
-    this.chordIndex++;
-
     const now = this.ctx.currentTime;
-    const chordDuration = (60 / theme.bpm) * 4;
+    const current16th = this.step % 16;
+    const currentBarBeat = this.step % 4;
 
-    chordNoteIndices.forEach((noteIdx, i) => {
-      if (!this.ctx || !this.filterNode) return;
+    // 1. Snappy Percussion: Kick on beat 0 & 2, Hi-hat on every odd 16th, Snare/Clap on beat 2 (step 8)
+    // Kick (Punchy low sine sweep)
+    if (current16th === 0 || current16th === 8 || current16th === 12) {
+      const kickOsc = this.ctx.createOscillator();
+      const kickGain = this.ctx.createGain();
+      kickOsc.frequency.setValueAtTime(140, now);
+      kickOsc.frequency.exponentialRampToValueAtTime(45, now + 0.09);
+      kickGain.gain.setValueAtTime(0.6, now);
+      kickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      kickOsc.connect(kickGain);
+      kickGain.connect(this.filterNode);
+      kickOsc.start(now);
+      kickOsc.stop(now + 0.13);
+    }
 
-      const scaleLen = theme.scale.length;
-      const octave = Math.floor(noteIdx / scaleLen);
-      const scaleDegree = noteIdx % scaleLen;
-      const multiplier = (theme.scale[scaleDegree] || 1) * Math.pow(2, octave);
-      const freq = theme.rootFreq * multiplier;
+    // Snare / Clap on step 4 & 12
+    if (current16th === 4 || current16th === 12) {
+      const snareOsc = this.ctx.createOscillator();
+      const snareGain = this.ctx.createGain();
+      snareOsc.type = 'triangle';
+      snareOsc.frequency.setValueAtTime(220, now);
+      snareOsc.frequency.exponentialRampToValueAtTime(90, now + 0.1);
+      snareGain.gain.setValueAtTime(0.45, now);
+      snareGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      snareOsc.connect(snareGain);
+      snareGain.connect(this.filterNode);
+      snareOsc.start(now);
+      snareOsc.stop(now + 0.15);
+    }
 
-      const osc = this.ctx.createOscillator();
-      const noteGain = this.ctx.createGain();
+    // Hi-hat tick on off-beats
+    if (current16th % 2 !== 0) {
+      const hatOsc = this.ctx.createOscillator();
+      const hatGain = this.ctx.createGain();
+      hatOsc.type = 'square';
+      hatOsc.frequency.setValueAtTime(8000 + (current16th * 200), now);
+      hatGain.gain.setValueAtTime(0.18, now);
+      hatGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
+      hatOsc.connect(hatGain);
+      hatGain.connect(this.filterNode);
+      hatOsc.start(now);
+      hatOsc.stop(now + 0.04);
+    }
 
-      osc.type = theme.waveform;
-      osc.frequency.setValueAtTime(freq, now);
+    // 2. Punchy Bassline (8th note pumping bass)
+    if (current16th % 2 === 0) {
+      const bassNoteIndex = theme.bassProgression[Math.floor(this.step / 8) % theme.bassProgression.length];
+      const bassFreq = (theme.rootFreq * 0.5) * (theme.scale[bassNoteIndex % theme.scale.length] || 1);
+      
+      const bassOsc = this.ctx.createOscillator();
+      const bassGain = this.ctx.createGain();
+      bassOsc.type = 'sawtooth';
+      bassOsc.frequency.setValueAtTime(bassFreq, now);
 
-      // Micro detuning for lush, warm chorus effect
-      const detune = (i - 1.5) * 4.5;
-      osc.detune.setValueAtTime(detune, now);
+      bassGain.gain.setValueAtTime(0.35, now);
+      bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
 
-      // Gentle envelope
-      const baseNoteVolume = 0.08 / Math.sqrt(chordNoteIndices.length);
-      const attackTime = 0.4 + i * 0.08;
-      const releaseTime = Math.min(chordDuration + 0.8, theme.reverbDecay + 1);
+      bassOsc.connect(bassGain);
+      bassGain.connect(this.filterNode);
+      bassOsc.start(now);
+      bassOsc.stop(now + 0.15);
+    }
 
-      noteGain.gain.setValueAtTime(0.0001, now);
-      noteGain.gain.exponentialRampToValueAtTime(baseNoteVolume, now + attackTime);
-      noteGain.gain.setValueAtTime(baseNoteVolume, now + chordDuration - 0.5);
-      noteGain.gain.exponentialRampToValueAtTime(0.0001, now + releaseTime);
+    // 3. Catchy Lead Melody (Lively Arpeggio)
+    const leadNoteIdx = theme.leadPattern[current16th];
+    const scaleLen = theme.scale.length;
+    const octave = Math.floor(leadNoteIdx / scaleLen);
+    const degree = leadNoteIdx % scaleLen;
+    const leadFreq = (theme.rootFreq * (theme.scale[degree] || 1)) * Math.pow(2, octave);
 
-      osc.connect(noteGain);
-      noteGain.connect(this.filterNode);
+    const leadOsc = this.ctx.createOscillator();
+    const leadGain = this.ctx.createGain();
+    leadOsc.type = 'triangle';
+    leadOsc.frequency.setValueAtTime(leadFreq, now);
 
-      osc.start(now + i * 0.04);
-      osc.stop(now + releaseTime);
+    leadGain.gain.setValueAtTime(0.28, now);
+    leadGain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
 
-      this.activeOscillators.push(osc);
-      this.activeGains.push(noteGain);
+    leadOsc.connect(leadGain);
+    leadGain.connect(this.filterNode);
+    leadOsc.start(now);
+    leadOsc.stop(now + 0.12);
 
-      // Cleanup finished nodes
-      setTimeout(() => {
-        const oscIdx = this.activeOscillators.indexOf(osc);
-        if (oscIdx > -1) this.activeOscillators.splice(oscIdx, 1);
-        const gainIdx = this.activeGains.indexOf(noteGain);
-        if (gainIdx > -1) this.activeGains.splice(gainIdx, 1);
-      }, releaseTime * 1000 + 100);
-    });
+    // 4. Upbeat Chord Stabs on beats 0, 6, 10
+    if (current16th === 0 || current16th === 6 || current16th === 10) {
+      const chordIdx = Math.floor(this.step / 16) % theme.chordStabs.length;
+      const notes = theme.chordStabs[chordIdx];
+      
+      notes.forEach((nIdx, i) => {
+        if (!this.ctx || !this.filterNode) return;
+        const cFreq = (theme.rootFreq * 1.5) * (theme.scale[nIdx % theme.scale.length] || 1);
+        const cOsc = this.ctx.createOscillator();
+        const cGain = this.ctx.createGain();
+        cOsc.type = 'sine';
+        cOsc.frequency.setValueAtTime(cFreq, now);
+        cOsc.detune.setValueAtTime((i - 1) * 8, now);
+
+        cGain.gain.setValueAtTime(0.2, now);
+        cGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+        cOsc.connect(cGain);
+        cGain.connect(this.filterNode);
+        cOsc.start(now);
+        cOsc.stop(now + 0.19);
+      });
+    }
   }
 
   public pause() {
     if (!this.ctx || !this.masterGain) return;
     const now = this.ctx.currentTime;
     this.masterGain.gain.cancelScheduledValues(now);
-    this.masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+    this.masterGain.gain.linearRampToValueAtTime(0.0001, now + 0.1);
   }
 
   public resume() {
     if (!this.ctx || !this.masterGain || this.isMuted || !this.isPlaying) return;
     const now = this.ctx.currentTime;
     this.masterGain.gain.cancelScheduledValues(now);
-    this.masterGain.gain.exponentialRampToValueAtTime(0.22, now + 0.4);
+    this.masterGain.gain.linearRampToValueAtTime(0.85, now + 0.2);
   }
 
   public toggleMute(): boolean {
@@ -355,8 +347,8 @@ export class WrapUpAudioEngine {
     if (this.ctx && this.masterGain && this.isPlaying) {
       const now = this.ctx.currentTime;
       this.masterGain.gain.cancelScheduledValues(now);
-      const target = this.isMuted ? 0.0001 : 0.22;
-      this.masterGain.gain.exponentialRampToValueAtTime(target, now + 0.3);
+      const target = this.isMuted ? 0.0001 : 0.85;
+      this.masterGain.gain.linearRampToValueAtTime(target, now + 0.15);
     }
     return this.isMuted;
   }
@@ -366,31 +358,20 @@ export class WrapUpAudioEngine {
   }
 
   public getThemeName(monthIndex: number): string {
-    return MONTHLY_THEMES[monthIndex]?.name || 'Ambiance Mensuelle';
+    return UPBEAT_MONTHLY_THEMES[monthIndex]?.name || 'Beat Énergique';
   }
 
   public stop() {
     this.isPlaying = false;
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
+    if (this.stepInterval) {
+      clearInterval(this.stepInterval);
+      this.stepInterval = null;
     }
 
     if (this.ctx && this.masterGain) {
       const now = this.ctx.currentTime;
       this.masterGain.gain.cancelScheduledValues(now);
-      this.masterGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
-
-      setTimeout(() => {
-        this.activeOscillators.forEach(osc => {
-          try { osc.stop(); osc.disconnect(); } catch (e) {}
-        });
-        this.activeGains.forEach(g => {
-          try { g.disconnect(); } catch (e) {}
-        });
-        this.activeOscillators = [];
-        this.activeGains = [];
-      }, 700);
+      this.masterGain.gain.linearRampToValueAtTime(0.0001, now + 0.3);
     }
   }
 }
