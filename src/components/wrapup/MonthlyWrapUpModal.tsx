@@ -1,12 +1,16 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
-import { X, Share2, Camera, Clapperboard, Award, Sparkles, MapPin, Film, Star, TrendingUp, Flame, Coffee } from 'lucide-react';
-import { useMonthlyWrapUp, WrapUpStats } from '@/hooks/use-monthly-wrapup';
+import { 
+  X, Share2, Camera, Clapperboard, Award, Sparkles, MapPin, Film, Star, 
+  Flame, Compass, Volume2, VolumeX, ChevronLeft, ChevronRight, Calendar
+} from 'lucide-react';
+import { useMonthlyWrapUp, WrapUpStats, KharjetOuting, MomentyMoment } from '@/hooks/use-monthly-wrapup';
 import type { UserProfile } from '@/lib/firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { toPng } from 'html-to-image';
+import { wrapUpAudio } from '@/lib/wrapup-audio';
 
 type Props = {
   user: UserProfile | null;
@@ -154,11 +158,10 @@ function SlideContainer({ children, className = '', style }: { children: React.R
 
 // ════════════════════════════════════════════════════════════════════════════
 export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTargetDate }: Props) {
-  // Fix infinite loop: keep targetDate stable instead of creating a new Date on every render!
   const [targetDate] = useState(() => passedTargetDate || new Date());
-  const previousMonthDate = new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, 1);
-
   const [placesWithZones, setPlacesWithZones] = useState<{ name: string; zone: string }[]>([]);
+  const [isMuted, setIsMuted] = useState(false);
+
   useEffect(() => {
     if (!isOpen) return;
     async function fetchPlaces() {
@@ -189,11 +192,39 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
   const [progress, setProgress] = useState(0);
   const storyRef = useRef<HTMLDivElement>(null);
 
+  // Sub-indices for multi-item slides
+  const [activeKharjetIdx, setActiveKharjetIdx] = useState(0);
+  const [activeMomentyIdx, setActiveMomentyIdx] = useState(0);
+
+  // Sound management
+  useEffect(() => {
+    if (isOpen && stats) {
+      wrapUpAudio.start(stats.monthIndex);
+    } else {
+      wrapUpAudio.stop();
+    }
+    return () => {
+      wrapUpAudio.stop();
+    };
+  }, [isOpen, stats?.monthIndex]);
+
+  useEffect(() => {
+    if (isPaused) {
+      wrapUpAudio.pause();
+    } else {
+      wrapUpAudio.resume();
+    }
+  }, [isPaused]);
+
+  const toggleSound = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const muted = wrapUpAudio.toggleMute();
+    setIsMuted(muted);
+  };
+
   const [cinemaPosters, setCinemaPosters] = useState<string[]>([]);
   useEffect(() => {
-    // Only fetch if open AND we have titles
     if (!isOpen || !stats?.cinema?.movieTitles?.length) {
-      // Don't set to empty array on every render if it's already empty (prevents re-render loops)
       setCinemaPosters(prev => prev.length === 0 ? prev : []);
       return;
     }
@@ -201,7 +232,6 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     async function fetchCinemaPosters() {
       try {
         const titles = stats!.cinema!.movieTitles;
-        // Déduplication des titres
         const uniqueTitles = Array.from(new Set(titles));
         const posters: string[] = [];
         
@@ -230,14 +260,21 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     stats.topCategory ? 'category' : null,
     stats.topPlace ? 'place' : null,
     stats.cinema && stats.cinema.total > 0 ? 'cinema' : null,
+    stats.kharjet && stats.kharjet.total > 0 ? 'kharjet' : null,
     stats.movies && stats.movies.total > 0 ? 'movies' : null,
     stats.series && stats.series.total > 0 ? 'series' : null,
-    stats.featuredMomentyImage ? 'momenty' : null,
+    (stats.momentyMoments && stats.momentyMoments.length > 0) || stats.featuredMomentyImage ? 'momenty' : null,
     'verdict',
   ].filter(Boolean) as string[] : [];
 
   useEffect(() => {
-    if (isOpen) { setCurrentSlide(0); setProgress(0); setIsPaused(false); }
+    if (isOpen) { 
+      setCurrentSlide(0); 
+      setProgress(0); 
+      setIsPaused(false); 
+      setActiveKharjetIdx(0);
+      setActiveMomentyIdx(0);
+    }
   }, [isOpen]);
 
   const slidesLengthRef = useRef(slides.length);
@@ -268,7 +305,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     if (!storyRef.current) return;
     try {
       const dataUrl = await toPng(storyRef.current, {
-        cacheBust: false, // Pas besoin avec le proxy
+        cacheBust: false,
         pixelRatio: 2,
         skipFonts: true,
       });
@@ -291,6 +328,21 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
   }
 
   const catEmoji = stats.topCategory?.name === 'Fast Food' ? '🍔' : stats.topCategory?.name === 'Brunch' ? '🥞' : stats.topCategory?.name === 'Café' ? '☕' : stats.topCategory?.name === 'Restaurant' ? '🍽️' : (stats.topCategory?.name === 'Kharjet' || stats.topCategory?.name === 'Balade') ? '✨' : '🎯';
+
+  // Kharjet outings with pictures
+  const kharjetOutingsWithPhotos = (stats.kharjet?.outings || []).filter(o => o.imageUrl);
+  const currentKharjet = kharjetOutingsWithPhotos[activeKharjetIdx] || stats.kharjet?.outings[0];
+
+  // Momenty moments
+  const momentyMomentsList = stats.momentyMoments || [];
+  const currentMomenty = momentyMomentsList[activeMomentyIdx] || (stats.featuredMomentyImage ? {
+    id: 'feat',
+    placeName: stats.topPlace?.name || 'Découverte',
+    category: stats.topCategory?.name || 'Moment',
+    imageUrl: stats.featuredMomentyImage,
+    description: stats.featuredMomentyDish || 'Moment capturé',
+    date: Date.now()
+  } : null);
 
   return (
     <AnimatePresence>
@@ -317,20 +369,47 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
               ))}
             </div>
 
-            {/* ── CLOSE BUTTON ── */}
-            <motion.button
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3 }}
-              className={`absolute top-8 right-4 z-50 p-2 bg-black/30 rounded-full backdrop-blur-md border border-white/10 no-screenshot ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
-              onClick={onClose}
-            >
-              <X className="w-4 h-4 text-white" />
-            </motion.button>
+            {/* ── HEADER CONTROLS (MUTE & CLOSE) ── */}
+            <div className="absolute top-8 right-4 z-50 flex items-center gap-2 no-screenshot pointer-events-auto">
+              {/* Sound toggle button */}
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.2 }}
+                className="p-2 bg-black/40 hover:bg-black/60 rounded-full backdrop-blur-md border border-white/15 text-white transition-transform active:scale-90 flex items-center gap-1.5 px-2.5"
+                onClick={toggleSound}
+                title={isMuted ? "Activer la musique" : "Couper la musique"}
+              >
+                {isMuted ? (
+                  <VolumeX className="w-4 h-4 text-white/60" />
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <Volume2 className="w-4 h-4 text-yellow-400" />
+                    {/* Animated equalizer waves */}
+                    <span className="flex items-end gap-0.5 h-3">
+                      <span className="w-0.5 bg-yellow-400 rounded-full animate-[bounce_0.8s_infinite_100ms] h-2" />
+                      <span className="w-0.5 bg-yellow-400 rounded-full animate-[bounce_0.8s_infinite_300ms] h-3" />
+                      <span className="w-0.5 bg-yellow-400 rounded-full animate-[bounce_0.8s_infinite_200ms] h-1.5" />
+                    </span>
+                  </div>
+                )}
+              </motion.button>
+
+              {/* Close button */}
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.3 }}
+                className="p-2 bg-black/40 hover:bg-black/60 rounded-full backdrop-blur-md border border-white/15 text-white transition-transform active:scale-90"
+                onClick={onClose}
+              >
+                <X className="w-4 h-4 text-white" />
+              </motion.button>
+            </div>
 
             {/* ── SLIDES CONTENT ── */}
             <div ref={storyRef} className="relative w-full h-full overflow-hidden pointer-events-none">
-              {/* Bruit de fond global */}
+              {/* Global background noise */}
               <div className="absolute inset-0 opacity-[0.04] bg-[url('/noise.png')] mix-blend-overlay z-10 pointer-events-none" />
 
               <AnimatePresence mode="wait">
@@ -426,7 +505,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                     <motion.div variants={containerVariants} initial="hidden" animate="show" className="flex flex-col items-center text-center z-10 w-full">
                       {/* Icône pin */}
                       <motion.div variants={iconVariants} className="relative mb-6">
-                        <div className="w-20 h-20 rounded-full bg-emerald-500/20 border border-emerald-400/30 backdrop-blur-md flex items-center justify-center shadow-[0_0_40px_rgba(16,185,129,0.3)]">
+                        <div className="w-20 h-20 rounded-full bg-emerald-500/20 border border-emerald-400/30 backdrop-blur-md flex items-center justify-center shadow-[0_0_40px_rgba(168,85,247,0.3)]">
                           <MapPin className="w-10 h-10 text-emerald-300" />
                         </div>
                         <motion.div
@@ -456,13 +535,13 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                   </SlideContainer>
                 )}
 
-                {/* ══ CINEMA OUTINGS ═══════════════════════════════════════════════════ */}
+                {/* ══ CINEMA OUTINGS (FILMS + SALLES) ═══════════════════════════ */}
                 {slides[currentSlide] === 'cinema' && stats.cinema && (
                   <SlideContainer key="cinema">
                     {cinemaPosters.length > 0 ? (
                       <>
                         <CollageBackground posters={cinemaPosters} />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/30 z-[1]" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/40 z-[1]" />
                       </>
                     ) : (
                       <>
@@ -471,28 +550,184 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                       </>
                     )}
                     
-                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="relative z-10 flex flex-col items-center text-center w-full">
-                      <motion.div variants={iconVariants} className="w-20 h-20 rounded-full bg-orange-500/20 border border-orange-400/30 backdrop-blur-md flex items-center justify-center shadow-[0_0_40px_rgba(249,115,22,0.3)] mb-6">
-                        <Clapperboard className="w-10 h-10 text-orange-400" />
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="relative z-10 flex flex-col items-center text-center w-full px-2">
+                      <motion.div variants={iconVariants} className="w-16 h-16 rounded-2xl bg-orange-500/20 border border-orange-400/30 backdrop-blur-md flex items-center justify-center shadow-[0_0_40px_rgba(249,115,22,0.3)] mb-3">
+                        <Clapperboard className="w-8 h-8 text-orange-400" />
                       </motion.div>
-                      <motion.p variants={itemVariants} className="text-xs uppercase tracking-[0.3em] text-orange-300 font-bold mb-2">
+                      
+                      <motion.p variants={itemVariants} className="text-[11px] uppercase tracking-[0.3em] text-orange-300 font-bold mb-1">
                         Sortie Grand Écran
                       </motion.p>
-                      <motion.div variants={numberVariants} className="text-center mb-8">
-                        <p className="text-8xl font-black text-white leading-none"><CountUp to={stats.cinema.total} /></p>
-                        <p className="text-white/50 text-lg mt-1">fois au ciné</p>
+                      
+                      <motion.div variants={numberVariants} className="text-center mb-4">
+                        <p className="text-5xl font-black text-white leading-none">
+                          <CountUp to={stats.cinema.total} />
+                        </p>
+                        <p className="text-white/60 text-xs mt-1 uppercase tracking-wider font-semibold">
+                          {stats.cinema.total > 1 ? 'séances au ciné' : 'séance au ciné'}
+                        </p>
                       </motion.div>
-                      {stats.cinema.topCinema && (
-                        <motion.div variants={itemVariants} className="bg-black/40 backdrop-blur-xl border border-orange-500/20 rounded-2xl px-8 py-4 text-center shadow-[0_0_30px_rgba(249,115,22,0.1)]">
-                          <p className="text-white/40 text-[10px] uppercase tracking-widest mb-1">Ton spot préféré</p>
-                          <p className="text-xl font-bold text-white">{stats.cinema.topCinema}</p>
-                        </motion.div>
-                      )}
+
+                      {/* Display movie names and cinema venues */}
+                      <motion.div variants={itemVariants} className="w-full max-h-[300px] overflow-y-auto space-y-2.5 px-1 py-1 no-screenshot">
+                        {stats.cinema.sessions && stats.cinema.sessions.length > 0 ? (
+                          stats.cinema.sessions.map((session, idx) => (
+                            <motion.div
+                              key={idx}
+                              variants={itemVariants}
+                              className="bg-black/60 backdrop-blur-xl border border-orange-500/30 rounded-2xl p-3 text-left shadow-[0_4px_20px_rgba(0,0,0,0.4)]"
+                            >
+                              <div className="flex items-start gap-2.5">
+                                <div className="p-2 rounded-xl bg-orange-500/20 border border-orange-500/30 mt-0.5 flex-shrink-0">
+                                  <Film className="w-4 h-4 text-orange-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-white font-black text-sm leading-snug line-clamp-2">
+                                    {session.title}
+                                  </p>
+                                  {session.cinemaPlace && (
+                                    <div className="flex items-center gap-1 mt-1 text-orange-200/90 text-xs">
+                                      <MapPin className="w-3 h-3 text-orange-400 flex-shrink-0" />
+                                      <span className="font-semibold truncate">{session.cinemaPlace}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </motion.div>
+                          ))
+                        ) : (
+                          <>
+                            {stats.cinema.movieTitles.map((title, idx) => (
+                              <motion.div
+                                key={idx}
+                                variants={itemVariants}
+                                className="bg-black/60 backdrop-blur-xl border border-orange-500/30 rounded-2xl p-3 text-left flex items-center gap-2.5"
+                              >
+                                <Film className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                                <p className="text-white font-bold text-sm truncate">{title}</p>
+                              </motion.div>
+                            ))}
+                            {stats.cinema.topCinema && (
+                              <motion.div variants={itemVariants} className="bg-black/50 backdrop-blur-xl border border-orange-500/20 rounded-2xl px-4 py-2.5 text-center">
+                                <p className="text-white/40 text-[9px] uppercase tracking-widest mb-0.5">Salle / Cinéma</p>
+                                <p className="text-sm font-bold text-white">{stats.cinema.topCinema}</p>
+                              </motion.div>
+                            )}
+                          </>
+                        )}
+                      </motion.div>
                     </motion.div>
                   </SlideContainer>
                 )}
 
-                {/* ══ MOVIES ═════════════════════════════════════════════════════ */}
+                {/* ══ KHARJET & ESCAPADES (AVEC PHOTOS & DESCRIPTIONS MOMENTY) ══ */}
+                {slides[currentSlide] === 'kharjet' && stats.kharjet && (
+                  <SlideContainer key="kharjet" className="bg-gradient-to-tr from-emerald-950 via-teal-900 to-black">
+                    <FloatingOrbs colors={['#059669', '#0d9488', '#0284c7']} />
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="relative z-10 flex flex-col items-center w-full px-2">
+                      
+                      {/* Header badge */}
+                      <motion.div variants={iconVariants} className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 backdrop-blur-md flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.3)] mb-2">
+                        <Compass className="w-7 h-7 text-emerald-300" />
+                      </motion.div>
+                      
+                      <motion.p variants={itemVariants} className="text-[11px] uppercase tracking-[0.3em] text-emerald-300 font-bold mb-1">
+                        Kharjet & Escapades
+                      </motion.p>
+                      
+                      <motion.div variants={numberVariants} className="text-center mb-3">
+                        <p className="text-4xl font-black text-white leading-none">
+                          <CountUp to={stats.kharjet.total} />
+                        </p>
+                        <p className="text-white/60 text-xs mt-0.5 uppercase tracking-wider font-semibold">
+                          {stats.kharjet.total > 1 ? 'escapades ce mois' : 'escapade ce mois'}
+                        </p>
+                      </motion.div>
+
+                      {/* Kharjet Content : Photo card if Momenty photo exists, otherwise places list */}
+                      {kharjetOutingsWithPhotos.length > 0 ? (
+                        <motion.div variants={itemVariants} className="w-full flex flex-col items-center">
+                          {/* Polaroid frame */}
+                          <div className="bg-white p-2.5 pb-12 shadow-[0_20px_50px_rgba(0,0,0,0.6)] rounded-sm transform rotate-[-1deg] w-full max-w-[260px] relative">
+                            <div className="relative aspect-[4/3] overflow-hidden bg-neutral-100 rounded-[1px]">
+                              {currentKharjet?.imageUrl && (
+                                <motion.img
+                                  key={currentKharjet.imageUrl}
+                                  src={`/api/image-proxy?url=${encodeURIComponent(currentKharjet.imageUrl)}`}
+                                  alt={currentKharjet.placeName}
+                                  className="w-full h-full object-cover"
+                                  initial={{ scale: 1.1 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{ duration: 0.8 }}
+                                />
+                              )}
+                            </div>
+                            
+                            <div className="absolute bottom-2.5 left-3 right-3">
+                              <p className="text-[#111] font-bold text-xs truncate">
+                                {currentKharjet?.placeName}
+                              </p>
+                              {currentKharjet?.description && (
+                                <p className="text-[#555] font-serif italic text-[11px] leading-tight line-clamp-1 mt-0.5">
+                                  « {currentKharjet.description} »
+                                </p>
+                              )}
+                              <div className="flex justify-between items-center mt-1">
+                                <span className="text-[#999] text-[8px] uppercase tracking-widest font-sans font-bold">
+                                  {currentKharjet ? new Date(currentKharjet.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : stats.monthName}
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-[8px] text-pink-600 font-bold bg-pink-50 px-1.5 py-0.5 rounded-full">
+                                  <Sparkles className="w-2 h-2 text-pink-500" /> Momenty
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Multiple Kharjet pagination pills */}
+                          {kharjetOutingsWithPhotos.length > 1 && (
+                            <div className="flex items-center gap-1.5 mt-3 no-screenshot pointer-events-auto">
+                              {kharjetOutingsWithPhotos.map((_, i) => (
+                                <button
+                                  key={i}
+                                  onClick={(e) => { e.stopPropagation(); setActiveKharjetIdx(i); }}
+                                  className={`h-1.5 rounded-full transition-all ${i === activeKharjetIdx ? 'w-6 bg-emerald-400' : 'w-2 bg-white/30'}`}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </motion.div>
+                      ) : (
+                        /* No photo: display list of outdoor spots with notes */
+                        <motion.div variants={itemVariants} className="w-full max-h-[280px] overflow-y-auto space-y-2 px-1 py-1 no-screenshot">
+                          {stats.kharjet.outings.map((outing, idx) => (
+                            <div
+                              key={outing.id || idx}
+                              className="bg-black/50 backdrop-blur-xl border border-emerald-500/25 rounded-2xl p-3 text-left"
+                            >
+                              <div className="flex items-start gap-2.5">
+                                <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 mt-0.5 flex-shrink-0">
+                                  <Compass className="w-4 h-4 text-emerald-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-white font-bold text-sm truncate">{outing.placeName}</p>
+                                  {outing.zone && (
+                                    <p className="text-emerald-300 text-xs">📍 {outing.zone}</p>
+                                  )}
+                                  {outing.description && (
+                                    <p className="text-white/60 text-xs italic mt-0.5 line-clamp-2">« {outing.description} »</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </motion.div>
+                      )}
+
+                    </motion.div>
+                  </SlideContainer>
+                )}
+
+                {/* ══ MOVIES (TFARREJ) ══════════════════════════════════════════ */}
                 {slides[currentSlide] === 'movies' && stats.movies && (
                   <SlideContainer key="movies">
                     <CollageBackground posters={stats.movies.posters} />
@@ -519,7 +754,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                   </SlideContainer>
                 )}
 
-                {/* ══ SERIES ═════════════════════════════════════════════════════ */}
+                {/* ══ SERIES (TFARREJ) ══════════════════════════════════════════ */}
                 {slides[currentSlide] === 'series' && stats.series && (
                   <SlideContainer key="series">
                     <CollageBackground posters={stats.series.posters} />
@@ -546,8 +781,8 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                   </SlideContainer>
                 )}
 
-                {/* ══ MOMENTY ════════════════════════════════════════════════════ */}
-                {slides[currentSlide] === 'momenty' && (
+                {/* ══ MOMENTY (DISCOVERIES & MOMENTS) ═══════════════════════════ */}
+                {slides[currentSlide] === 'momenty' && currentMomenty && (
                   <SlideContainer key="momenty" className="bg-neutral-950">
                     <FloatingOrbs colors={['#333', '#111', '#000']} />
                     <motion.div 
@@ -561,9 +796,10 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                         className="bg-white p-3 pb-16 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-sm transform rotate-[-2deg] w-full max-w-[280px]"
                       >
                         <div className="relative aspect-[4/5] overflow-hidden bg-neutral-100 rounded-[1px]">
-                          {stats.featuredMomentyImage && (
+                          {currentMomenty.imageUrl && (
                             <motion.img
-                              src={`/api/image-proxy?url=${encodeURIComponent(stats.featuredMomentyImage)}`}
+                              key={currentMomenty.imageUrl}
+                              src={`/api/image-proxy?url=${encodeURIComponent(currentMomenty.imageUrl)}`}
                               alt="Momenty"
                               className="absolute inset-0 w-full h-full object-cover"
                               initial={{ scale: 1.15 }}
@@ -576,18 +812,31 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                         
                         <div className="absolute bottom-3 left-4 right-4">
                            <p className="text-[#222] font-serif italic text-base leading-tight truncate">
-                             {stats.featuredMomentyDish || (stats.topDish ? stats.topDish.name : "Découverte Gourmande")}
+                             {currentMomenty.description || currentMomenty.placeName || "Découverte Gourmande"}
                            </p>
                            <div className="flex justify-between items-center mt-1">
                              <p className="text-[#888] text-[8px] uppercase tracking-widest font-sans font-bold">
-                               {stats.monthName}
+                               {currentMomenty.placeName || stats.monthName}
                              </p>
                              <Camera className="w-2.5 h-2.5 text-[#ccc]" />
                            </div>
                         </div>
                       </motion.div>
                       
-                      <motion.div variants={itemVariants} className="mt-10 flex flex-col items-center gap-1">
+                      {/* Pagination if multiple Momenty moments */}
+                      {momentyMomentsList.length > 1 && (
+                        <div className="flex items-center gap-1.5 mt-4 no-screenshot pointer-events-auto">
+                          {momentyMomentsList.map((_, i) => (
+                            <button
+                              key={i}
+                              onClick={(e) => { e.stopPropagation(); setActiveMomentyIdx(i); }}
+                              className={`h-1.5 rounded-full transition-all ${i === activeMomentyIdx ? 'w-6 bg-pink-500' : 'w-2 bg-white/30'}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      <motion.div variants={itemVariants} className="mt-8 flex flex-col items-center gap-1">
                         <motion.div 
                           animate={{ scale: [1, 1.1, 1] }}
                           transition={{ duration: 2, repeat: Infinity }}
@@ -602,7 +851,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                   </SlideContainer>
                 )}
 
-                {/* ══ VERDICT ════════════════════════════════════════════════════ */}
+                {/* ══ VERDICT (BILAN OFFICIEL) ══════════════════════════════════ */}
                 {slides[currentSlide] === 'verdict' && (
                   <SlideContainer key="verdict" className="bg-gradient-to-b from-slate-900 via-indigo-950 to-black">
                     <FloatingOrbs colors={['#4f46e5', '#7c3aed', '#1d4ed8']} />
@@ -646,16 +895,20 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                           </motion.div>
                         ))}
 
-                        {/* Full-width: Côté Assiette + Boisson */}
+                        {/* Full-width: Côté Assiette + Boisson (Clean food only!) */}
                         <motion.div variants={itemVariants} className="col-span-2 bg-white/8 rounded-2xl p-3.5 backdrop-blur-sm border border-white/8 flex items-center justify-between">
                           <div>
                             <p className="text-[9px] uppercase text-white/40 tracking-widest mb-1 font-semibold">Côté Assiette</p>
-                            <p className="text-sm font-bold text-white truncate max-w-[130px]">{stats.topDish?.name || '—'}</p>
+                            <p className="text-sm font-bold text-white truncate max-w-[130px]">
+                              {stats.topDish?.name || '—'}
+                            </p>
                           </div>
                           <div className="w-px h-8 bg-white/10 mx-2" />
                           <div className="text-right">
                             <p className="text-[9px] uppercase text-white/40 tracking-widest mb-1 font-semibold">Boisson Préférée</p>
-                            <p className="text-sm font-bold text-white">{stats.topBeverage?.name || '—'}</p>
+                            <p className="text-sm font-bold text-white">
+                              {stats.topBeverage?.name || '—'}
+                            </p>
                           </div>
                         </motion.div>
                       </motion.div>

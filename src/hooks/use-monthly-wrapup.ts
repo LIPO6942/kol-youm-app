@@ -1,7 +1,38 @@
 import { useMemo } from 'react';
 import type { UserProfile, VisitLog, SeenMovie } from '@/lib/firebase/firestore';
 
+export type CinemaSession = {
+  title: string;
+  cinemaPlace?: string;
+  date?: number;
+  posterUrl?: string;
+};
+
+export type KharjetOuting = {
+  id: string;
+  placeName: string;
+  date: number;
+  zone?: string;
+  note?: string;
+  description?: string;
+  imageUrl?: string;
+  momentyUrl?: string;
+  source?: string;
+};
+
+export type MomentyMoment = {
+  id: string;
+  placeName: string;
+  category: string;
+  imageUrl: string;
+  description?: string;
+  note?: string;
+  date: number;
+  momentyUrl?: string;
+};
+
 export type WrapUpStats = {
+  monthIndex: number; // 0 to 11
   monthName: string;
   totalOutings: number;
   topCategory: { name: string; count: number; percentage: number } | null;
@@ -12,6 +43,7 @@ export type WrapUpStats = {
   topDay: { name: string; count: number } | null;
   featuredMomentyImage: string | null;
   featuredMomentyDish: string | null;
+  momentyMoments: MomentyMoment[];
   movies?: {
     total: number;
     posters: string[];
@@ -26,6 +58,14 @@ export type WrapUpStats = {
     total: number;
     topCinema: string | null;
     movieTitles: string[];
+    venues: string[];
+    sessions: CinemaSession[];
+  };
+  kharjet?: {
+    total: number;
+    topSpot: string | null;
+    topZone: string | null;
+    outings: KharjetOuting[];
   };
   totalMovies: number; // Sum of both for Persona
   userPersona: string;
@@ -38,6 +78,24 @@ const MONTH_NAMES = [
 
 const DAY_NAMES = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
 
+const FOOD_CATEGORIES = new Set([
+  'restaurant', 'restaurants', 'fast food', 'fastfood', 'fast-food',
+  'brunch', 'brunchs', 'pâtisserie', 'patisserie', 'boulangerie',
+  'snack', 'food', 'street food', 'crêperie', 'creperie', 'pizzeria'
+]);
+
+const NON_FOOD_KEYWORDS = [
+  'baignade', 'plage', 'mer', 'sunset', 'coucher de soleil', 'randonnée', 'randonnee',
+  'balade', 'cinéma', 'cinema', 'shopping', 'hike', 'soirée', 'soiree', 'nature',
+  'karting', 'bowling', 'arcade', 'activité', 'activite', 'parc'
+];
+
+function isFoodDish(dish: string): boolean {
+  if (!dish || dish === "Découverte Gourmande") return false;
+  const lower = dish.toLowerCase().trim();
+  return !NON_FOOD_KEYWORDS.some(kw => lower.includes(kw));
+}
+
 function getPersona(
   totalOutings: number,
   topCategoryName: string | null,
@@ -48,6 +106,7 @@ function getPersona(
   if (topCategoryName === "Brunch") return "Le Bruncher Fou 🥞";
   if (topCategoryName === "Fast Food") return "Le Fan de Comfort Food 🍔";
   if (topCategoryName === "Café") return "Le Pilier de Comptoir ☕";
+  if (topCategoryName === "Kharjet" || topCategoryName === "Balade") return "L'Explorateur d'Escapades 🧭";
   return "L'Épicurien Équilibré 🌟";
 }
 
@@ -78,44 +137,79 @@ export function useMonthlyWrapUp(
     const neighborhoodCounts: Record<string, number> = {};
     const dayCounts: Record<string, number> = {};
     const cinemaCounts: Record<string, number> = {};
+    const kharjetPlaceCounts: Record<string, number> = {};
+    const kharjetZoneCounts: Record<string, number> = {};
     
+    const cinemaSessions: CinemaSession[] = [];
+    const kharjetOutings: KharjetOuting[] = [];
+    const momentyMoments: MomentyMoment[] = [];
+
     let featuredMomentyImage: string | null = null;
     let featuredMomentyDish: string | null = null;
-    let totalCinemaOutings = 0;
-
-    const cinemaMovieTitles: string[] = [];
 
     monthlyVisits.forEach((v) => {
       // Category count
-      const cat = v.category || 'Autre';
-      categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+      const rawCat = v.category || 'Autre';
+      const catNorm = rawCat.toLowerCase().trim();
+      categoryCounts[rawCat] = (categoryCounts[rawCat] || 0) + 1;
 
-      // Cinema specific tracking
-      if (cat.toLowerCase() === 'cinéma' || cat.toLowerCase() === 'cinema') {
-        totalCinemaOutings++;
+      // Cinema specific tracking from visits
+      const isCinemaVisit = catNorm.includes('ciné') || catNorm.includes('cinema');
+      if (isCinemaVisit) {
         if (v.placeName) {
           cinemaCounts[v.placeName] = (cinemaCounts[v.placeName] || 0) + 1;
         }
-        if (v.orderedItem && v.orderedItem !== "Découverte Gourmande") {
-          cinemaMovieTitles.push(v.orderedItem.trim());
+        const movieTitle = v.orderedItem && isFoodDish(v.orderedItem) ? v.orderedItem.trim() : (v.orderedItem || v.note || 'Film au cinéma');
+        cinemaSessions.push({
+          title: movieTitle,
+          cinemaPlace: v.placeName,
+          date: v.date
+        });
+      }
+
+      // Kharjet specific tracking
+      const isKharjetVisit = rawCat === 'Kharjet' || rawCat === 'Balade' || catNorm.includes('kharj');
+      if (isKharjetVisit) {
+        if (v.placeName) {
+          kharjetPlaceCounts[v.placeName] = (kharjetPlaceCounts[v.placeName] || 0) + 1;
         }
+        const globalPlace = placesWithZones?.find(p => p.name === v.placeName);
+        const area = (v as any).zone || (v as any).cityName || globalPlace?.zone || (user.places || []).find(p => p.name === v.placeName)?.predefinedArea;
+        if (area) {
+          kharjetZoneCounts[area] = (kharjetZoneCounts[area] || 0) + 1;
+        }
+
+        kharjetOutings.push({
+          id: v.id,
+          placeName: v.placeName,
+          date: v.date,
+          zone: area,
+          note: v.note,
+          description: v.note || v.orderedItem,
+          imageUrl: v.momentyImageUrl,
+          momentyUrl: v.momentyUrl,
+          source: v.source
+        });
       }
       
       // Place count
       const place = v.placeName;
       if (place) placeCounts[place] = (placeCounts[place] || 0) + 1;
 
-      // Top Dish — exclure les visites de catégorie "Café" (boissons ≠ plats)
-      const isFoodCategory = cat !== 'Café';
-      if (isFoodCategory && v.orderedItem && v.orderedItem !== "Découverte Gourmande") {
+      // Top Dish — STRICTLY culinary categories (excluding Café, Kharjet, Balade, Cinéma, etc.)
+      const isFoodCategory = FOOD_CATEGORIES.has(catNorm);
+      if (isFoodCategory && v.orderedItem && isFoodDish(v.orderedItem)) {
         const items = v.orderedItem.split(',').map(s => s.trim()).filter(Boolean);
         items.forEach(dish => {
-          dishCounts[dish] = (dishCounts[dish] || 0) + 1;
+          if (isFoodDish(dish)) {
+            dishCounts[dish] = (dishCounts[dish] || 0) + 1;
+          }
         });
       }
 
       // Top Beverage — uniquement les items commandés dans les Cafés
-      if (cat === 'Café' && v.orderedItem && v.orderedItem !== "Découverte Gourmande") {
+      const isCafeCategory = catNorm === 'café' || catNorm === 'cafe' || catNorm === 'salon de thé' || catNorm === 'coffee';
+      if (isCafeCategory && v.orderedItem && v.orderedItem !== "Découverte Gourmande") {
         const items = v.orderedItem.split(',').map(s => s.trim()).filter(Boolean);
         items.forEach(bev => {
           beverageCounts[bev] = (beverageCounts[bev] || 0) + 1;
@@ -124,7 +218,7 @@ export function useMonthlyWrapUp(
 
       // Top Neighborhood — priorité : base Firestore globale, sinon user.places.predefinedArea
       const globalPlace = placesWithZones?.find(p => p.name === v.placeName);
-      const area = globalPlace?.zone || (user.places || []).find(p => p.name === v.placeName)?.predefinedArea;
+      const area = (v as any).zone || (v as any).cityName || globalPlace?.zone || (user.places || []).find(p => p.name === v.placeName)?.predefinedArea;
       if (area) {
         neighborhoodCounts[area] = (neighborhoodCounts[area] || 0) + 1;
       }
@@ -134,7 +228,7 @@ export function useMonthlyWrapUp(
       const dayName = DAY_NAMES[dayIndex];
       dayCounts[dayName] = (dayCounts[dayName] || 0) + 1;
 
-      // Extract a featured image & dish from Momenty if available
+      // Extract all Momenty moments
       if (v.momentyImageUrl || v.source === 'momenty') {
         if (!featuredMomentyImage && v.momentyImageUrl) {
           featuredMomentyImage = v.momentyImageUrl;
@@ -142,13 +236,25 @@ export function useMonthlyWrapUp(
         if (!featuredMomentyDish && v.orderedItem) {
           featuredMomentyDish = v.orderedItem;
         }
+
+        if (v.momentyImageUrl) {
+          momentyMoments.push({
+            id: v.id,
+            placeName: v.placeName,
+            category: rawCat,
+            imageUrl: v.momentyImageUrl,
+            description: v.orderedItem || v.note,
+            note: v.note,
+            date: v.date,
+            momentyUrl: v.momentyUrl
+          });
+        }
       }
     });
 
     if (featuredMomentyImage && !featuredMomentyDish) {
-      featuredMomentyDish = "Découverte Gourmande";
+      featuredMomentyDish = "Moment Momenty";
     }
-
 
     const getTop = (counts: Record<string, number>): { name: string; count: number } | null => {
         let topItem: { name: string; count: number } | null = null;
@@ -175,6 +281,8 @@ export function useMonthlyWrapUp(
     const topNeighborhood = getTop(neighborhoodCounts);
     const topDay = getTop(dayCounts);
     const topCinemaPlace = getTop(cinemaCounts);
+    const topKharjetPlace = getTop(kharjetPlaceCounts);
+    const topKharjetZone = getTop(kharjetZoneCounts);
 
     // 3. Tfarrej Stats (Separated Movies and Series)
     const filterByDate = (history: any[], dateField: string) => {
@@ -203,6 +311,25 @@ export function useMonthlyWrapUp(
     const uniqueMovies = deduplicate(movieHistory);
     const uniqueSeries = deduplicate(seriesHistory);
 
+    // Integrate cinema movies from seenMoviesData (with watchedInCinema === true)
+    uniqueMovies.forEach((m: any) => {
+      if (m.watchedInCinema) {
+        if (m.cinemaPlace) {
+          cinemaCounts[m.cinemaPlace] = (cinemaCounts[m.cinemaPlace] || 0) + 1;
+        }
+        // Avoid duplicate session if already added from visit
+        const alreadyExists = cinemaSessions.some(s => s.title.toLowerCase() === m.title.toLowerCase());
+        if (!alreadyExists) {
+          cinemaSessions.push({
+            title: m.title,
+            cinemaPlace: m.cinemaPlace,
+            date: m.viewedAt || m.addedAt,
+            posterUrl: m.posterUrl
+          });
+        }
+      }
+    });
+
     const getTfarrejStats = (list: any[]) => {
         if (list.length === 0) return null;
         const posters = list.map(m => m.posterUrl || m.posterPath).filter(Boolean);
@@ -218,13 +345,18 @@ export function useMonthlyWrapUp(
     const series = getTfarrejStats(uniqueSeries);
     const totalMovies = uniqueMovies.length + uniqueSeries.length;
 
+    // Consolidate Cinema Stats
+    const totalCinemaOutings = Math.max(cinemaSessions.length, Object.values(cinemaCounts).reduce((a, b) => a + b, 0));
+    const allCinemaTitles = Array.from(new Set(cinemaSessions.map(s => s.title).filter(Boolean)));
+    const allCinemaVenues = Array.from(new Set(cinemaSessions.map(s => s.cinemaPlace).filter(Boolean))) as string[];
+
     // 4. Determine Persona
     const userPersona = getPersona(totalOutings, topCategory?.name || null, totalMovies);
 
     // If there's absolutely NO activity, return a ghost persona instead of null
-    // so the modal still opens and tells the user something!
     if (totalOutings === 0 && totalMovies === 0) {
         return {
+          monthIndex: targetMonth,
           monthName: `${MONTH_NAMES[targetMonth]} ${targetYear}`,
           totalOutings: 0,
           topCategory: null,
@@ -235,12 +367,14 @@ export function useMonthlyWrapUp(
           topDay: null,
           featuredMomentyImage: null,
           featuredMomentyDish: null,
+          momentyMoments: [],
           totalMovies: 0,
           userPersona: "Le Fantôme Discret 👻"
         };
     }
 
     return {
+      monthIndex: targetMonth,
       monthName: `${MONTH_NAMES[targetMonth]} ${targetYear}`,
       totalOutings,
       topCategory,
@@ -251,16 +385,25 @@ export function useMonthlyWrapUp(
       topDay,
       featuredMomentyImage,
       featuredMomentyDish,
+      momentyMoments,
       movies: movies || undefined,
       series: series || undefined,
       cinema: totalCinemaOutings > 0 ? {
         total: totalCinemaOutings,
-        topCinema: topCinemaPlace?.name || null,
-        movieTitles: cinemaMovieTitles
+        topCinema: topCinemaPlace?.name || allCinemaVenues[0] || null,
+        movieTitles: allCinemaTitles,
+        venues: allCinemaVenues,
+        sessions: cinemaSessions
+      } : undefined,
+      kharjet: kharjetOutings.length > 0 ? {
+        total: kharjetOutings.length,
+        topSpot: topKharjetPlace?.name || kharjetOutings[0]?.placeName || null,
+        topZone: topKharjetZone?.name || null,
+        outings: kharjetOutings
       } : undefined,
       totalMovies,
       userPersona
     };
 
-  }, [user, targetDate]);
+  }, [user, targetDate, placesWithZones]);
 }
