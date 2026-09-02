@@ -1,0 +1,10 @@
+🎵 MUSIQUE DU WRAP-UP : AOÛT
+===================================
+📅 Période récapitulée : Tout le mois d'Août
+🔔 Notification envoyée : 01 Septembre
+
+COMMENT AJOUTER VOTRE MUSIQUE :
+1. Déposez votre fichier audio directement dans ce dossier.
+2. Formats supportés : .mp3, .m4a, .wav, .aac, .ogg
+3. Vous pouvez nommer le fichier comme vous voulez (ex: music.mp3, chanson.mp3, titre.m4a).
+4. S'il n'y a aucun fichier audio dans ce dossier, le synthétiseur automatique prendra le relais.
