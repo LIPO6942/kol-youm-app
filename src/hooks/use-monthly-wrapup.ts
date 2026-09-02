@@ -92,9 +92,51 @@ const NON_FOOD_KEYWORDS = [
   'karting', 'bowling', 'arcade', 'activité', 'activite', 'parc'
 ];
 
-function isFoodDish(dish: string): boolean {
-  if (!dish || dish === "Découverte Gourmande") return false;
-  const lower = dish.toLowerCase().trim();
+export function getKharjetThematicImage(text: string): string {
+  const t = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  // 1. Sea / Beach / Baignade / Plage / Boat / Crique
+  if (
+    t.includes('baignade') || t.includes('baign') || t.includes('mer') || t.includes('plage') || 
+    t.includes('beach') || t.includes('sea') || t.includes('swim') || t.includes('plongee') || 
+    t.includes('bateau') || t.includes('boat') || t.includes('crique') || t.includes('marina') || 
+    t.includes('port') || t.includes('falaise') || t.includes('kheireddine') || t.includes('gammarth plage') || 
+    t.includes('marsa plage') || t.includes('hammamet') || t.includes('bizerte') || t.includes('kelibia') || 
+    t.includes('rafraf') || t.includes('ghar el melh') || t.includes('haouaria') || t.includes('korba') || 
+    t.includes('tabarka') || t.includes('djerba') || t.includes('zarzis') || t.includes('mahdia') || 
+    t.includes('monastir') || t.includes('sousse') || t.includes('amilcar')
+  ) {
+    return '/images/kharjet/sea.jpg';
+  }
+
+  // 2. Nightlife / Soirée / Party / Rooftop / Lounge / Club / Bar
+  if (
+    t.includes('soiree') || t.includes('soir') || t.includes('night') || t.includes('lounge') || 
+    t.includes('bar') || t.includes('club') || t.includes('rooftop') || t.includes('fete') || 
+    t.includes('party') || t.includes('cocktail') || t.includes('afterwork') || t.includes('pub') || 
+    t.includes('concert') || t.includes('music') || t.includes('dj') || t.includes('boite')
+  ) {
+    return '/images/kharjet/soiree.jpg';
+  }
+
+  // 3. Hiking / Nature / Montagne / Randonnée / Forêt / Parc / Camping
+  if (
+    t.includes('randonnee') || t.includes('rando') || t.includes('nature') || t.includes('montagne') || 
+    t.includes('foret') || t.includes('forest') || t.includes('parc') || t.includes('park') || 
+    t.includes('trek') || t.includes('cascade') || t.includes('trail') || t.includes('camping') || 
+    t.includes('pique nique') || t.includes('picnic') || t.includes('zaghouan') || t.includes('boukornine') || 
+    t.includes('ichkeul') || t.includes('ain draham') || t.includes('beni mtir') || t.includes('kesra')
+  ) {
+    return '/images/kharjet/hiking.jpg';
+  }
+
+  // 4. Default / Balade / Medina / Promenade / Autre
+  return '/images/kharjet/walk.jpg';
+}
+
+function isFoodDish(text: string): boolean {
+  if (!text) return false;
+  const lower = text.toLowerCase();
   return !NON_FOOD_KEYWORDS.some(kw => lower.includes(kw));
 }
 
@@ -181,9 +223,12 @@ export function useMonthlyWrapUp(
           kharjetZoneCounts[area] = (kharjetZoneCounts[area] || 0) + 1;
         }
 
-        const kharjetImg = v.momentyImageUrl || (v as any).photoUrl || (v as any).photoDataUri || (v as any).imageUrl || (v as any).image;
-
+        const rawKharjetImg = v.momentyImageUrl || (v as any).photoUrl || (v as any).photoDataUri || (v as any).imageUrl || (v as any).image;
         const kharjetDesc = (v as any).description || v.note || (v.orderedItem && v.orderedItem !== "Découverte Gourmande" ? v.orderedItem : '') || '';
+
+        // Si pas de photo Momenty, attribuer l'image thématique correspondante (baignade/mer, soirée/night, rando/nature, sunset, balade)
+        const combinedText = `${v.placeName || ''} ${area || ''} ${kharjetDesc} ${v.orderedItem || ''} ${v.note || ''}`;
+        const kharjetImg = rawKharjetImg || getKharjetThematicImage(combinedText);
 
         kharjetOutings.push({
           id: v.id || `${v.date}-${Math.random().toString(36).substr(2, 5)}`,
@@ -194,7 +239,7 @@ export function useMonthlyWrapUp(
           description: kharjetDesc,
           imageUrl: kharjetImg,
           momentyUrl: v.momentyUrl,
-          source: v.source || (v.momentyUrl || kharjetImg ? 'momenty' : 'kolyoum')
+          source: v.source || (v.momentyUrl || rawKharjetImg ? 'momenty' : 'kolyoum')
         });
       }
       

@@ -643,12 +643,12 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                         <motion.div variants={itemVariants} className="w-full flex flex-col items-center relative">
                           <div className="bg-white p-3 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] transform rotate-[-1deg] w-full max-w-[280px] pointer-events-auto flex flex-col">
                             
-                            {/* Photo if available, or artistic adventure backdrop */}
+                            {/* Photo (Momenty photo or Thematic photo) */}
                             {currentKharjet?.imageUrl ? (
                               <div className="relative aspect-[4/3] overflow-hidden bg-neutral-100 rounded-lg group">
                                 <motion.img
                                   key={currentKharjet.imageUrl}
-                                  src={`/api/image-proxy?url=${encodeURIComponent(currentKharjet.imageUrl)}`}
+                                  src={currentKharjet.imageUrl.startsWith('/') ? currentKharjet.imageUrl : `/api/image-proxy?url=${encodeURIComponent(currentKharjet.imageUrl)}`}
                                   alt={currentKharjet.placeName}
                                   className="w-full h-full object-cover"
                                   initial={{ scale: 1.08 }}
@@ -873,7 +873,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                           {currentMomenty.imageUrl && (
                             <motion.img
                               key={currentMomenty.imageUrl}
-                              src={`/api/image-proxy?url=${encodeURIComponent(currentMomenty.imageUrl)}`}
+                              src={currentMomenty.imageUrl.startsWith('/') ? currentMomenty.imageUrl : `/api/image-proxy?url=${encodeURIComponent(currentMomenty.imageUrl)}`}
                               alt="Momenty"
                               className="absolute inset-0 w-full h-full object-cover"
                               initial={{ scale: 1.1 }}
