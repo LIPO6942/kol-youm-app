@@ -4,13 +4,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import { 
   X, Share2, Camera, Clapperboard, Award, Sparkles, MapPin, Film, Star, 
-  Flame, Compass, Volume2, VolumeX, ChevronLeft, ChevronRight, Tv
+  Flame, Compass, Volume2, VolumeX, ChevronLeft, ChevronRight, Tv, Car
 } from 'lucide-react';
 import { useMonthlyWrapUp, WrapUpStats, KharjetOuting, MomentyMoment } from '@/hooks/use-monthly-wrapup';
 import type { UserProfile } from '@/lib/firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { toPng } from 'html-to-image';
 import { wrapUpAudio } from '@/lib/wrapup-audio';
+import { fetchCarCareMonthlyMileage, CarCareMonthlyStats } from '@/lib/carcare-service';
 
 type Props = {
   user: UserProfile | null;
@@ -186,7 +187,33 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     fetchPlaces();
   }, [isOpen]);
 
-  const stats = useMonthlyWrapUp(user, new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, 1), placesWithZones);
+  const wrapUpDate = React.useMemo(() => new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, 1), [targetDate]);
+  const monthKey = React.useMemo(() => `${wrapUpDate.getFullYear()}-${String(wrapUpDate.getMonth() + 1).padStart(2, '0')}`, [wrapUpDate]);
+  const stats = useMonthlyWrapUp(user, wrapUpDate, placesWithZones);
+  const [carCareStats, setCarCareStats] = useState<CarCareMonthlyStats | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+
+    async function loadCarCare() {
+      try {
+        const data = await fetchCarCareMonthlyMileage(monthKey, user?.email || undefined);
+        if (isMounted) {
+          setCarCareStats(data);
+        }
+      } catch (err) {
+        console.warn('[MonthlyWrapUp] Erreur chargement CarCare:', err);
+      }
+    }
+
+    loadCarCare();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, monthKey, user?.email]);
+
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -263,7 +290,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     stats.kharjet && stats.kharjet.total > 0 ? 'kharjet' : null,
     stats.movies && stats.movies.total > 0 ? 'movies' : null,
     stats.series && stats.series.total > 0 ? 'series' : null,
-    (stats.momentyMoments && stats.momentyMoments.length > 0) || stats.featuredMomentyImage ? 'momenty' : null,
+    (stats.momentyMoments && stats.momentyMoments.length > 0) || stats.featuredMomentyImage || (carCareStats && carCareStats.mileage > 0) ? 'momenty' : null,
     'verdict',
   ].filter(Boolean) as string[] : [];
 
@@ -854,109 +881,168 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                   </SlideContainer>
                 )}
 
-                {/* ══ MOMENTY (TOUTES LES PHOTOS & DESCRIPTIONS) ═══════════════ */}
-                {slides[currentSlide] === 'momenty' && currentMomenty && (
+                {/* ══ MOMENTY & ESCAPADES CARCARE ═══════════════════════════ */}
+                {slides[currentSlide] === 'momenty' && (
                   <SlideContainer key="momenty" className="bg-neutral-950">
-                    <FloatingOrbs colors={['#333', '#111', '#000']} />
+                    <FloatingOrbs colors={['#333', '#1e1b4b', '#0f172a']} />
                     <motion.div 
                       variants={containerVariants} initial="hidden" animate="show"
                       className="relative z-10 w-full px-4 flex flex-col items-center"
                     >
-                      {/* Interactive Card for Momenty */}
-                      <motion.div 
-                        variants={iconVariants}
-                        animate={{ rotate: [-0.5, 1, -1, 0.5] }}
-                        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-                        className="bg-white p-3 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] transform rotate-[-2deg] w-full max-w-[280px] pointer-events-auto flex flex-col"
-                      >
-                        <div className="relative aspect-[4/3] overflow-hidden bg-neutral-100 rounded-lg group">
-                          {currentMomenty.imageUrl && (
-                            <motion.img
-                              key={currentMomenty.imageUrl}
-                              src={currentMomenty.imageUrl.startsWith('/') ? currentMomenty.imageUrl : `/api/image-proxy?url=${encodeURIComponent(currentMomenty.imageUrl)}`}
-                              alt="Momenty"
-                              className="absolute inset-0 w-full h-full object-cover"
-                              initial={{ scale: 1.1 }}
-                              animate={{ scale: 1 }}
-                              transition={{ duration: 0.4 }}
-                            />
-                          )}
+                      {/* Interactive Card for Momenty (si photos disponibles) */}
+                      {currentMomenty ? (
+                        <motion.div 
+                          variants={iconVariants}
+                          animate={{ rotate: [-0.5, 1, -1, 0.5] }}
+                          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+                          className="bg-white p-3 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] transform rotate-[-1.5deg] w-full max-w-[280px] pointer-events-auto flex flex-col"
+                        >
+                          <div className="relative aspect-[4/3] overflow-hidden bg-neutral-100 rounded-lg group">
+                            {currentMomenty.imageUrl && (
+                              <motion.img
+                                key={currentMomenty.imageUrl}
+                                src={currentMomenty.imageUrl.startsWith('/') ? currentMomenty.imageUrl : `/api/image-proxy?url=${encodeURIComponent(currentMomenty.imageUrl)}`}
+                                alt="Momenty"
+                                className="absolute inset-0 w-full h-full object-cover"
+                                initial={{ scale: 1.1 }}
+                                animate={{ scale: 1 }}
+                                transition={{ duration: 0.4 }}
+                              />
+                            )}
 
-                          {/* Navigation buttons directly on the photo */}
-                          {momentyMomentsList.length > 1 && (
-                            <div className="absolute inset-0 flex items-center justify-between px-1.5 no-screenshot">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMomentyIdx((prev) => (prev - 1 + momentyMomentsList.length) % momentyMomentsList.length);
-                                }}
-                                className="p-2 bg-black/60 hover:bg-black/80 rounded-full text-white backdrop-blur-sm border border-white/20 transition-transform active:scale-90 shadow-md"
-                                title="Moment précédent"
-                              >
-                                <ChevronLeft className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveMomentyIdx((prev) => (prev + 1) % momentyMomentsList.length);
-                                }}
-                                className="p-2 bg-black/60 hover:bg-black/80 rounded-full text-white backdrop-blur-sm border border-white/20 transition-transform active:scale-90 shadow-md"
-                                title="Moment suivant"
-                              >
-                                <ChevronRight className="w-4 h-4" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="pt-2.5 pb-0.5 flex flex-col gap-1 text-left">
-                          <div className="flex items-center justify-between gap-1">
-                            <p className="text-[#111] font-black text-sm leading-snug truncate">
-                              {currentMomenty.placeName}
-                            </p>
-                            <span className="inline-flex items-center gap-1 text-[9px] text-pink-600 font-bold bg-pink-50 px-2 py-0.5 rounded-full flex-shrink-0">
-                              <Camera className="w-2.5 h-2.5 text-pink-500" />
-                              {momentyMomentsList.length > 1 ? `${activeMomentyIdx + 1}/${momentyMomentsList.length}` : 'Momenty'}
-                            </span>
+                            {/* Navigation buttons directly on the photo */}
+                            {momentyMomentsList.length > 1 && (
+                              <div className="absolute inset-0 flex items-center justify-between px-1.5 no-screenshot">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMomentyIdx((prev) => (prev - 1 + momentyMomentsList.length) % momentyMomentsList.length);
+                                  }}
+                                  className="p-2 bg-black/60 hover:bg-black/80 rounded-full text-white backdrop-blur-sm border border-white/20 transition-transform active:scale-90 shadow-md"
+                                  title="Moment précédent"
+                                >
+                                  <ChevronLeft className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveMomentyIdx((prev) => (prev + 1) % momentyMomentsList.length);
+                                  }}
+                                  className="p-2 bg-black/60 hover:bg-black/80 rounded-full text-white backdrop-blur-sm border border-white/20 transition-transform active:scale-90 shadow-md"
+                                  title="Moment suivant"
+                                >
+                                  <ChevronRight className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
                           </div>
-
-                          {/* Prominent Momenty description */}
-                          {currentMomenty.description ? (
-                            <div className="bg-neutral-50 rounded-lg p-2 border border-neutral-200/90 my-0.5 max-h-[80px] overflow-y-auto">
-                              <p className="text-neutral-800 font-serif italic text-xs leading-relaxed font-medium">
-                                « {currentMomenty.description} »
+                          
+                          <div className="pt-2 pb-0.5 flex flex-col gap-1 text-left">
+                            <div className="flex items-center justify-between gap-1">
+                              <p className="text-[#111] font-black text-sm leading-snug truncate">
+                                {currentMomenty.placeName}
                               </p>
+                              <span className="inline-flex items-center gap-1 text-[9px] text-pink-600 font-bold bg-pink-50 px-2 py-0.5 rounded-full flex-shrink-0">
+                                <Camera className="w-2.5 h-2.5 text-pink-500" />
+                                {momentyMomentsList.length > 1 ? `${activeMomentyIdx + 1}/${momentyMomentsList.length}` : 'Momenty'}
+                              </span>
                             </div>
-                          ) : null}
 
-                          <div className="flex justify-between items-center text-[9px] text-neutral-400 font-medium mt-0.5">
-                            <span>{new Date(currentMomenty.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
-                            <span className="uppercase tracking-widest font-bold text-neutral-500">{currentMomenty.category}</span>
+                            {/* Prominent Momenty description */}
+                            {currentMomenty.description ? (
+                              <div className="bg-neutral-50 rounded-lg p-2 border border-neutral-200/90 my-0.5 max-h-[65px] overflow-y-auto">
+                                <p className="text-neutral-800 font-serif italic text-xs leading-relaxed font-medium">
+                                  « {currentMomenty.description} »
+                                </p>
+                              </div>
+                            ) : null}
+
+                            <div className="flex justify-between items-center text-[9px] text-neutral-400 font-medium mt-0.5">
+                              <span>{new Date(currentMomenty.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
+                              <span className="uppercase tracking-widest font-bold text-neutral-500">{currentMomenty.category}</span>
+                            </div>
                           </div>
-                        </div>
-                      </motion.div>
+                        </motion.div>
+                      ) : (
+                        /* Carte d'en-tête si pas de photo Momenty ce mois mais présence de stats route */
+                        <motion.div 
+                          variants={iconVariants}
+                          className="bg-gradient-to-br from-indigo-950 via-slate-900 to-black p-5 rounded-2xl border border-indigo-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.6)] w-full max-w-[280px] text-center flex flex-col items-center mb-1"
+                        >
+                          <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 backdrop-blur-md flex items-center justify-center shadow-[0_0_30px_rgba(99,102,241,0.3)] mb-2.5">
+                            <Car className="w-7 h-7 text-indigo-400" />
+                          </div>
+                          <p className="text-[10px] uppercase tracking-[0.25em] text-indigo-300 font-bold mb-0.5">
+                            Sur la Route
+                          </p>
+                          <h3 className="text-lg font-black text-white">Bilan Kilométrique</h3>
+                        </motion.div>
+                      )}
                       
                       {/* Pagination if multiple Momenty moments */}
                       {momentyMomentsList.length > 1 && (
-                        <div className="flex items-center gap-1.5 mt-3 no-screenshot pointer-events-auto">
+                        <div className="flex items-center gap-1.5 mt-2.5 no-screenshot pointer-events-auto">
                           {momentyMomentsList.map((_, i) => (
                             <button
                               key={i}
                               onClick={(e) => { e.stopPropagation(); setActiveMomentyIdx(i); }}
-                              className={`h-2 rounded-full transition-all ${i === activeMomentyIdx ? 'w-6 bg-pink-500' : 'w-2 bg-white/30 hover:bg-white/50'}`}
+                              className={`h-1.5 rounded-full transition-all ${i === activeMomentyIdx ? 'w-5 bg-pink-500' : 'w-1.5 bg-white/30 hover:bg-white/50'}`}
                             />
                           ))}
                         </div>
                       )}
 
-                      <motion.div variants={itemVariants} className="mt-4 flex flex-col items-center gap-1">
-                        <motion.div 
-                          animate={{ scale: [1, 1.1, 1] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                          className="w-1.5 h-1.5 bg-white/20 rounded-full mb-1"
-                        />
-                        <p className="text-[10px] uppercase tracking-[0.25em] text-white/50 font-bold">
-                          Moment capturé via Momenty
+                      {/* ══ CARCARE : KILOMÉTRAGE & NOTE ADAPTÉE ══ */}
+                      {carCareStats && (
+                        <motion.div
+                          variants={itemVariants}
+                          className="w-full max-w-[285px] mt-2.5 bg-gradient-to-br from-slate-900/95 via-indigo-950/85 to-slate-900/95 border border-indigo-500/35 rounded-2xl p-3 shadow-[0_12px_35px_rgba(0,0,0,0.7)] backdrop-blur-xl pointer-events-auto"
+                        >
+                          {/* En-tête CarCare */}
+                          <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+                            <div className="flex items-center gap-1.5">
+                              <div className="p-1 rounded-lg bg-indigo-500/25 text-indigo-300 border border-indigo-400/20">
+                                <Car className="w-3.5 h-3.5" />
+                              </div>
+                              <span className="text-[10px] uppercase tracking-widest font-black text-indigo-200">
+                                Car Care • Ce Mois
+                              </span>
+                            </div>
+                            {carCareStats.vehicleName && (
+                              <span className="text-[9px] font-semibold text-white/50 truncate max-w-[100px]" title={carCareStats.vehicleName}>
+                                {carCareStats.vehicleName}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Kilométrage et Badge */}
+                          <div className="flex items-baseline justify-between pt-2 pb-1">
+                            <div>
+                              <p className="text-2xl font-black text-white leading-none tracking-tight">
+                                <CountUp to={carCareStats.mileage} /> <span className="text-sm font-bold text-indigo-300">km</span>
+                              </p>
+                              <p className="text-[9px] uppercase tracking-wider text-white/40 mt-0.5 font-medium">
+                                parcourus ce mois
+                              </p>
+                            </div>
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-400/30 flex items-center gap-1">
+                              <span>{carCareStats.assessment.emoji}</span>
+                              <span>{carCareStats.assessment.label}</span>
+                            </span>
+                          </div>
+
+                          {/* Note adaptée au kilométrage */}
+                          <div className="mt-1.5 bg-black/45 rounded-xl p-2 border border-white/5">
+                            <p className="text-[11px] text-indigo-100/90 leading-snug font-medium italic">
+                              « {carCareStats.assessment.note} »
+                            </p>
+                          </div>
+                        </motion.div>
+                      )}
+
+                      <motion.div variants={itemVariants} className="mt-2.5 flex flex-col items-center gap-0.5">
+                        <p className="text-[9px] uppercase tracking-[0.2em] text-white/40 font-bold">
+                          Momenty & Car Care • Bilan Mensuel
                         </p>
                       </motion.div>
 
