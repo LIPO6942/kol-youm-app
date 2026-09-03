@@ -201,7 +201,14 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
 
     async function loadCarCare() {
       try {
-        const data = await fetchCarCareMonthlyMileage(monthKey, effectiveEmail || undefined);
+        const context = {
+          topPlace: stats?.topPlace?.name,
+          topNeighborhood: stats?.topNeighborhood,
+          topCategory: stats?.topCategory?.name,
+          totalOutings: stats?.totalOutings,
+          kharjetZone: stats?.kharjet?.topZone,
+        };
+        const data = await fetchCarCareMonthlyMileage(monthKey, effectiveEmail || undefined, context);
         if (isMounted) {
           setCarCareStats(data);
         }
@@ -215,7 +222,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     return () => {
       isMounted = false;
     };
-  }, [isOpen, monthKey, effectiveEmail]);
+  }, [isOpen, monthKey, effectiveEmail, stats?.topPlace?.name, stats?.topNeighborhood, stats?.totalOutings, stats?.kharjet?.topZone]);
 
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -995,48 +1002,87 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                         </div>
                       )}
 
-                      {/* ══ CARCARE : KILOMÉTRAGE & NOTE ADAPTÉE ══ */}
+                      {/* ══ CARCARE × KOL YOUM : CARTE EMBELLIE & CONNECTÉE ══ */}
                       {carCareStats && (
                         <motion.div
                           variants={itemVariants}
-                          className="w-full max-w-[285px] mt-2.5 bg-gradient-to-br from-slate-900/95 via-indigo-950/85 to-slate-900/95 border border-indigo-500/35 rounded-2xl p-3 shadow-[0_12px_35px_rgba(0,0,0,0.7)] backdrop-blur-xl pointer-events-auto"
+                          className="w-full max-w-[290px] mt-2.5 relative overflow-hidden rounded-2xl p-3 border border-indigo-400/35 bg-gradient-to-br from-slate-900/95 via-indigo-950/90 to-purple-950/90 shadow-[0_12px_36px_rgba(79,70,229,0.35)] backdrop-blur-2xl pointer-events-auto"
                         >
-                          {/* En-tête CarCare */}
-                          <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+                          {/* Halos de lumière ambiants */}
+                          <div className="absolute -top-8 -right-8 w-24 h-24 bg-indigo-500/20 rounded-full blur-xl pointer-events-none" />
+                          <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-purple-500/20 rounded-full blur-xl pointer-events-none" />
+
+                          {/* En-tête de la carte */}
+                          <div className="relative z-10 flex items-center justify-between pb-2 border-b border-white/10">
                             <div className="flex items-center gap-1.5">
-                              <div className="p-1 rounded-lg bg-indigo-500/25 text-indigo-300 border border-indigo-400/20">
+                              <div className="p-1 rounded-lg bg-gradient-to-br from-indigo-500/30 to-purple-500/20 border border-indigo-400/40 text-indigo-300 shadow-sm flex items-center justify-center">
                                 <Car className="w-3.5 h-3.5" />
                               </div>
-                              <span className="text-[10px] uppercase tracking-widest font-black text-indigo-200">
-                                Car Care • Ce Mois
+                              <span className="text-[9.5px] uppercase tracking-[0.22em] font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-200 via-purple-200 to-pink-200">
+                                Car Care × Kol Youm
                               </span>
                             </div>
                             {carCareStats.vehicleName && carCareStats.vehicleName !== 'Aucun véhicule' && carCareStats.vehicleName !== 'CarCare' && (
-                              <span className="text-[9px] font-semibold text-white/50 truncate max-w-[110px]" title={carCareStats.vehicleName}>
+                              <span className="text-[9.5px] font-bold text-white/90 bg-white/10 px-2 py-0.5 rounded-full border border-white/15 truncate max-w-[105px]" title={carCareStats.vehicleName}>
                                 {carCareStats.vehicleName}
                               </span>
                             )}
                           </div>
 
-                          {/* Kilométrage et Badge */}
-                          <div className="flex items-baseline justify-between pt-2 pb-1">
+                          {/* Section Métrique Principale */}
+                          <div className="relative z-10 flex items-baseline justify-between pt-2.5 pb-1">
                             <div>
-                              <p className="text-2xl font-black text-white leading-none tracking-tight">
-                                <CountUp to={carCareStats.mileage} /> <span className="text-sm font-bold text-indigo-300">km</span>
+                              <p className="text-2xl font-black text-white leading-none tracking-tight flex items-baseline gap-1">
+                                <CountUp to={carCareStats.mileage} />
+                                <span className="text-xs font-black text-indigo-300 tracking-normal">KM</span>
                               </p>
-                              <p className="text-[9px] uppercase tracking-wider text-white/40 mt-0.5 font-medium">
-                                parcourus ce mois
+                              <p className="text-[9px] uppercase tracking-wider text-white/50 mt-0.5 font-semibold">
+                                au compteur ce mois
                               </p>
                             </div>
-                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-400/30 flex items-center gap-1">
+                            <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-gradient-to-r ${carCareStats.assessment.colorClass} border ${carCareStats.assessment.badgeBorder} flex items-center gap-1.5 shadow-sm`}>
                               <span>{carCareStats.assessment.emoji}</span>
                               <span>{carCareStats.assessment.label}</span>
                             </span>
                           </div>
 
-                          {/* Note adaptée au kilométrage */}
-                          <div className="mt-1.5 bg-black/45 rounded-xl p-2 border border-white/5">
-                            <p className="text-[11px] text-indigo-100/90 leading-snug font-medium italic">
+                          {/* Barre de jauge / progression kilométrique */}
+                          <div className="relative z-10 w-full h-1 bg-white/10 rounded-full overflow-hidden my-1.5">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${carCareStats.assessment.progressPercent}%` }}
+                              transition={{ duration: 1.2, ease: "easeOut" }}
+                              className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-full"
+                            />
+                          </div>
+
+                          {/* Puces de connexion Kol Youm (Lieux et Sorties réels) */}
+                          {(stats?.topPlace || stats?.topNeighborhood || (stats?.totalOutings && stats.totalOutings > 0)) && (
+                            <div className="relative z-10 flex items-center gap-1 flex-wrap my-1.5">
+                              {stats?.topPlace && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-pink-300 bg-pink-500/15 border border-pink-500/30 px-1.5 py-0.5 rounded-md truncate max-w-[130px]" title={stats.topPlace.name}>
+                                  <MapPin className="w-2.5 h-2.5 text-pink-400 flex-shrink-0" />
+                                  <span className="truncate">{stats.topPlace.name}</span>
+                                </span>
+                              )}
+                              {stats?.topNeighborhood && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 px-1.5 py-0.5 rounded-md truncate max-w-[110px]" title={stats.topNeighborhood}>
+                                  <Compass className="w-2.5 h-2.5 text-indigo-400 flex-shrink-0" />
+                                  <span className="truncate">{stats.topNeighborhood}</span>
+                                </span>
+                              )}
+                              {stats?.totalOutings && stats.totalOutings > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded-md">
+                                  <Flame className="w-2.5 h-2.5 text-amber-400 flex-shrink-0" />
+                                  <span>{stats.totalOutings} sorties</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Note adaptée et contextualisée */}
+                          <div className="relative z-10 mt-1 bg-black/55 rounded-xl p-2 border border-indigo-500/25 shadow-inner">
+                            <p className="text-[10.5px] text-indigo-100/95 leading-relaxed font-medium italic">
                               « {carCareStats.assessment.note} »
                             </p>
                           </div>
