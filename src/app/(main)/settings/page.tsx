@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat, Clapperboard, Film, History } from 'lucide-react';
+import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat, Clapperboard, Film, History, Mail } from 'lucide-react';
 import { updateCustomDishRules } from '@/lib/firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 const TypedBadge = Badge as any;
@@ -899,6 +899,29 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {/* Adresse e-mail d'authentification */}
+                  <div className="flex flex-col space-y-2">
+                    <FormLabel>Compte de connexion</FormLabel>
+                    <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/40 backdrop-blur-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/10 text-primary">
+                          <Mail className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-foreground tracking-tight">
+                            {user?.email || userProfile?.email || 'Non connecté'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Adresse e-mail utilisée pour votre authentification
+                          </p>
+                        </div>
+                      </div>
+                      <TypedBadge variant="secondary" className="text-[11px] font-medium px-2.5 py-0.5">
+                        Authentifié
+                      </TypedBadge>
+                    </div>
+                  </div>
+
                   <div className="flex flex-col space-y-2">
                     <FormLabel>Sexe</FormLabel>
                     <div className="flex items-center gap-2">
