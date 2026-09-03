@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { toPng } from 'html-to-image';
 import { wrapUpAudio } from '@/lib/wrapup-audio';
 import { fetchCarCareMonthlyMileage, CarCareMonthlyStats } from '@/lib/carcare-service';
+import { useAuth } from '@/hooks/use-auth';
 
 type Props = {
   user: UserProfile | null;
@@ -190,6 +191,8 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
   const wrapUpDate = React.useMemo(() => new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, 1), [targetDate]);
   const monthKey = React.useMemo(() => `${wrapUpDate.getFullYear()}-${String(wrapUpDate.getMonth() + 1).padStart(2, '0')}`, [wrapUpDate]);
   const stats = useMonthlyWrapUp(user, wrapUpDate, placesWithZones);
+  const { user: authUser } = useAuth();
+  const effectiveEmail = React.useMemo(() => (user?.email || authUser?.email || '').trim().toLowerCase(), [user?.email, authUser?.email]);
   const [carCareStats, setCarCareStats] = useState<CarCareMonthlyStats | null>(null);
 
   useEffect(() => {
@@ -198,7 +201,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
 
     async function loadCarCare() {
       try {
-        const data = await fetchCarCareMonthlyMileage(monthKey, user?.email || undefined);
+        const data = await fetchCarCareMonthlyMileage(monthKey, effectiveEmail || undefined);
         if (isMounted) {
           setCarCareStats(data);
         }
@@ -212,7 +215,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     return () => {
       isMounted = false;
     };
-  }, [isOpen, monthKey, user?.email]);
+  }, [isOpen, monthKey, effectiveEmail]);
 
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -1008,8 +1011,8 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                                 Car Care • Ce Mois
                               </span>
                             </div>
-                            {carCareStats.vehicleName && (
-                              <span className="text-[9px] font-semibold text-white/50 truncate max-w-[100px]" title={carCareStats.vehicleName}>
+                            {carCareStats.vehicleName && carCareStats.vehicleName !== 'Aucun véhicule' && carCareStats.vehicleName !== 'CarCare' && (
+                              <span className="text-[9px] font-semibold text-white/50 truncate max-w-[110px]" title={carCareStats.vehicleName}>
                                 {carCareStats.vehicleName}
                               </span>
                             )}
