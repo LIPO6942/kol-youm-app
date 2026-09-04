@@ -1,15 +1,18 @@
 
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import MovieSwiper from '@/components/tfarrej/movie-swiper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo, Settings, Loader2 } from 'lucide-react';
+import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo, Settings, Loader2, Swords } from 'lucide-react';
 import { MovieListSheet } from '@/components/tfarrej/movie-list-sheet';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TfarrejStatsDialog } from '@/components/tfarrej/tfarrej-stats-dialog';
+import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
+import { useAuth } from '@/hooks/use-auth';
+import type { DuelMovieItem } from '@/lib/movie-duel-engine';
 
 const genres = [
   { name: 'Comédie', iconName: 'Laugh', description: 'Pour rire aux éclats.' },
@@ -42,6 +45,45 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
   const router = useRouter();
   const genreFromUrl = searchParams.get('genre');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+
+  const { userProfile } = useAuth();
+  const [isDuelOpen, setIsDuelOpen] = useState(false);
+
+  // Mois courant pour le classement
+  const now = useMemo(() => new Date(), []);
+  const currentMonthKey = useMemo(() => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`, [now]);
+  const currentMonthName = useMemo(() => now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }), [now]);
+  const currentMonthIndex = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  // Liste des films vus ce mois
+  const monthlySeenMovies: DuelMovieItem[] = useMemo(() => {
+    const list = (userProfile?.seenMoviesData || []).filter(m => {
+      if (!m.viewedAt) return false;
+      const d = new Date(m.viewedAt);
+      return d.getMonth() === currentMonthIndex && d.getFullYear() === currentYear;
+    });
+    return list.map(m => ({
+      title: m.title,
+      posterUrl: m.posterUrl,
+      year: m.year,
+      rating: m.rating,
+      watchedInCinema: m.watchedInCinema,
+      cinemaPlace: m.cinemaPlace,
+      viewedAt: m.viewedAt,
+      genres: m.genres,
+    }));
+  }, [userProfile?.seenMoviesData, currentMonthIndex, currentYear]);
+
+  const existingRanking = userProfile?.movieRankings?.[currentMonthKey] || null;
+
+  const unrankedCount = useMemo(() => {
+    if (!existingRanking) return monthlySeenMovies.length;
+    const rankedSet = new Set(existingRanking.rankedTitles);
+    return monthlySeenMovies.filter(m => !rankedSet.has(m.title)).length;
+  }, [monthlySeenMovies, existingRanking]);
+
+  const hasUnrankedMovies = unrankedCount > 0 && monthlySeenMovies.length >= 2;
 
   useEffect(() => {
     if (genreFromUrl) {
@@ -86,11 +128,31 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
             "Swipez" pour découvrir votre prochain coup de cœur.
           </p>
         </div>
-        <div className="flex gap-2 self-end sm:self-center">
+        <div className="flex gap-2 self-end sm:self-center flex-wrap items-center">
           <Button variant="outline" size="icon" aria-label="Paramètres" onClick={() => router.push('/settings?tab=tfarrej')}>
             <Settings className="h-4 w-4" />
           </Button>
           <TfarrejStatsDialog />
+          {type === 'movie' && monthlySeenMovies.length >= 2 && (
+            <Button
+              variant={hasUnrankedMovies ? "default" : "outline"}
+              className={`relative font-bold ${
+                hasUnrankedMovies
+                  ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white border-0 shadow-md animate-pulse'
+                  : ''
+              }`}
+              onClick={() => setIsDuelOpen(true)}
+              title="Classer mes films vus par duel"
+            >
+              <Swords className="mr-1.5 h-4 w-4 text-amber-300" />
+              {existingRanking ? (hasUnrankedMovies ? "Nouveaux Duels" : "Classement") : "Duel des Films"}
+              {hasUnrankedMovies && (
+                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-amber-400 text-black text-[10px] font-black leading-none">
+                  {unrankedCount}
+                </span>
+              )}
+            </Button>
+          )}
           <MovieListSheet
             trigger={<Button variant="ocean"><ListVideo className="mr-2 h-4 w-4" /> {type === 'movie' ? 'Films à Voir' : 'Séries à Voir'}</Button>}
             title={type === 'movie' ? "Ma Liste 'À Voir'" : "Mes Séries 'À Voir'"}
@@ -165,6 +227,15 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
           )}
         </CardContent>
       </Card>
+
+      <MovieDuelModal
+        isOpen={isDuelOpen}
+        onOpenChange={setIsDuelOpen}
+        monthKey={currentMonthKey}
+        monthName={currentMonthName}
+        seenMovies={monthlySeenMovies}
+        existingRanking={existingRanking}
+      />
     </div>
   );
 }

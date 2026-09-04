@@ -55,6 +55,16 @@ export type TriviaFeedback = {
     category?: string;
 };
 
+export type MonthlyMovieRanking = {
+    monthKey: string;             // e.g. "2026-09"
+    rankedTitles: string[];       // Ordered list of titles [1st, 2nd, 3rd, ...]
+    publishedAt: number;          // Timestamp when first published
+    updatedAt?: number;           // Timestamp when last updated
+    initialRankedTitles: string[];// Snapshot of original ranking at publish time
+    newlyAddedTitles?: string[];  // Titles inserted in duels after publish time
+    hasUpdatesSincePublish: boolean; // Flag indicating incremental duels were performed
+};
+
 export type SeenMovie = {
     title: string;
     viewedAt: number; // timestamp of when the movie was watched
@@ -64,6 +74,7 @@ export type SeenMovie = {
     rating?: number;
     watchedInCinema?: boolean;
     cinemaPlace?: string;
+    genres?: string[];
 };
 
 export type UserProfile = {
@@ -106,6 +117,8 @@ export type UserProfile = {
     fcmToken?: string;
     // Mes Salles de Cinéma (indépendant des zones)
     cinemaTheaters?: string[];
+    // Classements mensuels de films vus (Jeux de duels)
+    movieRankings?: Record<string, MonthlyMovieRanking>;
     // These are stored ONLY in IndexedDB for privacy
     fullBodyPhotoUrl?: string; // This will also be a Cloudinary URL
     closeupPhotoUrl?: string; // This will also be a Cloudinary URL
@@ -876,3 +889,30 @@ export async function addCommunityTrivia(trivia: Omit<CommunityTriviaItem, 'id' 
     await setDoc(docRef, newTrivia);
     return newTrivia;
 }
+
+export async function saveMonthlyMovieRanking(
+    uid: string,
+    ranking: MonthlyMovieRanking
+): Promise<void> {
+    const userRef = doc(firestoreDb, 'users', uid);
+    const fieldPath = `movieRankings.${ranking.monthKey}`;
+
+    await setDoc(userRef, {
+        movieRankings: {
+            [ranking.monthKey]: ranking
+        }
+    }, { merge: true });
+
+    const localProfile = await getUserFromDb(uid);
+    if (localProfile) {
+        const currentRankings = localProfile.movieRankings || {};
+        await storeUserInDb(uid, {
+            ...localProfile,
+            movieRankings: {
+                ...currentRankings,
+                [ranking.monthKey]: ranking
+            }
+        });
+    }
+}
+

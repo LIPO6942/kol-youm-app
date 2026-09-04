@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import { 
   X, Share2, Camera, Clapperboard, Award, Sparkles, MapPin, Film, Star, 
-  Flame, Compass, Volume2, VolumeX, ChevronLeft, ChevronRight, Tv, Car
+  Flame, Compass, Volume2, VolumeX, ChevronLeft, ChevronRight, Tv, Car,
+  Swords, Trophy, ArrowUp, ArrowDown, Rocket, Minus
 } from 'lucide-react';
 import { useMonthlyWrapUp, WrapUpStats, KharjetOuting, MomentyMoment } from '@/hooks/use-monthly-wrapup';
 import type { UserProfile } from '@/lib/firebase/firestore';
@@ -13,6 +14,8 @@ import { toPng } from 'html-to-image';
 import { wrapUpAudio } from '@/lib/wrapup-audio';
 import { fetchCarCareMonthlyMileage, CarCareMonthlyStats } from '@/lib/carcare-service';
 import { useAuth } from '@/hooks/use-auth';
+import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
+import { calculateRankMovements } from '@/lib/movie-duel-engine';
 
 type Props = {
   user: UserProfile | null;
@@ -227,7 +230,14 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [isDuelOpen, setIsDuelOpen] = useState(false);
   const storyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isDuelOpen) {
+      setIsPaused(true);
+    }
+  }, [isDuelOpen]);
 
   // Sub-indices for multi-item slides
   const [activeKharjetIdx, setActiveKharjetIdx] = useState(0);
@@ -299,6 +309,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     stats.cinema && stats.cinema.total > 0 ? 'cinema' : null,
     stats.kharjet && stats.kharjet.total > 0 ? 'kharjet' : null,
     stats.movies && stats.movies.total > 0 ? 'movies' : null,
+    stats.movies && stats.movies.hasUpdatesSincePublish ? 'movies_updated' : null,
     stats.series && stats.series.total > 0 ? 'series' : null,
     (stats.momentyMoments && stats.momentyMoments.length > 0) || stats.featuredMomentyImage || (carCareStats && carCareStats.mileage > 0) ? 'momenty' : null,
     'verdict',
@@ -381,7 +392,11 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     date: Date.now()
   } : null);
 
-  const isInteractiveSlide = slides[currentSlide] === 'momenty' || slides[currentSlide] === 'kharjet';
+  const isInteractiveSlide =
+    slides[currentSlide] === 'momenty' ||
+    slides[currentSlide] === 'kharjet' ||
+    slides[currentSlide] === 'movies' ||
+    slides[currentSlide] === 'movies_updated';
 
   return (
     <AnimatePresence>
@@ -803,46 +818,189 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                   </SlideContainer>
                 )}
 
-                {/* ══ MOVIES (TFARREJ) - AVEC NOMS DES FILMS ══════════════════ */}
+                {/* ══ MOVIES (TFARREJ) - CLASSEMENT & ANALYSE DE GOÛTS ══════ */}
                 {slides[currentSlide] === 'movies' && stats.movies && (
                   <SlideContainer key="movies">
                     <CollageBackground posters={stats.movies.posters} />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/75 to-black/35 z-[1]" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-black/40 z-[1]" />
                     <motion.div variants={containerVariants} initial="hidden" animate="show" className="relative z-10 flex flex-col items-center w-full px-2">
-                      <motion.div variants={iconVariants} className="w-16 h-16 rounded-2xl bg-blue-500/20 border border-blue-400/30 p-3 mb-3 backdrop-blur-md shadow-[0_0_30px_rgba(59,130,246,0.3)]">
-                        <Clapperboard className="w-10 h-10 text-blue-400" />
+                      <motion.div variants={iconVariants} className="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-400/30 p-2.5 mb-2 backdrop-blur-md shadow-[0_0_30px_rgba(59,130,246,0.3)] flex items-center justify-center">
+                        <Clapperboard className="w-8 h-8 text-blue-400" />
                       </motion.div>
-                      <motion.p variants={itemVariants} className="text-xs uppercase tracking-[0.3em] text-blue-300 font-bold mb-1">L'Instant Ciné</motion.p>
-                      <motion.div variants={numberVariants} className="text-center mb-3">
-                        <p className="text-6xl font-black text-white leading-none"><CountUp to={stats.movies.total} /></p>
-                        <p className="text-white/60 text-xs uppercase tracking-wider font-semibold mt-0.5">films vus ce mois</p>
+                      <motion.p variants={itemVariants} className="text-xs uppercase tracking-[0.3em] text-blue-300 font-bold mb-0.5">L'Instant Ciné</motion.p>
+                      
+                      <motion.div variants={numberVariants} className="text-center mb-2.5">
+                        <p className="text-5xl font-black text-white leading-none"><CountUp to={stats.movies.total} /></p>
+                        <p className="text-white/60 text-[11px] uppercase tracking-wider font-semibold mt-0.5">films vus ce mois</p>
                       </motion.div>
 
-                      {/* Small list of watched film titles */}
-                      {stats.movies.titles && stats.movies.titles.length > 0 && (
-                        <motion.div variants={itemVariants} className="w-full max-h-[140px] overflow-y-auto mb-3 px-1 py-1 no-screenshot">
-                          <div className="flex flex-wrap gap-1.5 justify-center">
-                            {stats.movies.titles.map((title, idx) => (
-                              <span
-                                key={idx}
-                                className="text-[11px] font-medium bg-black/60 backdrop-blur-md border border-blue-400/25 text-blue-100 px-2.5 py-1 rounded-xl shadow-xs"
+                      {/* 🧠 ANALYSE DE GOÛTS CINÉMATOGRAPHIQUES (Demande utilisateur) */}
+                      {stats.movies.genreAnalysis && (
+                        <motion.div
+                          variants={itemVariants}
+                          className="w-full max-w-[310px] bg-gradient-to-br from-indigo-950/80 via-slate-900/85 to-purple-950/80 border border-indigo-400/35 rounded-2xl p-3 mb-2.5 backdrop-blur-xl shadow-[0_10px_25px_rgba(79,70,229,0.25)] pointer-events-auto"
+                        >
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="text-base">{stats.movies.genreAnalysis.moodEmoji}</span>
+                            <span className="text-[10px] uppercase font-black tracking-widest text-indigo-200">
+                              {stats.movies.genreAnalysis.headline}
+                            </span>
+                          </div>
+                          <p className="text-[11px] font-medium text-indigo-100/95 leading-relaxed italic">
+                            « {stats.movies.genreAnalysis.commentary} »
+                          </p>
+                          {stats.movies.genreAnalysis.breakdown.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {stats.movies.genreAnalysis.breakdown.slice(0, 3).map((b, i) => (
+                                <span key={i} className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-white/90 border border-white/15">
+                                  {b.emoji} {b.count} {b.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+
+                      {/* 🏆 PODIUM OFFICIEL DU MOIS (Si un classement existe) */}
+                      {stats.movies.ranking ? (
+                        <motion.div
+                          variants={itemVariants}
+                          className="w-full max-w-[310px] bg-black/65 backdrop-blur-xl p-3 rounded-2xl border border-amber-500/30 text-center shadow-[0_10px_30px_rgba(245,158,11,0.2)] pointer-events-auto flex flex-col gap-1.5"
+                        >
+                          <div className="flex items-center justify-between px-1">
+                            <div className="flex items-center gap-1">
+                              <Trophy className="w-3.5 h-3.5 text-yellow-400" />
+                              <p className="text-[10px] uppercase tracking-widest font-black text-amber-300">
+                                {stats.movies.hasUpdatesSincePublish ? "Classement Initial" : "Ton Top Palmarès"}
+                              </p>
+                            </div>
+                            {Boolean(stats.movies.unrankedCount && stats.movies.unrankedCount > 0) && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setIsDuelOpen(true); }}
+                                className="text-[9.5px] font-black text-amber-200 bg-amber-500/25 border border-amber-400/50 px-2 py-0.5 rounded-full flex items-center gap-1 hover:bg-amber-500/40 transition-transform active:scale-95"
                               >
-                                🎬 {title}
-                              </span>
+                                <Swords className="w-2.5 h-2.5" /> +{stats.movies.unrankedCount} à classer
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Top 3 Films */}
+                          <div className="space-y-1 text-left">
+                            {(stats.movies.ranking.initialRankedTitles || stats.movies.ranking.rankedTitles).slice(0, 3).map((title, idx) => (
+                              <div
+                                key={idx}
+                                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-xs font-bold ${
+                                  idx === 0
+                                    ? 'bg-amber-500/15 border-amber-400/40 text-amber-200 shadow-sm'
+                                    : 'bg-white/5 border-white/10 text-white/90'
+                                }`}
+                              >
+                                <span className="text-sm">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</span>
+                                <span className="truncate flex-1 font-bold">{title}</span>
+                              </div>
                             ))}
                           </div>
                         </motion.div>
+                      ) : (
+                        /* Si pas encore de classement publié */
+                        stats.movies.total >= 2 && (
+                          <motion.div variants={itemVariants} className="pointer-events-auto mt-1 flex flex-col items-center gap-2">
+                            <Button
+                              onClick={(e) => { e.stopPropagation(); setIsDuelOpen(true); }}
+                              className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-xs px-4 py-2.5 rounded-2xl shadow-[0_0_30px_rgba(99,102,241,0.5)] transition-all active:scale-95"
+                            >
+                              <Swords className="w-3.5 h-3.5 mr-1.5 text-amber-300" />
+                              Lancer le Grand Duel ({stats.movies.total} films)
+                            </Button>
+                            <p className="text-[10px] text-white/50">Affronte tes films 2 par 2 pour créer ton palmarès</p>
+                          </motion.div>
+                        )
                       )}
+                    </motion.div>
+                  </SlideContainer>
+                )}
 
-                      {stats.movies.featured && (
-                        <motion.div variants={itemVariants} className="bg-black/60 backdrop-blur-xl p-3.5 rounded-2xl border border-blue-500/20 text-center w-full max-w-[85%] shadow-[0_0_30px_rgba(59,130,246,0.15)]">
-                          <div className="flex items-center justify-center gap-1 mb-0.5">
-                            <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                            <p className="text-[9px] text-blue-300 uppercase tracking-widest font-bold">Coup de cœur</p>
-                          </div>
-                          <h3 className="text-sm font-bold line-clamp-1">{stats.movies.featured.title}</h3>
-                        </motion.div>
-                      )}
+                {/* ══ SLIDE NOUVEAU : RECLASSEMENT & NOUVEAUX ENTRANTS ═════════ */}
+                {slides[currentSlide] === 'movies_updated' && stats.movies && stats.movies.ranking && (
+                  <SlideContainer key="movies_updated">
+                    <CollageBackground posters={stats.movies.posters} />
+                    <div className="absolute inset-0 bg-gradient-to-t from-purple-950/90 via-black/85 to-black/50 z-[1]" />
+                    <FloatingOrbs colors={['#7c3aed', '#3b82f6', '#ec4899']} />
+                    
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="relative z-10 flex flex-col items-center w-full px-2">
+                      <motion.div variants={iconVariants} className="w-14 h-14 rounded-2xl bg-purple-500/20 border border-purple-400/40 p-2.5 mb-2 backdrop-blur-md shadow-[0_0_35px_rgba(168,85,247,0.35)] flex items-center justify-center">
+                        <Rocket className="w-8 h-8 text-purple-300" />
+                      </motion.div>
+                      
+                      <motion.div variants={itemVariants} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/40 text-purple-300 text-[10px] font-black uppercase tracking-widest mb-1 shadow-sm">
+                        <Sparkles className="w-3 h-3 text-purple-300" /> Le Reclassement de Fin de Mois
+                      </motion.div>
+
+                      <motion.h3 variants={itemVariants} className="text-xl font-black text-white text-center leading-tight mb-2">
+                        De nouveaux films ont bousculé la hiérarchie !
+                      </motion.h3>
+
+                      {/* Liste comparative avec mouvements de classement */}
+                      {(() => {
+                        const movements = calculateRankMovements(
+                          stats.movies.ranking.initialRankedTitles,
+                          stats.movies.ranking.rankedTitles,
+                          stats.movies.ranking.newlyAddedTitles
+                        );
+                        return (
+                          <motion.div variants={containerVariants} className="w-full max-w-[310px] space-y-1.5 mb-3 pointer-events-auto">
+                            {movements.slice(0, 4).map((item, idx) => (
+                              <motion.div
+                                key={idx}
+                                variants={itemVariants}
+                                className={`flex items-center justify-between p-2 rounded-xl border backdrop-blur-md ${
+                                  item.isNew
+                                    ? 'bg-gradient-to-r from-purple-500/20 to-blue-500/20 border-purple-400/50 shadow-[0_0_15px_rgba(168,85,247,0.25)]'
+                                    : item.diff > 0
+                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-white'
+                                    : 'bg-white/5 border-white/10 text-white'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="w-5 font-black text-xs text-white/80">#{item.currentRank}</span>
+                                  <span className="text-xs font-bold truncate max-w-[150px]">{item.title}</span>
+                                </div>
+
+                                {/* Badge d'évolution de rang */}
+                                <div className="flex-shrink-0 pl-1">
+                                  {item.isNew ? (
+                                    <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-purple-500/30 border border-purple-400/60 text-[9.5px] font-black text-purple-200">
+                                      <Rocket className="w-2.5 h-2.5" /> Nouveau
+                                    </span>
+                                  ) : item.diff > 0 ? (
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-[9.5px] font-black text-emerald-300">
+                                      <ArrowUp className="w-2.5 h-2.5" /> +{item.diff}
+                                    </span>
+                                  ) : item.diff < 0 ? (
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/40 text-[9.5px] font-black text-rose-300">
+                                      <ArrowDown className="w-2.5 h-2.5" /> {item.diff}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9.5px] font-semibold text-white/40 px-1">
+                                      Stable
+                                    </span>
+                                  )}
+                                </div>
+                              </motion.div>
+                            ))}
+                          </motion.div>
+                        );
+                      })()}
+
+                      {/* Bouton pour réajuster en direct */}
+                      <motion.div variants={itemVariants} className="pointer-events-auto">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setIsDuelOpen(true); }}
+                          className="text-[11px] font-bold text-purple-200 hover:text-white bg-white/10 hover:bg-white/20 border border-white/20 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all active:scale-95"
+                        >
+                          <Swords className="w-3.5 h-3.5 text-purple-300" /> Revoir ou ajuster les duels
+                        </button>
+                      </motion.div>
                     </motion.div>
                   </SlideContainer>
                 )}
@@ -1240,6 +1398,20 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                   onClick={(e: any) => { e.stopPropagation(); handleNextSlide(); }}
                 />
               </>
+            )}
+
+            {stats?.movies && (
+              <MovieDuelModal
+                isOpen={isDuelOpen}
+                onOpenChange={(open) => {
+                  setIsDuelOpen(open);
+                  if (!open) setIsPaused(false);
+                }}
+                monthKey={monthKey}
+                monthName={stats.monthName}
+                seenMovies={stats.movies.allMonthMovies || []}
+                existingRanking={stats.movies.ranking || null}
+              />
             )}
           </div>
         </motion.div>

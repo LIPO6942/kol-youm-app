@@ -128,6 +128,8 @@ export async function POST(req: NextRequest) {
       country: details.production_countries?.[0]?.name || (details.origin_country?.[0]) || 'Inconnu',
       wikipediaUrl: wikipediaUrl,
       actors: [],
+      genres: details.genres?.map((g: any) => g.name) || [],
+      posterUrl: details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : undefined,
     };
 
     console.log('Détails trouvés:', formattedItem);

@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
-import type { UserProfile, VisitLog, SeenMovie } from '@/lib/firebase/firestore';
+import type { UserProfile, VisitLog, SeenMovie, MonthlyMovieRanking } from '@/lib/firebase/firestore';
+import { analyzeMonthlyMovieTastes, MonthlyMovieTasteAnalysis } from '@/lib/movie-genre-analyzer';
+import type { DuelMovieItem } from '@/lib/movie-duel-engine';
 
 export type CinemaSession = {
   title: string;
@@ -49,6 +51,11 @@ export type WrapUpStats = {
     titles: string[];
     posters: string[];
     featured: { title: string; poster: string } | null;
+    ranking?: MonthlyMovieRanking | null;
+    genreAnalysis?: MonthlyMovieTasteAnalysis | null;
+    unrankedCount?: number;
+    hasUpdatesSincePublish?: boolean;
+    allMonthMovies?: DuelMovieItem[];
   };
   series?: {
     total: number;
@@ -397,7 +404,41 @@ export function useMonthlyWrapUp(
         };
     };
 
-    const movies = getTfarrejStats(uniqueMovies);
+    const baseMovieStats = getTfarrejStats(uniqueMovies);
+    const monthKey = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
+    const monthlyRanking: MonthlyMovieRanking | null = (user as any).movieRankings?.[monthKey] || null;
+    const genreAnalysis = analyzeMonthlyMovieTastes(uniqueMovies);
+
+    const duelItems: DuelMovieItem[] = uniqueMovies.map((m: any) => ({
+      title: m.title,
+      posterUrl: m.posterUrl || m.posterPath,
+      year: m.year,
+      rating: m.rating,
+      watchedInCinema: m.watchedInCinema,
+      cinemaPlace: m.cinemaPlace,
+      viewedAt: m.viewedAt || m.addedAt,
+      genres: m.genres,
+    }));
+
+    let unrankedCount = 0;
+    if (monthlyRanking) {
+      const rankedSet = new Set(monthlyRanking.rankedTitles);
+      unrankedCount = uniqueMovies.filter((m: any) => !rankedSet.has(m.title)).length;
+    } else {
+      unrankedCount = uniqueMovies.length;
+    }
+
+    const hasUpdatesSincePublish = Boolean(monthlyRanking?.hasUpdatesSincePublish);
+
+    const movies = baseMovieStats ? {
+      ...baseMovieStats,
+      ranking: monthlyRanking,
+      genreAnalysis,
+      unrankedCount,
+      hasUpdatesSincePublish,
+      allMonthMovies: duelItems,
+    } : undefined;
+
     const series = getTfarrejStats(uniqueSeries);
     const totalMovies = uniqueMovies.length + uniqueSeries.length;
 

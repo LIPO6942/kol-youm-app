@@ -10,10 +10,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv } from "lucide-react";
+import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv, Swords } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist } from '@/lib/firebase/firestore';
+import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
+import type { DuelMovieItem } from '@/lib/movie-duel-engine';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -434,9 +436,39 @@ function MovieListContent({
   const [yearFilter, setYearFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [showOldMovies, setShowOldMovies] = useState(false);
+  const [isDuelModalOpen, setIsDuelModalOpen] = useState(false);
 
   const movieTitles = userProfile?.[listType] as string[];
   const seenMoviesData = type === 'movie' ? userProfile?.seenMoviesData : userProfile?.seenSeriesData;
+
+  const currentMonthKey = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+
+  const currentMonthIndex = useMemo(() => new Date().getMonth(), []);
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
+
+  const duelSeenMovies: DuelMovieItem[] = useMemo(() => {
+    if (listType !== 'seenMovieTitles') return [];
+    const list = (userProfile?.seenMoviesData || []).filter(m => {
+      if (!m.viewedAt) return false;
+      const d = new Date(m.viewedAt);
+      return d.getMonth() === currentMonthIndex && d.getFullYear() === currentYear;
+    });
+    return list.map(m => ({
+      title: m.title,
+      posterUrl: m.posterUrl || movieDetails[m.title]?.posterUrl,
+      year: m.year || movieDetails[m.title]?.year,
+      rating: m.rating || movieDetails[m.title]?.rating,
+      watchedInCinema: m.watchedInCinema,
+      cinemaPlace: m.cinemaPlace,
+      viewedAt: m.viewedAt,
+      genres: m.genres,
+    }));
+  }, [listType, userProfile?.seenMoviesData, movieDetails, currentMonthIndex, currentYear]);
+
+  const existingRanking = userProfile?.movieRankings?.[currentMonthKey] || null;
 
   // Sort movies: Recent First (for seen list), Alphabetical otherwise
   const sortedMovieTitles = useMemo(() => {
@@ -925,6 +957,17 @@ function MovieListContent({
         </div>
       </div>
 
+      {/* Duel Ranking Trigger for Seen Movies */}
+      {listType === 'seenMovieTitles' && duelSeenMovies.length >= 2 && (
+        <Button
+          onClick={() => setIsDuelModalOpen(true)}
+          className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold h-9 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-[0.99]"
+        >
+          <Swords className="w-4 h-4 text-amber-300" />
+          {existingRanking ? "⚔️ Reclasser mes films vus par Duel" : "⚔️ Lancer le Grand Duel des Films Vus"}
+        </Button>
+      )}
+
       {/* Search Results from TMDb */}
       {searchQuery.length >= 2 && searchResults.length > 0 && (
         <div className="bg-muted/50 rounded-lg p-2 border">
@@ -1115,6 +1158,16 @@ function MovieListContent({
           {filteredMovies.length} {type === 'movie' ? 'film' : 'série'}{filteredMovies.length > 1 ? 's' : ''}
           {(searchQuery || yearFilter !== 'all') && ` (filtré${filteredMovies.length > 1 ? 's' : ''})`}
         </div>
+      )}
+
+      {listType === 'seenMovieTitles' && (
+        <MovieDuelModal
+          isOpen={isDuelModalOpen}
+          onOpenChange={setIsDuelModalOpen}
+          monthKey={currentMonthKey}
+          seenMovies={duelSeenMovies}
+          existingRanking={existingRanking}
+        />
       )}
     </div>
   );
