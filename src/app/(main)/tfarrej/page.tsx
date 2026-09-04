@@ -13,7 +13,7 @@ import { TfarrejStatsDialog } from '@/components/tfarrej/tfarrej-stats-dialog';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
 import { useAuth } from '@/hooks/use-auth';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
-import { getStoredMovieRanking, MonthlyMovieRanking } from '@/lib/firebase/firestore';
+import { getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, purgeTestMovieData } from '@/lib/firebase/firestore';
 
 const genres = [
   { name: 'Comédie', iconName: 'Laugh', description: 'Pour rire aux éclats.' },
@@ -137,8 +137,15 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
       });
     }
 
-    return results;
+    return results.filter(m => !isTestMovieTitle(m.title));
   }, [userProfile?.seenMoviesData, userProfile?.seenMovieTitles, existingRanking, currentMonthIndex, currentYear]);
+
+  // Purge de sécurité des films de test (test00, test000...) au chargement
+  useEffect(() => {
+    if (userProfile) {
+      purgeTestMovieData(user?.uid || 'guest', userProfile);
+    }
+  }, [user?.uid, userProfile]);
 
   const unrankedCount = useMemo(() => {
     if (!existingRanking) return monthlySeenMovies.length;

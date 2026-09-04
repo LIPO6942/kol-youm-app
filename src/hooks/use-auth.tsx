@@ -7,7 +7,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db as firestoreDb } from '@/lib/firebase/client';
 import type { UserProfile, WardrobeItem } from '@/lib/firebase/firestore';
 import { getUserFromDb, storeUserInDb } from '@/lib/indexeddb';
-import { updateUserProfile as updateProfileInFirestore } from '@/lib/firebase/firestore';
+import { updateUserProfile as updateProfileInFirestore, purgeTestMovieData } from '@/lib/firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
@@ -140,6 +140,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           };
         }
         
+        // Purge any test movie data (test00, test000...) from profile and storage
+        if (finalProfile) {
+          const purgeResult = await purgeTestMovieData(user.uid, finalProfile);
+          if (purgeResult.updatedProfile) {
+            finalProfile = purgeResult.updatedProfile;
+          }
+        }
+
         setUserProfile(finalProfile ?? null);
         setLoading(false);
       });

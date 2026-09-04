@@ -26,7 +26,7 @@ import {
   RankMovement,
 } from '@/lib/movie-duel-engine';
 import { useAuth } from '@/hooks/use-auth';
-import { saveMonthlyMovieRanking, getStoredMovieRanking, MonthlyMovieRanking } from '@/lib/firebase/firestore';
+import { saveMonthlyMovieRanking, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, purgeTestMovieData } from '@/lib/firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 interface MovieDuelModalProps {
@@ -69,12 +69,24 @@ export function MovieDuelModal({
     return existingRanking || getStoredMovieRanking(monthKey, userProfile);
   }, [existingRanking, monthKey, userProfile]);
 
+  // Filtrer les films de test (test00, test000...)
+  const validSeenMovies = useMemo(() => {
+    return seenMovies.filter(m => !isTestMovieTitle(m.title));
+  }, [seenMovies]);
+
+  // Purge de sécurité des films de test à l'ouverture de la modale
+  useEffect(() => {
+    if (isOpen && userProfile) {
+      purgeTestMovieData(user?.uid || 'guest', userProfile);
+    }
+  }, [isOpen, user?.uid, userProfile]);
+
   // Déterminer s'il s'agit d'un reclassement incrémental ou d'un premier classement
   const { isIncrementalMode, unrankedMovies, rankedTitles } = useMemo(() => {
-    const currentRanked = effectiveExistingRanking?.rankedTitles || [];
+    const currentRanked = (effectiveExistingRanking?.rankedTitles || []).filter(t => !isTestMovieTitle(t));
     if (currentRanked.length > 0) {
       const rankedSet = new Set(currentRanked);
-      const unranked = seenMovies.filter(m => !rankedSet.has(m.title));
+      const unranked = validSeenMovies.filter(m => !rankedSet.has(m.title));
       return {
         isIncrementalMode: unranked.length > 0,
         unrankedMovies: unranked,
@@ -83,10 +95,10 @@ export function MovieDuelModal({
     }
     return {
       isIncrementalMode: false,
-      unrankedMovies: seenMovies,
+      unrankedMovies: validSeenMovies,
       rankedTitles: [],
     };
-  }, [effectiveExistingRanking, seenMovies]);
+  }, [effectiveExistingRanking, validSeenMovies]);
 
   // Initialisation de la session de duel à l'ouverture
   useEffect(() => {
@@ -99,8 +111,8 @@ export function MovieDuelModal({
     // 1. Si un classement existe déjà et aucun nouveau film en attente : afficher directement le classement finalisé !
     if (effectiveExistingRanking && unrankedMovies.length === 0) {
       const existingCatalog: Record<string, DuelMovieItem> = {};
-      seenMovies.forEach(m => { existingCatalog[m.title] = m; });
-      effectiveExistingRanking.rankedTitles.forEach(title => {
+      validSeenMovies.forEach(m => { existingCatalog[m.title] = m; });
+      (effectiveExistingRanking.rankedTitles || []).filter(t => !isTestMovieTitle(t)).forEach(title => {
         if (!existingCatalog[title]) {
           existingCatalog[title] = { title };
         }
@@ -108,7 +120,7 @@ export function MovieDuelModal({
 
       setSession({
         mode: 'incremental',
-        sortedTitles: effectiveExistingRanking.rankedTitles,
+        sortedTitles: (effectiveExistingRanking.rankedTitles || []).filter(t => !isTestMovieTitle(t)),
         pendingItems: [],
         currentCandidate: null,
         low: 0,
@@ -119,8 +131,8 @@ export function MovieDuelModal({
         stepNumber: 0,
         estimatedTotalSteps: 0,
         isFinished: true,
-        initialRankedTitles: effectiveExistingRanking.initialRankedTitles || effectiveExistingRanking.rankedTitles,
-        newlyAddedTitles: effectiveExistingRanking.newlyAddedTitles || [],
+        initialRankedTitles: (effectiveExistingRanking.initialRankedTitles || effectiveExistingRanking.rankedTitles || []).filter(t => !isTestMovieTitle(t)),
+        newlyAddedTitles: (effectiveExistingRanking.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t)),
         movieCatalog: existingCatalog,
       });
       return;
@@ -129,15 +141,15 @@ export function MovieDuelModal({
     // 2. Mode Incrémental : affronter les nouveaux films vus aux films déjà classés
     if (isIncrementalMode && effectiveExistingRanking && unrankedMovies.length > 0) {
       const existingCatalog: Record<string, DuelMovieItem> = {};
-      seenMovies.forEach(m => { existingCatalog[m.title] = m; });
-      effectiveExistingRanking.rankedTitles.forEach(title => {
+      validSeenMovies.forEach(m => { existingCatalog[m.title] = m; });
+      (effectiveExistingRanking.rankedTitles || []).filter(t => !isTestMovieTitle(t)).forEach(title => {
         if (!existingCatalog[title]) {
           existingCatalog[title] = { title };
         }
       });
 
       const newSession = createIncrementalDuelSession(
-        effectiveExistingRanking.rankedTitles,
+        (effectiveExistingRanking.rankedTitles || []).filter(t => !isTestMovieTitle(t)),
         unrankedMovies,
         existingCatalog
       );
@@ -146,18 +158,18 @@ export function MovieDuelModal({
     }
 
     // 3. Mode Initial : tri complet depuis zéro (si au moins 2 films)
-    if (seenMovies.length >= 2) {
-      const newSession = createInitialDuelSession(seenMovies);
+    if (validSeenMovies.length >= 2) {
+      const newSession = createInitialDuelSession(validSeenMovies);
       setSession(newSession);
       return;
     }
 
     // 4. Moins de 2 films et aucun classement : session informative
     const emptyCatalog: Record<string, DuelMovieItem> = {};
-    seenMovies.forEach(m => { emptyCatalog[m.title] = m; });
+    validSeenMovies.forEach(m => { emptyCatalog[m.title] = m; });
     setSession({
       mode: 'initial',
-      sortedTitles: seenMovies.map(m => m.title),
+      sortedTitles: validSeenMovies.map(m => m.title),
       pendingItems: [],
       currentCandidate: null,
       low: 0,
@@ -167,12 +179,12 @@ export function MovieDuelModal({
       history: [],
       stepNumber: 0,
       estimatedTotalSteps: 0,
-      isFinished: true,
-      initialRankedTitles: seenMovies.map(m => m.title),
-      newlyAddedTitles: [],
+      isFinished: false,
       movieCatalog: emptyCatalog,
+      initialRankedTitles: validSeenMovies.map(m => m.title),
+      newlyAddedTitles: []
     });
-  }, [isOpen, isIncrementalMode, effectiveExistingRanking, unrankedMovies, seenMovies]);
+  }, [isOpen, effectiveExistingRanking, validSeenMovies, unrankedMovies, isIncrementalMode]);
 
   // Sauvegarde synchrone et persistante (Multi-couches : LocalStorage + IndexedDB + Firestore)
   const executeSaveRanking = useCallback(async (
@@ -284,8 +296,10 @@ export function MovieDuelModal({
   const rankMovements: RankMovement[] = useMemo(() => {
     if (!session || !session.isFinished) return [];
 
-    const baseList = effectiveExistingRanking?.initialRankedTitles || session.initialRankedTitles || [];
-    return calculateRankMovements(baseList, session.sortedTitles, session.newlyAddedTitles);
+    const baseList = (effectiveExistingRanking?.initialRankedTitles || session.initialRankedTitles || []).filter(t => !isTestMovieTitle(t));
+    const sorted = (session.sortedTitles || []).filter(t => !isTestMovieTitle(t));
+    const newlyAdded = (session.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t));
+    return calculateRankMovements(baseList, sorted, newlyAdded).filter(item => !isTestMovieTitle(item.title));
   }, [session, effectiveExistingRanking]);
 
   // Helper pour formater l'affiche
@@ -752,7 +766,7 @@ export function MovieDuelModal({
                   <Button
                     type="button"
                     variant="ghost"
-                    onClick={() => setSession(createInitialDuelSession(seenMovies))}
+                    onClick={() => setSession(createInitialDuelSession(validSeenMovies))}
                     className="h-12 px-6 rounded-2xl bg-slate-800/90 hover:bg-slate-700/90 text-white font-bold border border-white/20 hover:border-white/40 shadow-lg shadow-black/40 backdrop-blur-md transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2 group"
                   >
                     <RotateCcw className="w-4 h-4 text-rose-400 group-hover:-rotate-90 transition-transform duration-300" />

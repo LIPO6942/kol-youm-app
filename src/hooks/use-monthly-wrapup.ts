@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { getStoredMovieRanking, type UserProfile, type VisitLog, type SeenMovie, type MonthlyMovieRanking } from '@/lib/firebase/firestore';
+import { getStoredMovieRanking, type UserProfile, type VisitLog, type SeenMovie, type MonthlyMovieRanking, isTestMovieTitle } from '@/lib/firebase/firestore';
 import { analyzeMonthlyMovieTastes, MonthlyMovieTasteAnalysis } from '@/lib/movie-genre-analyzer';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
 
@@ -400,7 +400,7 @@ export function useMonthlyWrapUp(
         return Array.from(map.values());
     };
 
-    const uniqueMovies = deduplicate(movieHistory);
+    const uniqueMovies = deduplicate(movieHistory).filter((m: any) => !isTestMovieTitle(m?.title));
     const uniqueSeries = deduplicate(seriesHistory);
 
     // Integrate cinema movies from seenMoviesData (with watchedInCinema === true)
@@ -453,7 +453,7 @@ export function useMonthlyWrapUp(
 
     // Inclure tout titre présent dans le classement officiel
     if (monthlyRanking?.rankedTitles) {
-      monthlyRanking.rankedTitles.forEach(t => {
+      monthlyRanking.rankedTitles.filter(t => !isTestMovieTitle(t)).forEach(t => {
         if (!duelItems.some(d => d.title.toLowerCase() === t.toLowerCase())) {
           duelItems.push({ title: t });
         }

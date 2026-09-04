@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv, Swords } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, MonthlyMovieRanking } from '@/lib/firebase/firestore';
+import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, purgeTestMovieData } from '@/lib/firebase/firestore';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -438,7 +438,7 @@ function MovieListContent({
   const [showOldMovies, setShowOldMovies] = useState(false);
   const [isDuelModalOpen, setIsDuelModalOpen] = useState(false);
 
-  const movieTitles = userProfile?.[listType] as string[];
+  const movieTitles = ((userProfile?.[listType] || []) as string[]).filter(t => !isTestMovieTitle(t));
   const seenMoviesData = type === 'movie' ? userProfile?.seenMoviesData : userProfile?.seenSeriesData;
 
   const currentMonthKey = useMemo(() => {
@@ -534,7 +534,7 @@ function MovieListContent({
       });
     }
 
-    return results;
+    return results.filter(m => !isTestMovieTitle(m.title));
   }, [listType, userProfile?.seenMoviesData, movieDetails, movieTitles, existingRanking, currentMonthIndex, currentYear]);
 
   // Sort movies: Recent First (for seen list), Alphabetical otherwise
@@ -603,7 +603,7 @@ function MovieListContent({
       );
     }
 
-    return filtered;
+    return filtered.filter(t => !isTestMovieTitle(t));
   }, [sortedMovieTitles, searchQuery, yearFilter, movieDetails]);
 
   // For seen movies: split into recent and old (>2 years)
@@ -1270,7 +1270,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
 
   // Fetch movie details logic lifted from MovieListContent
   const seenMoviesData = type === 'movie' ? userProfile?.seenMoviesData : userProfile?.seenSeriesData;
-  const movieTitles = (userProfile?.[listType] || []) as string[];
+  const movieTitles = ((userProfile?.[listType] || []) as string[]).filter(t => !isTestMovieTitle(t));
 
   const fetchMovieDetails = useCallback(async (movieTitle: string) => {
     if (movieDetails[movieTitle]) return;
@@ -1322,6 +1322,13 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
       movieTitles.forEach(title => fetchMovieDetails(title));
     }
   }, [movieTitles, fetchMovieDetails]);
+
+  // Purge de sécurité des films de test (test00, test000...)
+  useEffect(() => {
+    if (userProfile) {
+      purgeTestMovieData(user?.uid || 'guest', userProfile);
+    }
+  }, [user?.uid, userProfile]);
   const handleMarkAsWatched = async (movieTitle: string) => {
     const details = movieDetails[movieTitle];
     const pseudoMovie: SearchResult = {

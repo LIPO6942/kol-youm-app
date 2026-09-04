@@ -890,25 +890,40 @@ export async function addCommunityTrivia(trivia: Omit<CommunityTriviaItem, 'id' 
     return newTrivia;
 }
 
+export const isTestMovieTitle = (title?: string | null): boolean => {
+    if (!title) return false;
+    const t = title.trim().toLowerCase();
+    return t === 'test00' || t === 'test000' || t === 'test0' || /^test\s*0+$/i.test(t);
+};
+
 export function getStoredMovieRanking(
     monthKey: string,
     userProfile?: UserProfile | null
 ): MonthlyMovieRanking | null {
+    const sanitizeRanking = (ranking: MonthlyMovieRanking): MonthlyMovieRanking => {
+        return {
+            ...ranking,
+            rankedTitles: (ranking.rankedTitles || []).filter(t => !isTestMovieTitle(t)),
+            initialRankedTitles: (ranking.initialRankedTitles || []).filter(t => !isTestMovieTitle(t)),
+            newlyAddedTitles: (ranking.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t)),
+        };
+    };
+
     if (userProfile?.movieRankings?.[monthKey]) {
-        return userProfile.movieRankings[monthKey];
+        return sanitizeRanking(userProfile.movieRankings[monthKey]);
     }
     if (typeof window !== 'undefined') {
         try {
             const specific = localStorage.getItem(`kolyoum_movie_ranking_${monthKey}`);
             if (specific) {
                 const parsed = JSON.parse(specific);
-                if (parsed?.rankedTitles?.length) return parsed;
+                if (parsed?.rankedTitles?.length) return sanitizeRanking(parsed);
             }
             const all = localStorage.getItem('kolyoum_movie_rankings');
             if (all) {
                 const parsedAll = JSON.parse(all);
                 if (parsedAll?.[monthKey]?.rankedTitles?.length) {
-                    return parsedAll[monthKey];
+                    return sanitizeRanking(parsedAll[monthKey]);
                 }
             }
         } catch (e) {
@@ -922,12 +937,30 @@ export async function saveMonthlyMovieRanking(
     uid: string,
     ranking: MonthlyMovieRanking
 ): Promise<void> {
+    // Purge any test movies from the ranking before saving
+    const cleanRankedTitles = (ranking.rankedTitles || []).filter(t => !isTestMovieTitle(t));
+    const cleanInitialRankedTitles = (ranking.initialRankedTitles || cleanRankedTitles).filter(t => !isTestMovieTitle(t));
+    const cleanNewlyAddedTitles = (ranking.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t));
+    
+    const cleanMovieCatalog = { ...(ranking.movieCatalog || {}) };
+    Object.keys(cleanMovieCatalog).forEach(k => {
+        if (isTestMovieTitle(k)) delete cleanMovieCatalog[k];
+    });
+
+    const safeRanking: MonthlyMovieRanking = {
+        ...ranking,
+        rankedTitles: cleanRankedTitles,
+        initialRankedTitles: cleanInitialRankedTitles,
+        newlyAddedTitles: cleanNewlyAddedTitles,
+        movieCatalog: cleanMovieCatalog,
+    };
+
     // 1. Sauvegarde synchrone et immédiate dans localStorage (Résilience hors-ligne / actualisation)
     if (typeof window !== 'undefined') {
         try {
-            localStorage.setItem(`kolyoum_movie_ranking_${ranking.monthKey}`, JSON.stringify(ranking));
+            localStorage.setItem(`kolyoum_movie_ranking_${safeRanking.monthKey}`, JSON.stringify(safeRanking));
             const existingAll = JSON.parse(localStorage.getItem('kolyoum_movie_rankings') || '{}');
-            existingAll[ranking.monthKey] = ranking;
+            existingAll[safeRanking.monthKey] = safeRanking;
             localStorage.setItem('kolyoum_movie_rankings', JSON.stringify(existingAll));
         } catch (err) {
             console.warn("Erreur sauvegarde localStorage pour movie ranking:", err);
@@ -944,7 +977,7 @@ export async function saveMonthlyMovieRanking(
                 ...localProfile,
                 movieRankings: {
                     ...currentRankings,
-                    [ranking.monthKey]: ranking
+                    [safeRanking.monthKey]: safeRanking
                 }
             });
         }
@@ -957,24 +990,191 @@ export async function saveMonthlyMovieRanking(
         try {
             const userRef = doc(firestoreDb, 'users', uid);
             // Nettoyage de tout champ indéfini pour Firestore
-            const safeRanking: Record<string, any> = {
-                monthKey: ranking.monthKey,
-                rankedTitles: ranking.rankedTitles || [],
-                publishedAt: ranking.publishedAt || Date.now(),
-                updatedAt: ranking.updatedAt || Date.now(),
-                initialRankedTitles: ranking.initialRankedTitles || ranking.rankedTitles || [],
-                newlyAddedTitles: ranking.newlyAddedTitles || [],
-                hasUpdatesSincePublish: Boolean(ranking.hasUpdatesSincePublish),
+            const firestoreRanking: Record<string, any> = {
+                monthKey: safeRanking.monthKey,
+                rankedTitles: safeRanking.rankedTitles || [],
+                publishedAt: safeRanking.publishedAt || Date.now(),
+                updatedAt: safeRanking.updatedAt || Date.now(),
+                initialRankedTitles: safeRanking.initialRankedTitles || safeRanking.rankedTitles || [],
+                newlyAddedTitles: safeRanking.newlyAddedTitles || [],
+                hasUpdatesSincePublish: Boolean(safeRanking.hasUpdatesSincePublish),
             };
 
             await setDoc(userRef, {
                 movieRankings: {
-                    [ranking.monthKey]: safeRanking
+                    [safeRanking.monthKey]: firestoreRanking
                 }
             }, { merge: true });
         } catch (err) {
             console.warn("Avertissement: Impossible de synchroniser le classement dans Firestore (sauvegardé en local):", err);
         }
     }
+}
+
+/**
+ * Purge complètement les films de test comme "test00" et "test000" de tous les stockages :
+ * localStorage, IndexedDB, UserProfile et Firestore.
+ */
+export async function purgeTestMovieData(
+    uid: string,
+    userProfile?: UserProfile | null
+): Promise<{ cleaned: boolean; updatedProfile?: UserProfile }> {
+    let hasChanges = false;
+
+    // 1. Purge LocalStorage
+    if (typeof window !== 'undefined') {
+        try {
+            const allRankingsRaw = localStorage.getItem('kolyoum_movie_rankings');
+            if (allRankingsRaw) {
+                const allRankings = JSON.parse(allRankingsRaw);
+                let rankingsChanged = false;
+                Object.keys(allRankings).forEach(k => {
+                    const r = allRankings[k];
+                    if (r) {
+                        const prevCount = (r.rankedTitles || []).length;
+                        r.rankedTitles = (r.rankedTitles || []).filter((t: string) => !isTestMovieTitle(t));
+                        r.initialRankedTitles = (r.initialRankedTitles || []).filter((t: string) => !isTestMovieTitle(t));
+                        r.newlyAddedTitles = (r.newlyAddedTitles || []).filter((t: string) => !isTestMovieTitle(t));
+                        if (r.movieCatalog) {
+                            Object.keys(r.movieCatalog).forEach(catKey => {
+                                if (isTestMovieTitle(catKey)) {
+                                    delete r.movieCatalog[catKey];
+                                    rankingsChanged = true;
+                                }
+                            });
+                        }
+                        if ((r.rankedTitles || []).length !== prevCount) {
+                            rankingsChanged = true;
+                        }
+                    }
+                });
+                if (rankingsChanged) {
+                    localStorage.setItem('kolyoum_movie_rankings', JSON.stringify(allRankings));
+                    hasChanges = true;
+                }
+            }
+
+            // Vérifier toutes les clés individuelles kolyoum_movie_ranking_*
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('kolyoum_movie_ranking_')) {
+                    const val = localStorage.getItem(key);
+                    if (val) {
+                        try {
+                            const r = JSON.parse(val);
+                            const prevCount = (r.rankedTitles || []).length;
+                            r.rankedTitles = (r.rankedTitles || []).filter((t: string) => !isTestMovieTitle(t));
+                            r.initialRankedTitles = (r.initialRankedTitles || []).filter((t: string) => !isTestMovieTitle(t));
+                            r.newlyAddedTitles = (r.newlyAddedTitles || []).filter((t: string) => !isTestMovieTitle(t));
+                            if (r.movieCatalog) {
+                                Object.keys(r.movieCatalog).forEach(catKey => {
+                                    if (isTestMovieTitle(catKey)) delete r.movieCatalog[catKey];
+                                });
+                            }
+                            if ((r.rankedTitles || []).length !== prevCount) {
+                                localStorage.setItem(key, JSON.stringify(r));
+                                hasChanges = true;
+                            }
+                        } catch {}
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("Erreur nettoyage localStorage test00:", e);
+        }
+    }
+
+    // 2. Purge Profil Utilisateur (IndexedDB et Firestore)
+    const effectiveUid = uid && uid !== 'guest' ? uid : 'guest';
+    const profileToClean = userProfile || (await getUserFromDb(effectiveUid));
+    if (!profileToClean) return { cleaned: hasChanges };
+
+    let profileChanged = false;
+    const updated = { ...profileToClean } as any;
+
+    if (Array.isArray(updated.seenMovieTitles)) {
+        const filtered = updated.seenMovieTitles.filter((t: string) => !isTestMovieTitle(t));
+        if (filtered.length !== updated.seenMovieTitles.length) {
+            updated.seenMovieTitles = filtered;
+            profileChanged = true;
+        }
+    }
+
+    if (Array.isArray(updated.seenMoviesData)) {
+        const filtered = updated.seenMoviesData.filter((m: any) => !isTestMovieTitle(m?.title));
+        if (filtered.length !== updated.seenMoviesData.length) {
+            updated.seenMoviesData = filtered;
+            profileChanged = true;
+        }
+    }
+
+    if (Array.isArray(updated.moviesToWatch)) {
+        const filtered = updated.moviesToWatch.filter((t: string) => !isTestMovieTitle(t));
+        if (filtered.length !== updated.moviesToWatch.length) {
+            updated.moviesToWatch = filtered;
+            profileChanged = true;
+        }
+    }
+
+    if (Array.isArray(updated.rejectedMovieTitles)) {
+        const filtered = updated.rejectedMovieTitles.filter((t: string) => !isTestMovieTitle(t));
+        if (filtered.length !== updated.rejectedMovieTitles.length) {
+            updated.rejectedMovieTitles = filtered;
+            profileChanged = true;
+        }
+    }
+
+    if (Array.isArray(updated.visits)) {
+        const filtered = updated.visits.filter((v: any) => !(v.category === 'Cinéma' && isTestMovieTitle(v.orderedItem)));
+        if (filtered.length !== updated.visits.length) {
+            updated.visits = filtered;
+            profileChanged = true;
+        }
+    }
+
+    if (updated.movieRankings) {
+        Object.keys(updated.movieRankings).forEach(k => {
+            const r = updated.movieRankings[k];
+            if (r) {
+                const prevCount = (r.rankedTitles || []).length;
+                r.rankedTitles = (r.rankedTitles || []).filter((t: string) => !isTestMovieTitle(t));
+                r.initialRankedTitles = (r.initialRankedTitles || []).filter((t: string) => !isTestMovieTitle(t));
+                r.newlyAddedTitles = (r.newlyAddedTitles || []).filter((t: string) => !isTestMovieTitle(t));
+                if (r.movieCatalog) {
+                    Object.keys(r.movieCatalog).forEach(catKey => {
+                        if (isTestMovieTitle(catKey)) {
+                            delete r.movieCatalog[catKey];
+                            profileChanged = true;
+                        }
+                    });
+                }
+                if ((r.rankedTitles || []).length !== prevCount) {
+                    profileChanged = true;
+                }
+            }
+        });
+    }
+
+    if (profileChanged) {
+        await storeUserInDb(effectiveUid, updated);
+        if (uid && uid !== 'guest') {
+            try {
+                const userRef = doc(firestoreDb, 'users', uid);
+                await setDoc(userRef, {
+                    seenMovieTitles: updated.seenMovieTitles || [],
+                    seenMoviesData: updated.seenMoviesData || [],
+                    moviesToWatch: updated.moviesToWatch || [],
+                    rejectedMovieTitles: updated.rejectedMovieTitles || [],
+                    visits: updated.visits || [],
+                    movieRankings: updated.movieRankings || {},
+                }, { merge: true });
+            } catch (err) {
+                console.warn("Impossible de synchroniser le profil purgé avec Firestore:", err);
+            }
+        }
+        return { cleaned: true, updatedProfile: updated };
+    }
+
+    return { cleaned: hasChanges, updatedProfile: profileToClean };
 }
 
