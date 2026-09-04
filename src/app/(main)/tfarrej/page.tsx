@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import MovieSwiper from '@/components/tfarrej/movie-swiper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo, Settings, Loader2, Swords } from 'lucide-react';
+import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo, Settings, Loader2, Swords, BarChart3 } from 'lucide-react';
 import { MovieListSheet } from '@/components/tfarrej/movie-list-sheet';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TfarrejStatsDialog } from '@/components/tfarrej/tfarrej-stats-dialog';
@@ -194,38 +194,49 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
             </p>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0 pt-0.5">
-            <TfarrejStatsDialog />
+            <TfarrejStatsDialog
+              trigger={
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-xl border border-border/60 bg-card/60 hover:bg-accent/80 hover:border-border transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center"
+                  aria-label="Statistiques de visionnage"
+                >
+                  <BarChart3 className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+                </Button>
+              }
+            />
             <Button
               variant="outline"
               size="icon"
-              className="h-9 w-9 rounded-xl"
+              className="h-9 w-9 rounded-xl border border-border/60 bg-card/60 hover:bg-accent/80 hover:border-border transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center"
               aria-label="Paramètres"
               onClick={() => router.push('/settings?tab=tfarrej')}
             >
-              <Settings className="h-4 w-4" />
+              <Settings className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
             </Button>
           </div>
         </div>
 
         {/* Ligne 2 : Grille de boutons d'action parfaitement alignés et calibrés */}
         {type === 'movie' ? (
-          <div className="grid grid-cols-3 gap-2 w-full">
+          <div className="grid grid-cols-3 gap-2 sm:gap-2.5 w-full">
             <Button
               variant={hasUnrankedMovies ? "default" : "outline"}
-              className={`h-10 px-2 sm:px-4 font-bold rounded-xl justify-center transition-all ${
+              className={`h-10 px-2 sm:px-4 font-black rounded-xl justify-center transition-all duration-200 active:scale-[0.98] ${
                 hasUnrankedMovies
-                  ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white border-0 shadow-md animate-pulse'
-                  : 'border-amber-400/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 dark:text-amber-300'
+                  ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white border border-white/20 shadow-[0_4px_16px_rgba(99,102,241,0.35)] hover:shadow-[0_6px_22px_rgba(99,102,241,0.5)] animate-pulse'
+                  : 'border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-yellow-500/10 hover:from-amber-500/25 hover:to-yellow-500/20 text-amber-600 dark:text-amber-300 shadow-sm hover:shadow hover:border-amber-500/60'
               }`}
               onClick={() => setIsDuelOpen(true)}
               title="Mon classement des films vus"
             >
-              <Swords className="mr-1.5 h-4 w-4 flex-shrink-0 text-amber-400" />
+              <Swords className="mr-1.5 h-4 w-4 flex-shrink-0 text-amber-400 drop-shadow" />
               <span className="truncate">
                 {existingRanking ? (hasUnrankedMovies ? "Nouveaux Duels" : "Classement") : "Classement"}
               </span>
               {hasUnrankedMovies && (
-                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-400 text-black text-[10px] font-black leading-none">
+                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-amber-400 text-black text-[10px] font-black leading-none shadow-sm">
                   {unrankedCount}
                 </span>
               )}
@@ -233,7 +244,10 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
 
             <MovieListSheet
               trigger={
-                <Button variant="ocean" className="h-10 px-2 sm:px-4 rounded-xl justify-center w-full">
+                <Button
+                  variant="ocean"
+                  className="h-10 px-2 sm:px-4 rounded-xl justify-center w-full font-bold shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98] border border-teal-500/30 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white"
+                >
                   <ListVideo className="mr-1.5 h-4 w-4 flex-shrink-0" />
                   <span className="truncate">À Voir</span>
                 </Button>
@@ -246,8 +260,11 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
 
             <MovieListSheet
               trigger={
-                <Button variant="default" className="h-10 px-2 sm:px-4 rounded-xl justify-center w-full">
-                  <Eye className="mr-1.5 h-4 w-4 flex-shrink-0" />
+                <Button
+                  variant="default"
+                  className="h-10 px-2 sm:px-4 rounded-xl justify-center w-full font-bold shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98] border border-slate-700/40 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 hover:from-slate-800 hover:to-slate-700 dark:from-slate-800 dark:to-slate-700 text-white"
+                >
+                  <Eye className="mr-1.5 h-4 w-4 flex-shrink-0 text-blue-400 dark:text-blue-300" />
                   <span className="truncate">Films Vus</span>
                 </Button>
               }
@@ -258,10 +275,13 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
             />
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2 w-full">
+          <div className="grid grid-cols-2 gap-2 sm:gap-2.5 w-full">
             <MovieListSheet
               trigger={
-                <Button variant="ocean" className="h-10 px-4 rounded-xl justify-center w-full">
+                <Button
+                  variant="ocean"
+                  className="h-10 px-4 rounded-xl justify-center w-full font-bold shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98] border border-teal-500/30 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white"
+                >
                   <ListVideo className="mr-2 h-4 w-4" />
                   <span className="truncate">Séries à Voir</span>
                 </Button>
@@ -274,8 +294,11 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
 
             <MovieListSheet
               trigger={
-                <Button variant="default" className="h-10 px-4 rounded-xl justify-center w-full">
-                  <Eye className="mr-2 h-4 w-4" />
+                <Button
+                  variant="default"
+                  className="h-10 px-4 rounded-xl justify-center w-full font-bold shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98] border border-slate-700/40 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 hover:from-slate-800 hover:to-slate-700 dark:from-slate-800 dark:to-slate-700 text-white"
+                >
+                  <Eye className="mr-2 h-4 w-4 text-blue-400 dark:text-blue-300" />
                   <span className="truncate">Séries Vues</span>
                 </Button>
               }
@@ -290,9 +313,9 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
 
       <div className="flex justify-center pb-2">
         <Tabs value={type} className="w-[400px]" onValueChange={handleTypeChange}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="movie" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">Films</TabsTrigger>
-            <TabsTrigger value="tv" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">Séries</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 p-1 rounded-2xl bg-muted/60 backdrop-blur-md border border-border/50">
+            <TabsTrigger value="movie" className="rounded-xl font-bold transition-all data-[state=active]:bg-purple-600 data-[state=active]:text-white data-[state=active]:shadow-sm">Films</TabsTrigger>
+            <TabsTrigger value="tv" className="rounded-xl font-bold transition-all data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-sm">Séries</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>

@@ -983,14 +983,19 @@ function MovieListContent({
 
         <div className="flex gap-2">
           {/* Add Button (Available for all lists now) */}
-          <Button variant="outline" size="sm" onClick={() => onAddManual()} className="gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onAddManual()}
+            className="gap-1 rounded-xl font-semibold border-border/70 bg-card/60 hover:bg-accent/80 hover:border-primary/40 shadow-sm active:scale-95 transition-all"
+          >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">Ajouter</span>
           </Button>
 
           {/* Year Filter */}
           <Select value={yearFilter} onValueChange={setYearFilter}>
-            <SelectTrigger className="w-[100px]">
+            <SelectTrigger className="w-[100px] rounded-xl border-border/70 bg-card/60 hover:bg-accent/80 shadow-sm transition-all">
               <Calendar className="h-3 w-3 mr-1" />
               <SelectValue placeholder="Année" />
             </SelectTrigger>
@@ -1003,11 +1008,15 @@ function MovieListContent({
           </Select>
 
           {/* View Toggle */}
-          <div className="flex border rounded-md">
+          <div className="flex border border-border/60 rounded-xl overflow-hidden p-0.5 bg-muted/40 backdrop-blur-sm">
             <Button
               variant={viewMode === 'list' ? 'secondary' : 'ghost'}
               size="icon"
-              className="h-9 w-9 rounded-r-none"
+              className={`h-8 w-8 rounded-lg transition-all ${
+                viewMode === 'list'
+                  ? 'bg-background shadow-sm font-bold text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
               onClick={() => setViewMode('list')}
             >
               <List className="h-4 w-4" />
@@ -1015,7 +1024,11 @@ function MovieListContent({
             <Button
               variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
               size="icon"
-              className="h-9 w-9 rounded-l-none"
+              className={`h-8 w-8 rounded-lg transition-all ${
+                viewMode === 'grid'
+                  ? 'bg-background shadow-sm font-bold text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
               onClick={() => setViewMode('grid')}
             >
               <Grid3X3 className="h-4 w-4" />
@@ -1028,10 +1041,10 @@ function MovieListContent({
       {listType === 'seenMovieTitles' && (
         <Button
           onClick={() => setIsDuelModalOpen(true)}
-          className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold h-9 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-[0.99]"
+          className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-xs sm:text-sm h-10 rounded-2xl flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(99,102,241,0.35)] hover:shadow-[0_6px_22px_rgba(99,102,241,0.5)] border border-white/20 transition-all duration-200 active:scale-[0.98]"
         >
-          <Swords className="w-4 h-4 text-amber-300" />
-          {existingRanking ? "⚔️ Voir / Ajuster mon Classement par Duel" : "⚔️ Lancer le Duel des Films Vus"}
+          <Swords className="w-4 h-4 text-amber-300 drop-shadow" />
+          <span>{existingRanking ? "⚔️ Voir / Ajuster mon Classement par Duel" : "⚔️ Lancer le Duel des Films Vus"}</span>
         </Button>
       )}
 

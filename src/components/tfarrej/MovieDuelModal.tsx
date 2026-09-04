@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Dialog,
@@ -54,6 +54,15 @@ export function MovieDuelModal({
   const [session, setSession] = useState<DuelSessionState | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedWinnerSide, setSelectedWinnerSide] = useState<'A' | 'B' | null>(null);
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll au sommet dès que le classement finalisé s'affiche (pour que le #1 soit directement visible)
+  useEffect(() => {
+    if (session?.isFinished && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [session?.isFinished]);
 
   // Classement effectif (prop direct ou depuis le stockage local/cloud)
   const effectiveExistingRanking = useMemo(() => {
@@ -294,7 +303,7 @@ export function MovieDuelModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] w-[95vw] max-h-[92vh] overflow-hidden p-0 border border-border/40 bg-[#0B0C10] text-white shadow-[0_25px_70px_rgba(0,0,0,0.85)] flex flex-col !z-[200]">
+      <DialogContent className="sm:max-w-[700px] w-[95vw] max-h-[92vh] overflow-hidden p-0 border border-border/40 bg-[#0B0C10] text-white shadow-[0_25px_70px_rgba(0,0,0,0.85)] flex flex-col !z-[200] [&>button]:text-white [&>button]:opacity-80 [&>button:hover]:opacity-100 [&>button]:bg-white/10 [&>button]:p-1.5 [&>button]:rounded-full [&>button]:transition-all">
         {/* Header néon cinématographique */}
         <div className="relative px-6 py-4 border-b border-white/10 bg-gradient-to-r from-blue-950/40 via-purple-950/40 to-slate-900/40 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -320,7 +329,10 @@ export function MovieDuelModal({
         </div>
 
         {/* Corps principal : Stage de duel OU Écran de classement animé */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-6 flex flex-col justify-center items-center relative">
+        <div 
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto p-3 sm:p-6 flex flex-col justify-start items-center relative scroll-smooth"
+        >
           <AnimatePresence mode="wait">
             {!session.isFinished && session.activeDuel ? (
               <motion.div
@@ -329,7 +341,7 @@ export function MovieDuelModal({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.97 }}
                 transition={{ duration: 0.2 }}
-                className="w-full flex flex-col items-center"
+                className="w-full flex flex-col items-center my-auto"
               >
                 {/* Info bulle sur le cycle des duels */}
                 <div className={`w-full max-w-[560px] mb-3 px-3 py-2 rounded-xl text-[11px] leading-relaxed flex items-center gap-2 border ${
@@ -438,7 +450,7 @@ export function MovieDuelModal({
                     {/* Bouton de vote direct */}
                     <Button
                       size="sm"
-                      className="mt-2.5 sm:mt-3.5 w-full py-1.5 sm:py-2 text-[11px] sm:text-xs font-black rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-500/25 active:scale-95 transition-all"
+                      className="mt-2.5 sm:mt-3.5 w-full py-2 sm:py-2.5 text-[11px] sm:text-xs font-black rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-500 hover:to-indigo-400 text-white shadow-[0_4px_15px_rgba(59,130,246,0.35)] hover:shadow-[0_6px_20px_rgba(59,130,246,0.5)] border border-white/20 backdrop-blur-sm active:scale-95 transition-all duration-200"
                     >
                       <span className="sm:hidden">Choisir</span>
                       <span className="hidden sm:inline">Préférer ce film</span>
@@ -524,7 +536,7 @@ export function MovieDuelModal({
                     {/* Bouton de vote direct */}
                     <Button
                       size="sm"
-                      className="mt-2.5 sm:mt-3.5 w-full py-1.5 sm:py-2 text-[11px] sm:text-xs font-black rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-md shadow-purple-500/25 active:scale-95 transition-all"
+                      className="mt-2.5 sm:mt-3.5 w-full py-2 sm:py-2.5 text-[11px] sm:text-xs font-black rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-purple-500 hover:from-purple-500 hover:to-pink-400 text-white shadow-[0_4px_15px_rgba(168,85,247,0.35)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.5)] border border-white/20 backdrop-blur-sm active:scale-95 transition-all duration-200"
                     >
                       <span className="sm:hidden">Choisir</span>
                       <span className="hidden sm:inline">Préférer ce film</span>
@@ -542,7 +554,7 @@ export function MovieDuelModal({
                     size="sm"
                     onClick={handleUndo}
                     disabled={session.history.length === 0}
-                    className="text-white/60 hover:text-white hover:bg-white/10 ml-auto flex items-center gap-1.5 text-xs py-1 h-8"
+                    className="text-white/70 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-xl px-3 ml-auto flex items-center gap-1.5 text-xs py-1 h-8 transition-all active:scale-95 shadow-sm disabled:opacity-30 disabled:pointer-events-none"
                   >
                     <Undo2 className="w-3.5 h-3.5" /> Annuler le choix
                   </Button>
@@ -570,7 +582,7 @@ export function MovieDuelModal({
                 </div>
                 <Button
                   onClick={() => onOpenChange(false)}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-md py-2.5"
+                  className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-extrabold rounded-2xl shadow-[0_8px_25px_rgba(99,102,241,0.35)] hover:shadow-[0_10px_30px_rgba(99,102,241,0.5)] active:scale-95 transition-all py-3 border border-white/10"
                 >
                   Compris
                 </Button>
@@ -622,7 +634,11 @@ export function MovieDuelModal({
                         transition={{ type: 'spring', stiffness: 350, damping: 25 }}
                         className={`flex items-center justify-between p-2.5 sm:p-3 rounded-2xl border transition-all ${
                           item.currentRank === 1
-                            ? 'bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-transparent border-amber-400/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]'
+                            ? 'bg-gradient-to-r from-amber-500/20 via-yellow-500/10 to-transparent border-amber-400/50 shadow-[0_0_20px_rgba(245,158,11,0.2)]'
+                            : item.currentRank === 2
+                            ? 'bg-gradient-to-r from-slate-400/20 via-slate-500/10 to-transparent border-slate-300/40 shadow-[0_0_15px_rgba(203,213,225,0.15)]'
+                            : item.currentRank === 3
+                            ? 'bg-gradient-to-r from-amber-700/20 via-amber-800/10 to-transparent border-amber-600/40 shadow-[0_0_15px_rgba(180,83,9,0.15)]'
                             : item.isNew
                             ? 'bg-gradient-to-r from-blue-500/15 via-indigo-500/10 to-transparent border-blue-400/40'
                             : 'bg-white/[0.04] border-white/10 hover:border-white/20'
@@ -707,9 +723,10 @@ export function MovieDuelModal({
                   })}
                 </motion.div>
 
-                {/* Bouton de confirmation / publication */}
-                <div className="w-full max-w-[550px] flex flex-col sm:flex-row gap-3">
+                {/* Boutons d'actions : Valider & Recommencer (visibilité maximale & design moderne sans gris sur blanc) */}
+                <div className="sticky bottom-0 bg-[#0B0C10]/95 backdrop-blur-md pt-3 pb-1 border-t border-white/10 w-full max-w-[550px] z-20 mt-auto flex flex-col sm:flex-row gap-3">
                   <Button
+                    type="button"
                     onClick={() => {
                       if (session) {
                         executeSaveRanking(session, { notifyToast: true, closeModal: true });
@@ -718,24 +735,28 @@ export function MovieDuelModal({
                       }
                     }}
                     disabled={isSaving}
-                    className="flex-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold h-12 rounded-2xl shadow-[0_10px_30px_rgba(99,102,241,0.3)] transition-all"
+                    className="flex-1 h-12 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-sm shadow-[0_8px_25px_rgba(99,102,241,0.4)] hover:shadow-[0_12px_32px_rgba(99,102,241,0.55)] border border-white/15 backdrop-blur-md transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
                   >
                     {isSaving ? (
-                      "Enregistrement..."
+                      <span className="flex items-center gap-2">
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Enregistrement...
+                      </span>
                     ) : (
                       <>
-                        <Check className="w-4 h-4 mr-2" />
-                        {effectiveExistingRanking ? "Valider et Fermer" : "Publier pour le Wrap-Up"}
+                        <Check className="w-4 h-4 text-emerald-300 stroke-[3]" />
+                        <span>{effectiveExistingRanking ? "Valider et Fermer" : "Publier pour le Wrap-Up"}</span>
                       </>
                     )}
                   </Button>
                   <Button
-                    variant="outline"
+                    type="button"
+                    variant="ghost"
                     onClick={() => setSession(createInitialDuelSession(seenMovies))}
-                    className="border-white/20 text-white hover:bg-white/10 rounded-2xl h-12"
+                    className="h-12 px-6 rounded-2xl bg-slate-800/90 hover:bg-slate-700/90 text-white font-bold border border-white/20 hover:border-white/40 shadow-lg shadow-black/40 backdrop-blur-md transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2 group"
                   >
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Recommencer
+                    <RotateCcw className="w-4 h-4 text-rose-400 group-hover:-rotate-90 transition-transform duration-300" />
+                    <span className="text-white font-bold">Recommencer</span>
                   </Button>
                 </div>
               </motion.div>
