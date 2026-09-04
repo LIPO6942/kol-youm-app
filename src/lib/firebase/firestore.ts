@@ -240,22 +240,48 @@ export async function updateUserProfile(uid: string, data: Partial<Omit<UserProf
 }
 
 export async function removeMovieFromList(uid: string, listName: 'moviesToWatch' | 'seenMovieTitles' | 'seriesToWatch' | 'seenSeriesTitles' | 'rejectedMovieTitles' | 'rejectedSeriesTitles', movieTitle: string) {
-    const userRef = doc(firestoreDb, 'users', uid);
-    await setDoc(userRef, { [listName]: arrayRemove(movieTitle) }, { merge: true });
-    const localProfile = await getUserFromDb(uid);
+    const norm = movieTitle.toLowerCase().trim();
+    if (uid && uid !== 'guest') {
+        try {
+            const userRef = doc(firestoreDb, 'users', uid);
+            await setDoc(userRef, { [listName]: arrayRemove(movieTitle) }, { merge: true });
+        } catch (e) {
+            console.warn('Firestore setDoc failed in removeMovieFromList:', e);
+        }
+    }
+    const localProfile = await getUserFromDb(uid || 'guest');
     if (localProfile) {
         const updatedProfile = { ...localProfile } as any;
         const current: string[] = Array.isArray(updatedProfile[listName]) ? updatedProfile[listName] : [];
-        updatedProfile[listName] = current.filter((t: string) => t !== movieTitle);
+        updatedProfile[listName] = current.filter((t: string) => t.toLowerCase().trim() !== norm);
 
         // Also clean up detailed data if removing from seen list
-        if (listName === 'seenMovieTitles' && updatedProfile.seenMoviesData) {
-            updatedProfile.seenMoviesData = updatedProfile.seenMoviesData.filter((m: any) => m.title !== movieTitle);
+        if (listName === 'seenMovieTitles') {
+            if (updatedProfile.seenMoviesData) {
+                updatedProfile.seenMoviesData = updatedProfile.seenMoviesData.filter((m: any) => m.title?.toLowerCase()?.trim() !== norm);
+            }
+            if (updatedProfile.seenMovieHistory) {
+                updatedProfile.seenMovieHistory = updatedProfile.seenMovieHistory.filter((m: any) => m.title?.toLowerCase()?.trim() !== norm);
+            }
+            // Clean from any active movieRankings
+            if (updatedProfile.movieRankings) {
+                const updatedRankings = { ...updatedProfile.movieRankings };
+                Object.keys(updatedRankings).forEach(key => {
+                    const r = updatedRankings[key];
+                    if (r && Array.isArray(r.rankedTitles)) {
+                        r.rankedTitles = r.rankedTitles.filter((t: string) => t.toLowerCase().trim() !== norm);
+                    }
+                    if (r && Array.isArray(r.newlyAddedTitles)) {
+                        r.newlyAddedTitles = r.newlyAddedTitles.filter((t: string) => t.toLowerCase().trim() !== norm);
+                    }
+                });
+                updatedProfile.movieRankings = updatedRankings;
+            }
         } else if (listName === 'seenSeriesTitles' && updatedProfile.seenSeriesData) {
-            updatedProfile.seenSeriesData = updatedProfile.seenSeriesData.filter((m: any) => m.title !== movieTitle);
+            updatedProfile.seenSeriesData = updatedProfile.seenSeriesData.filter((m: any) => m.title?.toLowerCase()?.trim() !== norm);
         }
 
-        await storeUserInDb(uid, updatedProfile);
+        await storeUserInDb(uid || 'guest', updatedProfile);
     }
 }
 

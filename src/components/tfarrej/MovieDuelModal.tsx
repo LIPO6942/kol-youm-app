@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Swords, Trophy, ArrowUp, ArrowDown, Minus, Undo2, Check, Sparkles,
-  Film, Clapperboard, Star, ChevronRight, RotateCcw, X, Rocket
+  Film, Clapperboard, Star, ChevronRight, RotateCcw, X, Rocket, EyeOff
 } from 'lucide-react';
 import {
   DuelMovieItem,
@@ -24,9 +24,18 @@ import {
   undoDuelDecision,
   calculateRankMovements,
   RankMovement,
+  dismissCandidate,
+  removeReferenceFromSession,
 } from '@/lib/movie-duel-engine';
 import { useAuth } from '@/hooks/use-auth';
-import { saveMonthlyMovieRanking, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters } from '@/lib/firebase/firestore';
+import {
+  saveMonthlyMovieRanking,
+  getStoredMovieRanking,
+  MonthlyMovieRanking,
+  isTestMovieTitle,
+  backfillMoviePosters,
+  removeMovieFromList,
+} from '@/lib/firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 interface MovieDuelModalProps {
@@ -364,6 +373,37 @@ export function MovieDuelModal({
     setSession(prev => (prev ? undoDuelDecision(prev) : null));
   }, [session]);
 
+  // Écarter un film non vu et le retirer de la liste des films vus
+  const handleMarkNotWatched = useCallback(async (side: 'A' | 'B') => {
+    if (!session || !session.activeDuel) return;
+    const targetMovie = side === 'A' ? session.activeDuel.movieA : session.activeDuel.movieB;
+    const title = targetMovie.title;
+
+    let nextSession: DuelSessionState;
+    if (side === 'A') {
+      nextSession = dismissCandidate(session);
+    } else {
+      nextSession = removeReferenceFromSession(session, title);
+    }
+    setSession(nextSession);
+
+    if (nextSession.isFinished) {
+      executeSaveRanking(nextSession, { notifyToast: false, closeModal: false });
+    }
+
+    const effectiveUid = user?.uid || userProfile?.uid || 'guest';
+    try {
+      await removeMovieFromList(effectiveUid, 'seenMovieTitles', title);
+    } catch (err) {
+      console.warn("Could not remove movie from seen list:", err);
+    }
+
+    toast({
+      title: `"${title}" retiré`,
+      description: "Ce film a été retiré du duel et de votre liste de films vus.",
+    });
+  }, [session, user?.uid, userProfile?.uid, executeSaveRanking, toast]);
+
   // Raccourcis clavier (Flèche gauche = Film A, Flèche droite = Film B)
   useEffect(() => {
     if (!isOpen || !session || session.isFinished) return;
@@ -454,19 +494,31 @@ export function MovieDuelModal({
                 className="w-full flex flex-col items-center my-auto"
               >
                 {/* Info bulle sur le cycle des duels */}
-                <div className={`w-full max-w-[560px] mb-3 px-3 py-2 rounded-xl text-[11px] leading-relaxed flex items-center gap-2 border ${
+                <div className={`w-full max-w-[560px] mb-3 px-3 py-2 rounded-xl text-[11px] leading-relaxed flex items-center justify-between gap-2 border ${
                   session.mode === 'incremental'
                     ? 'bg-amber-500/10 border-amber-400/30 text-amber-200'
                     : 'bg-blue-500/10 border-blue-400/30 text-blue-200'
                 }`}>
-                  <Sparkles className={`w-3.5 h-3.5 flex-shrink-0 ${session.mode === 'incremental' ? 'text-amber-400' : 'text-blue-400'}`} />
-                  <span>
-                    {session.mode === 'incremental' ? (
-                      <><strong>Reclassement express :</strong> Seuls vos <strong>nouveaux films ajoutés</strong> sont défiés pour intégrer directement votre palmarès existant !</>
-                    ) : (
-                      <><strong>Premier duel du mois :</strong> Tous vos films sont comparés cette première fois. Ensuite, seuls vos <strong>futurs ajouts</strong> seront départagés !</>
-                    )}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className={`w-3.5 h-3.5 flex-shrink-0 ${session.mode === 'incremental' ? 'text-amber-400' : 'text-blue-400'}`} />
+                    <span>
+                      {session.mode === 'incremental' ? (
+                        <><strong>Reclassement :</strong> Insertion de <span className="font-semibold text-white">« {session.currentCandidate?.title} »</span> {session.pendingItems.length > 0 && <span className="opacity-75">({session.pendingItems.length} en attente)</span>}</>
+                      ) : (
+                        <><strong>Premier duel du mois :</strong> Tous vos films sont comparés cette première fois. Ensuite, seuls vos <strong>futurs ajouts</strong> seront départagés !</>
+                      )}
+                    </span>
+                  </div>
+                  {session.mode === 'incremental' && session.currentCandidate && (
+                    <button
+                      type="button"
+                      onClick={() => handleMarkNotWatched('A')}
+                      className="text-[10px] text-amber-300/80 hover:text-amber-200 underline whitespace-nowrap shrink-0 ml-2"
+                      title="Ignorer ce film et passer au suivant s'il n'a pas été vu"
+                    >
+                      Passer
+                    </button>
+                  )}
                 </div>
 
                 {/* Barre de progression & étape */}
@@ -565,6 +617,20 @@ export function MovieDuelModal({
                       <span className="sm:hidden">Choisir</span>
                       <span className="hidden sm:inline">Préférer ce film</span>
                     </Button>
+
+                    {/* Option écarter si non vu */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMarkNotWatched('A');
+                      }}
+                      className="mt-1.5 sm:mt-2 text-[10px] sm:text-[11px] text-red-400/75 hover:text-red-300 flex items-center justify-center gap-1 transition-all py-1 px-1.5 rounded-lg hover:bg-red-500/10 w-full border border-transparent hover:border-red-500/20"
+                      title="Retirer ce film s'il n'a pas été vu"
+                    >
+                      <EyeOff className="w-3 h-3 text-red-400/80" />
+                      <span>Pas vu ce film</span>
+                    </button>
                   </motion.div>
 
                   {/* Badge central VS (Visible sur mobile et desktop) */}
@@ -651,6 +717,20 @@ export function MovieDuelModal({
                       <span className="sm:hidden">Choisir</span>
                       <span className="hidden sm:inline">Préférer ce film</span>
                     </Button>
+
+                    {/* Option écarter si non vu */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMarkNotWatched('B');
+                      }}
+                      className="mt-1.5 sm:mt-2 text-[10px] sm:text-[11px] text-red-400/75 hover:text-red-300 flex items-center justify-center gap-1 transition-all py-1 px-1.5 rounded-lg hover:bg-red-500/10 w-full border border-transparent hover:border-red-500/20"
+                      title="Retirer ce film s'il n'a pas été vu"
+                    >
+                      <EyeOff className="w-3 h-3 text-red-400/80" />
+                      <span>Pas vu ce film</span>
+                    </button>
                   </motion.div>
                 </div>
 

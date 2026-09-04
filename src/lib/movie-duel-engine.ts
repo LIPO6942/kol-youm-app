@@ -366,3 +366,94 @@ export function calculateRankMovements(
     };
   });
 }
+
+/**
+ * Écarte le candidat actuel s'il a été marqué par erreur comme vu (ou retiré par l'utilisateur).
+ * Passe immédiatement au prochain film en attente sans insérer le candidat écarté.
+ */
+export function dismissCandidate(state: DuelSessionState): DuelSessionState {
+  if (state.isFinished || !state.currentCandidate) return state;
+
+  const dismissedTitle = state.currentCandidate.title;
+  const newCatalog = { ...state.movieCatalog };
+  delete newCatalog[dismissedTitle];
+
+  // Reste-t-il d'autres films à insérer ?
+  if (state.pendingItems.length > 0) {
+    const nextCandidate = state.pendingItems[0];
+    const remainingPending = state.pendingItems.slice(1);
+    const nextLow = 0;
+    const nextHigh = Math.max(0, state.sortedTitles.length - 1);
+    const nextMid = Math.floor((nextLow + nextHigh) / 2);
+    const movieB = newCatalog[state.sortedTitles[nextMid]] || { title: state.sortedTitles[nextMid] };
+
+    return {
+      ...state,
+      movieCatalog: newCatalog,
+      pendingItems: remainingPending,
+      currentCandidate: nextCandidate,
+      low: nextLow,
+      high: nextHigh,
+      mid: nextMid,
+      activeDuel: {
+        movieA: nextCandidate,
+        movieB,
+      },
+      stepNumber: state.stepNumber + 1,
+    };
+  }
+
+  // Aucun autre film en attente : terminer la session
+  return {
+    ...state,
+    movieCatalog: newCatalog,
+    pendingItems: [],
+    currentCandidate: null,
+    activeDuel: null,
+    isFinished: true,
+  };
+}
+
+/**
+ * Retire un film de référence du classement s'il a été marqué par erreur comme vu.
+ */
+export function removeReferenceFromSession(state: DuelSessionState, movieTitle: string): DuelSessionState {
+  const norm = movieTitle.toLowerCase().trim();
+  const newSorted = state.sortedTitles.filter(t => t.toLowerCase().trim() !== norm);
+  const newInitial = (state.initialRankedTitles || []).filter(t => t.toLowerCase().trim() !== norm);
+  const newNewlyAdded = (state.newlyAddedTitles || []).filter(t => t.toLowerCase().trim() !== norm);
+  const newCatalog = { ...state.movieCatalog };
+  delete newCatalog[movieTitle];
+
+  if (!state.currentCandidate || newSorted.length === 0) {
+    return {
+      ...state,
+      sortedTitles: newSorted,
+      initialRankedTitles: newInitial,
+      newlyAddedTitles: newNewlyAdded,
+      movieCatalog: newCatalog,
+      activeDuel: null,
+      isFinished: true,
+    };
+  }
+
+  const low = 0;
+  const high = Math.max(0, newSorted.length - 1);
+  const mid = Math.floor((low + high) / 2);
+  const movieB = newCatalog[newSorted[mid]] || { title: newSorted[mid] };
+
+  return {
+    ...state,
+    sortedTitles: newSorted,
+    initialRankedTitles: newInitial,
+    newlyAddedTitles: newNewlyAdded,
+    movieCatalog: newCatalog,
+    low,
+    high,
+    mid,
+    activeDuel: {
+      movieA: state.currentCandidate,
+      movieB,
+    },
+  };
+}

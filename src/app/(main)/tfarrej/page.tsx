@@ -71,12 +71,31 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
 
   const existingRanking = userProfile?.movieRankings?.[currentMonthKey] || localRanking || getStoredMovieRanking(currentMonthKey, userProfile);
 
-  // Liste de TOUS les films vus par l'utilisateur pour le classement et les duels (aucun film ignoré)
+  // Liste des films vus par l'utilisateur pour le classement et les duels
   const monthlySeenMovies: DuelMovieItem[] = useMemo(() => {
-    const seenTitles = (userProfile?.seenMovieTitles || []).filter(t => !isTestMovieTitle(t));
-    const seenDataList = (userProfile?.seenMoviesData || []).filter(m => !isTestMovieTitle(m?.title));
-    const seenHistory = ((userProfile as any)?.seenMovieHistory || []).filter((h: any) => !isTestMovieTitle(h?.title));
-    const rankedFromExisting = (existingRanking?.rankedTitles || []).filter(t => !isTestMovieTitle(t));
+    const watchlistTitles = new Set((userProfile?.moviesToWatch || []).map(t => (t || '').toLowerCase().trim()));
+    const rejectedTitles = new Set((userProfile?.rejectedMovieTitles || []).map(t => (t || '').toLowerCase().trim()));
+    const seriesTitles = new Set([
+      ...(userProfile?.seenSeriesTitles || []),
+      ...(userProfile?.seriesToWatch || []),
+      ...(userProfile?.rejectedSeriesTitles || []),
+    ].map(t => (t || '').toLowerCase().trim()));
+
+    // Filtre d'exclusion strict : un film ne peut JAMAIS être dans le duel des vus s'il est dans la Watchlist (À voir), rejeté ou est une série
+    const isExcluded = (t: string) => {
+      if (!t || typeof t !== 'string') return true;
+      const norm = t.toLowerCase().trim();
+      if (isTestMovieTitle(norm)) return true;
+      if (watchlistTitles.has(norm)) return true; // C'est dans "À voir" (Watchlist), pas encore vu !
+      if (rejectedTitles.has(norm)) return true;  // C'est ignoré / rejeté !
+      if (seriesTitles.has(norm)) return true;    // C'est une série, pas un film !
+      return false;
+    };
+
+    const seenTitles = (userProfile?.seenMovieTitles || []).filter(t => !isExcluded(t));
+    const seenDataList = (userProfile?.seenMoviesData || []).filter(m => !isExcluded(m?.title));
+    const seenHistory = ((userProfile as any)?.seenMovieHistory || []).filter((h: any) => !isExcluded(h?.title));
+    const rankedFromExisting = (existingRanking?.rankedTitles || []).filter(t => !isExcluded(t));
 
     // Map de métadonnées pour chaque titre (insensible à la casse)
     const metadataMap = new Map<string, Partial<DuelMovieItem>>();
@@ -96,7 +115,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
       }
     });
 
-    // 2. Enrichir avec seenMovieHistory (affiches TMDb issues du swiper)
+    // 2. Enrichir avec seenMovieHistory (affiches TMDb issues du swiper pour les métadonnées uniquement)
     seenHistory.forEach((h: any) => {
       if (h?.title) {
         const key = h.title.toLowerCase().trim();
@@ -123,13 +142,12 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
       }
     });
 
-    // 4. Ensemble exhaustif et dédupliqué de TOUS les titres vus
+    // 4. Ensemble des vrais titres vus (seenTitles + seenDataList + classement existant, sans pollution de watchlist)
     const allUniqueTitles = Array.from(new Set([
       ...seenTitles,
       ...seenDataList.map(m => m.title),
-      ...seenHistory.map((h: any) => h.title),
       ...rankedFromExisting,
-    ])).filter(t => Boolean(t) && typeof t === 'string' && !isTestMovieTitle(t));
+    ])).filter(t => !isExcluded(t));
 
     // 5. Construction de la liste finale pour le duel
     const results: DuelMovieItem[] = allUniqueTitles.map(title => {
@@ -148,7 +166,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
     });
 
     return results;
-  }, [userProfile?.seenMovieTitles, userProfile?.seenMoviesData, (userProfile as any)?.seenMovieHistory, userProfile?.visits, existingRanking, postersCache]);
+  }, [userProfile?.seenMovieTitles, userProfile?.seenMoviesData, (userProfile as any)?.seenMovieHistory, userProfile?.visits, userProfile?.moviesToWatch, userProfile?.rejectedMovieTitles, userProfile?.seenSeriesTitles, userProfile?.seriesToWatch, existingRanking, postersCache]);
 
   // Détection et résolution automatique des affiches manquantes
   useEffect(() => {
