@@ -295,7 +295,7 @@ export function MovieDuelModal({
         </div>
 
         {/* Corps principal : Stage de duel OU Écran de classement animé */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col justify-center items-center relative">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 flex flex-col justify-center items-center relative">
           <AnimatePresence mode="wait">
             {!session.isFinished && session.activeDuel ? (
               <motion.div
@@ -307,14 +307,14 @@ export function MovieDuelModal({
                 className="w-full flex flex-col items-center"
               >
                 {/* Barre de progression & étape */}
-                <div className="w-full max-w-[500px] mb-4 flex flex-col gap-1.5">
-                  <div className="flex justify-between items-center text-xs text-white/60 font-medium">
-                    <span className="flex items-center gap-1.5">
+                <div className="w-full max-w-[560px] mb-3 sm:mb-5 flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center text-[11px] sm:text-xs text-white/60 font-medium">
+                    <span className="flex items-center gap-1.5 text-blue-300 font-bold">
                       <Sparkles className="w-3.5 h-3.5 text-blue-400" />
                       Duel n°{session.stepNumber}
                     </span>
-                    <span>
-                      Progression estimée : {Math.min(100, Math.round((session.stepNumber / Math.max(session.stepNumber, session.estimatedTotalSteps)) * 100))}%
+                    <span className="text-white/50">
+                      Progression : {Math.min(100, Math.round((session.stepNumber / Math.max(session.stepNumber, session.estimatedTotalSteps)) * 100))}%
                     </span>
                   </div>
                   <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
@@ -329,20 +329,33 @@ export function MovieDuelModal({
                   </div>
                 </div>
 
-                {/* Arène 1 vs 1 */}
-                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 relative items-center max-w-[620px]">
+                {/* Arène 1 vs 1 : Côte à côte garanti */}
+                <div className="w-full grid grid-cols-2 gap-2.5 sm:gap-6 relative items-stretch max-w-[620px]">
                   {/* Carte Film A (Candidat à classer) */}
                   <motion.div
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => handleChoice('A')}
-                    className={`cursor-pointer rounded-2xl p-3.5 border transition-all relative overflow-hidden flex flex-col items-center text-center group ${
+                    className={`cursor-pointer rounded-2xl p-2.5 sm:p-4 border transition-all duration-200 relative overflow-hidden flex flex-col justify-between items-center text-center group select-none ${
                       selectedWinnerSide === 'A'
-                        ? 'border-blue-400 bg-blue-500/20 shadow-[0_0_35px_rgba(59,130,246,0.4)] scale-102'
-                        : 'border-white/10 hover:border-blue-400/60 bg-gradient-to-b from-white/[0.07] to-white/[0.02] shadow-lg'
+                        ? 'border-blue-400 bg-gradient-to-b from-blue-600/30 via-blue-500/20 to-black/60 shadow-[0_0_40px_rgba(59,130,246,0.55)] scale-[1.03]'
+                        : 'border-blue-500/20 hover:border-blue-400/70 bg-gradient-to-b from-blue-950/25 via-white/[0.03] to-black/50 shadow-xl'
                     }`}
                   >
-                    <div className="relative aspect-[2/3] w-full max-w-[190px] rounded-xl overflow-hidden bg-black/40 mb-3 shadow-md border border-white/5">
+                    {/* Halo lumineux subtil */}
+                    <div className="absolute -top-10 -left-10 w-24 sm:w-32 h-24 sm:h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-blue-500/20 transition-all" />
+
+                    {/* En-tête de carte */}
+                    <div className="w-full flex items-center justify-between mb-1.5 sm:mb-2">
+                      <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-400/30 text-[9px] sm:text-[10px] font-extrabold text-blue-300 uppercase tracking-wider flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                        Film 1
+                      </span>
+                      <span className="hidden sm:inline-block text-[10px] text-white/40 font-mono">← Gauche</span>
+                    </div>
+
+                    {/* Affiche de film */}
+                    <div className="relative aspect-[2/3] w-full max-w-[190px] rounded-xl overflow-hidden bg-black/60 shadow-md sm:shadow-lg border border-white/10 group-hover:border-blue-400/50 transition-all">
                       {getPosterUrl(session.activeDuel.movieA.posterUrl) ? (
                         <img
                           src={getPosterUrl(session.activeDuel.movieA.posterUrl)!}
@@ -350,46 +363,55 @@ export function MovieDuelModal({
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center p-3 text-white/40">
-                          <Film className="w-10 h-10 mb-2" />
-                          <span className="text-xs font-semibold line-clamp-2">{session.activeDuel.movieA.title}</span>
+                        <div className="w-full h-full flex flex-col items-center justify-center p-2 sm:p-3 text-white/40">
+                          <Film className="w-8 h-8 sm:w-10 sm:h-10 mb-1 text-blue-400/50" />
+                          <span className="text-[10px] sm:text-xs font-semibold line-clamp-2">{session.activeDuel.movieA.title}</span>
                         </div>
                       )}
+
+                      {/* Reflet subtil */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 pointer-events-none" />
+
                       {session.activeDuel.movieA.watchedInCinema && (
-                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-violet-900/90 border border-violet-500/40 text-[9px] font-bold text-violet-200 backdrop-blur-sm shadow-sm flex items-center gap-1">
-                          <Clapperboard className="w-2.5 h-2.5" /> Cinéma
+                        <span className="absolute top-1.5 left-1.5 px-1.5 sm:px-2 py-0.5 rounded-full bg-violet-900/90 border border-violet-500/40 text-[8px] sm:text-[9px] font-bold text-violet-200 backdrop-blur-md shadow flex items-center gap-1 z-10">
+                          <Clapperboard className="w-2.5 h-2.5" /> Ciné
                         </span>
                       )}
                     </div>
 
-                    <h4 className="text-sm sm:text-base font-black text-white line-clamp-1 group-hover:text-blue-300 transition-colors">
-                      {session.activeDuel.movieA.title}
-                    </h4>
-                    <div className="flex items-center gap-2 mt-1 text-xs text-white/50">
-                      {session.activeDuel.movieA.year && <span>{session.activeDuel.movieA.year}</span>}
-                      {session.activeDuel.movieA.rating && (
-                        <span className="flex items-center gap-0.5 text-yellow-400 font-semibold">
-                          <Star className="w-3 h-3 fill-yellow-400" /> {session.activeDuel.movieA.rating}
-                        </span>
-                      )}
+                    {/* Titre & métadonnées */}
+                    <div className="w-full mt-2 sm:mt-2.5 flex flex-col items-center">
+                      <h4 className="text-xs sm:text-base font-black text-white line-clamp-1 group-hover:text-blue-300 transition-colors w-full px-0.5">
+                        {session.activeDuel.movieA.title}
+                      </h4>
+                      <div className="flex items-center justify-center gap-1.5 sm:gap-2 mt-0.5 text-[10px] sm:text-xs text-white/50">
+                        {session.activeDuel.movieA.year && <span>{session.activeDuel.movieA.year}</span>}
+                        {session.activeDuel.movieA.rating && (
+                          <span className="flex items-center gap-0.5 text-amber-400 font-semibold">
+                            <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-amber-400" /> {session.activeDuel.movieA.rating}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
+                    {/* Bouton de vote direct */}
                     <Button
                       size="sm"
-                      className="mt-3 w-full max-w-[190px] bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-md transition-all"
+                      className="mt-2.5 sm:mt-3.5 w-full py-1.5 sm:py-2 text-[11px] sm:text-xs font-black rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-md shadow-blue-500/25 active:scale-95 transition-all"
                     >
-                      Préférer ce film
+                      <span className="sm:hidden">Choisir</span>
+                      <span className="hidden sm:inline">Préférer ce film</span>
                     </Button>
                   </motion.div>
 
-                  {/* Badge central VS */}
-                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none hidden sm:flex items-center justify-center">
+                  {/* Badge central VS (Visible sur mobile et desktop) */}
+                  <div className="absolute left-1/2 top-[38%] sm:top-[40%] -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none flex items-center justify-center">
                     <motion.div
                       animate={{ scale: [1, 1.1, 1] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                      className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 p-0.5 shadow-[0_0_25px_rgba(147,51,234,0.5)]"
+                      transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+                      className="w-8 h-8 sm:w-11 sm:h-11 rounded-full bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-500 p-[2px] shadow-[0_0_20px_rgba(147,51,234,0.6)]"
                     >
-                      <div className="w-full h-full rounded-full bg-[#0B0C10] flex items-center justify-center font-black text-xs tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-purple-300">
+                      <div className="w-full h-full rounded-full bg-[#0B0C10] flex items-center justify-center font-black text-[9px] sm:text-xs tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-white to-purple-300 border border-white/15">
                         VS
                       </div>
                     </motion.div>
@@ -400,13 +422,26 @@ export function MovieDuelModal({
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => handleChoice('B')}
-                    className={`cursor-pointer rounded-2xl p-3.5 border transition-all relative overflow-hidden flex flex-col items-center text-center group ${
+                    className={`cursor-pointer rounded-2xl p-2.5 sm:p-4 border transition-all duration-200 relative overflow-hidden flex flex-col justify-between items-center text-center group select-none ${
                       selectedWinnerSide === 'B'
-                        ? 'border-purple-400 bg-purple-500/20 shadow-[0_0_35px_rgba(168,85,247,0.4)] scale-102'
-                        : 'border-white/10 hover:border-purple-400/60 bg-gradient-to-b from-white/[0.07] to-white/[0.02] shadow-lg'
+                        ? 'border-purple-400 bg-gradient-to-b from-purple-600/30 via-purple-500/20 to-black/60 shadow-[0_0_40px_rgba(168,85,247,0.55)] scale-[1.03]'
+                        : 'border-purple-500/20 hover:border-purple-400/70 bg-gradient-to-b from-purple-950/25 via-white/[0.03] to-black/50 shadow-xl'
                     }`}
                   >
-                    <div className="relative aspect-[2/3] w-full max-w-[190px] rounded-xl overflow-hidden bg-black/40 mb-3 shadow-md border border-white/5">
+                    {/* Halo lumineux subtil */}
+                    <div className="absolute -top-10 -right-10 w-24 sm:w-32 h-24 sm:h-32 bg-purple-500/10 rounded-full blur-2xl pointer-events-none group-hover:bg-purple-500/20 transition-all" />
+
+                    {/* En-tête de carte */}
+                    <div className="w-full flex items-center justify-between mb-1.5 sm:mb-2">
+                      <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-400/30 text-[9px] sm:text-[10px] font-extrabold text-purple-300 uppercase tracking-wider flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                        Film 2
+                      </span>
+                      <span className="hidden sm:inline-block text-[10px] text-white/40 font-mono">Droite →</span>
+                    </div>
+
+                    {/* Affiche de film */}
+                    <div className="relative aspect-[2/3] w-full max-w-[190px] rounded-xl overflow-hidden bg-black/60 shadow-md sm:shadow-lg border border-white/10 group-hover:border-purple-400/50 transition-all">
                       {getPosterUrl(session.activeDuel.movieB.posterUrl) ? (
                         <img
                           src={getPosterUrl(session.activeDuel.movieB.posterUrl)!}
@@ -414,50 +449,59 @@ export function MovieDuelModal({
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center p-3 text-white/40">
-                          <Film className="w-10 h-10 mb-2" />
-                          <span className="text-xs font-semibold line-clamp-2">{session.activeDuel.movieB.title}</span>
+                        <div className="w-full h-full flex flex-col items-center justify-center p-2 sm:p-3 text-white/40">
+                          <Film className="w-8 h-8 sm:w-10 sm:h-10 mb-1 text-purple-400/50" />
+                          <span className="text-[10px] sm:text-xs font-semibold line-clamp-2">{session.activeDuel.movieB.title}</span>
                         </div>
                       )}
+
+                      {/* Reflet subtil */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 pointer-events-none" />
+
                       {session.activeDuel.movieB.watchedInCinema && (
-                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-violet-900/90 border border-violet-500/40 text-[9px] font-bold text-violet-200 backdrop-blur-sm shadow-sm flex items-center gap-1">
-                          <Clapperboard className="w-2.5 h-2.5" /> Cinéma
+                        <span className="absolute top-1.5 left-1.5 px-1.5 sm:px-2 py-0.5 rounded-full bg-violet-900/90 border border-violet-500/40 text-[8px] sm:text-[9px] font-bold text-violet-200 backdrop-blur-md shadow flex items-center gap-1 z-10">
+                          <Clapperboard className="w-2.5 h-2.5" /> Ciné
                         </span>
                       )}
                     </div>
 
-                    <h4 className="text-sm sm:text-base font-black text-white line-clamp-1 group-hover:text-purple-300 transition-colors">
-                      {session.activeDuel.movieB.title}
-                    </h4>
-                    <div className="flex items-center gap-2 mt-1 text-xs text-white/50">
-                      {session.activeDuel.movieB.year && <span>{session.activeDuel.movieB.year}</span>}
-                      {session.activeDuel.movieB.rating && (
-                        <span className="flex items-center gap-0.5 text-yellow-400 font-semibold">
-                          <Star className="w-3 h-3 fill-yellow-400" /> {session.activeDuel.movieB.rating}
-                        </span>
-                      )}
+                    {/* Titre & métadonnées */}
+                    <div className="w-full mt-2 sm:mt-2.5 flex flex-col items-center">
+                      <h4 className="text-xs sm:text-base font-black text-white line-clamp-1 group-hover:text-purple-300 transition-colors w-full px-0.5">
+                        {session.activeDuel.movieB.title}
+                      </h4>
+                      <div className="flex items-center justify-center gap-1.5 sm:gap-2 mt-0.5 text-[10px] sm:text-xs text-white/50">
+                        {session.activeDuel.movieB.year && <span>{session.activeDuel.movieB.year}</span>}
+                        {session.activeDuel.movieB.rating && (
+                          <span className="flex items-center gap-0.5 text-amber-400 font-semibold">
+                            <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-amber-400" /> {session.activeDuel.movieB.rating}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
+                    {/* Bouton de vote direct */}
                     <Button
                       size="sm"
-                      className="mt-3 w-full max-w-[190px] bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl shadow-md transition-all"
+                      className="mt-2.5 sm:mt-3.5 w-full py-1.5 sm:py-2 text-[11px] sm:text-xs font-black rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-md shadow-purple-500/25 active:scale-95 transition-all"
                     >
-                      Préférer ce film
+                      <span className="sm:hidden">Choisir</span>
+                      <span className="hidden sm:inline">Préférer ce film</span>
                     </Button>
                   </motion.div>
                 </div>
 
                 {/* Barre d'outils du duel (Annuler & indices clavier) */}
-                <div className="flex items-center justify-between w-full max-w-[500px] mt-5 pt-3 border-t border-white/10 text-xs text-white/40">
+                <div className="flex items-center justify-between w-full max-w-[500px] mt-3 sm:mt-5 pt-2.5 sm:pt-3 border-t border-white/10 text-xs text-white/40">
                   <span className="hidden sm:inline">
-                    💡 Raccourcis : <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/80">←</kbd> Film A / <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/80">→</kbd> Film B
+                    💡 Raccourcis : <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/80">←</kbd> Film 1 / <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/80">→</kbd> Film 2
                   </span>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleUndo}
                     disabled={session.history.length === 0}
-                    className="text-white/60 hover:text-white hover:bg-white/10 ml-auto flex items-center gap-1"
+                    className="text-white/60 hover:text-white hover:bg-white/10 ml-auto flex items-center gap-1.5 text-xs py-1 h-8"
                   >
                     <Undo2 className="w-3.5 h-3.5" /> Annuler le choix
                   </Button>
