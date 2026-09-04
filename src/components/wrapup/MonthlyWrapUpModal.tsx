@@ -194,7 +194,8 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
   const wrapUpDate = React.useMemo(() => new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, 1), [targetDate]);
   const monthKey = React.useMemo(() => `${wrapUpDate.getFullYear()}-${String(wrapUpDate.getMonth() + 1).padStart(2, '0')}`, [wrapUpDate]);
   const stats = useMonthlyWrapUp(user, wrapUpDate, placesWithZones);
-  const { user: authUser } = useAuth();
+  const { user: authUser, userProfile } = useAuth();
+  const effectiveUserProfile = user || userProfile || null;
   const effectiveEmail = React.useMemo(() => (user?.email || authUser?.email || '').trim().toLowerCase(), [user?.email, authUser?.email]);
   const [carCareStats, setCarCareStats] = useState<CarCareMonthlyStats | null>(null);
 
@@ -246,18 +247,18 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     if (stats?.movies?.ranking) {
       setActiveRanking(stats.movies.ranking);
     } else if (isOpen) {
-      const stored = getStoredMovieRanking(monthKey, userProfile || user);
+      const stored = getStoredMovieRanking(monthKey, effectiveUserProfile);
       if (stored) setActiveRanking(stored);
     }
-  }, [stats?.movies?.ranking, isOpen, monthKey, userProfile, user]);
+  }, [stats?.movies?.ranking, isOpen, monthKey, effectiveUserProfile]);
 
   const effectiveMovies = stats?.movies?.allMonthMovies || [];
   const effectiveRanking = activeRanking || stats?.movies?.ranking || null;
 
   const { rankedTitles, unrankedCount, isAllRanked, totalMoviesCount } = useMemo(() => {
-    const rTitles = (effectiveRanking?.rankedTitles || []).filter(t => !isTestMovieTitle(t));
-    const rSet = new Set(rTitles.map(t => t.toLowerCase().trim()));
-    const unranked = effectiveMovies.filter(m => !rSet.has(m.title.toLowerCase().trim()));
+    const rTitles = (effectiveRanking?.rankedTitles || []).filter(t => typeof t === 'string' && !isTestMovieTitle(t));
+    const rSet = new Set(rTitles.map(t => (t || '').toLowerCase().trim()));
+    const unranked = effectiveMovies.filter(m => m?.title && typeof m.title === 'string' && !rSet.has(m.title.toLowerCase().trim()));
     const totalCount = Math.max(rTitles.length + unranked.length, effectiveMovies.length, stats?.movies?.total || 0);
     const allRanked = rTitles.length > 0 && unranked.length === 0;
 
@@ -1086,9 +1087,9 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                       {/* Liste comparative avec mouvements de classement */}
                       {(() => {
                         const movements = calculateRankMovements(
-                          effectiveRanking.initialRankedTitles || effectiveRanking.rankedTitles,
-                          effectiveRanking.rankedTitles,
-                          effectiveRanking.newlyAddedTitles
+                          effectiveRanking?.initialRankedTitles || effectiveRanking?.rankedTitles || [],
+                          effectiveRanking?.rankedTitles || [],
+                          effectiveRanking?.newlyAddedTitles || []
                         );
                         return (
                           <motion.div variants={containerVariants} className="w-full max-w-[310px] space-y-1.5 mb-3 pointer-events-auto">

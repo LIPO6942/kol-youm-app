@@ -468,18 +468,34 @@ export function useMonthlyWrapUp(
     const allSeenDataTitles = ((user as any)?.seenMoviesData || []).map((m: any) => m.title).filter((t: string) => !isExcluded(t));
 
     const monthMovieTitlesSet = new Set<string>();
-    datedMovies.forEach(m => monthMovieTitlesSet.add(m.title));
-    rankedFromExisting.forEach(t => monthMovieTitlesSet.add(t));
+    datedMovies.forEach(m => {
+      if (m?.title && typeof m.title === 'string' && !isExcluded(m.title)) {
+        monthMovieTitlesSet.add(m.title.trim());
+      }
+    });
+    rankedFromExisting.forEach(t => {
+      if (t && typeof t === 'string' && !isExcluded(t)) {
+        monthMovieTitlesSet.add(t.trim());
+      }
+    });
     if (isCurrentMonth) {
-      allSeenTitles.forEach(t => monthMovieTitlesSet.add(t));
-      allSeenDataTitles.forEach(t => monthMovieTitlesSet.add(t));
+      allSeenTitles.forEach(t => {
+        if (t && typeof t === 'string' && !isExcluded(t)) {
+          monthMovieTitlesSet.add(t.trim());
+        }
+      });
+      allSeenDataTitles.forEach(t => {
+        if (t && typeof t === 'string' && !isExcluded(t)) {
+          monthMovieTitlesSet.add(t.trim());
+        }
+      });
     }
 
     const uniqueMonthTitles = Array.from(monthMovieTitlesSet);
 
     // DuelMovieItem[] final pour les stats et le modal
     const duelItems: DuelMovieItem[] = uniqueMonthTitles.map(title => {
-      const meta = metadataMap.get(title.toLowerCase().trim()) || {};
+      const meta = metadataMap.get((title || '').toLowerCase().trim()) || {};
       return {
         title,
         posterUrl: meta.posterUrl,
@@ -498,8 +514,8 @@ export function useMonthlyWrapUp(
         if (m.cinemaPlace) {
           cinemaCounts[m.cinemaPlace] = (cinemaCounts[m.cinemaPlace] || 0) + 1;
         }
-        const alreadyExists = cinemaSessions.some(s => s.title.toLowerCase() === m.title.toLowerCase());
-        if (!alreadyExists) {
+        const alreadyExists = cinemaSessions.some(s => (s?.title || '').toLowerCase() === (m?.title || '').toLowerCase());
+        if (!alreadyExists && m.title) {
           cinemaSessions.push({
             title: m.title,
             cinemaPlace: m.cinemaPlace,
@@ -516,14 +532,16 @@ export function useMonthlyWrapUp(
     ];
     const deduplicateSeries = (list: any[]) => {
       const map = new Map();
-      list.forEach(m => map.set(m.title, m));
+      list.forEach(m => {
+        if (m?.title) map.set(m.title, m);
+      });
       return Array.from(map.values());
     };
     const uniqueSeries = deduplicateSeries(seriesHistory);
 
     // Calcul précis du statut de classement
-    const rankedSet = new Set((monthlyRanking?.rankedTitles || []).map(t => t.toLowerCase().trim()));
-    const unrankedMovies = duelItems.filter(m => !rankedSet.has(m.title.toLowerCase().trim()));
+    const rankedSet = new Set((monthlyRanking?.rankedTitles || []).filter(t => typeof t === 'string').map(t => t.toLowerCase().trim()));
+    const unrankedMovies = duelItems.filter(m => m?.title && typeof m.title === 'string' && !rankedSet.has(m.title.toLowerCase().trim()));
     const unrankedCount = unrankedMovies.length;
     const isAllRanked = Boolean(monthlyRanking && (monthlyRanking.rankedTitles || []).length > 0 && unrankedCount === 0);
 

@@ -334,18 +334,18 @@ export function undoDuelDecision(state: DuelSessionState): DuelSessionState {
  * pour animer visuellement le reclassement.
  */
 export function calculateRankMovements(
-  initialRanked: string[],
-  currentRanked: string[],
+  initialRanked: string[] = [],
+  currentRanked: string[] = [],
   newTitles: string[] = []
 ): RankMovement[] {
   const initialMap = new Map<string, number>();
-  initialRanked.forEach((title, index) => {
-    initialMap.set(title, index + 1); // 1-indexed
+  (initialRanked || []).forEach((title, index) => {
+    if (title) initialMap.set(title, index + 1); // 1-indexed
   });
 
-  const newSet = new Set(newTitles);
+  const newSet = new Set(newTitles || []);
 
-  return currentRanked.map((title, index) => {
+  return (currentRanked || []).map((title, index) => {
     const currentRank = index + 1;
     const isNew = newSet.has(title) || !initialMap.has(title);
     const previousRank = initialMap.get(title);
