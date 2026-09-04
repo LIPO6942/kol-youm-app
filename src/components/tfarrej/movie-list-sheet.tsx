@@ -451,22 +451,78 @@ function MovieListContent({
 
   const duelSeenMovies: DuelMovieItem[] = useMemo(() => {
     if (listType !== 'seenMovieTitles') return [];
-    const list = (userProfile?.seenMoviesData || []).filter(m => {
-      if (!m.viewedAt) return false;
-      const d = new Date(m.viewedAt);
+    const seenDataList = userProfile?.seenMoviesData || [];
+    const seenDataMap = new Map(seenDataList.map(m => [m.title.toLowerCase(), m]));
+
+    // 1. Films avec date explicite correspondant au mois courant
+    const datedThisMonth = seenDataList.filter(m => {
+      const dateVal = m.viewedAt || m.addedAt;
+      if (!dateVal) return false;
+      const d = new Date(dateVal);
       return d.getMonth() === currentMonthIndex && d.getFullYear() === currentYear;
     });
-    return list.map(m => ({
+
+    const results: DuelMovieItem[] = datedThisMonth.map(m => ({
       title: m.title,
       posterUrl: m.posterUrl || movieDetails[m.title]?.posterUrl,
       year: m.year || movieDetails[m.title]?.year,
       rating: m.rating || movieDetails[m.title]?.rating,
       watchedInCinema: m.watchedInCinema,
       cinemaPlace: m.cinemaPlace,
-      viewedAt: m.viewedAt,
+      viewedAt: m.viewedAt || m.addedAt,
       genres: m.genres,
     }));
-  }, [listType, userProfile?.seenMoviesData, movieDetails, currentMonthIndex, currentYear]);
+
+    // 2. Si un classement existe, inclure tous ses titres
+    if (existingRanking?.rankedTitles) {
+      existingRanking.rankedTitles.forEach(title => {
+        if (!results.some(r => r.title.toLowerCase() === title.toLowerCase())) {
+          const match = seenDataMap.get(title.toLowerCase());
+          results.push({
+            title,
+            posterUrl: match?.posterUrl || movieDetails[title]?.posterUrl,
+            year: match?.year || movieDetails[title]?.year,
+            rating: match?.rating || movieDetails[title]?.rating,
+            watchedInCinema: match?.watchedInCinema,
+            cinemaPlace: match?.cinemaPlace,
+            viewedAt: match?.viewedAt || match?.addedAt,
+            genres: match?.genres,
+          });
+        }
+      });
+    }
+
+    // 3. Si < 2 films, repêcher parmi tous les films vus
+    if (results.length < 2 && seenDataList.length >= 2) {
+      seenDataList.forEach(m => {
+        if (!results.some(r => r.title.toLowerCase() === m.title.toLowerCase())) {
+          results.push({
+            title: m.title,
+            posterUrl: m.posterUrl || movieDetails[m.title]?.posterUrl,
+            year: m.year || movieDetails[m.title]?.year,
+            rating: m.rating || movieDetails[m.title]?.rating,
+            watchedInCinema: m.watchedInCinema,
+            cinemaPlace: m.cinemaPlace,
+            viewedAt: m.viewedAt || m.addedAt,
+            genres: m.genres,
+          });
+        }
+      });
+    } else if (results.length < 2 && (movieTitles || []).length >= 2) {
+      (movieTitles || []).forEach(title => {
+        if (!results.some(r => r.title.toLowerCase() === title.toLowerCase())) {
+          results.push({
+            title,
+            posterUrl: movieDetails[title]?.posterUrl,
+            year: movieDetails[title]?.year,
+            rating: movieDetails[title]?.rating,
+          });
+        }
+      });
+    }
+
+    return results;
+  }, [listType, userProfile?.seenMoviesData, movieDetails, movieTitles, existingRanking, currentMonthIndex, currentYear]);
 
   const existingRanking = userProfile?.movieRankings?.[currentMonthKey] || null;
 
@@ -915,6 +971,20 @@ function MovieListContent({
         </div>
 
         <div className="flex gap-2">
+          {/* Classement des films vus */}
+          {listType === 'seenMovieTitles' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDuelModalOpen(true)}
+              className="gap-1 border-amber-400/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 dark:text-amber-300 font-semibold"
+              title="Mon classement des films vus"
+            >
+              <Swords className="h-4 w-4 text-amber-400" />
+              <span className="hidden sm:inline">Classement</span>
+            </Button>
+          )}
+
           {/* Add Button (Available for all lists now) */}
           <Button variant="outline" size="sm" onClick={() => onAddManual()} className="gap-1">
             <Plus className="h-4 w-4" />

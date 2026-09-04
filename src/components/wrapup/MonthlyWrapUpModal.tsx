@@ -829,18 +829,34 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                       </motion.div>
                       <motion.p variants={itemVariants} className="text-xs uppercase tracking-[0.3em] text-blue-300 font-bold mb-0.5">L'Instant Ciné</motion.p>
                       
-                      <motion.div variants={numberVariants} className="text-center mb-2.5">
+                      <motion.div variants={numberVariants} className="text-center mb-2">
                         <p className="text-5xl font-black text-white leading-none"><CountUp to={stats.movies.total} /></p>
                         <p className="text-white/60 text-[11px] uppercase tracking-wider font-semibold mt-0.5">films vus ce mois</p>
                       </motion.div>
 
-                      {/* 🧠 ANALYSE DE GOÛTS CINÉMATOGRAPHIQUES (Demande utilisateur) */}
+                      {/* 🎬 NOMS DES FILMS VUS CE MOIS-CI (Demande utilisateur) */}
+                      {stats.movies.titles && stats.movies.titles.length > 0 && (
+                        <motion.div variants={itemVariants} className="w-full max-h-[110px] overflow-y-auto mb-2 px-1 py-1 no-screenshot pointer-events-auto">
+                          <div className="flex flex-wrap gap-1.5 justify-center">
+                            {stats.movies.titles.map((title, idx) => (
+                              <span
+                                key={idx}
+                                className="text-[10.5px] font-medium bg-black/60 backdrop-blur-md border border-blue-400/30 text-blue-100 px-2.5 py-0.5 rounded-xl shadow-sm flex items-center gap-1"
+                              >
+                                🎬 {title}
+                              </span>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+
+                      {/* 🧠 ANALYSE DE GOÛTS CINÉMATOGRAPHIQUES */}
                       {stats.movies.genreAnalysis && (
                         <motion.div
                           variants={itemVariants}
-                          className="w-full max-w-[310px] bg-gradient-to-br from-indigo-950/80 via-slate-900/85 to-purple-950/80 border border-indigo-400/35 rounded-2xl p-3 mb-2.5 backdrop-blur-xl shadow-[0_10px_25px_rgba(79,70,229,0.25)] pointer-events-auto"
+                          className="w-full max-w-[310px] bg-gradient-to-br from-indigo-950/80 via-slate-900/85 to-purple-950/80 border border-indigo-400/35 rounded-2xl p-2.5 mb-2 backdrop-blur-xl shadow-[0_10px_25px_rgba(79,70,229,0.25)] pointer-events-auto"
                         >
-                          <div className="flex items-center gap-1.5 mb-1">
+                          <div className="flex items-center gap-1.5 mb-0.5">
                             <span className="text-base">{stats.movies.genreAnalysis.moodEmoji}</span>
                             <span className="text-[10px] uppercase font-black tracking-widest text-indigo-200">
                               {stats.movies.genreAnalysis.headline}
@@ -850,7 +866,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                             « {stats.movies.genreAnalysis.commentary} »
                           </p>
                           {stats.movies.genreAnalysis.breakdown.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
+                            <div className="flex flex-wrap gap-1 mt-1.5">
                               {stats.movies.genreAnalysis.breakdown.slice(0, 3).map((b, i) => (
                                 <span key={i} className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-white/90 border border-white/15">
                                   {b.emoji} {b.count} {b.name}
@@ -876,7 +892,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                             </div>
                             {Boolean(stats.movies.unrankedCount && stats.movies.unrankedCount > 0) && (
                               <button
-                                onClick={(e) => { e.stopPropagation(); setIsDuelOpen(true); }}
+                                onClick={(e) => { e.stopPropagation(); setIsPaused(true); setIsDuelOpen(true); }}
                                 className="text-[9.5px] font-black text-amber-200 bg-amber-500/25 border border-amber-400/50 px-2 py-0.5 rounded-full flex items-center gap-1 hover:bg-amber-500/40 transition-transform active:scale-95"
                               >
                                 <Swords className="w-2.5 h-2.5" /> +{stats.movies.unrankedCount} à classer
@@ -906,7 +922,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                         stats.movies.total >= 2 && (
                           <motion.div variants={itemVariants} className="pointer-events-auto mt-1 flex flex-col items-center gap-2">
                             <Button
-                              onClick={(e) => { e.stopPropagation(); setIsDuelOpen(true); }}
+                              onClick={(e) => { e.stopPropagation(); setIsPaused(true); setIsDuelOpen(true); }}
                               className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-xs px-4 py-2.5 rounded-2xl shadow-[0_0_30px_rgba(99,102,241,0.5)] transition-all active:scale-95"
                             >
                               <Swords className="w-3.5 h-3.5 mr-1.5 text-amber-300" />
@@ -995,7 +1011,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                       {/* Bouton pour réajuster en direct */}
                       <motion.div variants={itemVariants} className="pointer-events-auto">
                         <button
-                          onClick={(e) => { e.stopPropagation(); setIsDuelOpen(true); }}
+                          onClick={(e) => { e.stopPropagation(); setIsPaused(true); setIsDuelOpen(true); }}
                           className="text-[11px] font-bold text-purple-200 hover:text-white bg-white/10 hover:bg-white/20 border border-white/20 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all active:scale-95"
                         >
                           <Swords className="w-3.5 h-3.5 text-purple-300" /> Revoir ou ajuster les duels
@@ -1405,12 +1421,19 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                 isOpen={isDuelOpen}
                 onOpenChange={(open) => {
                   setIsDuelOpen(open);
-                  if (!open) setIsPaused(false);
+                  setIsPaused(open);
                 }}
                 monthKey={monthKey}
                 monthName={stats.monthName}
                 seenMovies={stats.movies.allMonthMovies || []}
                 existingRanking={stats.movies.ranking || null}
+                onRankingSaved={(updatedRanking) => {
+                  if (stats?.movies) {
+                    stats.movies.ranking = updatedRanking;
+                    stats.movies.unrankedCount = 0;
+                    stats.movies.hasUpdatesSincePublish = Boolean(updatedRanking.hasUpdatesSincePublish);
+                  }
+                }}
               />
             )}
           </div>

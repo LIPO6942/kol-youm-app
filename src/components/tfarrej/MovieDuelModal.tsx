@@ -82,8 +82,32 @@ export function MovieDuelModal({
       return;
     }
 
+    // 1. Si un classement existe déjà et aucun nouveau film en attente : afficher directement le classement finalisé !
+    if (existingRanking && unrankedMovies.length === 0) {
+      const existingCatalog: Record<string, DuelMovieItem> = {};
+      seenMovies.forEach(m => { existingCatalog[m.title] = m; });
+      setSession({
+        mode: 'incremental',
+        sortedTitles: existingRanking.rankedTitles,
+        pendingItems: [],
+        currentCandidate: null,
+        low: 0,
+        high: 0,
+        mid: 0,
+        activeDuel: null,
+        history: [],
+        stepNumber: 0,
+        estimatedTotalSteps: 0,
+        isFinished: true,
+        initialRankedTitles: existingRanking.initialRankedTitles || existingRanking.rankedTitles,
+        newlyAddedTitles: existingRanking.newlyAddedTitles || [],
+        movieCatalog: existingCatalog,
+      });
+      return;
+    }
+
+    // 2. Mode Incrémental : affronter les nouveaux films vus aux films déjà classés
     if (isIncrementalMode && existingRanking && unrankedMovies.length > 0) {
-      // Mode Incrémental : affronter les nouveaux films vus aux films déjà classés
       const existingCatalog: Record<string, DuelMovieItem> = {};
       seenMovies.forEach(m => { existingCatalog[m.title] = m; });
 
@@ -93,11 +117,36 @@ export function MovieDuelModal({
         existingCatalog
       );
       setSession(newSession);
-    } else {
-      // Mode Initial : tri complet depuis zéro
+      return;
+    }
+
+    // 3. Mode Initial : tri complet depuis zéro (si au moins 2 films)
+    if (seenMovies.length >= 2) {
       const newSession = createInitialDuelSession(seenMovies);
       setSession(newSession);
+      return;
     }
+
+    // 4. Moins de 2 films et aucun classement : session informative
+    const emptyCatalog: Record<string, DuelMovieItem> = {};
+    seenMovies.forEach(m => { emptyCatalog[m.title] = m; });
+    setSession({
+      mode: 'initial',
+      sortedTitles: seenMovies.map(m => m.title),
+      pendingItems: [],
+      currentCandidate: null,
+      low: 0,
+      high: 0,
+      mid: 0,
+      activeDuel: null,
+      history: [],
+      stepNumber: 0,
+      estimatedTotalSteps: 0,
+      isFinished: true,
+      initialRankedTitles: seenMovies.map(m => m.title),
+      newlyAddedTitles: [],
+      movieCatalog: emptyCatalog,
+    });
   }, [isOpen, isIncrementalMode, existingRanking, unrankedMovies, seenMovies]);
 
   // Choix utilisateur (Winner: movieA = candidate, movieB = reference)
@@ -220,7 +269,7 @@ export function MovieDuelModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] w-[95vw] max-h-[92vh] overflow-hidden p-0 border border-border/40 bg-[#0B0C10] text-white shadow-[0_25px_70px_rgba(0,0,0,0.85)] flex flex-col">
+      <DialogContent className="sm:max-w-[700px] w-[95vw] max-h-[92vh] overflow-hidden p-0 border border-border/40 bg-[#0B0C10] text-white shadow-[0_25px_70px_rgba(0,0,0,0.85)] flex flex-col !z-[200]">
         {/* Header néon cinématographique */}
         <div className="relative px-6 py-4 border-b border-white/10 bg-gradient-to-r from-blue-950/40 via-purple-950/40 to-slate-900/40 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -413,6 +462,33 @@ export function MovieDuelModal({
                     <Undo2 className="w-3.5 h-3.5" /> Annuler le choix
                   </Button>
                 </div>
+              </motion.div>
+            ) : seenMovies.length < 2 && !existingRanking ? (
+              <motion.div
+                key="insufficient-stage"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="w-full flex flex-col items-center justify-center p-6 text-center max-w-[420px]"
+              >
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-400/30 flex items-center justify-center mb-4 text-blue-300 shadow-[0_0_25px_rgba(59,130,246,0.3)]">
+                  <Swords className="w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-black text-white mb-2">
+                  Pas encore assez de films ce mois-ci
+                </h3>
+                <p className="text-xs text-white/70 leading-relaxed mb-4">
+                  Pour comparer tes films en duel et générer ton palmarès officiel du mois ({monthName || monthKey}), tu dois avoir vu au moins 2 films.
+                </p>
+                <div className="px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 text-white/90 text-xs font-semibold mb-6 flex items-center gap-2">
+                  <Film className="w-3.5 h-3.5 text-blue-400" />
+                  Films vus enregistrés ce mois : <span className="font-bold text-amber-300">{seenMovies.length}</span> / 2
+                </div>
+                <Button
+                  onClick={() => onOpenChange(false)}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-md py-2.5"
+                >
+                  Compris
+                </Button>
               </motion.div>
             ) : (
               /* ÉCRAN DE RÉSULTAT : ANIMATION DE CLASSEMENT ET DÉCLASSEMENT */

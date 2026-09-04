@@ -58,24 +58,73 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
 
   // Liste des films vus ce mois
   const monthlySeenMovies: DuelMovieItem[] = useMemo(() => {
-    const list = (userProfile?.seenMoviesData || []).filter(m => {
-      if (!m.viewedAt) return false;
-      const d = new Date(m.viewedAt);
+    const seenDataList = userProfile?.seenMoviesData || [];
+    const seenDataMap = new Map(seenDataList.map(m => [m.title.toLowerCase(), m]));
+
+    // 1. Films avec date explicite correspondant au mois courant
+    const datedThisMonth = seenDataList.filter(m => {
+      const dateVal = m.viewedAt || m.addedAt;
+      if (!dateVal) return false;
+      const d = new Date(dateVal);
       return d.getMonth() === currentMonthIndex && d.getFullYear() === currentYear;
     });
-    return list.map(m => ({
+
+    const results: DuelMovieItem[] = datedThisMonth.map(m => ({
       title: m.title,
       posterUrl: m.posterUrl,
       year: m.year,
       rating: m.rating,
       watchedInCinema: m.watchedInCinema,
       cinemaPlace: m.cinemaPlace,
-      viewedAt: m.viewedAt,
+      viewedAt: m.viewedAt || m.addedAt,
       genres: m.genres,
     }));
-  }, [userProfile?.seenMoviesData, currentMonthIndex, currentYear]);
 
-  const existingRanking = userProfile?.movieRankings?.[currentMonthKey] || null;
+    // 2. Si un classement existe pour ce mois, garantir que tous ses films sont inclus
+    if (existingRanking?.rankedTitles) {
+      existingRanking.rankedTitles.forEach(title => {
+        if (!results.some(r => r.title.toLowerCase() === title.toLowerCase())) {
+          const match = seenDataMap.get(title.toLowerCase());
+          results.push({
+            title,
+            posterUrl: match?.posterUrl,
+            year: match?.year,
+            rating: match?.rating,
+            watchedInCinema: match?.watchedInCinema,
+            cinemaPlace: match?.cinemaPlace,
+            viewedAt: match?.viewedAt || match?.addedAt,
+            genres: match?.genres,
+          });
+        }
+      });
+    }
+
+    // 3. Si toujours moins de 2 films, repêcher les films vus sans date ou récemment enregistrés
+    if (results.length < 2 && seenDataList.length >= 2) {
+      seenDataList.forEach(m => {
+        if (!results.some(r => r.title.toLowerCase() === m.title.toLowerCase())) {
+          results.push({
+            title: m.title,
+            posterUrl: m.posterUrl,
+            year: m.year,
+            rating: m.rating,
+            watchedInCinema: m.watchedInCinema,
+            cinemaPlace: m.cinemaPlace,
+            viewedAt: m.viewedAt || m.addedAt,
+            genres: m.genres,
+          });
+        }
+      });
+    } else if (results.length < 2 && (userProfile?.seenMovieTitles || []).length >= 2) {
+      (userProfile?.seenMovieTitles || []).forEach(title => {
+        if (!results.some(r => r.title.toLowerCase() === title.toLowerCase())) {
+          results.push({ title });
+        }
+      });
+    }
+
+    return results;
+  }, [userProfile?.seenMoviesData, userProfile?.seenMovieTitles, existingRanking, currentMonthIndex, currentYear]);
 
   const unrankedCount = useMemo(() => {
     if (!existingRanking) return monthlySeenMovies.length;
@@ -121,53 +170,108 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold font-headline tracking-tight">Le Tinder du Cinéma</h2>
-          <p className="text-muted-foreground">
-            "Swipez" pour découvrir votre prochain coup de cœur.
-          </p>
+      <div className="flex flex-col gap-3">
+        {/* Ligne 1 : Titre à gauche, Actions utilitaires (Stats & Paramètres) à droite */}
+        <div className="flex justify-between items-start gap-2">
+          <div>
+            <h2 className="text-2xl font-bold font-headline tracking-tight">Le Tinder du Cinéma</h2>
+            <p className="text-muted-foreground text-sm">
+              "Swipez" pour découvrir votre prochain coup de cœur.
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0 pt-0.5">
+            <TfarrejStatsDialog />
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-xl"
+              aria-label="Paramètres"
+              onClick={() => router.push('/settings?tab=tfarrej')}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2 self-end sm:self-center flex-wrap items-center">
-          <Button variant="outline" size="icon" aria-label="Paramètres" onClick={() => router.push('/settings?tab=tfarrej')}>
-            <Settings className="h-4 w-4" />
-          </Button>
-          <TfarrejStatsDialog />
-          {type === 'movie' && monthlySeenMovies.length >= 2 && (
+
+        {/* Ligne 2 : Grille de boutons d'action parfaitement alignés et calibrés */}
+        {type === 'movie' ? (
+          <div className="grid grid-cols-3 gap-2 w-full">
             <Button
               variant={hasUnrankedMovies ? "default" : "outline"}
-              className={`relative font-bold ${
+              className={`h-10 px-2 sm:px-4 font-bold rounded-xl justify-center transition-all ${
                 hasUnrankedMovies
                   ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white border-0 shadow-md animate-pulse'
-                  : ''
+                  : 'border-amber-400/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 dark:text-amber-300'
               }`}
               onClick={() => setIsDuelOpen(true)}
-              title="Classer mes films vus par duel"
+              title="Mon classement des films vus"
             >
-              <Swords className="mr-1.5 h-4 w-4 text-amber-300" />
-              {existingRanking ? (hasUnrankedMovies ? "Nouveaux Duels" : "Classement") : "Duel des Films"}
+              <Swords className="mr-1.5 h-4 w-4 flex-shrink-0 text-amber-400" />
+              <span className="truncate">
+                {existingRanking ? (hasUnrankedMovies ? "Nouveaux Duels" : "Classement") : "Classement"}
+              </span>
               {hasUnrankedMovies && (
-                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-amber-400 text-black text-[10px] font-black leading-none">
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-amber-400 text-black text-[10px] font-black leading-none">
                   {unrankedCount}
                 </span>
               )}
             </Button>
-          )}
-          <MovieListSheet
-            trigger={<Button variant="ocean"><ListVideo className="mr-2 h-4 w-4" /> {type === 'movie' ? 'Films à Voir' : 'Séries à Voir'}</Button>}
-            title={type === 'movie' ? "Ma Liste 'À Voir'" : "Mes Séries 'À Voir'"}
-            description={type === 'movie' ? "Les films mis de côté." : "Les séries mises de côté."}
-            listType={type === 'movie' ? "moviesToWatch" : "seriesToWatch"}
-            type={type}
-          />
-          <MovieListSheet
-            trigger={<Button variant="default"><Eye className="mr-2 h-4 w-4" /> {type === 'movie' ? 'Films Vus' : 'Séries Vues'}</Button>}
-            title={type === 'movie' ? "Mes Films 'Vus'" : "Mes Séries 'Vues'"}
-            description={type === 'movie' ? "L'historique des films notés." : "L'historique des séries notées."}
-            listType={type === 'movie' ? "seenMovieTitles" : "seenSeriesTitles"}
-            type={type}
-          />
-        </div>
+
+            <MovieListSheet
+              trigger={
+                <Button variant="ocean" className="h-10 px-2 sm:px-4 rounded-xl justify-center w-full">
+                  <ListVideo className="mr-1.5 h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">À Voir</span>
+                </Button>
+              }
+              title="Ma Liste 'À Voir'"
+              description="Les films mis de côté."
+              listType="moviesToWatch"
+              type={type}
+            />
+
+            <MovieListSheet
+              trigger={
+                <Button variant="default" className="h-10 px-2 sm:px-4 rounded-xl justify-center w-full">
+                  <Eye className="mr-1.5 h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">Films Vus</span>
+                </Button>
+              }
+              title="Mes Films 'Vus'"
+              description="L'historique des films notés."
+              listType="seenMovieTitles"
+              type={type}
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 w-full">
+            <MovieListSheet
+              trigger={
+                <Button variant="ocean" className="h-10 px-4 rounded-xl justify-center w-full">
+                  <ListVideo className="mr-2 h-4 w-4" />
+                  <span className="truncate">Séries à Voir</span>
+                </Button>
+              }
+              title="Mes Séries 'À Voir'"
+              description="Les séries mises de côté."
+              listType="seriesToWatch"
+              type={type}
+            />
+
+            <MovieListSheet
+              trigger={
+                <Button variant="default" className="h-10 px-4 rounded-xl justify-center w-full">
+                  <Eye className="mr-2 h-4 w-4" />
+                  <span className="truncate">Séries Vues</span>
+                </Button>
+              }
+              title="Mes Séries 'Vues'"
+              description="L'historique des séries notées."
+              listType="seenSeriesTitles"
+              type={type}
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex justify-center pb-2">

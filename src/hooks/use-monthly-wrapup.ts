@@ -451,6 +451,15 @@ export function useMonthlyWrapUp(
       genres: m.genres,
     }));
 
+    // Inclure tout titre présent dans le classement officiel
+    if (monthlyRanking?.rankedTitles) {
+      monthlyRanking.rankedTitles.forEach(t => {
+        if (!duelItems.some(d => d.title.toLowerCase() === t.toLowerCase())) {
+          duelItems.push({ title: t });
+        }
+      });
+    }
+
     let unrankedCount = 0;
     if (monthlyRanking) {
       const rankedSet = new Set(monthlyRanking.rankedTitles);
@@ -461,8 +470,13 @@ export function useMonthlyWrapUp(
 
     const hasUpdatesSincePublish = Boolean(monthlyRanking?.hasUpdatesSincePublish);
 
-    const movies = baseMovieStats ? {
-      ...baseMovieStats,
+    const allTitles = Array.from(new Set([...(baseMovieStats?.titles || []), ...(monthlyRanking?.rankedTitles || [])]));
+
+    const movies = (baseMovieStats || monthlyRanking) ? {
+      total: baseMovieStats?.total || monthlyRanking?.rankedTitles.length || 0,
+      titles: allTitles,
+      posters: baseMovieStats?.posters || [],
+      featured: baseMovieStats?.featured || null,
       ranking: monthlyRanking,
       genreAnalysis,
       unrankedCount,
