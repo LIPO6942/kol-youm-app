@@ -163,7 +163,7 @@ function SlideContainer({ children, className = '', style }: { children: React.R
 
 // ════════════════════════════════════════════════════════════════════════════
 export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTargetDate }: Props) {
-  const [targetDate] = useState(() => passedTargetDate || new Date());
+  const targetDate = React.useMemo(() => passedTargetDate || new Date(), [passedTargetDate]);
   const [placesWithZones, setPlacesWithZones] = useState<{ name: string; zone: string }[]>([]);
   const [isMuted, setIsMuted] = useState(false);
 
@@ -191,8 +191,12 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     fetchPlaces();
   }, [isOpen]);
 
-  const wrapUpDate = React.useMemo(() => new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, 1), [targetDate]);
+  const wrapUpDate = targetDate;
   const monthKey = React.useMemo(() => `${wrapUpDate.getFullYear()}-${String(wrapUpDate.getMonth() + 1).padStart(2, '0')}`, [wrapUpDate]);
+  const currentMonthKey = React.useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
   const stats = useMonthlyWrapUp(user, wrapUpDate, placesWithZones);
   const { user: authUser, userProfile } = useAuth();
   const effectiveUserProfile = user || userProfile || null;
@@ -247,10 +251,11 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     if (stats?.movies?.ranking) {
       setActiveRanking(stats.movies.ranking);
     } else if (isOpen) {
-      const stored = getStoredMovieRanking(monthKey, effectiveUserProfile);
+      const stored = getStoredMovieRanking(monthKey, effectiveUserProfile) || 
+                     (monthKey !== currentMonthKey ? getStoredMovieRanking(currentMonthKey, effectiveUserProfile) : null);
       if (stored) setActiveRanking(stored);
     }
-  }, [stats?.movies?.ranking, isOpen, monthKey, effectiveUserProfile]);
+  }, [stats?.movies?.ranking, isOpen, monthKey, currentMonthKey, effectiveUserProfile]);
 
   const effectiveMovies = stats?.movies?.allMonthMovies || [];
   const effectiveRanking = activeRanking || stats?.movies?.ranking || null;
@@ -260,7 +265,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     const rSet = new Set(rTitles.map(t => (t || '').toLowerCase().trim()));
     const unranked = effectiveMovies.filter(m => m?.title && typeof m.title === 'string' && !rSet.has(m.title.toLowerCase().trim()));
     const totalCount = Math.max(rTitles.length + unranked.length, effectiveMovies.length, stats?.movies?.total || 0);
-    const allRanked = rTitles.length > 0 && unranked.length === 0;
+    const allRanked = (rTitles.length > 0 && unranked.length === 0) || Boolean(stats?.movies?.isAllRanked);
 
     return {
       rankedTitles: rTitles,
@@ -268,7 +273,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
       isAllRanked: allRanked,
       totalMoviesCount: totalCount,
     };
-  }, [effectiveRanking, effectiveMovies, stats?.movies?.total]);
+  }, [effectiveRanking, effectiveMovies, stats?.movies?.total, stats?.movies?.isAllRanked]);
 
   // Sub-indices for multi-item slides
   const [activeKharjetIdx, setActiveKharjetIdx] = useState(0);

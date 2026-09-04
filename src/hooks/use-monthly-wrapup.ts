@@ -236,18 +236,17 @@ export function useMonthlyWrapUp(
       const catNorm = rawCat.toLowerCase().trim();
       categoryCounts[rawCat] = (categoryCounts[rawCat] || 0) + 1;
 
-      // Cinema specific tracking from visits
+      // Cinema specific tracking from visits (déduplication intelligente avec duelItems)
       const isCinemaVisit = catNorm.includes('ciné') || catNorm.includes('cinema');
       if (isCinemaVisit) {
-        if (v.placeName) {
-          cinemaCounts[v.placeName] = (cinemaCounts[v.placeName] || 0) + 1;
-        }
-        const movieTitle = v.orderedItem && isFoodDish(v.orderedItem) ? v.orderedItem.trim() : (v.orderedItem || v.note || 'Film au cinéma');
+        const rawTitle = (v.orderedItem && !isFoodDish(v.orderedItem)) ? v.orderedItem.trim() : (v.note || '');
+        const isPlaceholder = !rawTitle || /^(film(\s+au\s+cin[ée]ma)?|cin[ée]ma|cin[ée]|s[ée]ance)$/i.test(rawTitle.trim());
         cinemaSessions.push({
-          title: movieTitle,
-          cinemaPlace: v.placeName,
-          date: v.date
-        });
+          title: isPlaceholder ? 'Film au cinéma' : rawTitle,
+          cinemaPlace: v.placeName || 'Cinéma',
+          date: v.date,
+          isPlaceholder,
+        } as any);
       }
 
       // Kharjet specific tracking
@@ -373,7 +372,6 @@ export function useMonthlyWrapUp(
     const topBeverage = getTop(beverageCounts);
     const topNeighborhood = getTop(neighborhoodCounts);
     const topDay = getTop(dayCounts);
-    const topCinemaPlace = getTop(cinemaCounts);
     const topKharjetPlace = getTop(kharjetPlaceCounts);
     const topKharjetZone = getTop(kharjetZoneCounts);
 
@@ -397,7 +395,13 @@ export function useMonthlyWrapUp(
     };
 
     const monthKey = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
-    const monthlyRanking: MonthlyMovieRanking | null = (user as any)?.movieRankings?.[monthKey] || getStoredMovieRanking(monthKey, user) || null;
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthlyRanking: MonthlyMovieRanking | null = 
+      (user as any)?.movieRankings?.[monthKey] || 
+      getStoredMovieRanking(monthKey, user) || 
+      (monthKey !== currentMonthKey ? ((user as any)?.movieRankings?.[currentMonthKey] || getStoredMovieRanking(currentMonthKey, user)) : null) || 
+      null;
 
     const filterByDate = (history: any[], dateField: string) => {
         return (history || []).filter((m: any) => {
@@ -508,23 +512,48 @@ export function useMonthlyWrapUp(
       };
     });
 
-    // Mettre à jour les stats de cinéma avec les films vus en salle
+    // Fusion intelligente et déduplication des séances de cinéma (visites IRL + films vus en salle)
     duelItems.forEach((m) => {
       if (m.watchedInCinema) {
-        if (m.cinemaPlace) {
-          cinemaCounts[m.cinemaPlace] = (cinemaCounts[m.cinemaPlace] || 0) + 1;
-        }
-        const alreadyExists = cinemaSessions.some(s => (s?.title || '').toLowerCase() === (m?.title || '').toLowerCase());
-        if (!alreadyExists && m.title) {
+        const normTitle = (m.title || '').toLowerCase().trim();
+        const normPlace = (m.cinemaPlace || '').toLowerCase().trim();
+
+        const matchedIndex = cinemaSessions.findIndex(s => {
+          const sTitle = (s.title || '').toLowerCase().trim();
+          const sPlace = (s.cinemaPlace || '').toLowerCase().trim();
+          
+          if (sTitle === normTitle) return true;
+          if ((s as any).isPlaceholder && normPlace && sPlace === normPlace) return true;
+          if ((s as any).isPlaceholder && cinemaSessions.length === 1) return true;
+          return false;
+        });
+
+        if (matchedIndex !== -1) {
+          const s = cinemaSessions[matchedIndex];
+          s.title = m.title;
+          s.cinemaPlace = s.cinemaPlace || m.cinemaPlace;
+          s.posterUrl = m.posterUrl || s.posterUrl;
+          s.date = s.date || (typeof m.viewedAt === 'number' ? m.viewedAt : undefined);
+          (s as any).isPlaceholder = false;
+        } else {
           cinemaSessions.push({
             title: m.title,
-            cinemaPlace: m.cinemaPlace,
+            cinemaPlace: m.cinemaPlace || 'Cinéma',
             date: typeof m.viewedAt === 'number' ? m.viewedAt : undefined,
             posterUrl: m.posterUrl
           });
         }
       }
     });
+
+    // Calculer les comptes par cinéma et le total réel dédupliqué
+    cinemaSessions.forEach(s => {
+      if (s.cinemaPlace) {
+        cinemaCounts[s.cinemaPlace] = (cinemaCounts[s.cinemaPlace] || 0) + 1;
+      }
+    });
+    const totalCinemaOutings = cinemaSessions.length;
+    const topCinemaPlace = getTop(cinemaCounts);
 
     const seriesHistory = [
       ...filterByDate((user as any).seenSeriesData || [], 'viewedAt'),
@@ -576,7 +605,6 @@ export function useMonthlyWrapUp(
     const totalMovies = (movies?.total || duelItems.length) + uniqueSeries.length;
 
     // Consolidate Cinema Stats
-    const totalCinemaOutings = Math.max(cinemaSessions.length, Object.values(cinemaCounts).reduce((a, b) => a + b, 0));
     const allCinemaTitles = Array.from(new Set(cinemaSessions.map(s => s.title).filter(Boolean)));
     const allCinemaVenues = Array.from(new Set(cinemaSessions.map(s => s.cinemaPlace).filter(Boolean))) as string[];
 

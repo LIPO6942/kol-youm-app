@@ -11,10 +11,22 @@ export function WrapUpTrigger({ userProfile }: { userProfile: UserProfile }) {
   const pathname = usePathname();
   
   const isWrapUpOpen = searchParams.get('wrapup') === 'true';
+  const monthParam = searchParams.get('month');
   
+  const targetDate = React.useMemo(() => {
+    if (monthParam) {
+      const parts = monthParam.split('-').map(Number);
+      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        return new Date(parts[0], parts[1] - 1, 1);
+      }
+    }
+    return new Date();
+  }, [monthParam]);
+
   const handleCloseWrapUp = () => {
       const params = new URLSearchParams(searchParams.toString());
       params.delete('wrapup');
+      params.delete('month');
       const newQuery = params.toString();
       router.replace(`${pathname}${newQuery ? `?${newQuery}` : ''}`);
   };
@@ -24,6 +36,7 @@ export function WrapUpTrigger({ userProfile }: { userProfile: UserProfile }) {
       user={userProfile} 
       isOpen={isWrapUpOpen} 
       onClose={handleCloseWrapUp} 
+      targetDate={targetDate}
     />
   );
 }
