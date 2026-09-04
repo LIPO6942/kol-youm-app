@@ -13,7 +13,7 @@ import { TfarrejStatsDialog } from '@/components/tfarrej/tfarrej-stats-dialog';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
 import { useAuth } from '@/hooks/use-auth';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
-import { getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle } from '@/lib/firebase/firestore';
+import { getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters } from '@/lib/firebase/firestore';
 
 const genres = [
   { name: 'Comédie', iconName: 'Laugh', description: 'Pour rire aux éclats.' },
@@ -49,6 +49,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
 
   const { userProfile } = useAuth();
   const [isDuelOpen, setIsDuelOpen] = useState(false);
+  const [postersCache, setPostersCache] = useState<Record<string, { posterUrl?: string; year?: number; rating?: number }>>({});
 
   // Mois courant pour le classement
   const now = useMemo(() => new Date(), []);
@@ -133,11 +134,12 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
     // 5. Construction de la liste finale pour le duel
     const results: DuelMovieItem[] = allUniqueTitles.map(title => {
       const meta = metadataMap.get(title.toLowerCase().trim()) || {};
+      const cached = postersCache[title.toLowerCase().trim()];
       return {
         title,
-        posterUrl: meta.posterUrl,
-        year: meta.year,
-        rating: meta.rating,
+        posterUrl: meta.posterUrl || cached?.posterUrl,
+        year: meta.year || cached?.year,
+        rating: meta.rating || cached?.rating,
         watchedInCinema: meta.watchedInCinema,
         cinemaPlace: meta.cinemaPlace,
         viewedAt: meta.viewedAt,
@@ -146,7 +148,53 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
     });
 
     return results;
-  }, [userProfile?.seenMovieTitles, userProfile?.seenMoviesData, (userProfile as any)?.seenMovieHistory, userProfile?.visits, existingRanking]);
+  }, [userProfile?.seenMovieTitles, userProfile?.seenMoviesData, (userProfile as any)?.seenMovieHistory, userProfile?.visits, existingRanking, postersCache]);
+
+  // Détection et résolution automatique des affiches manquantes
+  useEffect(() => {
+    const titlesNeedingPosters = monthlySeenMovies
+      .filter(m => !m.posterUrl && !isTestMovieTitle(m.title))
+      .map(m => m.title);
+
+    if (titlesNeedingPosters.length === 0) return;
+
+    let isCancelled = false;
+
+    async function fetchMissingPosters() {
+      try {
+        const res = await fetch('/api/movies/posters-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ titles: titlesNeedingPosters, type: 'movie' }),
+        });
+
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data?.posters || isCancelled) return;
+
+        const newMap: Record<string, any> = {};
+        Object.entries(data.posters).forEach(([title, p]: [string, any]) => {
+          if (p?.posterUrl) {
+            newMap[title.toLowerCase().trim()] = p;
+          }
+        });
+
+        if (Object.keys(newMap).length > 0) {
+          setPostersCache(prev => ({ ...prev, ...newMap }));
+          const effectiveUid = userProfile?.uid || 'guest';
+          await backfillMoviePosters(effectiveUid, data.posters, 'movie');
+        }
+      } catch (e) {
+        console.warn('Erreur chargement affiches page tfarrej:', e);
+      }
+    }
+
+    fetchMissingPosters();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [monthlySeenMovies.length, userProfile?.uid]);
 
   const unrankedCount = useMemo(() => {
     if (!existingRanking) return monthlySeenMovies.length;

@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv, Swords } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle } from '@/lib/firebase/firestore';
+import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters } from '@/lib/firebase/firestore';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -1295,12 +1295,26 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
   const seenMoviesData = type === 'movie' ? userProfile?.seenMoviesData : userProfile?.seenSeriesData;
   const movieTitles = ((userProfile?.[listType] || []) as string[]).filter(t => !isTestMovieTitle(t));
 
+  const allTitlesToFetch = useMemo(() => {
+    if (listType === 'seenMovieTitles') {
+      const fromData = (userProfile?.seenMoviesData || []).map(m => m.title).filter(t => !isTestMovieTitle(t));
+      return Array.from(new Set([...movieTitles, ...fromData]));
+    }
+    return movieTitles;
+  }, [movieTitles, listType, userProfile?.seenMoviesData]);
+
   const fetchMovieDetails = useCallback(async (movieTitle: string) => {
     if (movieDetails[movieTitle]) return;
 
     setIsLoadingDetails(true);
     try {
       const seenData = (seenMoviesData as any[] | undefined)?.find((m: any) => m.title === movieTitle);
+      let posterUrl = seenData?.posterUrl || undefined;
+      let rating = seenData?.rating || undefined;
+      let year = seenData?.year || undefined;
+      let country: string | undefined;
+      let wikipediaUrl: string | undefined;
+
       const response = await fetch('/api/tmdb-movie-details', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1310,41 +1324,61 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
       if (response.ok) {
         const data = await response.json();
         if (data.movie) {
-          const searchRes = await fetch(`/api/tmdb-search?q=${encodeURIComponent(movieTitle)}&type=${type}`);
-          let posterUrl = seenData?.posterUrl || undefined;
-          if (!posterUrl && searchRes.ok) {
-            const searchData = await searchRes.json();
-            if (searchData.results?.[0]?.posterUrl) {
-              posterUrl = searchData.results[0].posterUrl;
-            }
+          rating = rating || data.movie.rating;
+          year = year || data.movie.year;
+          country = data.movie.country;
+          wikipediaUrl = data.movie.wikipediaUrl;
+          if (!posterUrl && data.movie.posterUrl) {
+            posterUrl = data.movie.posterUrl;
           }
-
-          setMovieDetails(prev => ({
-            ...prev,
-            [movieTitle]: {
-              title: movieTitle,
-              rating: data.movie.rating,
-              wikipediaUrl: data.movie.wikipediaUrl,
-              year: data.movie.year,
-              country: data.movie.country,
-              posterUrl,
-              viewedAt: seenData?.viewedAt,
-            }
-          }));
         }
+      }
+
+      // Si toujours pas d'affiche, recherche TMDb de repli
+      if (!posterUrl) {
+        const searchRes = await fetch(`/api/tmdb-search?q=${encodeURIComponent(movieTitle)}&type=${type}`);
+        if (searchRes.ok) {
+          const searchData = await searchRes.json();
+          const match = searchData.results?.[0];
+          if (match?.posterUrl) {
+            posterUrl = match.posterUrl;
+            year = year || match.year;
+            rating = rating || match.rating;
+          }
+        }
+      }
+
+      setMovieDetails(prev => ({
+        ...prev,
+        [movieTitle]: {
+          title: movieTitle,
+          rating,
+          wikipediaUrl,
+          year,
+          country,
+          posterUrl,
+          viewedAt: seenData?.viewedAt,
+        }
+      }));
+
+      // Rétro-remplissage persistant dans Firestore si affiche trouvée
+      if (posterUrl && (user?.uid || userProfile?.uid)) {
+        backfillMoviePosters(user?.uid || userProfile?.uid || 'guest', {
+          [movieTitle]: { posterUrl, year, rating }
+        }, type);
       }
     } catch (error) {
       console.error('Erreur détails:', error);
     } finally {
       setIsLoadingDetails(false);
     }
-  }, [movieDetails, seenMoviesData, type]);
+  }, [movieDetails, seenMoviesData, type, user?.uid, userProfile?.uid]);
 
   useEffect(() => {
-    if (movieTitles.length > 0) {
-      movieTitles.forEach(title => fetchMovieDetails(title));
+    if (allTitlesToFetch.length > 0) {
+      allTitlesToFetch.forEach(title => fetchMovieDetails(title));
     }
-  }, [movieTitles, fetchMovieDetails]);
+  }, [allTitlesToFetch, fetchMovieDetails]);
   const handleMarkAsWatched = async (movieTitle: string) => {
     const details = movieDetails[movieTitle];
     const pseudoMovie: SearchResult = {

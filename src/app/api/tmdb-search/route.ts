@@ -73,7 +73,7 @@ function normalizeResult(r: TMDBSearchResult): SearchResult {
         originalTitle: r.original_title || r.original_name || r.title || r.name || 'Sans titre',
         year: !isNaN(year as number) ? year : null,
         rating: Math.round((r.vote_average || 0) * 10) / 10,
-        posterUrl: r.poster_path ? `${TMDB_IMAGE_BASE}/w92${r.poster_path}` : null,
+        posterUrl: r.poster_path ? `${TMDB_IMAGE_BASE}/w500${r.poster_path}` : null,
     };
 }
 

@@ -990,6 +990,22 @@ export async function saveMonthlyMovieRanking(
         try {
             const userRef = doc(firestoreDb, 'users', uid);
             // Nettoyage de tout champ indéfini pour Firestore
+            const cleanCatalog: Record<string, any> = {};
+            if (safeRanking.movieCatalog) {
+                Object.entries(safeRanking.movieCatalog).forEach(([t, item]) => {
+                    if (item && !isTestMovieTitle(t)) {
+                        cleanCatalog[t] = {
+                            title: item.title,
+                            ...(item.posterUrl && { posterUrl: item.posterUrl }),
+                            ...(item.year && { year: item.year }),
+                            ...(item.rating && { rating: item.rating }),
+                            ...(item.watchedInCinema !== undefined && { watchedInCinema: item.watchedInCinema }),
+                            ...(item.cinemaPlace && { cinemaPlace: item.cinemaPlace }),
+                        };
+                    }
+                });
+            }
+
             const firestoreRanking: Record<string, any> = {
                 monthKey: safeRanking.monthKey,
                 rankedTitles: safeRanking.rankedTitles || [],
@@ -998,6 +1014,7 @@ export async function saveMonthlyMovieRanking(
                 initialRankedTitles: safeRanking.initialRankedTitles || safeRanking.rankedTitles || [],
                 newlyAddedTitles: safeRanking.newlyAddedTitles || [],
                 hasUpdatesSincePublish: Boolean(safeRanking.hasUpdatesSincePublish),
+                movieCatalog: cleanCatalog,
             };
 
             await setDoc(userRef, {
@@ -1176,5 +1193,85 @@ export async function purgeTestMovieData(
     }
 
     return { cleaned: hasChanges, updatedProfile: profileToClean };
+}
+
+/**
+ * Rétro-remplit les affiches et métadonnées manquantes pour les films vus
+ * dans seenMoviesData / seenSeriesData. Met à jour IndexedDB local et Firestore.
+ */
+export async function backfillMoviePosters(
+    uid: string,
+    postersMap: Record<string, { posterUrl?: string | null; year?: number | null; rating?: number | null; genres?: string[] }>,
+    type: 'movie' | 'tv' = 'movie'
+): Promise<void> {
+    if (!uid || !postersMap || Object.keys(postersMap).length === 0) return;
+
+    const dataField = type === 'movie' ? 'seenMoviesData' : 'seenSeriesData';
+    const effectiveUid = uid || 'guest';
+
+    try {
+        const localProfile = await getUserFromDb(effectiveUid);
+        if (!localProfile) return;
+
+        const currentList: any[] = [...(localProfile[dataField] || [])];
+        let hasChanges = false;
+
+        Object.entries(postersMap).forEach(([title, meta]) => {
+            if (!meta || !meta.posterUrl) return;
+            const normalizedTitle = title.trim().toLowerCase();
+            const existingIndex = currentList.findIndex(
+                (m: any) => m?.title && m.title.trim().toLowerCase() === normalizedTitle
+            );
+
+            if (existingIndex >= 0) {
+                const item = currentList[existingIndex];
+                let itemChanged = false;
+                if (!item.posterUrl && meta.posterUrl) {
+                    item.posterUrl = meta.posterUrl;
+                    itemChanged = true;
+                }
+                if ((item.year === undefined || item.year === null) && meta.year) {
+                    item.year = meta.year;
+                    itemChanged = true;
+                }
+                if ((item.rating === undefined || item.rating === null) && meta.rating) {
+                    item.rating = meta.rating;
+                    itemChanged = true;
+                }
+                if (itemChanged) {
+                    currentList[existingIndex] = { ...item };
+                    hasChanges = true;
+                }
+            } else {
+                // Le film n'était que dans seenMovieTitles : on l'ajoute proprement avec son affiche dans seenMoviesData
+                currentList.push({
+                    title,
+                    posterUrl: meta.posterUrl,
+                    ...(meta.year && { year: meta.year }),
+                    ...(meta.rating && { rating: meta.rating }),
+                    viewedAt: Date.now(),
+                    addedAt: Date.now(),
+                });
+                hasChanges = true;
+            }
+        });
+
+        if (hasChanges) {
+            const updatedProfile = {
+                ...localProfile,
+                [dataField]: currentList,
+            };
+            await storeUserInDb(effectiveUid, updatedProfile);
+
+            if (uid && uid !== 'guest') {
+                const userRef = doc(firestoreDb, 'users', uid);
+                await setDoc(userRef, {
+                    [dataField]: currentList,
+                }, { merge: true });
+            }
+        }
+    } catch (err) {
+        console.warn("Erreur backfillMoviePosters:", err);
+    }
 }
 

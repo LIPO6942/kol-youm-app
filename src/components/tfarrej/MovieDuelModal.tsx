@@ -26,7 +26,7 @@ import {
   RankMovement,
 } from '@/lib/movie-duel-engine';
 import { useAuth } from '@/hooks/use-auth';
-import { saveMonthlyMovieRanking, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle } from '@/lib/firebase/firestore';
+import { saveMonthlyMovieRanking, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters } from '@/lib/firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 interface MovieDuelModalProps {
@@ -179,6 +179,106 @@ export function MovieDuelModal({
     });
   }, [isOpen, effectiveExistingRanking, validSeenMovies, unrankedMovies, isIncrementalMode]);
 
+  // Résolution et rétro-remplissage automatique des affiches manquantes pour tous les films du duel
+  useEffect(() => {
+    if (!isOpen || !session) return;
+
+    const titlesNeedingPosters: string[] = [];
+    Object.values(session.movieCatalog || {}).forEach(m => {
+      if (!m.posterUrl && m.title && !isTestMovieTitle(m.title)) {
+        titlesNeedingPosters.push(m.title);
+      }
+    });
+
+    if (titlesNeedingPosters.length === 0) return;
+
+    let isCancelled = false;
+
+    async function resolveMissingPosters() {
+      try {
+        const res = await fetch('/api/movies/posters-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ titles: titlesNeedingPosters, type: 'movie' }),
+        });
+
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data?.posters || isCancelled) return;
+
+        const returnedPosters = data.posters;
+        const hasAnyFound = Object.values(returnedPosters).some((p: any) => Boolean(p?.posterUrl));
+        if (!hasAnyFound) return;
+
+        setSession(prev => {
+          if (!prev) return null;
+          const updatedCatalog = { ...prev.movieCatalog };
+          let changed = false;
+          let updatedActiveDuel = prev.activeDuel ? { ...prev.activeDuel } : null;
+
+          Object.entries(returnedPosters).forEach(([title, p]: [string, any]) => {
+            if (p?.posterUrl) {
+              const normTitle = title.toLowerCase().trim();
+              const catalogKey = Object.keys(updatedCatalog).find(k => k.toLowerCase().trim() === normTitle) || title;
+              const existing = updatedCatalog[catalogKey] || { title };
+
+              if (!existing.posterUrl) {
+                updatedCatalog[catalogKey] = {
+                  ...existing,
+                  posterUrl: p.posterUrl,
+                  year: existing.year || p.year,
+                  rating: existing.rating || p.rating,
+                };
+                changed = true;
+              }
+
+              // Mise à jour immédiate du duel actif s'il concerne ce film
+              if (updatedActiveDuel) {
+                if (updatedActiveDuel.movieA.title.toLowerCase().trim() === normTitle && !updatedActiveDuel.movieA.posterUrl) {
+                  updatedActiveDuel.movieA = {
+                    ...updatedActiveDuel.movieA,
+                    posterUrl: p.posterUrl,
+                    year: updatedActiveDuel.movieA.year || p.year,
+                    rating: updatedActiveDuel.movieA.rating || p.rating,
+                  };
+                  changed = true;
+                }
+                if (updatedActiveDuel.movieB.title.toLowerCase().trim() === normTitle && !updatedActiveDuel.movieB.posterUrl) {
+                  updatedActiveDuel.movieB = {
+                    ...updatedActiveDuel.movieB,
+                    posterUrl: p.posterUrl,
+                    year: updatedActiveDuel.movieB.year || p.year,
+                    rating: updatedActiveDuel.movieB.rating || p.rating,
+                  };
+                  changed = true;
+                }
+              }
+            }
+          });
+
+          if (!changed) return prev;
+          return {
+            ...prev,
+            movieCatalog: updatedCatalog,
+            activeDuel: updatedActiveDuel,
+          };
+        });
+
+        // Enregistrer définitivement les affiches trouvées dans le profil Firestore
+        const effectiveUid = user?.uid || userProfile?.uid || 'guest';
+        await backfillMoviePosters(effectiveUid, returnedPosters, 'movie');
+      } catch (err) {
+        console.warn("Erreur résolution affiches duel:", err);
+      }
+    }
+
+    resolveMissingPosters();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isOpen, session?.isFinished, user?.uid, userProfile?.uid]);
+
   // Sauvegarde synchrone et persistante (Multi-couches : LocalStorage + IndexedDB + Firestore)
   const executeSaveRanking = useCallback(async (
     targetSession: DuelSessionState,
@@ -302,6 +402,9 @@ export function MovieDuelModal({
     let finalUrl = url;
     if (!url.startsWith('http')) {
       finalUrl = `https://image.tmdb.org/t/p/w500${url.startsWith('/') ? '' : '/'}${url}`;
+    }
+    if (finalUrl.includes('/w92/')) {
+      finalUrl = finalUrl.replace('/w92/', '/w500/');
     }
     return `/api/image-proxy?url=${encodeURIComponent(finalUrl)}`;
   };
