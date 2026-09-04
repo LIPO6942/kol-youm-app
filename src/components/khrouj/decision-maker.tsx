@@ -329,7 +329,7 @@ export default function DecisionMaker() {
   const generalZones = useMemo(() => {
     const nonKharjetZonesInDb = allPlaces
       .filter(p => p.category !== 'Kharjet' && p.category !== 'Balade')
-      .map(p => p.zone)
+      .map(p => (p.zone || '').trim())
       .filter(Boolean);
     return Array.from(new Set([...zones, ...nonKharjetZonesInDb])).sort((a, b) => a.localeCompare(b, 'fr'));
   }, [allPlaces]);
@@ -338,7 +338,7 @@ export default function DecisionMaker() {
   const kharjetZones = useMemo(() => {
     const kharjetZonesInDb = allPlaces
       .filter(p => p.category === 'Kharjet' || p.category === 'Balade')
-      .map(p => p.zone)
+      .map(p => (p.zone || '').trim())
       .filter(Boolean);
     return Array.from(new Set([...generalZones, ...kharjetZonesInDb])).sort((a, b) => a.localeCompare(b, 'fr'));
   }, [allPlaces, generalZones]);
@@ -1109,7 +1109,7 @@ export default function DecisionMaker() {
                   <SelectTrigger className="w-full bg-background">
                     <SelectValue placeholder="Choisir une salle..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[200]">
                     {cinemaOptions.map((name) => (
                       <SelectItem key={name} value={name}>
                         {name}
@@ -1276,7 +1276,7 @@ export default function DecisionMaker() {
                     <SelectTrigger className="w-full bg-background h-9 text-sm">
                       <SelectValue placeholder="Choisir la zone..." />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[200]">
                       {(selectedCat === 'Kharjet' ? kharjetZones : generalZones).map((z: string) => (
                         <SelectItem key={z} value={z}>{z}</SelectItem>
                       ))}
