@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
 import { 
   X, Share2, Camera, Clapperboard, Award, Sparkles, MapPin, Film, Star, 
   Flame, Compass, Volume2, VolumeX, ChevronLeft, ChevronRight, Tv, Car,
-  Swords, Trophy, ArrowUp, ArrowDown, Rocket, Minus
+  Swords, Trophy, ArrowUp, ArrowDown, Rocket, Minus, Check
 } from 'lucide-react';
 import { useMonthlyWrapUp, WrapUpStats, KharjetOuting, MomentyMoment } from '@/hooks/use-monthly-wrapup';
-import type { UserProfile } from '@/lib/firebase/firestore';
+import { type UserProfile, type MonthlyMovieRanking, getStoredMovieRanking, isTestMovieTitle } from '@/lib/firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { toPng } from 'html-to-image';
 import { wrapUpAudio } from '@/lib/wrapup-audio';
@@ -239,6 +239,36 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     }
   }, [isDuelOpen]);
 
+  // Classement dynamique et réactif du Wrap-Up
+  const [activeRanking, setActiveRanking] = useState<MonthlyMovieRanking | null>(null);
+
+  useEffect(() => {
+    if (stats?.movies?.ranking) {
+      setActiveRanking(stats.movies.ranking);
+    } else if (isOpen) {
+      const stored = getStoredMovieRanking(monthKey, userProfile || user);
+      if (stored) setActiveRanking(stored);
+    }
+  }, [stats?.movies?.ranking, isOpen, monthKey, userProfile, user]);
+
+  const effectiveMovies = stats?.movies?.allMonthMovies || [];
+  const effectiveRanking = activeRanking || stats?.movies?.ranking || null;
+
+  const { rankedTitles, unrankedCount, isAllRanked, totalMoviesCount } = useMemo(() => {
+    const rTitles = (effectiveRanking?.rankedTitles || []).filter(t => !isTestMovieTitle(t));
+    const rSet = new Set(rTitles.map(t => t.toLowerCase().trim()));
+    const unranked = effectiveMovies.filter(m => !rSet.has(m.title.toLowerCase().trim()));
+    const totalCount = Math.max(rTitles.length + unranked.length, effectiveMovies.length, stats?.movies?.total || 0);
+    const allRanked = rTitles.length > 0 && unranked.length === 0;
+
+    return {
+      rankedTitles: rTitles,
+      unrankedCount: unranked.length,
+      isAllRanked: allRanked,
+      totalMoviesCount: totalCount,
+    };
+  }, [effectiveRanking, effectiveMovies, stats?.movies?.total]);
+
   // Sub-indices for multi-item slides
   const [activeKharjetIdx, setActiveKharjetIdx] = useState(0);
   const [activeMomentyIdx, setActiveMomentyIdx] = useState(0);
@@ -308,8 +338,8 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     stats.topPlace ? 'place' : null,
     stats.cinema && stats.cinema.total > 0 ? 'cinema' : null,
     stats.kharjet && stats.kharjet.total > 0 ? 'kharjet' : null,
-    stats.movies && stats.movies.total > 0 ? 'movies' : null,
-    stats.movies && stats.movies.hasUpdatesSincePublish ? 'movies_updated' : null,
+    stats.movies && totalMoviesCount > 0 ? 'movies' : null,
+    stats.movies && (effectiveRanking?.hasUpdatesSincePublish || stats.movies.hasUpdatesSincePublish) ? 'movies_updated' : null,
     stats.series && stats.series.total > 0 ? 'series' : null,
     (stats.momentyMoments && stats.momentyMoments.length > 0) || stats.featuredMomentyImage || (carCareStats && carCareStats.mileage > 0) ? 'momenty' : null,
     'verdict',
@@ -877,69 +907,164 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                         </motion.div>
                       )}
 
-                      {/* 🏆 PODIUM OFFICIEL DU MOIS (Si un classement existe) */}
-                      {stats.movies.ranking ? (
+                      {/* 🏆 SECTION CLASSEMENT DU MOIS (À JOUR SI TOUT CLASSÉ / PROPOSITION DE DUEL SI NON CLASSÉ) */}
+                      {isAllRanked ? (
+                        /* ÉTAT 1 : TOUS LES FILMS DU MOIS SONT CLASSÉS (100% À JOUR) */
                         <motion.div
                           variants={itemVariants}
-                          className="w-full max-w-[310px] bg-black/65 backdrop-blur-xl p-3 rounded-2xl border border-amber-500/30 text-center shadow-[0_10px_30px_rgba(245,158,11,0.2)] pointer-events-auto flex flex-col gap-1.5"
+                          className="w-full max-w-[320px] bg-gradient-to-b from-emerald-950/40 via-black/75 to-black/85 backdrop-blur-xl p-3 rounded-2xl border border-emerald-500/40 text-center shadow-[0_10px_35px_rgba(16,185,129,0.2)] pointer-events-auto flex flex-col gap-2 relative overflow-hidden"
                         >
-                          <div className="flex items-center justify-between px-1">
-                            <div className="flex items-center gap-1">
-                              <Trophy className="w-3.5 h-3.5 text-yellow-400" />
-                              <p className="text-[10px] uppercase tracking-widest font-black text-amber-300">
-                                {stats.movies.hasUpdatesSincePublish ? "Classement Initial" : "Ton Top Palmarès"}
-                              </p>
+                          <div className="absolute -top-10 -right-10 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+
+                          {/* Statut explicite : Tous les films sont classés */}
+                          <div className="flex items-center justify-between px-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <Trophy className="w-4 h-4 text-yellow-400" />
+                              <span className="text-[11px] font-black uppercase tracking-wider text-amber-300">
+                                Palmarès Officiel
+                              </span>
                             </div>
-                            {Boolean(stats.movies.unrankedCount && stats.movies.unrankedCount > 0) && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setIsPaused(true); setIsDuelOpen(true); }}
-                                className="text-[9.5px] font-black text-amber-200 bg-amber-500/25 border border-amber-400/50 px-2 py-0.5 rounded-full flex items-center gap-1 hover:bg-amber-500/40 transition-transform active:scale-95"
-                              >
-                                <Swords className="w-2.5 h-2.5" /> +{stats.movies.unrankedCount} à classer
-                              </button>
-                            )}
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/25 border border-emerald-400/50 text-[9.5px] font-black text-emerald-300 shadow-sm">
+                              <Check className="w-3 h-3 text-emerald-300 stroke-[3]" />
+                              Tous classés ({rankedTitles.length}/{rankedTitles.length})
+                            </span>
                           </div>
 
-                          {/* Top 3 Films */}
-                          <div className="space-y-1 text-left">
-                            {(stats.movies.ranking.initialRankedTitles || stats.movies.ranking.rankedTitles).slice(0, 3).map((title, idx) => (
+                          {/* Podium des 3 premiers avec les vrais titres à jour */}
+                          <div className="space-y-1 text-left my-0.5">
+                            {rankedTitles.slice(0, 3).map((title, idx) => {
+                              const isNew = Boolean(effectiveRanking?.newlyAddedTitles?.includes(title));
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                                    idx === 0
+                                      ? 'bg-amber-500/15 border-amber-400/40 text-amber-200 shadow-sm'
+                                      : idx === 1
+                                      ? 'bg-slate-300/10 border-slate-300/25 text-slate-200'
+                                      : 'bg-amber-700/10 border-amber-600/20 text-amber-300/90'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-sm">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</span>
+                                    <span className="truncate font-black">{title}</span>
+                                  </div>
+                                  {isNew && (
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-500/30 border border-purple-400/50 text-[8.5px] font-bold text-purple-200 shrink-0">
+                                      <Rocket className="w-2 h-2" /> Nouveau
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Bouton pour consulter le classement complet */}
+                          <Button
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); setIsPaused(true); setIsDuelOpen(true); }}
+                            className="w-full mt-0.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-[11px] py-2 rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)] active:scale-95 transition-all flex items-center justify-center gap-1.5 border border-white/10"
+                          >
+                            <Trophy className="w-3.5 h-3.5 text-yellow-300" />
+                            <span>Voir le classement complet ({rankedTitles.length} films)</span>
+                          </Button>
+                        </motion.div>
+                      ) : unrankedCount > 0 && rankedTitles.length > 0 ? (
+                        /* ÉTAT 2 : DES NOUVEAUX FILMS N'ONT PAS ÉTÉ CLASSÉS (PROPOSITION DE LES CLASSER) */
+                        <motion.div
+                          variants={itemVariants}
+                          className="w-full max-w-[320px] bg-gradient-to-b from-amber-950/40 via-black/75 to-black/85 backdrop-blur-xl p-3 rounded-2xl border border-amber-500/40 text-center shadow-[0_10px_35px_rgba(245,158,11,0.25)] pointer-events-auto flex flex-col gap-2 relative overflow-hidden"
+                        >
+                          <div className="absolute -top-10 -right-10 w-24 h-24 bg-amber-500/15 rounded-full blur-2xl pointer-events-none" />
+
+                          {/* Statut explicite : Des films attendent d'être classés */}
+                          <div className="flex items-center justify-between px-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <Trophy className="w-4 h-4 text-yellow-400" />
+                              <span className="text-[11px] font-black uppercase tracking-wider text-amber-300">
+                                Classement Incomplet
+                              </span>
+                            </div>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/25 border border-amber-400/50 text-[9.5px] font-black text-amber-300 animate-pulse shadow-sm">
+                              <Swords className="w-3 h-3 text-amber-400" />
+                              {unrankedCount} non classé{unrankedCount > 1 ? 's' : ''}
+                            </span>
+                          </div>
+
+                          {/* Aperçu du palmarès partiel */}
+                          <div className="space-y-1 text-left my-0.5">
+                            {rankedTitles.slice(0, 2).map((title, idx) => (
                               <div
                                 key={idx}
-                                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-xs font-bold ${
-                                  idx === 0
-                                    ? 'bg-amber-500/15 border-amber-400/40 text-amber-200 shadow-sm'
-                                    : 'bg-white/5 border-white/10 text-white/90'
-                                }`}
+                                className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-white/10 bg-white/5 text-white/80 text-xs font-bold"
                               >
-                                <span className="text-sm">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</span>
-                                <span className="truncate flex-1 font-bold">{title}</span>
+                                <span className="text-sm">{idx === 0 ? '🥇' : '🥈'}</span>
+                                <span className="truncate font-bold">{title}</span>
                               </div>
                             ))}
                           </div>
+
+                          <p className="text-[10.5px] text-amber-200/90 font-medium">
+                            {unrankedCount} nouveau{unrankedCount > 1 ? 'x' : ''} film{unrankedCount > 1 ? 's' : ''} attend{unrankedCount > 1 ? 'ent' : ''} d'intégrer votre palmarès !
+                          </p>
+
+                          {/* Bouton Proéminent de proposition de classement */}
+                          <Button
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); setIsPaused(true); setIsDuelOpen(true); }}
+                            className="w-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-black font-black text-xs py-2.5 rounded-xl shadow-[0_4px_20px_rgba(245,158,11,0.4)] active:scale-95 transition-all flex items-center justify-center gap-2"
+                          >
+                            <Swords className="w-4 h-4 text-black" />
+                            <span>Classer les {unrankedCount} film{unrankedCount > 1 ? 's' : ''} restant{unrankedCount > 1 ? 's' : ''}</span>
+                          </Button>
+                        </motion.div>
+                      ) : totalMoviesCount >= 2 ? (
+                        /* ÉTAT 3 : AUCUN FILM N'A ENCORE ÉTÉ CLASSÉ (PROPOSITION DU GRAND DUEL INITIAL) */
+                        <motion.div
+                          variants={itemVariants}
+                          className="w-full max-w-[320px] bg-gradient-to-b from-blue-950/40 via-black/75 to-black/85 backdrop-blur-xl p-3.5 rounded-2xl border border-blue-500/40 text-center shadow-[0_10px_35px_rgba(59,130,246,0.25)] pointer-events-auto flex flex-col gap-2.5 relative overflow-hidden"
+                        >
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Swords className="w-4 h-4 text-blue-400" />
+                            <span className="text-[11px] font-black uppercase tracking-wider text-blue-300">
+                              Films non classés ({totalMoviesCount})
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-white/80 font-medium leading-relaxed px-1">
+                            Vous avez vu <strong className="text-amber-300 font-bold">{totalMoviesCount} films</strong> ce mois-ci, mais votre palmarès n'a pas encore été établi !
+                          </p>
+
+                          <Button
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); setIsPaused(true); setIsDuelOpen(true); }}
+                            className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-xs py-2.5 rounded-xl shadow-[0_6px_25px_rgba(99,102,241,0.45)] active:scale-95 transition-all flex items-center justify-center gap-2 border border-white/15"
+                          >
+                            <Swords className="w-4 h-4 text-amber-300" />
+                            <span>Lancer le Grand Duel ({totalMoviesCount} films)</span>
+                          </Button>
+
+                          <p className="text-[10px] text-white/50">
+                            Quelques duels rapides 1 vs 1 pour couronner votre n°1 du mois !
+                          </p>
                         </motion.div>
                       ) : (
-                        /* Si pas encore de classement publié */
-                        stats.movies.total >= 2 && (
-                          <motion.div variants={itemVariants} className="pointer-events-auto mt-1 flex flex-col items-center gap-2">
-                            <Button
-                              onClick={(e) => { e.stopPropagation(); setIsPaused(true); setIsDuelOpen(true); }}
-                              className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-xs px-4 py-2.5 rounded-2xl shadow-[0_0_30px_rgba(99,102,241,0.5)] transition-all active:scale-95"
-                            >
-                              <Swords className="w-3.5 h-3.5 mr-1.5 text-amber-300" />
-                              Lancer le Grand Duel ({stats.movies.total} films)
-                            </Button>
-                            <p className="text-[10px] text-white/60 text-center max-w-[280px]">
-                              Le 1er duel classe tous tes films du mois. Les prochains duels ne compareront que tes nouveaux ajouts !
-                            </p>
-                          </motion.div>
-                        )
+                        /* ÉTAT 4 : MOINS DE 2 FILMS */
+                        <motion.div
+                          variants={itemVariants}
+                          className="w-full max-w-[300px] bg-white/5 backdrop-blur-md p-3 rounded-2xl border border-white/10 text-center pointer-events-auto"
+                        >
+                          <p className="text-xs text-white/60">
+                            Au moins 2 films sont requis pour organiser un tournoi de duels.
+                          </p>
+                        </motion.div>
                       )}
                     </motion.div>
                   </SlideContainer>
                 )}
 
                 {/* ══ SLIDE NOUVEAU : RECLASSEMENT & NOUVEAUX ENTRANTS ═════════ */}
-                {slides[currentSlide] === 'movies_updated' && stats.movies && stats.movies.ranking && (
+                {slides[currentSlide] === 'movies_updated' && stats.movies && effectiveRanking && (
                   <SlideContainer key="movies_updated">
                     <CollageBackground posters={stats.movies.posters} />
                     <div className="absolute inset-0 bg-gradient-to-t from-purple-950/90 via-black/85 to-black/50 z-[1]" />
@@ -961,9 +1086,9 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                       {/* Liste comparative avec mouvements de classement */}
                       {(() => {
                         const movements = calculateRankMovements(
-                          stats.movies.ranking.initialRankedTitles,
-                          stats.movies.ranking.rankedTitles,
-                          stats.movies.ranking.newlyAddedTitles
+                          effectiveRanking.initialRankedTitles || effectiveRanking.rankedTitles,
+                          effectiveRanking.rankedTitles,
+                          effectiveRanking.newlyAddedTitles
                         );
                         return (
                           <motion.div variants={containerVariants} className="w-full max-w-[310px] space-y-1.5 mb-3 pointer-events-auto">
@@ -1010,13 +1135,14 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                         );
                       })()}
 
-                      {/* Bouton pour réajuster en direct */}
+                      {/* Bouton pour réajuster en direct ou classer les restants */}
                       <motion.div variants={itemVariants} className="pointer-events-auto">
                         <button
                           onClick={(e) => { e.stopPropagation(); setIsPaused(true); setIsDuelOpen(true); }}
-                          className="text-[11px] font-bold text-purple-200 hover:text-white bg-white/10 hover:bg-white/20 border border-white/20 px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition-all active:scale-95"
+                          className="text-[11px] font-bold text-purple-200 hover:text-white bg-white/10 hover:bg-white/20 border border-white/20 px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 transition-all active:scale-95 shadow-sm"
                         >
-                          <Swords className="w-3.5 h-3.5 text-purple-300" /> Revoir ou ajuster les duels
+                          <Swords className="w-3.5 h-3.5 text-purple-300" />
+                          <span>{unrankedCount > 0 ? `Classer les ${unrankedCount} films restants` : "Revoir ou ajuster les duels"}</span>
                         </button>
                       </motion.div>
                     </motion.div>
@@ -1427,12 +1553,14 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                 }}
                 monthKey={monthKey}
                 monthName={stats.monthName}
-                seenMovies={stats.movies.allMonthMovies || []}
-                existingRanking={stats.movies.ranking || null}
+                seenMovies={effectiveMovies.length > 0 ? effectiveMovies : (stats.movies.allMonthMovies || [])}
+                existingRanking={effectiveRanking}
                 onRankingSaved={(updatedRanking) => {
+                  setActiveRanking(updatedRanking);
                   if (stats?.movies) {
                     stats.movies.ranking = updatedRanking;
                     stats.movies.unrankedCount = 0;
+                    stats.movies.isAllRanked = true;
                     stats.movies.hasUpdatesSincePublish = Boolean(updatedRanking.hasUpdatesSincePublish);
                   }
                 }}

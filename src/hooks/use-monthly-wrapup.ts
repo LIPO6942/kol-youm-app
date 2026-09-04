@@ -54,6 +54,7 @@ export type WrapUpStats = {
     ranking?: MonthlyMovieRanking | null;
     genreAnalysis?: MonthlyMovieTasteAnalysis | null;
     unrankedCount?: number;
+    isAllRanked?: boolean;
     hasUpdatesSincePublish?: boolean;
     allMonthMovies?: DuelMovieItem[];
   };
@@ -377,6 +378,27 @@ export function useMonthlyWrapUp(
     const topKharjetZone = getTop(kharjetZoneCounts);
 
     // 3. Tfarrej Stats (Separated Movies and Series)
+    const watchlistTitles = new Set(((user as any)?.moviesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
+    const rejectedTitles = new Set(((user as any)?.rejectedMovieTitles || []).map((t: string) => (t || '').toLowerCase().trim()));
+    const seriesTitles = new Set([
+      ...((user as any)?.seenSeriesTitles || []),
+      ...((user as any)?.seriesToWatch || []),
+      ...((user as any)?.rejectedSeriesTitles || []),
+    ].map((t: string) => (t || '').toLowerCase().trim()));
+
+    const isExcluded = (t: string) => {
+      if (!t || typeof t !== 'string') return true;
+      const norm = t.toLowerCase().trim();
+      if (isTestMovieTitle(norm)) return true;
+      if (watchlistTitles.has(norm)) return true;
+      if (rejectedTitles.has(norm)) return true;
+      if (seriesTitles.has(norm)) return true;
+      return false;
+    };
+
+    const monthKey = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
+    const monthlyRanking: MonthlyMovieRanking | null = (user as any)?.movieRankings?.[monthKey] || getStoredMovieRanking(monthKey, user) || null;
+
     const filterByDate = (history: any[], dateField: string) => {
         return (history || []).filter((m: any) => {
             if (!m[dateField]) return false;
@@ -385,107 +407,155 @@ export function useMonthlyWrapUp(
         });
     };
 
-    const movieHistory = [
-        ...filterByDate((user as any).seenMoviesData || [], 'viewedAt'),
-        ...filterByDate((user as any).seenMovieHistory || [], 'addedAt')
-    ];
-    const seriesHistory = [
-        ...filterByDate((user as any).seenSeriesData || [], 'viewedAt'),
-        ...filterByDate((user as any).seenSeriesHistory || [], 'addedAt')
-    ];
+    const isCurrentMonth = targetMonth === new Date().getMonth() && targetYear === new Date().getFullYear();
 
-    const deduplicate = (list: any[]) => {
-        const map = new Map();
-        list.forEach(m => map.set(m.title, m));
-        return Array.from(map.values());
-    };
+    // Map de métadonnées pour chaque titre (insensible à la casse)
+    const metadataMap = new Map<string, Partial<DuelMovieItem>>();
 
-    const uniqueMovies = deduplicate(movieHistory).filter((m: any) => !isTestMovieTitle(m?.title));
-    const uniqueSeries = deduplicate(seriesHistory);
+    // 1. Enrichir avec seenMoviesData
+    ((user as any)?.seenMoviesData || []).forEach((m: any) => {
+      if (m?.title && !isExcluded(m.title)) {
+        metadataMap.set(m.title.toLowerCase().trim(), {
+          posterUrl: m.posterUrl,
+          year: m.year,
+          rating: m.rating,
+          watchedInCinema: m.watchedInCinema,
+          cinemaPlace: m.cinemaPlace,
+          viewedAt: m.viewedAt || m.addedAt,
+          genres: m.genres,
+        });
+      }
+    });
 
-    // Integrate cinema movies from seenMoviesData (with watchedInCinema === true)
-    uniqueMovies.forEach((m: any) => {
+    // 2. Enrichir avec seenMovieHistory
+    ((user as any)?.seenMovieHistory || []).forEach((h: any) => {
+      if (h?.title && !isExcluded(h.title)) {
+        const key = h.title.toLowerCase().trim();
+        const existing = metadataMap.get(key) || {};
+        if (!existing.posterUrl && (h.posterPath || h.posterUrl)) {
+          existing.posterUrl = h.posterPath || h.posterUrl;
+        }
+        if (!existing.viewedAt && h.addedAt) {
+          existing.viewedAt = h.addedAt;
+        }
+        metadataMap.set(key, existing);
+      }
+    });
+
+    // 3. Enrichir avec les visites cinéma
+    cinemaSessions.forEach(cs => {
+      if (cs.title && !isExcluded(cs.title)) {
+        const key = cs.title.toLowerCase().trim();
+        const existing = metadataMap.get(key) || {};
+        existing.watchedInCinema = true;
+        if (cs.cinemaPlace) existing.cinemaPlace = cs.cinemaPlace;
+        if (cs.posterUrl && !existing.posterUrl) existing.posterUrl = cs.posterUrl;
+        metadataMap.set(key, existing);
+      }
+    });
+
+    // Construire la liste de tous les films vus valides pour ce mois :
+    // - Films dont la date correspond au mois ciblé
+    // - OU films inclus dans le classement officiel du mois
+    // - OU si mois en cours : tous les films marqués comme vus par l'utilisateur
+    const datedMovies = [
+      ...filterByDate((user as any).seenMoviesData || [], 'viewedAt'),
+      ...filterByDate((user as any).seenMovieHistory || [], 'addedAt'),
+    ].filter((m: any) => !isExcluded(m?.title));
+
+    const rankedFromExisting = (monthlyRanking?.rankedTitles || []).filter((t: string) => !isExcluded(t));
+    const allSeenTitles = ((user as any)?.seenMovieTitles || []).filter((t: string) => !isExcluded(t));
+    const allSeenDataTitles = ((user as any)?.seenMoviesData || []).map((m: any) => m.title).filter((t: string) => !isExcluded(t));
+
+    const monthMovieTitlesSet = new Set<string>();
+    datedMovies.forEach(m => monthMovieTitlesSet.add(m.title));
+    rankedFromExisting.forEach(t => monthMovieTitlesSet.add(t));
+    if (isCurrentMonth) {
+      allSeenTitles.forEach(t => monthMovieTitlesSet.add(t));
+      allSeenDataTitles.forEach(t => monthMovieTitlesSet.add(t));
+    }
+
+    const uniqueMonthTitles = Array.from(monthMovieTitlesSet);
+
+    // DuelMovieItem[] final pour les stats et le modal
+    const duelItems: DuelMovieItem[] = uniqueMonthTitles.map(title => {
+      const meta = metadataMap.get(title.toLowerCase().trim()) || {};
+      return {
+        title,
+        posterUrl: meta.posterUrl,
+        year: meta.year,
+        rating: meta.rating,
+        watchedInCinema: meta.watchedInCinema,
+        cinemaPlace: meta.cinemaPlace,
+        viewedAt: meta.viewedAt,
+        genres: meta.genres,
+      };
+    });
+
+    // Mettre à jour les stats de cinéma avec les films vus en salle
+    duelItems.forEach((m) => {
       if (m.watchedInCinema) {
         if (m.cinemaPlace) {
           cinemaCounts[m.cinemaPlace] = (cinemaCounts[m.cinemaPlace] || 0) + 1;
         }
-        // Avoid duplicate session if already added from visit
         const alreadyExists = cinemaSessions.some(s => s.title.toLowerCase() === m.title.toLowerCase());
         if (!alreadyExists) {
           cinemaSessions.push({
             title: m.title,
             cinemaPlace: m.cinemaPlace,
-            date: m.viewedAt || m.addedAt,
+            date: typeof m.viewedAt === 'number' ? m.viewedAt : undefined,
             posterUrl: m.posterUrl
           });
         }
       }
     });
 
-    const getTfarrejStats = (list: any[]) => {
-        if (list.length === 0) return null;
-        const posters = list.map(m => m.posterUrl || m.posterPath).filter(Boolean);
-        const titles = list.map(m => m.title).filter(Boolean);
-        const feat = list[list.length - 1];
-        return {
-            total: list.length,
-            titles: titles as string[],
-            posters: posters as string[],
-            featured: feat ? { title: feat.title, poster: feat.posterUrl || feat.posterPath } : null
-        };
+    const seriesHistory = [
+      ...filterByDate((user as any).seenSeriesData || [], 'viewedAt'),
+      ...filterByDate((user as any).seenSeriesHistory || [], 'addedAt')
+    ];
+    const deduplicateSeries = (list: any[]) => {
+      const map = new Map();
+      list.forEach(m => map.set(m.title, m));
+      return Array.from(map.values());
     };
+    const uniqueSeries = deduplicateSeries(seriesHistory);
 
-    const baseMovieStats = getTfarrejStats(uniqueMovies);
-    const monthKey = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
-    const monthlyRanking: MonthlyMovieRanking | null = (user as any)?.movieRankings?.[monthKey] || getStoredMovieRanking(monthKey, user) || null;
-    const genreAnalysis = analyzeMonthlyMovieTastes(uniqueMovies);
+    // Calcul précis du statut de classement
+    const rankedSet = new Set((monthlyRanking?.rankedTitles || []).map(t => t.toLowerCase().trim()));
+    const unrankedMovies = duelItems.filter(m => !rankedSet.has(m.title.toLowerCase().trim()));
+    const unrankedCount = unrankedMovies.length;
+    const isAllRanked = Boolean(monthlyRanking && (monthlyRanking.rankedTitles || []).length > 0 && unrankedCount === 0);
 
-    const duelItems: DuelMovieItem[] = uniqueMovies.map((m: any) => ({
-      title: m.title,
-      posterUrl: m.posterUrl || m.posterPath,
-      year: m.year,
-      rating: m.rating,
-      watchedInCinema: m.watchedInCinema,
-      cinemaPlace: m.cinemaPlace,
-      viewedAt: m.viewedAt || m.addedAt,
-      genres: m.genres,
-    }));
-
-    // Inclure tout titre présent dans le classement officiel
-    if (monthlyRanking?.rankedTitles) {
-      monthlyRanking.rankedTitles.filter(t => !isTestMovieTitle(t)).forEach(t => {
-        if (!duelItems.some(d => d.title.toLowerCase() === t.toLowerCase())) {
-          duelItems.push({ title: t });
-        }
-      });
-    }
-
-    let unrankedCount = 0;
-    if (monthlyRanking) {
-      const rankedSet = new Set(monthlyRanking.rankedTitles);
-      unrankedCount = uniqueMovies.filter((m: any) => !rankedSet.has(m.title)).length;
-    } else {
-      unrankedCount = uniqueMovies.length;
-    }
-
+    const posters = duelItems.map(m => m.posterUrl).filter(Boolean) as string[];
+    const feat = duelItems[duelItems.length - 1];
+    const genreAnalysis = analyzeMonthlyMovieTastes(duelItems);
     const hasUpdatesSincePublish = Boolean(monthlyRanking?.hasUpdatesSincePublish);
 
-    const allTitles = Array.from(new Set([...(baseMovieStats?.titles || []), ...(monthlyRanking?.rankedTitles || [])]));
-
-    const movies = (baseMovieStats || monthlyRanking) ? {
-      total: baseMovieStats?.total || monthlyRanking?.rankedTitles.length || 0,
-      titles: allTitles,
-      posters: baseMovieStats?.posters || [],
-      featured: baseMovieStats?.featured || null,
+    const movies = (duelItems.length > 0 || monthlyRanking) ? {
+      total: Math.max(duelItems.length, monthlyRanking?.rankedTitles?.length || 0),
+      titles: duelItems.map(d => d.title),
+      posters,
+      featured: feat ? { title: feat.title, poster: feat.posterUrl || '' } : null,
       ranking: monthlyRanking,
       genreAnalysis,
       unrankedCount,
+      isAllRanked,
       hasUpdatesSincePublish,
       allMonthMovies: duelItems,
     } : undefined;
 
-    const series = getTfarrejStats(uniqueSeries);
-    const totalMovies = uniqueMovies.length + uniqueSeries.length;
+    const seriesPosters = uniqueSeries.map((s: any) => s.posterUrl || s.posterPath).filter(Boolean);
+    const seriesTitlesList = uniqueSeries.map((s: any) => s.title).filter(Boolean);
+    const seriesFeat = uniqueSeries[uniqueSeries.length - 1];
+    const series = uniqueSeries.length > 0 ? {
+      total: uniqueSeries.length,
+      titles: seriesTitlesList as string[],
+      posters: seriesPosters as string[],
+      featured: seriesFeat ? { title: seriesFeat.title, poster: seriesFeat.posterUrl || seriesFeat.posterPath } : null,
+    } : undefined;
+
+    const totalMovies = (movies?.total || duelItems.length) + uniqueSeries.length;
 
     // Consolidate Cinema Stats
     const totalCinemaOutings = Math.max(cinemaSessions.length, Object.values(cinemaCounts).reduce((a, b) => a + b, 0));
