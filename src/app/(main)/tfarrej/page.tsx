@@ -70,75 +70,83 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
 
   const existingRanking = userProfile?.movieRankings?.[currentMonthKey] || localRanking || getStoredMovieRanking(currentMonthKey, userProfile);
 
-  // Liste des films vus ce mois
+  // Liste de TOUS les films vus par l'utilisateur pour le classement et les duels (aucun film ignoré)
   const monthlySeenMovies: DuelMovieItem[] = useMemo(() => {
-    const seenDataList = userProfile?.seenMoviesData || [];
-    const seenDataMap = new Map(seenDataList.map(m => [m.title.toLowerCase(), m]));
+    const seenTitles = (userProfile?.seenMovieTitles || []).filter(t => !isTestMovieTitle(t));
+    const seenDataList = (userProfile?.seenMoviesData || []).filter(m => !isTestMovieTitle(m?.title));
+    const seenHistory = ((userProfile as any)?.seenMovieHistory || []).filter((h: any) => !isTestMovieTitle(h?.title));
+    const rankedFromExisting = (existingRanking?.rankedTitles || []).filter(t => !isTestMovieTitle(t));
 
-    // 1. Films avec date explicite correspondant au mois courant
-    const datedThisMonth = seenDataList.filter(m => {
-      const dateVal = m.viewedAt || m.addedAt;
-      if (!dateVal) return false;
-      const d = new Date(dateVal);
-      return d.getMonth() === currentMonthIndex && d.getFullYear() === currentYear;
+    // Map de métadonnées pour chaque titre (insensible à la casse)
+    const metadataMap = new Map<string, Partial<DuelMovieItem>>();
+
+    // 1. Enrichir avec seenMoviesData
+    seenDataList.forEach(m => {
+      if (m?.title) {
+        metadataMap.set(m.title.toLowerCase().trim(), {
+          posterUrl: m.posterUrl,
+          year: m.year,
+          rating: m.rating,
+          watchedInCinema: m.watchedInCinema,
+          cinemaPlace: m.cinemaPlace,
+          viewedAt: m.viewedAt || m.addedAt,
+          genres: m.genres,
+        });
+      }
     });
 
-    const results: DuelMovieItem[] = datedThisMonth.map(m => ({
-      title: m.title,
-      posterUrl: m.posterUrl,
-      year: m.year,
-      rating: m.rating,
-      watchedInCinema: m.watchedInCinema,
-      cinemaPlace: m.cinemaPlace,
-      viewedAt: m.viewedAt || m.addedAt,
-      genres: m.genres,
-    }));
-
-    // 2. Si un classement existe pour ce mois, garantir que tous ses films sont inclus
-    if (existingRanking?.rankedTitles) {
-      existingRanking.rankedTitles.forEach(title => {
-        if (!results.some(r => r.title.toLowerCase() === title.toLowerCase())) {
-          const match = seenDataMap.get(title.toLowerCase());
-          results.push({
-            title,
-            posterUrl: match?.posterUrl,
-            year: match?.year,
-            rating: match?.rating,
-            watchedInCinema: match?.watchedInCinema,
-            cinemaPlace: match?.cinemaPlace,
-            viewedAt: match?.viewedAt || match?.addedAt,
-            genres: match?.genres,
-          });
+    // 2. Enrichir avec seenMovieHistory (affiches TMDb issues du swiper)
+    seenHistory.forEach((h: any) => {
+      if (h?.title) {
+        const key = h.title.toLowerCase().trim();
+        const existing = metadataMap.get(key) || {};
+        if (!existing.posterUrl && (h.posterPath || h.posterUrl)) {
+          existing.posterUrl = h.posterPath || h.posterUrl;
         }
-      });
-    }
-
-    // 3. Si toujours moins de 2 films, repêcher les films vus sans date ou récemment enregistrés
-    if (results.length < 2 && seenDataList.length >= 2) {
-      seenDataList.forEach(m => {
-        if (!results.some(r => r.title.toLowerCase() === m.title.toLowerCase())) {
-          results.push({
-            title: m.title,
-            posterUrl: m.posterUrl,
-            year: m.year,
-            rating: m.rating,
-            watchedInCinema: m.watchedInCinema,
-            cinemaPlace: m.cinemaPlace,
-            viewedAt: m.viewedAt || m.addedAt,
-            genres: m.genres,
-          });
+        if (!existing.viewedAt && h.addedAt) {
+          existing.viewedAt = h.addedAt;
         }
-      });
-    } else if (results.length < 2 && (userProfile?.seenMovieTitles || []).length >= 2) {
-      (userProfile?.seenMovieTitles || []).forEach(title => {
-        if (!results.some(r => r.title.toLowerCase() === title.toLowerCase())) {
-          results.push({ title });
-        }
-      });
-    }
+        metadataMap.set(key, existing);
+      }
+    });
 
-    return results.filter(m => !isTestMovieTitle(m.title));
-  }, [userProfile?.seenMoviesData, userProfile?.seenMovieTitles, existingRanking, currentMonthIndex, currentYear]);
+    // 3. Enrichir avec les visites Cinéma
+    const cinemaVisits = (userProfile?.visits || []).filter(v => v.category === 'Cinéma');
+    cinemaVisits.forEach(v => {
+      if (v.orderedItem) {
+        const key = v.orderedItem.toLowerCase().trim();
+        const existing = metadataMap.get(key) || {};
+        existing.watchedInCinema = true;
+        if (!existing.cinemaPlace) existing.cinemaPlace = v.placeName;
+        metadataMap.set(key, existing);
+      }
+    });
+
+    // 4. Ensemble exhaustif et dédupliqué de TOUS les titres vus
+    const allUniqueTitles = Array.from(new Set([
+      ...seenTitles,
+      ...seenDataList.map(m => m.title),
+      ...seenHistory.map((h: any) => h.title),
+      ...rankedFromExisting,
+    ])).filter(t => Boolean(t) && typeof t === 'string' && !isTestMovieTitle(t));
+
+    // 5. Construction de la liste finale pour le duel
+    const results: DuelMovieItem[] = allUniqueTitles.map(title => {
+      const meta = metadataMap.get(title.toLowerCase().trim()) || {};
+      return {
+        title,
+        posterUrl: meta.posterUrl,
+        year: meta.year,
+        rating: meta.rating,
+        watchedInCinema: meta.watchedInCinema,
+        cinemaPlace: meta.cinemaPlace,
+        viewedAt: meta.viewedAt,
+        genres: meta.genres,
+      };
+    });
+
+    return results;
+  }, [userProfile?.seenMovieTitles, userProfile?.seenMoviesData, (userProfile as any)?.seenMovieHistory, userProfile?.visits, existingRanking]);
 
   const unrankedCount = useMemo(() => {
     if (!existingRanking) return monthlySeenMovies.length;

@@ -464,78 +464,90 @@ function MovieListContent({
 
   const duelSeenMovies: DuelMovieItem[] = useMemo(() => {
     if (listType !== 'seenMovieTitles') return [];
-    const seenDataList = userProfile?.seenMoviesData || [];
-    const seenDataMap = new Map(seenDataList.map(m => [m.title.toLowerCase(), m]));
+    const seenTitles = (userProfile?.seenMovieTitles || []).filter(t => !isTestMovieTitle(t));
+    const seenDataList = (userProfile?.seenMoviesData || []).filter(m => !isTestMovieTitle(m?.title));
+    const seenHistory = ((userProfile as any)?.seenMovieHistory || []).filter((h: any) => !isTestMovieTitle(h?.title));
+    const rankedFromExisting = (existingRanking?.rankedTitles || []).filter(t => !isTestMovieTitle(t));
 
-    // 1. Films avec date explicite correspondant au mois courant
-    const datedThisMonth = seenDataList.filter(m => {
-      const dateVal = m.viewedAt || m.addedAt;
-      if (!dateVal) return false;
-      const d = new Date(dateVal);
-      return d.getMonth() === currentMonthIndex && d.getFullYear() === currentYear;
+    // Map de métadonnées pour chaque titre (insensible à la casse)
+    const metadataMap = new Map<string, Partial<DuelMovieItem>>();
+
+    // 1. Enrichir avec seenMoviesData
+    seenDataList.forEach(m => {
+      if (m?.title) {
+        metadataMap.set(m.title.toLowerCase().trim(), {
+          posterUrl: m.posterUrl || movieDetails[m.title]?.posterUrl,
+          year: m.year || movieDetails[m.title]?.year,
+          rating: m.rating || movieDetails[m.title]?.rating,
+          watchedInCinema: m.watchedInCinema,
+          cinemaPlace: m.cinemaPlace,
+          viewedAt: m.viewedAt || m.addedAt,
+          genres: m.genres,
+        });
+      }
     });
 
-    const results: DuelMovieItem[] = datedThisMonth.map(m => ({
-      title: m.title,
-      posterUrl: m.posterUrl || movieDetails[m.title]?.posterUrl,
-      year: m.year || movieDetails[m.title]?.year,
-      rating: m.rating || movieDetails[m.title]?.rating,
-      watchedInCinema: m.watchedInCinema,
-      cinemaPlace: m.cinemaPlace,
-      viewedAt: m.viewedAt || m.addedAt,
-      genres: m.genres,
-    }));
-
-    // 2. Si un classement existe, inclure tous ses titres
-    if (existingRanking?.rankedTitles) {
-      existingRanking.rankedTitles.forEach(title => {
-        if (!results.some(r => r.title.toLowerCase() === title.toLowerCase())) {
-          const match = seenDataMap.get(title.toLowerCase());
-          results.push({
-            title,
-            posterUrl: match?.posterUrl || movieDetails[title]?.posterUrl,
-            year: match?.year || movieDetails[title]?.year,
-            rating: match?.rating || movieDetails[title]?.rating,
-            watchedInCinema: match?.watchedInCinema,
-            cinemaPlace: match?.cinemaPlace,
-            viewedAt: match?.viewedAt || match?.addedAt,
-            genres: match?.genres,
-          });
+    // 2. Enrichir avec seenMovieHistory (affiches TMDb issues du swiper)
+    seenHistory.forEach((h: any) => {
+      if (h?.title) {
+        const key = h.title.toLowerCase().trim();
+        const existing = metadataMap.get(key) || {};
+        if (!existing.posterUrl && (h.posterPath || h.posterUrl)) {
+          existing.posterUrl = h.posterPath || h.posterUrl;
         }
-      });
-    }
-
-    // 3. Si < 2 films, repêcher parmi tous les films vus
-    if (results.length < 2 && seenDataList.length >= 2) {
-      seenDataList.forEach(m => {
-        if (!results.some(r => r.title.toLowerCase() === m.title.toLowerCase())) {
-          results.push({
-            title: m.title,
-            posterUrl: m.posterUrl || movieDetails[m.title]?.posterUrl,
-            year: m.year || movieDetails[m.title]?.year,
-            rating: m.rating || movieDetails[m.title]?.rating,
-            watchedInCinema: m.watchedInCinema,
-            cinemaPlace: m.cinemaPlace,
-            viewedAt: m.viewedAt || m.addedAt,
-            genres: m.genres,
-          });
+        if (!existing.viewedAt && h.addedAt) {
+          existing.viewedAt = h.addedAt;
         }
-      });
-    } else if (results.length < 2 && (movieTitles || []).length >= 2) {
-      (movieTitles || []).forEach(title => {
-        if (!results.some(r => r.title.toLowerCase() === title.toLowerCase())) {
-          results.push({
-            title: title,
-            posterUrl: movieDetails[title]?.posterUrl,
-            year: movieDetails[title]?.year,
-            rating: movieDetails[title]?.rating,
-          });
-        }
-      });
-    }
+        metadataMap.set(key, existing);
+      }
+    });
 
-    return results.filter(m => !isTestMovieTitle(m.title));
-  }, [listType, userProfile?.seenMoviesData, movieDetails, movieTitles, existingRanking, currentMonthIndex, currentYear]);
+    // 3. Enrichir avec les visites Cinéma
+    const cinemaVisits = (userProfile?.visits || []).filter(v => v.category === 'Cinéma');
+    cinemaVisits.forEach(v => {
+      if (v.orderedItem) {
+        const key = v.orderedItem.toLowerCase().trim();
+        const existing = metadataMap.get(key) || {};
+        existing.watchedInCinema = true;
+        if (!existing.cinemaPlace) existing.cinemaPlace = v.placeName;
+        metadataMap.set(key, existing);
+      }
+    });
+
+    // 4. Ensemble exhaustif et dédupliqué de TOUS les titres vus
+    const allUniqueTitles = Array.from(new Set([
+      ...seenTitles,
+      ...seenDataList.map(m => m.title),
+      ...seenHistory.map((h: any) => h.title),
+      ...rankedFromExisting,
+      ...(movieTitles || []),
+    ])).filter(t => Boolean(t) && typeof t === 'string' && !isTestMovieTitle(t));
+
+    // 5. Construction de la liste finale pour le duel
+    const results: DuelMovieItem[] = allUniqueTitles.map(title => {
+      const meta = metadataMap.get(title.toLowerCase().trim()) || {};
+      return {
+        title,
+        posterUrl: meta.posterUrl || movieDetails[title]?.posterUrl,
+        year: meta.year || movieDetails[title]?.year,
+        rating: meta.rating || movieDetails[title]?.rating,
+        watchedInCinema: meta.watchedInCinema,
+        cinemaPlace: meta.cinemaPlace,
+        viewedAt: meta.viewedAt,
+        genres: meta.genres,
+      };
+    });
+
+    return results;
+  }, [listType, userProfile?.seenMovieTitles, userProfile?.seenMoviesData, (userProfile as any)?.seenMovieHistory, userProfile?.visits, movieTitles, movieDetails, existingRanking]);
+
+  const unrankedCount = useMemo(() => {
+    if (!existingRanking) return duelSeenMovies.length;
+    const rankedSet = new Set(existingRanking.rankedTitles);
+    return duelSeenMovies.filter(m => !rankedSet.has(m.title)).length;
+  }, [duelSeenMovies, existingRanking]);
+
+  const hasUnrankedMovies = unrankedCount > 0 && duelSeenMovies.length >= 2;
 
   // Sort movies: Recent First (for seen list), Alphabetical otherwise
   const sortedMovieTitles = useMemo(() => {
@@ -1041,10 +1053,21 @@ function MovieListContent({
       {listType === 'seenMovieTitles' && (
         <Button
           onClick={() => setIsDuelModalOpen(true)}
-          className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-xs sm:text-sm h-10 rounded-2xl flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(99,102,241,0.35)] hover:shadow-[0_6px_22px_rgba(99,102,241,0.5)] border border-white/20 transition-all duration-200 active:scale-[0.98]"
+          className={`w-full font-black text-xs sm:text-sm h-10 rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
+            hasUnrankedMovies
+              ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-[0_4px_16px_rgba(99,102,241,0.35)] hover:shadow-[0_6px_22px_rgba(99,102,241,0.5)] border border-white/20 animate-pulse'
+              : 'border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-yellow-500/10 hover:from-amber-500/25 hover:to-yellow-500/20 text-amber-600 dark:text-amber-300 shadow-sm hover:shadow hover:border-amber-500/60'
+          }`}
         >
-          <Swords className="w-4 h-4 text-amber-300 drop-shadow" />
-          <span>{existingRanking ? "⚔️ Voir / Ajuster mon Classement par Duel" : "⚔️ Lancer le Duel des Films Vus"}</span>
+          <Swords className="w-4 h-4 text-amber-400 drop-shadow" />
+          <span>
+            {existingRanking ? (hasUnrankedMovies ? `⚔️ Classer les nouveaux films` : "⚔️ Voir / Ajuster mon Classement") : "⚔️ Lancer le Duel des Films Vus"}
+          </span>
+          {hasUnrankedMovies && (
+            <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-amber-400 text-black text-[10px] font-black leading-none shadow-sm">
+              +{unrankedCount}
+            </span>
+          )}
         </Button>
       )}
 

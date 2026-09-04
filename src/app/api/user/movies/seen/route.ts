@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
 
     const fieldName = type === 'movie' ? 'seenMovieTitles' : 'seenSeriesTitles';
     const historyFieldName = type === 'movie' ? 'seenMovieHistory' : 'seenSeriesHistory';
+    const dataFieldName = type === 'movie' ? 'seenMoviesData' : 'seenSeriesData';
 
     const historyObject = {
         title,
@@ -51,9 +52,17 @@ export async function POST(req: NextRequest) {
         ...(posterPath && { posterPath })
     };
 
+    const dataObject = {
+        title,
+        viewedAt: Date.now(),
+        addedAt: Date.now(),
+        ...(posterPath && { posterUrl: posterPath })
+    };
+
     await setDoc(userDoc, {
       [fieldName]: arrayUnion(title),
-      [historyFieldName]: arrayUnion(historyObject)
+      [historyFieldName]: arrayUnion(historyObject),
+      [dataFieldName]: arrayUnion(dataObject)
     }, { merge: true });
 
     return NextResponse.json({
