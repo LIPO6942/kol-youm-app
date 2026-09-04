@@ -26,7 +26,7 @@ import {
   RankMovement,
 } from '@/lib/movie-duel-engine';
 import { useAuth } from '@/hooks/use-auth';
-import { saveMonthlyMovieRanking, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, purgeTestMovieData } from '@/lib/firebase/firestore';
+import { saveMonthlyMovieRanking, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle } from '@/lib/firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 interface MovieDuelModalProps {
@@ -73,13 +73,6 @@ export function MovieDuelModal({
   const validSeenMovies = useMemo(() => {
     return seenMovies.filter(m => !isTestMovieTitle(m.title));
   }, [seenMovies]);
-
-  // Purge de sécurité des films de test à l'ouverture de la modale
-  useEffect(() => {
-    if (isOpen && userProfile) {
-      purgeTestMovieData(user?.uid || 'guest', userProfile);
-    }
-  }, [isOpen, user?.uid, userProfile]);
 
   // Déterminer s'il s'agit d'un reclassement incrémental ou d'un premier classement
   const { isIncrementalMode, unrankedMovies, rankedTitles } = useMemo(() => {

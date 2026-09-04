@@ -890,8 +890,8 @@ export async function addCommunityTrivia(trivia: Omit<CommunityTriviaItem, 'id' 
     return newTrivia;
 }
 
-export const isTestMovieTitle = (title?: string | null): boolean => {
-    if (!title) return false;
+export const isTestMovieTitle = (title?: any): boolean => {
+    if (!title || typeof title !== 'string') return false;
     const t = title.trim().toLowerCase();
     return t === 'test00' || t === 'test000' || t === 'test0' || /^test\s*0+$/i.test(t);
 };

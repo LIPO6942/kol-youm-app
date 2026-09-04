@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db as firestoreDb } from '@/lib/firebase/client';
@@ -140,14 +140,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           };
         }
         
-        // Purge any test movie data (test00, test000...) from profile and storage
-        if (finalProfile) {
-          const purgeResult = await purgeTestMovieData(user.uid, finalProfile);
-          if (purgeResult.updatedProfile) {
-            finalProfile = purgeResult.updatedProfile;
-          }
-        }
-
         setUserProfile(finalProfile ?? null);
         setLoading(false);
       });
@@ -163,6 +155,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
   }, [user]);
+
+  // Purge unique en arrière-plan sans bloquer ni reboucler
+  const hasPurgedTestRef = useRef(false);
+  useEffect(() => {
+    if (user?.uid && !hasPurgedTestRef.current) {
+      hasPurgedTestRef.current = true;
+      purgeTestMovieData(user.uid).catch(err => {
+        console.warn("Erreur silencieuse purge test:", err);
+      });
+    }
+  }, [user?.uid]);
 
 
   return (

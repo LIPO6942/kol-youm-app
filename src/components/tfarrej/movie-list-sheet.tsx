@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv, Swords } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, purgeTestMovieData } from '@/lib/firebase/firestore';
+import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle } from '@/lib/firebase/firestore';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -1322,13 +1322,6 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
       movieTitles.forEach(title => fetchMovieDetails(title));
     }
   }, [movieTitles, fetchMovieDetails]);
-
-  // Purge de sécurité des films de test (test00, test000...)
-  useEffect(() => {
-    if (userProfile) {
-      purgeTestMovieData(user?.uid || 'guest', userProfile);
-    }
-  }, [user?.uid, userProfile]);
   const handleMarkAsWatched = async (movieTitle: string) => {
     const details = movieDetails[movieTitle];
     const pseudoMovie: SearchResult = {
