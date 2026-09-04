@@ -107,7 +107,7 @@ const AVAILABLE_SPECIALTIES = [
   { label: "Baignade/Plage", emoji: "🏖️" },
   { label: "Soirée", emoji: "🌅" },
   { label: "Glace/Dessert", emoji: "🍦" },
-  { label: "Plein air/Nature", emoji: "🌲" },
+  { label: "Nature / Farniente", emoji: "🌿" },
   { label: "Activité/Loisir", emoji: "🎯" },
   { label: "Randonnée", emoji: "🥾" },
   { label: "Pizza", emoji: "🍕" },
@@ -1423,7 +1423,7 @@ export default function DecisionMaker() {
                     <div className="space-y-1">
                       <span className="text-[10px] font-semibold text-muted-foreground block">Suggestions rapides :</span>
                       <div className="flex flex-wrap gap-1.5 pt-0.5">
-                        {["🏖️ Baignade", "🍦 Glace", "🌅 Soirée", "🌲 Nature", "🎯 Activité", "🥾 Randonnée", "☕ Pause Café", "🍹 Rooftop"].map((tag, idx) => (
+                        {["🏖️ Baignade", "🍦 Glace", "🌅 Soirée", "🌿 Nature / Farniente", "🎯 Activité", "🥾 Randonnée", "🍹 Rooftop"].map((tag, idx) => (
                           <TypedBadge
                             key={idx}
                             variant="outline"

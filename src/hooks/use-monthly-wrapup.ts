@@ -99,10 +99,42 @@ const NON_FOOD_KEYWORDS = [
   'karting', 'bowling', 'arcade', 'activité', 'activite', 'parc'
 ];
 
-export function getKharjetThematicImage(text: string): string {
+export function getKharjetThematicImage(
+  text: string,
+  dateOrMonth?: number | Date | string,
+  index: number = 0
+): string {
   const t = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-  // 1. Sea / Beach / Baignade / Plage / Boat / Crique
+  // Determine monthly variant (1 or 2) to rotate photos month-to-month and between multiple outings
+  let monthIndex = 0;
+  if (typeof dateOrMonth === 'number') {
+    if (dateOrMonth >= 0 && dateOrMonth <= 11) {
+      monthIndex = dateOrMonth;
+    } else {
+      const d = new Date(dateOrMonth);
+      if (!isNaN(d.getTime())) monthIndex = d.getMonth();
+    }
+  } else if (dateOrMonth instanceof Date) {
+    monthIndex = dateOrMonth.getMonth();
+  } else if (typeof dateOrMonth === 'string' && dateOrMonth) {
+    const d = new Date(dateOrMonth);
+    if (!isNaN(d.getTime())) monthIndex = d.getMonth();
+  }
+
+  const variant = ((monthIndex + index) % 2 === 0) ? 1 : 2;
+
+  // 1. Nature / Farniente / Détente / Pique-nique / Hamac / Jardin / Parc
+  if (
+    t.includes('farniente') || t.includes('nature / farniente') || t.includes('detente') || 
+    t.includes('relaxation') || t.includes('hamac') || t.includes('repos') || t.includes('chill') || 
+    t.includes('pique nique') || t.includes('picnic') || t.includes('jardin') || 
+    (t.includes('nature') && !t.includes('randonnee') && !t.includes('rando') && !t.includes('trek') && !t.includes('montagne'))
+  ) {
+    return variant === 1 ? '/images/kharjet/nature_farniente_1.jpg' : '/images/kharjet/nature_farniente_2.jpg';
+  }
+
+  // 2. Sea / Beach / Baignade / Plage / Boat / Crique
   if (
     t.includes('baignade') || t.includes('baign') || t.includes('mer') || t.includes('plage') || 
     t.includes('beach') || t.includes('sea') || t.includes('swim') || t.includes('plongee') || 
@@ -113,32 +145,31 @@ export function getKharjetThematicImage(text: string): string {
     t.includes('tabarka') || t.includes('djerba') || t.includes('zarzis') || t.includes('mahdia') || 
     t.includes('monastir') || t.includes('sousse') || t.includes('amilcar')
   ) {
-    return '/images/kharjet/sea.jpg';
+    return variant === 1 ? '/images/kharjet/sea_1.jpg' : '/images/kharjet/sea_2.jpg';
   }
 
-  // 2. Nightlife / Soirée / Party / Rooftop / Lounge / Club / Bar
+  // 3. Nightlife / Soirée / Party / Rooftop / Lounge / Club / Bar
   if (
     t.includes('soiree') || t.includes('soir') || t.includes('night') || t.includes('lounge') || 
     t.includes('bar') || t.includes('club') || t.includes('rooftop') || t.includes('fete') || 
     t.includes('party') || t.includes('cocktail') || t.includes('afterwork') || t.includes('pub') || 
     t.includes('concert') || t.includes('music') || t.includes('dj') || t.includes('boite')
   ) {
-    return '/images/kharjet/soiree.jpg';
+    return variant === 1 ? '/images/kharjet/soiree_1.jpg' : '/images/kharjet/soiree_2.jpg';
   }
 
-  // 3. Hiking / Nature / Montagne / Randonnée / Forêt / Parc / Camping
+  // 4. Hiking / Montagne / Randonnée / Forêt / Trek / Camping
   if (
-    t.includes('randonnee') || t.includes('rando') || t.includes('nature') || t.includes('montagne') || 
-    t.includes('foret') || t.includes('forest') || t.includes('parc') || t.includes('park') || 
-    t.includes('trek') || t.includes('cascade') || t.includes('trail') || t.includes('camping') || 
-    t.includes('pique nique') || t.includes('picnic') || t.includes('zaghouan') || t.includes('boukornine') || 
+    t.includes('randonnee') || t.includes('rando') || t.includes('montagne') || 
+    t.includes('foret') || t.includes('forest') || t.includes('trek') || t.includes('cascade') || 
+    t.includes('trail') || t.includes('camping') || t.includes('zaghouan') || t.includes('boukornine') || 
     t.includes('ichkeul') || t.includes('ain draham') || t.includes('beni mtir') || t.includes('kesra')
   ) {
-    return '/images/kharjet/hiking.jpg';
+    return variant === 1 ? '/images/kharjet/hiking_1.jpg' : '/images/kharjet/hiking_2.jpg';
   }
 
-  // 4. Default / Balade / Medina / Promenade / Autre
-  return '/images/kharjet/walk.jpg';
+  // 5. Default / Balade / Medina / Promenade / Glace / Activité / Autre
+  return variant === 1 ? '/images/kharjet/walk_1.jpg' : '/images/kharjet/walk_2.jpg';
 }
 
 function isFoodDish(text: string): boolean {
@@ -235,7 +266,7 @@ export function useMonthlyWrapUp(
 
         // Si pas de photo Momenty, attribuer l'image thématique correspondante (baignade/mer, soirée/night, rando/nature, sunset, balade)
         const combinedText = `${v.placeName || ''} ${area || ''} ${kharjetDesc} ${v.orderedItem || ''} ${v.note || ''}`;
-        const kharjetImg = rawKharjetImg || getKharjetThematicImage(combinedText);
+        const kharjetImg = rawKharjetImg || getKharjetThematicImage(combinedText, v.date || targetMonth, kharjetOutings.length);
 
         kharjetOutings.push({
           id: v.id || `${v.date}-${Math.random().toString(36).substr(2, 5)}`,

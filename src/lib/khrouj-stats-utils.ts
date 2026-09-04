@@ -115,7 +115,7 @@ export function getDishEmoji(text: string): string {
   // Kharjet / Activités & Nature
   if (t.includes('baignade') || t.includes('plage') || t.includes('beach') || t.includes('mer') || t.includes('piscine')) return '🏖️';
   if (t.includes('sunset') || t.includes('coucher de soleil') || t.includes('soirée') || t.includes('soiree') || t.includes('night')) return '🌅';
-  if (t.includes('parc') || t.includes('nature') || t.includes('plein air') || t.includes('forêt') || t.includes('jardin')) return '🌲';
+  if (t.includes('farniente') || t.includes('parc') || t.includes('nature') || t.includes('plein air') || t.includes('forêt') || t.includes('jardin')) return '🌿';
   if (t.includes('randonnée') || t.includes('randonnee') || t.includes('hike') || t.includes('trek')) return '🥾';
   if (t.includes('activité') || t.includes('activite') || t.includes('jeu') || t.includes('arcade') || t.includes('karting') || t.includes('bowling') || t.includes('loisir')) return '🎯';
   if (t.includes('bateau') || t.includes('kayak') || t.includes('paddle') || t.includes('nautique')) return '⛵';
