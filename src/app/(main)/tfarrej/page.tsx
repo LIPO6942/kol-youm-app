@@ -56,6 +56,8 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
   const currentMonthIndex = now.getMonth();
   const currentYear = now.getFullYear();
 
+  const existingRanking = userProfile?.movieRankings?.[currentMonthKey] || null;
+
   // Liste des films vus ce mois
   const monthlySeenMovies: DuelMovieItem[] = useMemo(() => {
     const seenDataList = userProfile?.seenMoviesData || [];
