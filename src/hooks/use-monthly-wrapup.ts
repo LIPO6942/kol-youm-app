@@ -507,7 +507,7 @@ export function useMonthlyWrapUp(
 
       if (sourceRanking?.rankedTitles?.length) {
         const monthTitlesLower = new Set(uniqueMonthTitles.map(t => t.toLowerCase().trim()));
-        const derivedTitles = (sourceRanking.rankedTitles as string[]).filter(t => monthTitlesLower.has(t.toLowerCase().trim()));
+        const derivedTitles = (sourceRanking.rankedTitles || []).filter(t => typeof t === 'string' && monthTitlesLower.has(t.toLowerCase().trim()));
         if (derivedTitles.length > 0) {
           monthlyRanking = {
             monthKey,

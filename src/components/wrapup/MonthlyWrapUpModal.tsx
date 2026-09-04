@@ -251,6 +251,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
   }, [isDuelOpen]);
 
   // Classement dynamique et réactif du Wrap-Up
+  const effectiveMovies = stats?.movies?.allMonthMovies || [];
   const [activeRanking, setActiveRanking] = useState<MonthlyMovieRanking | null>(null);
 
   useEffect(() => {
@@ -264,7 +265,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
         const sourceRanking = getStoredMovieRanking(currentMonthKey, effectiveUserProfile);
         if (sourceRanking?.rankedTitles?.length && effectiveMovies.length > 0) {
           const monthTitlesLower = new Set(effectiveMovies.map(m => (m?.title || '').toLowerCase().trim()));
-          const derived = (sourceRanking.rankedTitles || []).filter(t => monthTitlesLower.has((t || '').toLowerCase().trim()));
+          const derived = (sourceRanking.rankedTitles || []).filter(t => typeof t === 'string' && monthTitlesLower.has(t.toLowerCase().trim()));
           if (derived.length > 0) {
             setActiveRanking({
               monthKey,
@@ -281,7 +282,6 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     }
   }, [stats?.movies?.ranking, isOpen, monthKey, currentMonthKey, effectiveUserProfile, effectiveMovies]);
 
-  const effectiveMovies = stats?.movies?.allMonthMovies || [];
   const effectiveRanking = activeRanking || stats?.movies?.ranking || null;
 
   const { rankedTitles, unrankedCount, isAllRanked, totalMoviesCount } = useMemo(() => {
