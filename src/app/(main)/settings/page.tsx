@@ -993,7 +993,7 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>Wrap-Up Mensuel</CardTitle>
               <CardDescription>
-                Revivez vos meilleurs moments et découvrez vos statistiques du mois actuel.
+                Revivez vos meilleurs moments et découvrez vos statistiques du mois passé.
               </CardDescription>
             </CardHeader>
             <CardContent>

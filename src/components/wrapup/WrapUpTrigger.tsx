@@ -20,7 +20,8 @@ export function WrapUpTrigger({ userProfile }: { userProfile: UserProfile }) {
         return new Date(parts[0], parts[1] - 1, 1);
       }
     }
-    return new Date();
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() - 1, 1);
   }, [monthParam]);
 
   const handleCloseWrapUp = () => {

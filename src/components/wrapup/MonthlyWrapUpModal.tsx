@@ -191,7 +191,13 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     fetchPlaces();
   }, [isOpen]);
 
-  const wrapUpDate = targetDate;
+  // Le Wrap-Up par défaut affiche le mois passé (ex: en septembre -> août)
+  const wrapUpDate = React.useMemo(() => {
+    if (passedTargetDate) return passedTargetDate;
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  }, [passedTargetDate]);
+
   const monthKey = React.useMemo(() => `${wrapUpDate.getFullYear()}-${String(wrapUpDate.getMonth() + 1).padStart(2, '0')}`, [wrapUpDate]);
   const currentMonthKey = React.useMemo(() => {
     const now = new Date();
@@ -251,11 +257,29 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     if (stats?.movies?.ranking) {
       setActiveRanking(stats.movies.ranking);
     } else if (isOpen) {
-      const stored = getStoredMovieRanking(monthKey, effectiveUserProfile) || 
-                     (monthKey !== currentMonthKey ? getStoredMovieRanking(currentMonthKey, effectiveUserProfile) : null);
-      if (stored) setActiveRanking(stored);
+      const stored = getStoredMovieRanking(monthKey, effectiveUserProfile);
+      if (stored) {
+        setActiveRanking(stored);
+      } else {
+        const sourceRanking = getStoredMovieRanking(currentMonthKey, effectiveUserProfile);
+        if (sourceRanking?.rankedTitles?.length && effectiveMovies.length > 0) {
+          const monthTitlesLower = new Set(effectiveMovies.map(m => (m?.title || '').toLowerCase().trim()));
+          const derived = (sourceRanking.rankedTitles || []).filter(t => monthTitlesLower.has((t || '').toLowerCase().trim()));
+          if (derived.length > 0) {
+            setActiveRanking({
+              monthKey,
+              rankedTitles: derived,
+              initialRankedTitles: derived,
+              newlyAddedTitles: [],
+              publishedAt: sourceRanking.publishedAt || Date.now(),
+              updatedAt: Date.now(),
+              movieCatalog: sourceRanking.movieCatalog,
+            });
+          }
+        }
+      }
     }
-  }, [stats?.movies?.ranking, isOpen, monthKey, currentMonthKey, effectiveUserProfile]);
+  }, [stats?.movies?.ranking, isOpen, monthKey, currentMonthKey, effectiveUserProfile, effectiveMovies]);
 
   const effectiveMovies = stats?.movies?.allMonthMovies || [];
   const effectiveRanking = activeRanking || stats?.movies?.ranking || null;

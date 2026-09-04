@@ -395,12 +395,9 @@ export function useMonthlyWrapUp(
     };
 
     const monthKey = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
-    const now = new Date();
-    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const monthlyRanking: MonthlyMovieRanking | null = 
+    const directMonthlyRanking: MonthlyMovieRanking | null = 
       (user as any)?.movieRankings?.[monthKey] || 
       getStoredMovieRanking(monthKey, user) || 
-      (monthKey !== currentMonthKey ? ((user as any)?.movieRankings?.[currentMonthKey] || getStoredMovieRanking(currentMonthKey, user)) : null) || 
       null;
 
     const filterByDate = (history: any[], dateField: string) => {
@@ -410,8 +407,6 @@ export function useMonthlyWrapUp(
             return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
         });
     };
-
-    const isCurrentMonth = targetMonth === new Date().getMonth() && targetYear === new Date().getFullYear();
 
     // Map de métadonnées pour chaque titre (insensible à la casse)
     const metadataMap = new Map<string, Partial<DuelMovieItem>>();
@@ -458,18 +453,14 @@ export function useMonthlyWrapUp(
       }
     });
 
-    // Construire la liste de tous les films vus valides pour ce mois :
-    // - Films dont la date correspond au mois ciblé
-    // - OU films inclus dans le classement officiel du mois
-    // - OU si mois en cours : tous les films marqués comme vus par l'utilisateur
+    // Construire STRICTEMENT la liste des films vus durant ce mois spécifique :
+    // - Films dont la date (viewedAt / addedAt) correspond au mois ciblé
+    // - Films vus en salle durant ce mois (cinemaSessions)
+    // - Si un classement officiel pour ce mois précis existe déjà, ses films
     const datedMovies = [
       ...filterByDate((user as any).seenMoviesData || [], 'viewedAt'),
       ...filterByDate((user as any).seenMovieHistory || [], 'addedAt'),
     ].filter((m: any) => !isExcluded(m?.title));
-
-    const rankedFromExisting = (monthlyRanking?.rankedTitles || []).filter((t: string) => !isExcluded(t));
-    const allSeenTitles = ((user as any)?.seenMovieTitles || []).filter((t: string) => !isExcluded(t));
-    const allSeenDataTitles = ((user as any)?.seenMoviesData || []).map((m: any) => m.title).filter((t: string) => !isExcluded(t));
 
     const monthMovieTitlesSet = new Set<string>();
     datedMovies.forEach(m => {
@@ -477,18 +468,15 @@ export function useMonthlyWrapUp(
         monthMovieTitlesSet.add(m.title.trim());
       }
     });
-    rankedFromExisting.forEach(t => {
-      if (t && typeof t === 'string' && !isExcluded(t)) {
-        monthMovieTitlesSet.add(t.trim());
+
+    cinemaSessions.forEach(cs => {
+      if (cs.title && typeof cs.title === 'string' && !isExcluded(cs.title) && cs.title !== 'Film au cinéma') {
+        monthMovieTitlesSet.add(cs.title.trim());
       }
     });
-    if (isCurrentMonth) {
-      allSeenTitles.forEach(t => {
-        if (t && typeof t === 'string' && !isExcluded(t)) {
-          monthMovieTitlesSet.add(t.trim());
-        }
-      });
-      allSeenDataTitles.forEach(t => {
+
+    if (directMonthlyRanking?.rankedTitles) {
+      directMonthlyRanking.rankedTitles.forEach(t => {
         if (t && typeof t === 'string' && !isExcluded(t)) {
           monthMovieTitlesSet.add(t.trim());
         }
@@ -496,6 +484,43 @@ export function useMonthlyWrapUp(
     }
 
     const uniqueMonthTitles = Array.from(monthMovieTitlesSet);
+
+    // Résolution du classement : soit direct pour ce mois, soit dérivé de Tfarrej STRICTEMENT pour les films de ce mois
+    let monthlyRanking: MonthlyMovieRanking | null = directMonthlyRanking;
+
+    if (!monthlyRanking && uniqueMonthTitles.length > 0) {
+      const allRankings = (user as any)?.movieRankings || {};
+      const now = new Date();
+      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      let sourceRanking = (user as any)?.movieRankings?.[currentMonthKey] || getStoredMovieRanking(currentMonthKey, user);
+
+      if (!sourceRanking) {
+        const sortedKeys = Object.keys(allRankings).sort().reverse();
+        for (const k of sortedKeys) {
+          const r = allRankings[k] || getStoredMovieRanking(k, user);
+          if (r?.rankedTitles?.length) {
+            sourceRanking = r;
+            break;
+          }
+        }
+      }
+
+      if (sourceRanking?.rankedTitles?.length) {
+        const monthTitlesLower = new Set(uniqueMonthTitles.map(t => t.toLowerCase().trim()));
+        const derivedTitles = (sourceRanking.rankedTitles as string[]).filter(t => monthTitlesLower.has(t.toLowerCase().trim()));
+        if (derivedTitles.length > 0) {
+          monthlyRanking = {
+            monthKey,
+            rankedTitles: derivedTitles,
+            initialRankedTitles: derivedTitles,
+            newlyAddedTitles: [],
+            publishedAt: sourceRanking.publishedAt || Date.now(),
+            updatedAt: Date.now(),
+            movieCatalog: sourceRanking.movieCatalog,
+          };
+        }
+      }
+    }
 
     // DuelMovieItem[] final pour les stats et le modal
     const duelItems: DuelMovieItem[] = uniqueMonthTitles.map(title => {
