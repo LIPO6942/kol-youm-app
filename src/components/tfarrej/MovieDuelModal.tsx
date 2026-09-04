@@ -331,6 +331,22 @@ export function MovieDuelModal({
                 transition={{ duration: 0.2 }}
                 className="w-full flex flex-col items-center"
               >
+                {/* Info bulle sur le cycle des duels */}
+                <div className={`w-full max-w-[560px] mb-3 px-3 py-2 rounded-xl text-[11px] leading-relaxed flex items-center gap-2 border ${
+                  session.mode === 'incremental'
+                    ? 'bg-amber-500/10 border-amber-400/30 text-amber-200'
+                    : 'bg-blue-500/10 border-blue-400/30 text-blue-200'
+                }`}>
+                  <Sparkles className={`w-3.5 h-3.5 flex-shrink-0 ${session.mode === 'incremental' ? 'text-amber-400' : 'text-blue-400'}`} />
+                  <span>
+                    {session.mode === 'incremental' ? (
+                      <><strong>Reclassement express :</strong> Seuls vos <strong>nouveaux films ajoutés</strong> sont défiés pour intégrer directement votre palmarès existant !</>
+                    ) : (
+                      <><strong>Premier duel du mois :</strong> Tous vos films sont comparés cette première fois. Ensuite, seuls vos <strong>futurs ajouts</strong> seront départagés !</>
+                    )}
+                  </span>
+                </div>
+
                 {/* Barre de progression & étape */}
                 <div className="w-full max-w-[560px] mb-3 sm:mb-5 flex flex-col gap-1.5">
                   <div className="flex justify-between items-center text-[11px] sm:text-xs text-white/60 font-medium">

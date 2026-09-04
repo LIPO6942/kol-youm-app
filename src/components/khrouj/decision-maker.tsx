@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { makeDecision } from '@/ai/flows/decision-maker-flow';
 import type { Suggestion } from '@/ai/flows/decision-maker-flow.types';
-import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2, Crown, Compass, Award, Home, Zap, Star, Soup, Cake, IceCream, Fish, Drumstick, Cherry, Apple, Carrot, Cookie, Beer, Wine, GlassWater, Beef, Egg, Flame, ExternalLink, Search, Clapperboard, Film, ChevronDown, Sparkles, Clock, SlidersHorizontal, ArrowUpDown, FilterX, Layers } from 'lucide-react';
+import { Coffee, ShoppingBag, UtensilsCrossed, Mountain, MapPin, RotateCw, ArrowLeft, type LucideIcon, ChevronLeft, ChevronRight, Sandwich, Filter, X, Sun, Pizza, CupSoda, BarChart3, Plus, History, Calendar, Trash2, Building2, Crown, Compass, Award, Home, Zap, Star, Soup, Cake, IceCream, Fish, Drumstick, Cherry, Apple, Carrot, Cookie, Beer, Wine, GlassWater, Beef, Egg, Flame, ExternalLink, Search, Clapperboard, Film, ChevronDown, Sparkles, Clock, SlidersHorizontal, ArrowUpDown, FilterX, Layers, Swords } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { updateUserProfile, addVisitLog, deleteVisitLog, updateVisitLog, updateSpecialtyCustomization, addSeenMovieWithDate, type VisitLog } from '@/lib/firebase/firestore';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
@@ -1348,6 +1348,19 @@ export default function DecisionMaker() {
                       </Button>
                     </div>
                   )}
+
+                  {/* Note explicative sur le Duel Ciné et le Wrap-Up */}
+                  <div className="p-3 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-300 dark:text-violet-200 flex items-start gap-2.5 mt-2.5">
+                    <Swords className="w-4 h-4 text-violet-400 flex-shrink-0 mt-0.5" />
+                    <div className="text-xs space-y-0.5">
+                      <p className="font-bold text-violet-200 dark:text-violet-100">
+                        ⚔️ Duel Ciné & Wrap-Up Mensuel :
+                      </p>
+                      <p className="text-[11px] leading-relaxed text-muted-foreground dark:text-violet-300/80">
+                        Le <strong>premier duel</strong> classe l'ensemble de tous vos films vus du mois. Une fois ce classement initial établi, vos prochains duels ne compareront <strong>que les nouveaux films ajoutés</strong> pour les insérer directement à leur juste place (dans l'onglet Tfarrej ou dans votre Wrap-Up mensuel) !
+                      </p>
+                    </div>
+                  </div>
                 </div>
             ) : (
                 <div className="space-y-3">

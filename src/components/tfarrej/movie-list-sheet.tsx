@@ -982,20 +982,6 @@ function MovieListContent({
         </div>
 
         <div className="flex gap-2">
-          {/* Classement des films vus */}
-          {listType === 'seenMovieTitles' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsDuelModalOpen(true)}
-              className="gap-1 border-amber-400/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 dark:text-amber-300 font-semibold"
-              title="Mon classement des films vus"
-            >
-              <Swords className="h-4 w-4 text-amber-400" />
-              <span className="hidden sm:inline">Classement</span>
-            </Button>
-          )}
-
           {/* Add Button (Available for all lists now) */}
           <Button variant="outline" size="sm" onClick={() => onAddManual()} className="gap-1">
             <Plus className="h-4 w-4" />
@@ -1039,13 +1025,13 @@ function MovieListContent({
       </div>
 
       {/* Duel Ranking Trigger for Seen Movies */}
-      {listType === 'seenMovieTitles' && duelSeenMovies.length >= 2 && (
+      {listType === 'seenMovieTitles' && (
         <Button
           onClick={() => setIsDuelModalOpen(true)}
           className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold h-9 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-transform active:scale-[0.99]"
         >
           <Swords className="w-4 h-4 text-amber-300" />
-          {existingRanking ? "⚔️ Reclasser mes films vus par Duel" : "⚔️ Lancer le Grand Duel des Films Vus"}
+          {existingRanking ? "⚔️ Voir / Ajuster mon Classement par Duel" : "⚔️ Lancer le Duel des Films Vus"}
         </Button>
       )}
 

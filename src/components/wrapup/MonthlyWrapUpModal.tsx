@@ -928,7 +928,9 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                               <Swords className="w-3.5 h-3.5 mr-1.5 text-amber-300" />
                               Lancer le Grand Duel ({stats.movies.total} films)
                             </Button>
-                            <p className="text-[10px] text-white/50">Affronte tes films 2 par 2 pour créer ton palmarès</p>
+                            <p className="text-[10px] text-white/60 text-center max-w-[280px]">
+                              Le 1er duel classe tous tes films du mois. Les prochains duels ne compareront que tes nouveaux ajouts !
+                            </p>
                           </motion.div>
                         )
                       )}
