@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { UserProfile, VisitLog, SeenMovie, MonthlyMovieRanking } from '@/lib/firebase/firestore';
+import { getStoredMovieRanking, type UserProfile, type VisitLog, type SeenMovie, type MonthlyMovieRanking } from '@/lib/firebase/firestore';
 import { analyzeMonthlyMovieTastes, MonthlyMovieTasteAnalysis } from '@/lib/movie-genre-analyzer';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
 
@@ -437,7 +437,7 @@ export function useMonthlyWrapUp(
 
     const baseMovieStats = getTfarrejStats(uniqueMovies);
     const monthKey = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
-    const monthlyRanking: MonthlyMovieRanking | null = (user as any).movieRankings?.[monthKey] || null;
+    const monthlyRanking: MonthlyMovieRanking | null = (user as any)?.movieRankings?.[monthKey] || getStoredMovieRanking(monthKey, user) || null;
     const genreAnalysis = analyzeMonthlyMovieTastes(uniqueMovies);
 
     const duelItems: DuelMovieItem[] = uniqueMovies.map((m: any) => ({

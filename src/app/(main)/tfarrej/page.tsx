@@ -13,6 +13,7 @@ import { TfarrejStatsDialog } from '@/components/tfarrej/tfarrej-stats-dialog';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
 import { useAuth } from '@/hooks/use-auth';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
+import { getStoredMovieRanking, MonthlyMovieRanking } from '@/lib/firebase/firestore';
 
 const genres = [
   { name: 'Comédie', iconName: 'Laugh', description: 'Pour rire aux éclats.' },
@@ -56,7 +57,18 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
   const currentMonthIndex = now.getMonth();
   const currentYear = now.getFullYear();
 
-  const existingRanking = userProfile?.movieRankings?.[currentMonthKey] || null;
+  const [localRanking, setLocalRanking] = useState<MonthlyMovieRanking | null>(() => {
+    return getStoredMovieRanking(currentMonthKey, userProfile);
+  });
+
+  useEffect(() => {
+    const stored = getStoredMovieRanking(currentMonthKey, userProfile);
+    if (stored) {
+      setLocalRanking(stored);
+    }
+  }, [currentMonthKey, userProfile]);
+
+  const existingRanking = userProfile?.movieRankings?.[currentMonthKey] || localRanking || getStoredMovieRanking(currentMonthKey, userProfile);
 
   // Liste des films vus ce mois
   const monthlySeenMovies: DuelMovieItem[] = useMemo(() => {
@@ -341,6 +353,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         monthName={currentMonthName}
         seenMovies={monthlySeenMovies}
         existingRanking={existingRanking}
+        onRankingSaved={(saved) => setLocalRanking(saved)}
       />
     </div>
   );

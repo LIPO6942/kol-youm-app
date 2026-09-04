@@ -890,29 +890,91 @@ export async function addCommunityTrivia(trivia: Omit<CommunityTriviaItem, 'id' 
     return newTrivia;
 }
 
+export function getStoredMovieRanking(
+    monthKey: string,
+    userProfile?: UserProfile | null
+): MonthlyMovieRanking | null {
+    if (userProfile?.movieRankings?.[monthKey]) {
+        return userProfile.movieRankings[monthKey];
+    }
+    if (typeof window !== 'undefined') {
+        try {
+            const specific = localStorage.getItem(`kolyoum_movie_ranking_${monthKey}`);
+            if (specific) {
+                const parsed = JSON.parse(specific);
+                if (parsed?.rankedTitles?.length) return parsed;
+            }
+            const all = localStorage.getItem('kolyoum_movie_rankings');
+            if (all) {
+                const parsedAll = JSON.parse(all);
+                if (parsedAll?.[monthKey]?.rankedTitles?.length) {
+                    return parsedAll[monthKey];
+                }
+            }
+        } catch (e) {
+            console.warn("Failed reading movie ranking from localStorage", e);
+        }
+    }
+    return null;
+}
+
 export async function saveMonthlyMovieRanking(
     uid: string,
     ranking: MonthlyMovieRanking
 ): Promise<void> {
-    const userRef = doc(firestoreDb, 'users', uid);
-    const fieldPath = `movieRankings.${ranking.monthKey}`;
-
-    await setDoc(userRef, {
-        movieRankings: {
-            [ranking.monthKey]: ranking
+    // 1. Sauvegarde synchrone et immédiate dans localStorage (Résilience hors-ligne / actualisation)
+    if (typeof window !== 'undefined') {
+        try {
+            localStorage.setItem(`kolyoum_movie_ranking_${ranking.monthKey}`, JSON.stringify(ranking));
+            const existingAll = JSON.parse(localStorage.getItem('kolyoum_movie_rankings') || '{}');
+            existingAll[ranking.monthKey] = ranking;
+            localStorage.setItem('kolyoum_movie_rankings', JSON.stringify(existingAll));
+        } catch (err) {
+            console.warn("Erreur sauvegarde localStorage pour movie ranking:", err);
         }
-    }, { merge: true });
+    }
 
-    const localProfile = await getUserFromDb(uid);
-    if (localProfile) {
-        const currentRankings = localProfile.movieRankings || {};
-        await storeUserInDb(uid, {
-            ...localProfile,
-            movieRankings: {
-                ...currentRankings,
-                [ranking.monthKey]: ranking
-            }
-        });
+    // 2. Sauvegarde locale persistante dans IndexedDB
+    const effectiveUid = uid && uid !== 'guest' ? uid : 'guest';
+    try {
+        const localProfile = await getUserFromDb(effectiveUid);
+        if (localProfile) {
+            const currentRankings = localProfile.movieRankings || {};
+            await storeUserInDb(effectiveUid, {
+                ...localProfile,
+                movieRankings: {
+                    ...currentRankings,
+                    [ranking.monthKey]: ranking
+                }
+            });
+        }
+    } catch (err) {
+        console.warn("Erreur sauvegarde IndexedDB pour movie ranking:", err);
+    }
+
+    // 3. Synchronisation cloud dans Firestore
+    if (uid && uid !== 'guest') {
+        try {
+            const userRef = doc(firestoreDb, 'users', uid);
+            // Nettoyage de tout champ indéfini pour Firestore
+            const safeRanking: Record<string, any> = {
+                monthKey: ranking.monthKey,
+                rankedTitles: ranking.rankedTitles || [],
+                publishedAt: ranking.publishedAt || Date.now(),
+                updatedAt: ranking.updatedAt || Date.now(),
+                initialRankedTitles: ranking.initialRankedTitles || ranking.rankedTitles || [],
+                newlyAddedTitles: ranking.newlyAddedTitles || [],
+                hasUpdatesSincePublish: Boolean(ranking.hasUpdatesSincePublish),
+            };
+
+            await setDoc(userRef, {
+                movieRankings: {
+                    [ranking.monthKey]: safeRanking
+                }
+            }, { merge: true });
+        } catch (err) {
+            console.warn("Avertissement: Impossible de synchroniser le classement dans Firestore (sauvegardé en local):", err);
+        }
     }
 }
 

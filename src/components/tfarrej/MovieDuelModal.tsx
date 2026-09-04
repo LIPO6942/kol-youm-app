@@ -26,7 +26,7 @@ import {
   RankMovement,
 } from '@/lib/movie-duel-engine';
 import { useAuth } from '@/hooks/use-auth';
-import { saveMonthlyMovieRanking, MonthlyMovieRanking } from '@/lib/firebase/firestore';
+import { saveMonthlyMovieRanking, getStoredMovieRanking, MonthlyMovieRanking } from '@/lib/firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 interface MovieDuelModalProps {
@@ -55,9 +55,14 @@ export function MovieDuelModal({
   const [isSaving, setIsSaving] = useState(false);
   const [selectedWinnerSide, setSelectedWinnerSide] = useState<'A' | 'B' | null>(null);
 
+  // Classement effectif (prop direct ou depuis le stockage local/cloud)
+  const effectiveExistingRanking = useMemo(() => {
+    return existingRanking || getStoredMovieRanking(monthKey, userProfile);
+  }, [existingRanking, monthKey, userProfile]);
+
   // Déterminer s'il s'agit d'un reclassement incrémental ou d'un premier classement
   const { isIncrementalMode, unrankedMovies, rankedTitles } = useMemo(() => {
-    const currentRanked = existingRanking?.rankedTitles || [];
+    const currentRanked = effectiveExistingRanking?.rankedTitles || [];
     if (currentRanked.length > 0) {
       const rankedSet = new Set(currentRanked);
       const unranked = seenMovies.filter(m => !rankedSet.has(m.title));
@@ -72,7 +77,7 @@ export function MovieDuelModal({
       unrankedMovies: seenMovies,
       rankedTitles: [],
     };
-  }, [existingRanking, seenMovies]);
+  }, [effectiveExistingRanking, seenMovies]);
 
   // Initialisation de la session de duel à l'ouverture
   useEffect(() => {
@@ -83,12 +88,18 @@ export function MovieDuelModal({
     }
 
     // 1. Si un classement existe déjà et aucun nouveau film en attente : afficher directement le classement finalisé !
-    if (existingRanking && unrankedMovies.length === 0) {
+    if (effectiveExistingRanking && unrankedMovies.length === 0) {
       const existingCatalog: Record<string, DuelMovieItem> = {};
       seenMovies.forEach(m => { existingCatalog[m.title] = m; });
+      effectiveExistingRanking.rankedTitles.forEach(title => {
+        if (!existingCatalog[title]) {
+          existingCatalog[title] = { title };
+        }
+      });
+
       setSession({
         mode: 'incremental',
-        sortedTitles: existingRanking.rankedTitles,
+        sortedTitles: effectiveExistingRanking.rankedTitles,
         pendingItems: [],
         currentCandidate: null,
         low: 0,
@@ -99,20 +110,25 @@ export function MovieDuelModal({
         stepNumber: 0,
         estimatedTotalSteps: 0,
         isFinished: true,
-        initialRankedTitles: existingRanking.initialRankedTitles || existingRanking.rankedTitles,
-        newlyAddedTitles: existingRanking.newlyAddedTitles || [],
+        initialRankedTitles: effectiveExistingRanking.initialRankedTitles || effectiveExistingRanking.rankedTitles,
+        newlyAddedTitles: effectiveExistingRanking.newlyAddedTitles || [],
         movieCatalog: existingCatalog,
       });
       return;
     }
 
     // 2. Mode Incrémental : affronter les nouveaux films vus aux films déjà classés
-    if (isIncrementalMode && existingRanking && unrankedMovies.length > 0) {
+    if (isIncrementalMode && effectiveExistingRanking && unrankedMovies.length > 0) {
       const existingCatalog: Record<string, DuelMovieItem> = {};
       seenMovies.forEach(m => { existingCatalog[m.title] = m; });
+      effectiveExistingRanking.rankedTitles.forEach(title => {
+        if (!existingCatalog[title]) {
+          existingCatalog[title] = { title };
+        }
+      });
 
       const newSession = createIncrementalDuelSession(
-        existingRanking.rankedTitles,
+        effectiveExistingRanking.rankedTitles,
         unrankedMovies,
         existingCatalog
       );
@@ -147,7 +163,64 @@ export function MovieDuelModal({
       newlyAddedTitles: [],
       movieCatalog: emptyCatalog,
     });
-  }, [isOpen, isIncrementalMode, existingRanking, unrankedMovies, seenMovies]);
+  }, [isOpen, isIncrementalMode, effectiveExistingRanking, unrankedMovies, seenMovies]);
+
+  // Sauvegarde synchrone et persistante (Multi-couches : LocalStorage + IndexedDB + Firestore)
+  const executeSaveRanking = useCallback(async (
+    targetSession: DuelSessionState,
+    options?: { notifyToast?: boolean; closeModal?: boolean }
+  ) => {
+    if (!targetSession || !targetSession.isFinished) return;
+
+    const effectiveUid = user?.uid || userProfile?.uid || 'guest';
+    setIsSaving(true);
+    try {
+      const now = Date.now();
+      const isFirstPublish = !effectiveExistingRanking;
+
+      const rankingPayload: MonthlyMovieRanking = {
+        monthKey,
+        rankedTitles: targetSession.sortedTitles,
+        publishedAt: effectiveExistingRanking?.publishedAt || now,
+        updatedAt: now,
+        initialRankedTitles: effectiveExistingRanking?.initialRankedTitles || targetSession.sortedTitles,
+        newlyAddedTitles: isFirstPublish
+          ? []
+          : Array.from(new Set([...(effectiveExistingRanking?.newlyAddedTitles || []), ...(targetSession.newlyAddedTitles || [])])),
+        hasUpdatesSincePublish: !isFirstPublish && (targetSession.newlyAddedTitles?.length || 0) > 0,
+      };
+
+      await saveMonthlyMovieRanking(effectiveUid, rankingPayload);
+
+      if (onRankingSaved) {
+        onRankingSaved(rankingPayload);
+      }
+
+      if (options?.notifyToast) {
+        toast({
+          title: isFirstPublish ? "🏆 Classement validé !" : "⚡ Reclassement mis à jour !",
+          description: isFirstPublish
+            ? "Ton classement officiel est bien sauvegardé pour le Wrap-Up mensuel."
+            : `${targetSession.newlyAddedTitles.length} nouveau(x) film(s) intégré(s) avec succès !`,
+        });
+      }
+
+      if (options?.closeModal) {
+        onOpenChange(false);
+      }
+    } catch (err) {
+      console.error("Erreur lors de la sauvegarde du classement:", err);
+      if (options?.notifyToast) {
+        toast({
+          title: "Erreur",
+          description: "Impossible d'enregistrer le classement.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  }, [user, userProfile, effectiveExistingRanking, monthKey, onRankingSaved, onOpenChange, toast]);
 
   // Choix utilisateur (Winner: movieA = candidate, movieB = reference)
   const handleChoice = useCallback((side: 'A' | 'B') => {
@@ -159,9 +232,17 @@ export function MovieDuelModal({
     setTimeout(() => {
       setSelectedWinnerSide(null);
       const winner = side === 'A' ? 'candidate' : 'reference';
-      setSession(prev => (prev ? processDuelDecision(prev, winner) : null));
+      setSession(prev => {
+        if (!prev) return null;
+        const next = processDuelDecision(prev, winner);
+        if (next.isFinished) {
+          // Sauvegarde automatique et immédiate dès la fin du duel !
+          executeSaveRanking(next, { notifyToast: false, closeModal: false });
+        }
+        return next;
+      });
     }, 180);
-  }, [session]);
+  }, [session, executeSaveRanking]);
 
   // Annuler le dernier duel
   const handleUndo = useCallback(() => {
@@ -190,69 +271,13 @@ export function MovieDuelModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, session, handleChoice, handleUndo]);
 
-  // Sauvegarde et publication du classement dans Firestore
-  const handleSaveRanking = async () => {
-    if (!session || !session.isFinished) return;
-
-    const effectiveUid = user?.uid || userProfile?.uid;
-    if (!effectiveUid) {
-      toast({
-        title: "Connexion requise",
-        description: "Connectez-vous pour enregistrer votre classement.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const now = Date.now();
-      const isFirstPublish = !existingRanking;
-
-      const rankingPayload: MonthlyMovieRanking = {
-        monthKey,
-        rankedTitles: session.sortedTitles,
-        publishedAt: existingRanking?.publishedAt || now,
-        updatedAt: now,
-        initialRankedTitles: existingRanking?.initialRankedTitles || session.sortedTitles,
-        newlyAddedTitles: isFirstPublish
-          ? []
-          : Array.from(new Set([...(existingRanking.newlyAddedTitles || []), ...session.newlyAddedTitles])),
-        hasUpdatesSincePublish: !isFirstPublish && session.newlyAddedTitles.length > 0,
-      };
-
-      await saveMonthlyMovieRanking(effectiveUid, rankingPayload);
-
-      toast({
-        title: isFirstPublish ? "🏆 Classement publié !" : "⚡ Reclassement mis à jour !",
-        description: isFirstPublish
-          ? "Ton classement officiel a été enregistré pour le Wrap-Up mensuel."
-          : `${session.newlyAddedTitles.length} nouveau(x) film(s) intégré(s) avec succès !`,
-      });
-
-      if (onRankingSaved) {
-        onRankingSaved(rankingPayload);
-      }
-      onOpenChange(false);
-    } catch (err) {
-      console.error("Erreur lors de la sauvegarde du classement:", err);
-      toast({
-        title: "Erreur",
-        description: "Impossible d'enregistrer le classement.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   // Calcul des mouvements pour l'animation de classement / déclassement
   const rankMovements: RankMovement[] = useMemo(() => {
     if (!session || !session.isFinished) return [];
 
-    const baseList = existingRanking?.initialRankedTitles || session.initialRankedTitles || [];
+    const baseList = effectiveExistingRanking?.initialRankedTitles || session.initialRankedTitles || [];
     return calculateRankMovements(baseList, session.sortedTitles, session.newlyAddedTitles);
-  }, [session, existingRanking]);
+  }, [session, effectiveExistingRanking]);
 
   // Helper pour formater l'affiche
   const getPosterUrl = (url?: string) => {
@@ -550,6 +575,16 @@ export function MovieDuelModal({
                     {session.mode === 'incremental' ? "Classement Réactualisé !" : "Ton Palmarès Officiel !"}
                   </h3>
                 </div>
+                {/* Badge de confirmation de sauvegarde automatique */}
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-bold mb-4 shadow-[0_0_20px_rgba(16,185,129,0.25)]"
+                >
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <span>Classement enregistré et synchronisé</span>
+                </motion.div>
+
                 <p className="text-xs text-white/60 text-center max-w-[480px] mb-5">
                   {session.mode === 'incremental'
                     ? "Les nouveaux films ont bousculé les positions ! Observe les montées, descentes et nouvelles entrées ci-dessous."
@@ -659,7 +694,13 @@ export function MovieDuelModal({
                 {/* Bouton de confirmation / publication */}
                 <div className="w-full max-w-[550px] flex flex-col sm:flex-row gap-3">
                   <Button
-                    onClick={handleSaveRanking}
+                    onClick={() => {
+                      if (session) {
+                        executeSaveRanking(session, { notifyToast: true, closeModal: true });
+                      } else {
+                        onOpenChange(false);
+                      }
+                    }}
                     disabled={isSaving}
                     className="flex-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold h-12 rounded-2xl shadow-[0_10px_30px_rgba(99,102,241,0.3)] transition-all"
                   >
@@ -668,7 +709,7 @@ export function MovieDuelModal({
                     ) : (
                       <>
                         <Check className="w-4 h-4 mr-2" />
-                        {existingRanking ? "Valider le nouveau classement" : "Publier pour le Wrap-Up"}
+                        {effectiveExistingRanking ? "Valider et Fermer" : "Publier pour le Wrap-Up"}
                       </>
                     )}
                   </Button>

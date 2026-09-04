@@ -32,8 +32,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchAndSetProfile = useCallback(async (uid: string) => {
     const localProfile = await getUserFromDb(uid);
+    let localStoredRankings: Record<string, any> = {};
+    if (typeof window !== 'undefined') {
+      try {
+        localStoredRankings = JSON.parse(localStorage.getItem('kolyoum_movie_rankings') || '{}');
+      } catch {}
+    }
     if (localProfile) {
-      setUserProfile(localProfile);
+      const mergedProfile = {
+        ...localProfile,
+        movieRankings: {
+          ...localStoredRankings,
+          ...(localProfile.movieRankings || {}),
+        }
+      };
+      setUserProfile(mergedProfile);
+      return mergedProfile;
+    } else if (Object.keys(localStoredRankings).length > 0) {
+      const partialProfile = {
+        uid,
+        movieRankings: localStoredRankings,
+      } as unknown as UserProfile;
+      setUserProfile(partialProfile);
+      return partialProfile;
     }
     return localProfile;
   }, []);
@@ -80,6 +101,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const localProfile = await getUserFromDb(user.uid);
         let finalProfile: UserProfile | null = localProfile || null;
 
+        let localStoredRankings: Record<string, any> = {};
+        if (typeof window !== 'undefined') {
+          try {
+            localStoredRankings = JSON.parse(localStorage.getItem('kolyoum_movie_rankings') || '{}');
+          } catch {}
+        }
+
         if (doc.exists()) {
           const firestoreData = doc.data() as UserProfile;
           
@@ -87,16 +115,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const firestoreWardrobe = firestoreData.wardrobe || [];
           const uniqueItems = Array.from(new Map(firestoreWardrobe.map((item: WardrobeItem) => [item.id, item])).values());
           
-          // Merge Firestore data with sensitive local data
+          // Merge Firestore data with sensitive local data and movie rankings
           finalProfile = {
             ...firestoreData, // Base from Firestore (includes synced wardrobe)
             uid: user.uid, 
             wardrobe: uniqueItems, // Use de-duplicated wardrobe
             fullBodyPhotoUrl: localProfile?.fullBodyPhotoUrl, // Keep local
             closeupPhotoUrl: localProfile?.closeupPhotoUrl, // Keep local
+            movieRankings: {
+              ...localStoredRankings,
+              ...(localProfile?.movieRankings || {}),
+              ...(firestoreData.movieRankings || {}),
+            },
           } as UserProfile;
           
           await storeUserInDb(user.uid, finalProfile);
+        } else if (localProfile) {
+          finalProfile = {
+            ...localProfile,
+            movieRankings: {
+              ...localStoredRankings,
+              ...(localProfile.movieRankings || {}),
+            }
+          };
         }
         
         setUserProfile(finalProfile ?? null);

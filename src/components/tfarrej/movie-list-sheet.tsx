@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv, Swords } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist } from '@/lib/firebase/firestore';
+import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, MonthlyMovieRanking } from '@/lib/firebase/firestore';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -449,6 +449,19 @@ function MovieListContent({
   const currentMonthIndex = useMemo(() => new Date().getMonth(), []);
   const currentYear = useMemo(() => new Date().getFullYear(), []);
 
+  const [localRanking, setLocalRanking] = useState<MonthlyMovieRanking | null>(() => {
+    return getStoredMovieRanking(currentMonthKey, userProfile);
+  });
+
+  useEffect(() => {
+    const stored = getStoredMovieRanking(currentMonthKey, userProfile);
+    if (stored) {
+      setLocalRanking(stored);
+    }
+  }, [currentMonthKey, userProfile]);
+
+  const existingRanking = userProfile?.movieRankings?.[currentMonthKey] || localRanking || getStoredMovieRanking(currentMonthKey, userProfile);
+
   const duelSeenMovies: DuelMovieItem[] = useMemo(() => {
     if (listType !== 'seenMovieTitles') return [];
     const seenDataList = userProfile?.seenMoviesData || [];
@@ -512,7 +525,7 @@ function MovieListContent({
       (movieTitles || []).forEach(title => {
         if (!results.some(r => r.title.toLowerCase() === title.toLowerCase())) {
           results.push({
-            title,
+            title: title,
             posterUrl: movieDetails[title]?.posterUrl,
             year: movieDetails[title]?.year,
             rating: movieDetails[title]?.rating,
@@ -523,8 +536,6 @@ function MovieListContent({
 
     return results;
   }, [listType, userProfile?.seenMoviesData, movieDetails, movieTitles, existingRanking, currentMonthIndex, currentYear]);
-
-  const existingRanking = userProfile?.movieRankings?.[currentMonthKey] || null;
 
   // Sort movies: Recent First (for seen list), Alphabetical otherwise
   const sortedMovieTitles = useMemo(() => {
@@ -1237,6 +1248,7 @@ function MovieListContent({
           monthKey={currentMonthKey}
           seenMovies={duelSeenMovies}
           existingRanking={existingRanking}
+          onRankingSaved={(saved) => setLocalRanking(saved)}
         />
       )}
     </div>
