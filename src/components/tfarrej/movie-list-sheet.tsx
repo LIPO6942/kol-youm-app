@@ -208,8 +208,8 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) resetAndClose(); else onOpenChange(open); }}>
-      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[520px] max-h-[90vh] sm:max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogHeader className="shrink-0 pb-1">
           <DialogTitle className="flex items-center gap-2">
             <Plus className="h-5 w-5" />
             {isManualMode
@@ -227,7 +227,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col gap-4">
+        <div className="flex-1 overflow-y-auto min-h-0 pr-1 sm:pr-1.5 flex flex-col gap-4">
           {!isManualMode ? (
             <>
               {/* Search Input */}
@@ -400,6 +400,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
               <MovieCategoryPicker
                 selectedCategory={selectedCategory}
                 onSelectCategory={setSelectedCategory}
+                variant="pills"
                 size="sm"
               />
             </div>
@@ -420,7 +421,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
           )}
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0 mt-4">
+        <DialogFooter className="shrink-0 pt-3 border-t border-white/10 gap-2 sm:gap-0 mt-2 bg-background/95 backdrop-blur-xs">
           <Button variant="outline" onClick={isManualMode ? () => setIsManualMode(false) : resetAndClose}>
             {isManualMode ? 'Retour' : 'Annuler'}
           </Button>

@@ -15,16 +15,52 @@ interface MovieCategoryPickerProps {
   onSelectCategory: (category: MovieCategory) => void;
   className?: string;
   size?: 'sm' | 'md' | 'lg';
+  variant?: 'pills' | 'grid';
 }
 
 export function MovieCategoryPicker({
   selectedCategory,
   onSelectCategory,
   className = '',
-  size = 'md',
+  size = 'sm',
+  variant = 'pills',
 }: MovieCategoryPickerProps) {
+  if (variant === 'grid') {
+    return (
+      <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-2.5 ${className}`}>
+        {MOVIE_CATEGORIES.map((category) => {
+          const config = MOVIE_CATEGORY_CONFIG[category];
+          const isSelected = selectedCategory === category;
+
+          return (
+            <button
+              key={category}
+              type="button"
+              onClick={() => onSelectCategory(category)}
+              className={`flex items-center gap-2.5 rounded-xl font-bold transition-all duration-200 border select-none text-left cursor-pointer ${
+                size === 'sm'
+                  ? 'px-3 py-2 text-xs'
+                  : size === 'lg'
+                  ? 'px-4 py-3.5 text-sm'
+                  : 'px-3.5 py-2.5 text-xs sm:text-sm'
+              } ${
+                isSelected
+                  ? `${config.badgeBg} ${config.border} border-current ring-2 ring-current/40 shadow-lg scale-[1.02] font-black`
+                  : 'bg-white/[0.04] hover:bg-white/[0.09] text-white/75 hover:text-white border-white/10 hover:border-white/25'
+              }`}
+            >
+              <span className="text-lg sm:text-xl shrink-0">{config.emoji}</span>
+              <span className="leading-snug font-bold text-white/90">{config.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Présentation par défaut : Pastilles élégantes côte à côte
   return (
-    <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-2.5 ${className}`}>
+    <div className={`flex flex-wrap items-center gap-1.5 sm:gap-2 ${className}`}>
       {MOVIE_CATEGORIES.map((category) => {
         const config = MOVIE_CATEGORY_CONFIG[category];
         const isSelected = selectedCategory === category;
@@ -34,20 +70,23 @@ export function MovieCategoryPicker({
             key={category}
             type="button"
             onClick={() => onSelectCategory(category)}
-            className={`flex items-center gap-2.5 rounded-xl font-bold transition-all duration-200 border select-none text-left ${
+            className={`inline-flex items-center gap-1.5 rounded-full font-bold transition-all duration-200 border select-none cursor-pointer ${
               size === 'sm'
-                ? 'px-3 py-2 text-xs'
+                ? 'px-3 py-1.5 text-xs'
                 : size === 'lg'
-                ? 'px-4 py-3.5 text-sm'
-                : 'px-3.5 py-2.5 text-xs sm:text-sm'
+                ? 'px-4 py-2.5 text-sm sm:text-base'
+                : 'px-3.5 py-2 text-xs sm:text-sm'
             } ${
               isSelected
-                ? `${config.badgeBg} ${config.border} border-current ring-2 ring-current/40 shadow-lg scale-[1.02] font-black`
-                : 'bg-white/[0.04] hover:bg-white/[0.09] text-white/75 hover:text-white border-white/10 hover:border-white/25'
+                ? `${config.badgeBg} ${config.border} border-current ring-2 ring-current/40 shadow-md scale-105 font-black`
+                : 'bg-white/[0.04] hover:bg-white/[0.09] text-white/70 hover:text-white border-white/10 hover:border-white/25'
             }`}
           >
-            <span className="text-lg sm:text-xl shrink-0">{config.emoji}</span>
-            <span className="leading-snug font-bold text-white/90">{config.label}</span>
+            <span className="text-sm shrink-0 leading-none">{config.emoji}</span>
+            <span className="tracking-tight">{config.label}</span>
+            {isSelected && (
+              <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0 shadow-xs ml-0.5" />
+            )}
           </button>
         );
       })}
