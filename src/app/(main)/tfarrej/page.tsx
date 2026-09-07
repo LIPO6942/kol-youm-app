@@ -97,33 +97,21 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
   const existingRanking = useMemo(() => {
     const fromProfile = userProfile?.movieRankings?.[currentMonthKey];
     const fromStored = getStoredMovieRanking(currentMonthKey, userProfile);
-    const candidates = [localRanking, fromStored, fromProfile].filter(Boolean) as MonthlyMovieRanking[];
+    const candidates = [localRanking, fromStored, fromProfile].filter(r => r && typeof r === 'object') as MonthlyMovieRanking[];
     if (candidates.length === 0) return null;
     return candidates.reduce((best, curr) => {
-      const bestTime = best.updatedAt || best.publishedAt || 0;
-      const currTime = curr.updatedAt || curr.publishedAt || 0;
+      const bestTime = (best && typeof best === 'object') ? (best.updatedAt || best.publishedAt || 0) : 0;
+      const currTime = (curr && typeof curr === 'object') ? (curr.updatedAt || curr.publishedAt || 0) : 0;
       return currTime >= bestTime ? curr : best;
     });
   }, [userProfile?.movieRankings, currentMonthKey, localRanking, userProfile]);
 
   // Liste des films vus par l'utilisateur pour le classement et les duels
   const monthlySeenMovies: DuelMovieItem[] = useMemo(() => {
-    const watchlistTitles = new Set((userProfile?.moviesToWatch || []).map(t => (t || '').toLowerCase().trim()));
-    const rejectedTitles = new Set((userProfile?.rejectedMovieTitles || []).map(t => (t || '').toLowerCase().trim()));
-    const seriesTitles = new Set([
-      ...(userProfile?.seenSeriesTitles || []),
-      ...(userProfile?.seriesToWatch || []),
-      ...(userProfile?.rejectedSeriesTitles || []),
-    ].map(t => (t || '').toLowerCase().trim()));
-
-    // Filtre d'exclusion strict : un film ne peut JAMAIS être dans le duel des vus s'il est dans la Watchlist (À voir), rejeté ou est une série
     const isExcluded = (t: string) => {
-      if (!t || typeof t !== 'string') return true;
+      if (!t || typeof t !== 'string' || !t.trim()) return true;
       const norm = t.toLowerCase().trim();
       if (isTestMovieTitle(norm)) return true;
-      if (watchlistTitles.has(norm)) return true; // C'est dans "À voir" (Watchlist), pas encore vu !
-      if (rejectedTitles.has(norm)) return true;  // C'est ignoré / rejeté !
-      if (seriesTitles.has(norm)) return true;    // C'est une série, pas un film !
       return false;
     };
 

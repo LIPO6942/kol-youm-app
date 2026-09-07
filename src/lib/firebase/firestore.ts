@@ -283,6 +283,24 @@ export async function removeMovieFromList(uid: string, listName: 'moviesToWatch'
         }
 
         await storeUserInDb(uid || 'guest', updatedProfile);
+
+        if (uid && uid !== 'guest') {
+            try {
+                const userRef = doc(firestoreDb, 'users', uid);
+                const syncPayload: Record<string, any> = {
+                    [listName]: updatedProfile[listName] || [],
+                };
+                if (listName === 'seenMovieTitles') {
+                    syncPayload.seenMoviesData = updatedProfile.seenMoviesData || [];
+                    if (updatedProfile.movieRankings) syncPayload.movieRankings = updatedProfile.movieRankings;
+                } else if (listName === 'seenSeriesTitles') {
+                    syncPayload.seenSeriesData = updatedProfile.seenSeriesData || [];
+                }
+                await setDoc(userRef, syncPayload, { merge: true });
+            } catch (err) {
+                console.warn('Firestore sync failed in removeMovieFromList:', err);
+            }
+        }
     }
 }
 
@@ -1289,14 +1307,12 @@ export async function backfillMoviePosters(
                     hasChanges = true;
                 }
             } else {
-                // Le film n'était que dans seenMovieTitles : on l'ajoute proprement avec son affiche dans seenMoviesData
+                // Le film n'était que dans seenMovieTitles : on l'ajoute proprement avec son affiche dans seenMoviesData SANS lui inventer de date de visionnage
                 currentList.push({
                     title,
                     posterUrl: meta.posterUrl,
                     ...(meta.year && { year: meta.year }),
                     ...(meta.rating && { rating: meta.rating }),
-                    viewedAt: Date.now(),
-                    addedAt: Date.now(),
                 });
                 hasChanges = true;
             }
@@ -1320,4 +1336,244 @@ export async function backfillMoviePosters(
         console.warn("Erreur backfillMoviePosters:", err);
     }
 }
+
+/**
+ * Répare et harmonise les données de films vus :
+ * 1. Détecte et élimine les faux horodatages du 04 septembre 2026 générés par l'ancien backfill d'affiches.
+ * 2. Restaure les dates authentiques depuis les visites Cinéma (Khrouj), seenMovieHistory ou classements mensuels passés.
+ * 3. Réconcilie l'ensemble des titres vus (seenMovieTitles <-> seenMoviesData <-> visites cinéma <-> classements) pour qu'aucun film vu ne disparaisse.
+ * 4. Retire les films vus de moviesToWatch et rejectedMovieTitles.
+ * 5. Persiste en local (IndexedDB) et sur Firestore.
+ */
+export async function sanitizeAndHealMovieData(
+    uid: string,
+    userProfile?: UserProfile | null
+): Promise<{ healed: boolean; updatedProfile?: UserProfile }> {
+    const effectiveUid = uid && uid !== 'guest' ? uid : 'guest';
+    const profileToHeal = userProfile || (await getUserFromDb(effectiveUid));
+    if (!profileToHeal) return { healed: false };
+
+    let hasChanges = false;
+    const updated = { ...profileToHeal } as any;
+
+    // A. Nettoyage préliminaire des films de test
+    const { cleaned, updatedProfile: cleanedProfile } = await purgeTestMovieData(effectiveUid, updated);
+    if (cleaned && cleanedProfile) {
+        Object.assign(updated, cleanedProfile);
+        hasChanges = true;
+    }
+
+    // B. Collecte des dates réelles de cinéma (Khrouj)
+    const cinemaDateByTitle = new Map<string, { date?: number; placeName?: string }>();
+    if (Array.isArray(updated.visits)) {
+        updated.visits.forEach((v: any) => {
+            if (v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string') {
+                const normTitle = v.orderedItem.trim().toLowerCase();
+                let time: number | undefined;
+                if (v.date) {
+                    const parsed = new Date(v.date).getTime();
+                    if (!isNaN(parsed)) time = parsed;
+                }
+                cinemaDateByTitle.set(normTitle, {
+                    date: time,
+                    placeName: v.placeName || undefined,
+                });
+            }
+        });
+    }
+
+    // C. Collecte des dates réelles depuis seenMovieHistory (swipes ou ajouts manuels)
+    const historyDateByTitle = new Map<string, number>();
+    if (Array.isArray(updated.seenMovieHistory)) {
+        updated.seenMovieHistory.forEach((h: any) => {
+            if (h && h.title && typeof h.title === 'string' && h.addedAt) {
+                const normTitle = h.title.trim().toLowerCase();
+                const d = new Date(h.addedAt);
+                // Si ce n'est pas le jour du bug du 4 septembre 2026
+                const isBugDay = !isNaN(d.getTime()) && d.getFullYear() === 2026 && d.getMonth() === 8 && d.getDate() === 4;
+                if (!isBugDay && !isNaN(d.getTime())) {
+                    historyDateByTitle.set(normTitle, d.getTime());
+                }
+            }
+        });
+    }
+
+    // D. Collecte des films présents dans les classements mensuels passés (ex: 2026-08, 2026-07)
+    const monthlyRankingDateByTitle = new Map<string, number>();
+    if (updated.movieRankings && typeof updated.movieRankings === 'object') {
+        Object.entries(updated.movieRankings).forEach(([mKey, r]: [string, any]) => {
+            if (mKey !== '2026-09' && r && Array.isArray(r.rankedTitles)) {
+                const [yStr, mStr] = mKey.split('-');
+                const y = parseInt(yStr, 10);
+                const m = parseInt(mStr, 10) - 1;
+                const estimatedTime = (!isNaN(y) && !isNaN(m)) ? new Date(y, m, 15).getTime() : undefined;
+                if (estimatedTime) {
+                    r.rankedTitles.forEach((t: string) => {
+                        if (t && typeof t === 'string') {
+                            monthlyRankingDateByTitle.set(t.trim().toLowerCase(), estimatedTime);
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    // E. Fusion de tous les films vus connus
+    const seenTitlesRaw: string[] = Array.isArray(updated.seenMovieTitles) ? updated.seenMovieTitles : [];
+    const seenDataRaw: any[] = Array.isArray(updated.seenMoviesData) ? updated.seenMoviesData : [];
+    const cinemaTitlesRaw = Array.from(cinemaDateByTitle.keys());
+
+    // Regrouper par titre normalisé
+    const seenMap = new Map<string, { title: string; posterUrl?: string; year?: number; rating?: number; watchedInCinema?: boolean; cinemaPlace?: string; viewedAt?: number; addedAt?: number; genres?: string[] }>();
+
+    // Helper : tester si un horodatage correspond au bug massif du 4 septembre 2026
+    const isFakeSept4 = (ts?: any) => {
+        if (!ts) return false;
+        const d = new Date(ts);
+        return !isNaN(d.getTime()) && d.getFullYear() === 2026 && d.getMonth() === 8 && d.getDate() === 4;
+    };
+
+    // Remplir depuis seenMoviesData d'abord
+    seenDataRaw.forEach((item: any) => {
+        if (!item || !item.title || typeof item.title !== 'string') return;
+        const norm = item.title.trim().toLowerCase();
+        if (isTestMovieTitle(norm)) return;
+
+        let viewedAt = item.viewedAt;
+        let addedAt = item.addedAt;
+
+        if (isFakeSept4(viewedAt) || isFakeSept4(addedAt)) {
+            // Chercher si une vraie date antérieure existe
+            const cinemaInfo = cinemaDateByTitle.get(norm);
+            const historyDate = historyDateByTitle.get(norm);
+            const rankingDate = monthlyRankingDateByTitle.get(norm);
+
+            const realDate = cinemaInfo?.date || historyDate || rankingDate;
+            if (realDate) {
+                viewedAt = realDate;
+                addedAt = realDate;
+            } else {
+                // Aucune date réelle connue : suppression de la fausse date du 04 septembre !
+                viewedAt = undefined;
+                addedAt = undefined;
+            }
+            hasChanges = true;
+        }
+
+        const cinemaInfo = cinemaDateByTitle.get(norm);
+        const watchedInCinema = item.watchedInCinema || !!cinemaInfo;
+        const cinemaPlace = item.cinemaPlace || cinemaInfo?.placeName;
+
+        seenMap.set(norm, {
+            title: item.title.trim(),
+            ...(item.posterUrl && { posterUrl: item.posterUrl }),
+            ...(item.year !== undefined && item.year !== null && { year: item.year }),
+            ...(item.rating !== undefined && item.rating !== null && { rating: item.rating }),
+            ...(watchedInCinema && { watchedInCinema: true }),
+            ...(cinemaPlace && { cinemaPlace }),
+            ...(viewedAt && { viewedAt }),
+            ...(addedAt && { addedAt }),
+            ...(Array.isArray(item.genres) && { genres: item.genres }),
+        });
+    });
+
+    // Ajouter ou compléter avec les titres de seenMovieTitles
+    seenTitlesRaw.forEach(t => {
+        if (!t || typeof t !== 'string') return;
+        const norm = t.trim().toLowerCase();
+        if (isTestMovieTitle(norm)) return;
+
+        const existing = seenMap.get(norm);
+        const cinemaInfo = cinemaDateByTitle.get(norm);
+        const historyDate = historyDateByTitle.get(norm);
+        const rankingDate = monthlyRankingDateByTitle.get(norm);
+        const realDate = cinemaInfo?.date || historyDate || rankingDate;
+
+        if (!existing) {
+            seenMap.set(norm, {
+                title: t.trim(),
+                ...(cinemaInfo && { watchedInCinema: true, cinemaPlace: cinemaInfo.placeName }),
+                ...(realDate && { viewedAt: realDate, addedAt: realDate }),
+            });
+            hasChanges = true;
+        } else {
+            if (!existing.viewedAt && realDate) {
+                existing.viewedAt = realDate;
+                existing.addedAt = realDate;
+                hasChanges = true;
+            }
+            if (cinemaInfo && !existing.watchedInCinema) {
+                existing.watchedInCinema = true;
+                if (cinemaInfo.placeName) existing.cinemaPlace = cinemaInfo.placeName;
+                hasChanges = true;
+            }
+        }
+    });
+
+    // Ajouter depuis les visites Cinéma
+    cinemaTitlesRaw.forEach(norm => {
+        if (isTestMovieTitle(norm)) return;
+        if (!seenMap.has(norm)) {
+            const cinemaInfo = cinemaDateByTitle.get(norm);
+            const visit = updated.visits.find((v: any) => v.category === 'Cinéma' && v.orderedItem?.trim().toLowerCase() === norm);
+            const prettyTitle = visit?.orderedItem?.trim() || norm;
+            seenMap.set(norm, {
+                title: prettyTitle,
+                watchedInCinema: true,
+                ...(cinemaInfo?.placeName && { cinemaPlace: cinemaInfo.placeName }),
+                ...(cinemaInfo?.date && { viewedAt: cinemaInfo.date, addedAt: cinemaInfo.date }),
+            });
+            hasChanges = true;
+        }
+    });
+
+    // Construire les nouvelles listes assainies
+    const newSeenMoviesData = Array.from(seenMap.values());
+    const newSeenMovieTitles = Array.from(seenMap.values()).map(m => m.title);
+
+    if (newSeenMovieTitles.length !== seenTitlesRaw.length || newSeenMoviesData.length !== seenDataRaw.length) {
+        hasChanges = true;
+    }
+
+    updated.seenMoviesData = newSeenMoviesData;
+    updated.seenMovieTitles = newSeenMovieTitles;
+
+    // F. Retirer les films vus de moviesToWatch et rejectedMovieTitles
+    const seenNormSet = new Set(seenMap.keys());
+    if (Array.isArray(updated.moviesToWatch)) {
+        const filteredWatchlist = updated.moviesToWatch.filter((t: string) => !isTestMovieTitle(t) && !seenNormSet.has(t.trim().toLowerCase()));
+        if (filteredWatchlist.length !== updated.moviesToWatch.length) {
+            updated.moviesToWatch = filteredWatchlist;
+            hasChanges = true;
+        }
+    }
+    if (Array.isArray(updated.rejectedMovieTitles)) {
+        const filteredRejected = updated.rejectedMovieTitles.filter((t: string) => !isTestMovieTitle(t) && !seenNormSet.has(t.trim().toLowerCase()));
+        if (filteredRejected.length !== updated.rejectedMovieTitles.length) {
+            updated.rejectedMovieTitles = filteredRejected;
+            hasChanges = true;
+        }
+    }
+
+    if (hasChanges) {
+        await storeUserInDb(effectiveUid, updated);
+        if (uid && uid !== 'guest') {
+            try {
+                const userRef = doc(firestoreDb, 'users', uid);
+                await setDoc(userRef, {
+                    seenMovieTitles: updated.seenMovieTitles,
+                    seenMoviesData: updated.seenMoviesData,
+                    moviesToWatch: updated.moviesToWatch || [],
+                    rejectedMovieTitles: updated.rejectedMovieTitles || [],
+                }, { merge: true });
+            } catch (err) {
+                console.warn("Erreur synchronisation Firestore sanitizeAndHealMovieData:", err);
+            }
+        }
+        return { healed: true, updatedProfile: updated };
+    }
+
+    return { healed: false, updatedProfile: profileToClean };
+}
+
 

@@ -376,21 +376,10 @@ export function useMonthlyWrapUp(
     const topKharjetZone = getTop(kharjetZoneCounts);
 
     // 3. Tfarrej Stats (Separated Movies and Series)
-    const watchlistTitles = new Set(((user as any)?.moviesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
-    const rejectedTitles = new Set(((user as any)?.rejectedMovieTitles || []).map((t: string) => (t || '').toLowerCase().trim()));
-    const seriesTitles = new Set([
-      ...((user as any)?.seenSeriesTitles || []),
-      ...((user as any)?.seriesToWatch || []),
-      ...((user as any)?.rejectedSeriesTitles || []),
-    ].map((t: string) => (t || '').toLowerCase().trim()));
-
     const isExcluded = (t: string) => {
-      if (!t || typeof t !== 'string') return true;
+      if (!t || typeof t !== 'string' || !t.trim()) return true;
       const norm = t.toLowerCase().trim();
       if (isTestMovieTitle(norm)) return true;
-      if (watchlistTitles.has(norm)) return true;
-      if (rejectedTitles.has(norm)) return true;
-      if (seriesTitles.has(norm)) return true;
       return false;
     };
 
@@ -464,9 +453,9 @@ export function useMonthlyWrapUp(
     // - Films vus en salle durant ce mois (cinemaSessions)
     // - Si un classement officiel pour ce mois précis existe déjà, ses films
     const datedMovies = [
-      ...((user as any).seenMoviesData || []).filter((m: any) => isDateInMonth(m?.viewedAt) || (!m?.viewedAt && isDateInMonth(m?.addedAt))),
-      ...filterByDate((user as any).seenMovieHistory || [], 'addedAt'),
-    ].filter((m: any) => !isExcluded(m?.title));
+      ...((user as any)?.seenMoviesData || []).filter((m: any) => m && (isDateInMonth(m?.viewedAt) || (!m?.viewedAt && isDateInMonth(m?.addedAt)))),
+      ...filterByDate((user as any)?.seenMovieHistory || [], 'addedAt'),
+    ].filter((m: any) => m?.title && !isExcluded(m.title));
 
     const monthMovieTitlesSet = new Set<string>();
     datedMovies.forEach(m => {
@@ -545,17 +534,19 @@ export function useMonthlyWrapUp(
 
     // Fusion intelligente et déduplication des séances de cinéma (visites IRL + films vus en salle)
     const monthCinemaMovies = [
-      ...((user as any).seenMoviesData || []).filter((m: any) => 
-        (m.watchedInCinema || m.cinemaPlace) && (isDateInMonth(m.viewedAt) || (!m.viewedAt && isDateInMonth(m.addedAt)))
+      ...((user as any)?.seenMoviesData || []).filter((m: any) => 
+        m && typeof m === 'object' &&
+        (m.watchedInCinema || m.cinemaPlace) && 
+        (isDateInMonth(m.viewedAt) || (!m.viewedAt && isDateInMonth(m.addedAt)))
       ),
-      ...duelItems.filter(m => m.watchedInCinema)
+      ...duelItems.filter(m => Boolean(m?.watchedInCinema))
     ];
 
     const seenCinemaTitlesMap = new Map<string, any>();
     monthCinemaMovies.forEach(m => {
-      if (m?.title && !isExcluded(m.title)) {
+      if (m?.title && typeof m.title === 'string' && !isExcluded(m.title)) {
         const key = m.title.toLowerCase().trim();
-        if (!seenCinemaTitlesMap.has(key)) {
+        if (key && !seenCinemaTitlesMap.has(key)) {
           seenCinemaTitlesMap.set(key, m);
         }
       }

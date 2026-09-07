@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { BarChart3, Film, Tv, Calendar } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import type { SeenMovie } from '@/lib/firebase/firestore';
+import { isTestMovieTitle } from '@/lib/firebase/firestore';
 
 interface TfarrejStatsDialogProps {
     trigger?: React.ReactNode;
@@ -22,16 +23,18 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
     const { userProfile } = useAuth();
     const [activeTab, setActiveTab] = useState<'movie' | 'tv'>('movie');
 
-    // Helper to aggregate data
+    // Helper to aggregate data with valid dates
     const aggregateData = (data: SeenMovie[] | undefined): YearlyStats[] => {
         if (!data) return [];
 
         const statsMap: { [year: number]: YearlyStats } = {};
 
         data.forEach(item => {
-            if (!item.viewedAt) return;
+            if (!item || !item.viewedAt) return;
+            if (item.title && isTestMovieTitle(item.title)) return;
 
             const date = new Date(item.viewedAt);
+            if (isNaN(date.getTime())) return;
             const year = date.getFullYear();
             const month = date.getMonth(); // 0-11
 
@@ -49,8 +52,22 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
     const movieStats = useMemo(() => aggregateData(userProfile?.seenMoviesData), [userProfile?.seenMoviesData]);
     const seriesStats = useMemo(() => aggregateData(userProfile?.seenSeriesData), [userProfile?.seenSeriesData]);
 
-    const currentStats = activeTab === 'movie' ? movieStats : seriesStats;
-    const totalWatched = currentStats.reduce((acc, curr) => acc + curr.total, 0);
+    const totalSeenMovies = useMemo(() => {
+        const fromTitles = (userProfile?.seenMovieTitles || []).filter(t => !isTestMovieTitle(t));
+        const fromData = (userProfile?.seenMoviesData || []).map(m => m?.title).filter((t): t is string => Boolean(t && !isTestMovieTitle(t)));
+        const fromVisits = (userProfile?.visits || [])
+            .filter(v => v.category === 'Cinéma' && v.orderedItem && !isTestMovieTitle(v.orderedItem))
+            .map(v => v.orderedItem as string);
+        return Array.from(new Set([...fromTitles, ...fromData, ...fromVisits])).length;
+    }, [userProfile?.seenMovieTitles, userProfile?.seenMoviesData, userProfile?.visits]);
+
+    const totalSeenSeries = useMemo(() => {
+        const fromTitles = (userProfile?.seenSeriesTitles || []).filter(t => !isTestMovieTitle(t));
+        const fromData = (userProfile?.seenSeriesData || []).map(m => m?.title).filter((t): t is string => Boolean(t && !isTestMovieTitle(t)));
+        return Array.from(new Set([...fromTitles, ...fromData])).length;
+    }, [userProfile?.seenSeriesTitles, userProfile?.seenSeriesData]);
+
+    const totalWatched = activeTab === 'movie' ? totalSeenMovies : totalSeenSeries;
 
     const monthNames = [
         "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",

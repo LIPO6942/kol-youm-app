@@ -288,7 +288,17 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     }
 
     if (candidate) {
-      setActiveRanking(candidate);
+      setActiveRanking(prev => {
+        if (!prev) return candidate;
+        const prevTitles = (prev.rankedTitles || []).join('|');
+        const nextTitles = (candidate?.rankedTitles || []).join('|');
+        const prevTime = prev.updatedAt || prev.publishedAt || 0;
+        const nextTime = candidate?.updatedAt || candidate?.publishedAt || 0;
+        if (prevTitles === nextTitles && prev.monthKey === candidate?.monthKey && prevTime === nextTime) {
+          return prev;
+        }
+        return candidate;
+      });
     }
   }, [monthKey, effectiveUserProfile, stats?.movies?.ranking, currentMonthKey, effectiveMovies]);
 
@@ -301,15 +311,18 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
   // Écoute synchrone et en temps réel des classements mis à jour dans Tfarrej ou n'importe quel onglet
   useEffect(() => {
     const handleRankingUpdate = (e: any) => {
+      if (e.type === 'storage' && e.key && !e.key.startsWith('kolyoum_movie_ranking')) {
+        return;
+      }
       const detail = e.detail;
       if (!detail) {
-        refreshActiveRanking();
+        if (isOpen) refreshActiveRanking();
         return;
       }
       if (detail.monthKey === monthKey || !detail.monthKey || detail.monthKey === currentMonthKey) {
         if (detail.ranking && detail.monthKey === monthKey) {
           setActiveRanking(detail.ranking);
-        } else {
+        } else if (isOpen) {
           refreshActiveRanking();
         }
       }
@@ -321,7 +334,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
       window.removeEventListener('kolyoum_ranking_updated', handleRankingUpdate);
       window.removeEventListener('storage', handleRankingUpdate);
     };
-  }, [monthKey, currentMonthKey, refreshActiveRanking]);
+  }, [monthKey, currentMonthKey, refreshActiveRanking, isOpen]);
 
   const effectiveRanking = activeRanking || stats?.movies?.ranking || null;
 
@@ -747,11 +760,16 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                                       <span className="font-semibold truncate">{session.cinemaPlace}</span>
                                     </div>
                                   )}
-                                  {session.date && (
-                                    <p className="text-[10px] text-white/50 mt-1">
-                                      Vu le {new Date(session.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                                    </p>
-                                  )}
+                                  {(() => {
+                                    if (!session.date) return null;
+                                    const d = new Date(session.date);
+                                    if (isNaN(d.getTime())) return null;
+                                    return (
+                                      <p className="text-[10px] text-white/50 mt-1">
+                                        Vu le {d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                                      </p>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             </motion.div>

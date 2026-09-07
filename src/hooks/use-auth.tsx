@@ -7,7 +7,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db as firestoreDb } from '@/lib/firebase/client';
 import type { UserProfile, WardrobeItem } from '@/lib/firebase/firestore';
 import { getUserFromDb, storeUserInDb } from '@/lib/indexeddb';
-import { updateUserProfile as updateProfileInFirestore, purgeTestMovieData } from '@/lib/firebase/firestore';
+import { updateUserProfile as updateProfileInFirestore, purgeTestMovieData, sanitizeAndHealMovieData } from '@/lib/firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
@@ -17,17 +17,18 @@ interface AuthContextType {
   updateUserProfile: (data: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>>) => Promise<void>;
 }
 
-function mergeRankingsByTimestamp(...rankingMaps: (Record<string, any> | undefined)[]): Record<string, any> {
+function mergeRankingsByTimestamp(...rankingMaps: (Record<string, any> | undefined | null)[]): Record<string, any> {
   const result: Record<string, any> = {};
   rankingMaps.forEach(map => {
-    if (!map) return;
+    if (!map || typeof map !== 'object' || Array.isArray(map)) return;
     Object.entries(map).forEach(([monthKey, ranking]) => {
+      if (!ranking || typeof ranking !== 'object' || Array.isArray(ranking)) return;
       const existing = result[monthKey];
       if (!existing) {
         result[monthKey] = ranking;
       } else {
-        const existingTime = existing.updatedAt || existing.publishedAt || 0;
-        const newTime = ranking?.updatedAt || ranking?.publishedAt || 0;
+        const existingTime = (existing && typeof existing === 'object') ? (existing.updatedAt || existing.publishedAt || 0) : 0;
+        const newTime = ranking.updatedAt || ranking.publishedAt || 0;
         if (newTime >= existingTime) {
           result[monthKey] = ranking;
         }
@@ -198,16 +199,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [user]);
 
-  // Purge unique en arrière-plan sans bloquer ni reboucler
-  const hasPurgedTestRef = useRef(false);
+  // Assainissement et réparation unique des données de films au chargement
+  const hasHealedMoviesRef = useRef(false);
   useEffect(() => {
-    if (user?.uid && !hasPurgedTestRef.current) {
-      hasPurgedTestRef.current = true;
-      purgeTestMovieData(user.uid).catch(err => {
-        console.warn("Erreur silencieuse purge test:", err);
+    if (user?.uid && !hasHealedMoviesRef.current) {
+      hasHealedMoviesRef.current = true;
+      sanitizeAndHealMovieData(user.uid, userProfile).then(({ healed, updatedProfile }) => {
+        if (healed && updatedProfile) {
+          setUserProfile(updatedProfile);
+        }
+      }).catch(err => {
+        console.warn("Erreur silencieuse healing film:", err);
       });
     }
-  }, [user?.uid]);
+  }, [user?.uid, userProfile]);
 
 
   return (
