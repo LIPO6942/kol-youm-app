@@ -1129,7 +1129,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                                     <span className="text-sm">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</span>
                                     <span className="truncate font-black">{title}</span>
                                     {selectedCategory !== 'all' && generalIndex >= 0 && (
-                                      <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-md bg-white/10 text-white/70 shrink-0">
+                                      <span className="text-[9.5px] font-mono font-semibold px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-white/70 shrink-0 leading-none">
                                         #{generalIndex + 1} Gén.
                                       </span>
                                     )}

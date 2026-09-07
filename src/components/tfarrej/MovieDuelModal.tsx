@@ -938,10 +938,9 @@ export function MovieDuelModal({
                                     category: item.category || movie?.category,
                                   });
                                 }}
-                                className="cursor-pointer hover:ring-1 hover:ring-current"
                               />
                               {selectedCategory !== 'all' && (
-                                <span className="px-1.5 py-0.2 rounded-full bg-white/10 text-white/70 text-[9px] font-mono">
+                                <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-white/70 text-[9.5px] font-mono font-semibold leading-none">
                                   #{item.generalRank} Général
                                 </span>
                               )}

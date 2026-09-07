@@ -24,7 +24,7 @@ export function MovieCategoryPicker({
   size = 'md',
 }: MovieCategoryPickerProps) {
   return (
-    <div className={`grid grid-cols-2 sm:grid-cols-3 gap-2 ${className}`}>
+    <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-2.5 ${className}`}>
       {MOVIE_CATEGORIES.map((category) => {
         const config = MOVIE_CATEGORY_CONFIG[category];
         const isSelected = selectedCategory === category;
@@ -34,20 +34,20 @@ export function MovieCategoryPicker({
             key={category}
             type="button"
             onClick={() => onSelectCategory(category)}
-            className={`flex items-center gap-2 rounded-xl font-bold transition-all duration-200 border select-none text-left ${
+            className={`flex items-center gap-2.5 rounded-xl font-bold transition-all duration-200 border select-none text-left ${
               size === 'sm'
-                ? 'px-2.5 py-1.5 text-xs'
+                ? 'px-3 py-2 text-xs'
                 : size === 'lg'
-                ? 'px-4 py-3 text-sm'
-                : 'px-3 py-2 text-xs sm:text-sm'
+                ? 'px-4 py-3.5 text-sm'
+                : 'px-3.5 py-2.5 text-xs sm:text-sm'
             } ${
               isSelected
-                ? `${config.badgeBg} border-current ring-2 ring-current/40 shadow-md scale-[1.02] font-black`
-                : 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border-white/10 hover:border-white/20'
+                ? `${config.badgeBg} ${config.border} border-current ring-2 ring-current/40 shadow-lg scale-[1.02] font-black`
+                : 'bg-white/[0.04] hover:bg-white/[0.09] text-white/75 hover:text-white border-white/10 hover:border-white/25'
             }`}
           >
-            <span className="text-base sm:text-lg shrink-0">{config.emoji}</span>
-            <span className="truncate">{config.label}</span>
+            <span className="text-lg sm:text-xl shrink-0">{config.emoji}</span>
+            <span className="leading-snug font-bold text-white/90">{config.label}</span>
           </button>
         );
       })}
@@ -60,6 +60,7 @@ interface CategoryBadgeProps {
   className?: string;
   size?: 'xs' | 'sm' | 'md';
   onClick?: (e: React.MouseEvent) => void;
+  shortOnMobile?: boolean;
 }
 
 export function CategoryBadge({
@@ -67,35 +68,57 @@ export function CategoryBadge({
   className = '',
   size = 'xs',
   onClick,
+  shortOnMobile = true,
 }: CategoryBadgeProps) {
   if (!category) return null;
 
-  const config = (MOVIE_CATEGORIES as readonly string[]).includes(category)
+  const isKnown = (MOVIE_CATEGORIES as readonly string[]).includes(category);
+  const config = isKnown
     ? MOVIE_CATEGORY_CONFIG[category as MovieCategory]
     : {
         label: category,
+        shortLabel: category,
         emoji: '🎬',
         color: 'text-slate-300',
         badgeBg: 'bg-white/10 text-slate-200 border-white/15',
         border: 'border-white/20',
+        glow: 'shadow-[0_0_8px_rgba(255,255,255,0.1)]',
+        gradient: 'from-white/10 to-white/5',
       };
 
   const sizeClasses =
     size === 'xs'
-      ? 'px-1.5 py-0.5 text-[9px]'
+      ? 'px-2 py-0.5 text-[10px] sm:text-[10.5px] leading-tight'
       : size === 'sm'
-      ? 'px-2 py-0.5 text-[10px]'
-      : 'px-2.5 py-1 text-xs';
+      ? 'px-2.5 py-1 text-[11px] leading-tight'
+      : 'px-3 py-1.5 text-xs leading-normal';
+
+  const isInteractive = Boolean(onClick);
 
   return (
     <span
       onClick={onClick}
-      className={`inline-flex items-center gap-1 rounded-full font-extrabold border backdrop-blur-md shadow-sm transition-all ${config.badgeBg} ${sizeClasses} ${
-        onClick ? 'cursor-pointer hover:scale-105 active:scale-95' : ''
+      title={isInteractive ? `Catégorie : ${config.label} (Cliquer pour modifier)` : `Catégorie : ${config.label}`}
+      className={`group/cat inline-flex items-center gap-1.5 rounded-full font-bold border backdrop-blur-md transition-all duration-200 select-none ${config.badgeBg} ${sizeClasses} ${
+        isInteractive
+          ? 'cursor-pointer hover:scale-105 active:scale-95 hover:brightness-125 hover:shadow-md hover:border-current/60'
+          : ''
       } ${className}`}
     >
-      <span>{config.emoji}</span>
-      <span>{config.label}</span>
+      <span className="shrink-0 text-xs sm:text-[13px] leading-none">{config.emoji}</span>
+      {shortOnMobile && config.shortLabel && config.shortLabel !== config.label ? (
+        <>
+          <span className="hidden sm:inline font-extrabold tracking-tight">{config.label}</span>
+          <span className="sm:hidden font-extrabold tracking-tight">{config.shortLabel}</span>
+        </>
+      ) : (
+        <span className="font-extrabold tracking-tight">{config.label}</span>
+      )}
+      {isInteractive && (
+        <span className="text-[9px] opacity-40 group-hover/cat:opacity-100 transition-opacity ml-0.5" title="Modifier">
+          ✏️
+        </span>
+      )}
     </span>
   );
 }
@@ -117,18 +140,18 @@ export function CategorySelectModal({
 }: CategorySelectModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[420px] bg-[#0F1015] border-white/15 text-white p-5 rounded-2xl shadow-2xl">
+      <DialogContent className="sm:max-w-[480px] bg-[#0F1015] border-white/15 text-white p-5 sm:p-6 rounded-2xl shadow-2xl">
         <DialogHeader>
-          <DialogTitle className="text-base font-black flex items-center gap-2">
+          <DialogTitle className="text-base sm:text-lg font-black flex items-center gap-2">
             <span>🏷️</span>
             <span>Catégorie du film</span>
           </DialogTitle>
           <DialogDescription className="text-xs text-white/60">
-            Attribuez ou modifiez le genre pour <span className="font-bold text-white">« {movieTitle} »</span> afin de structurer vos classements par catégorie.
+            Attribuez ou modifiez le genre pour <span className="font-bold text-white">« {movieTitle} »</span> afin d&apos;ajuster vos classements par catégorie.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-2">
+        <div className="py-3">
           <MovieCategoryPicker
             selectedCategory={currentCategory}
             onSelectCategory={(cat) => {
@@ -166,23 +189,23 @@ export function CategoryTabs({
     : MOVIE_CATEGORIES;
 
   return (
-    <div className={`flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 px-0.5 w-full ${className}`}>
+    <div className={`flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-1.5 px-0.5 w-full ${className}`}>
       {/* Onglet Général */}
       <button
         type="button"
         onClick={() => onSelectCategory('all')}
-        className={`flex items-center gap-1.5 rounded-full font-black transition-all duration-200 border whitespace-nowrap shrink-0 ${
-          size === 'sm' ? 'px-3 py-1 text-[11px]' : 'px-4 py-1.5 text-xs'
+        className={`flex items-center gap-1.5 rounded-full font-black transition-all duration-200 border whitespace-nowrap shrink-0 select-none ${
+          size === 'sm' ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-xs sm:text-sm'
         } ${
           selectedCategory === 'all'
-            ? 'bg-gradient-to-r from-amber-500/30 to-yellow-500/20 text-yellow-300 border-yellow-400/60 shadow-[0_0_15px_rgba(245,158,11,0.3)] ring-1 ring-yellow-400/40'
-            : 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border-white/10'
+            ? 'bg-gradient-to-r from-amber-500/30 via-yellow-500/25 to-amber-500/15 text-yellow-300 border-yellow-400/70 shadow-[0_0_15px_rgba(245,158,11,0.35)] ring-1 ring-yellow-400/50 scale-[1.02]'
+            : 'bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white border-white/10 hover:border-yellow-400/40'
         }`}
       >
-        <span>🏆</span>
+        <span className="text-sm">🏆</span>
         <span>Général</span>
         {typeof totalCount === 'number' && (
-          <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono ${
+          <span className={`px-1.5 py-0.5 rounded-full text-[9.5px] font-mono font-bold leading-none ${
             selectedCategory === 'all' ? 'bg-yellow-400/30 text-yellow-200' : 'bg-white/10 text-white/60'
           }`}>
             {totalCount}
@@ -201,19 +224,26 @@ export function CategoryTabs({
             key={cat}
             type="button"
             onClick={() => onSelectCategory(cat)}
-            className={`flex items-center gap-1.5 rounded-full font-bold transition-all duration-200 border whitespace-nowrap shrink-0 ${
-              size === 'sm' ? 'px-2.5 py-1 text-[11px]' : 'px-3.5 py-1.5 text-xs'
+            className={`flex items-center gap-1.5 rounded-full font-bold transition-all duration-200 border whitespace-nowrap shrink-0 select-none ${
+              size === 'sm' ? 'px-2.5 sm:px-3 py-1.5 text-xs' : 'px-3.5 sm:px-4 py-2 text-xs sm:text-sm'
             } ${
               isSelected
-                ? `${config.badgeBg} border-current ring-1 ring-current/50 shadow-md font-black scale-[1.02]`
-                : 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border-white/10'
+                ? `${config.badgeBg} ${config.border} border-current ring-1 ring-current/50 shadow-md font-black scale-[1.02]`
+                : 'bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white border-white/10 hover:border-white/25'
             }`}
           >
-            <span>{config.emoji}</span>
-            <span>{config.label}</span>
+            <span className="text-sm">{config.emoji}</span>
+            {config.shortLabel && config.shortLabel !== config.label ? (
+              <>
+                <span className="hidden sm:inline">{config.label}</span>
+                <span className="sm:hidden">{config.shortLabel}</span>
+              </>
+            ) : (
+              <span>{config.label}</span>
+            )}
             {typeof count === 'number' && count > 0 && (
-              <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono ${
-                isSelected ? 'bg-current/20' : 'bg-white/10 text-white/60'
+              <span className={`px-1.5 py-0.5 rounded-full text-[9.5px] font-mono font-bold leading-none ${
+                isSelected ? 'bg-current/25 font-black' : 'bg-white/10 text-white/60'
               }`}>
                 {count}
               </span>

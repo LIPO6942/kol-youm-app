@@ -7,7 +7,35 @@ import { MovieCategory, MOVIE_CATEGORIES, MOVIE_CATEGORY_CONFIG } from '@/lib/fi
 export function guessMovieCategory(title?: string, genres?: string[], synopsis?: string): MovieCategory {
   const text = `${title || ''} ${(genres || []).join(' ')} ${synopsis || ''}`.toLowerCase();
 
-  // 1. Sci-Fi
+  // 1. Autobiographie / Histoire réelle (biopic, faits réels, autobiographie, documentaire...)
+  if (
+    text.includes('autobiographie') ||
+    text.includes('autobiography') ||
+    text.includes('biographie') ||
+    text.includes('biography') ||
+    text.includes('biopic') ||
+    text.includes('histoire réelle') ||
+    text.includes('histoire vraie') ||
+    text.includes('faits réels') ||
+    text.includes("inspiré d'une histoire") ||
+    text.includes("inspirée d'une histoire") ||
+    text.includes("inspiré de faits") ||
+    text.includes("inspirée de faits") ||
+    text.includes("tiré d'une histoire") ||
+    text.includes("tirée d'une histoire") ||
+    text.includes("d'après une histoire") ||
+    text.includes('true story') ||
+    text.includes('based on a true story') ||
+    text.includes('based on true') ||
+    text.includes('documentaire') ||
+    text.includes('documentary') ||
+    text.includes('mémoires') ||
+    text.includes('memoir')
+  ) {
+    return 'Autobiographie/Histoire réelle';
+  }
+
+  // 2. Sci-Fi
   if (
     text.includes('science-fiction') ||
     text.includes('science fiction') ||
@@ -22,7 +50,7 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Sci-Fi';
   }
 
-  // 2. Mind blowing
+  // 3. Mind blowing
   if (
     text.includes('mind blowing') ||
     text.includes('mindfuck') ||
@@ -37,7 +65,7 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Mind blowing';
   }
 
-  // 3. Histoire / Guerre
+  // 4. Histoire / Guerre
   if (
     text.includes('guerre') ||
     text.includes('histoire') ||
@@ -52,7 +80,7 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Histoire/Guerre';
   }
 
-  // 4. Comédie
+  // 5. Comédie
   if (
     text.includes('comédie') ||
     text.includes('comedie') ||
@@ -64,7 +92,7 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Comédie';
   }
 
-  // 5. Action
+  // 6. Action
   if (
     text.includes('action') ||
     text.includes('aventure') ||
@@ -78,7 +106,7 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Action';
   }
 
-  // 6. Drame par défaut ou si mots clés dramatiques
+  // 7. Drame par défaut ou si mots clés dramatiques
   return 'Drame';
 }
 
@@ -91,9 +119,12 @@ export function getCategoryConfig(category?: string | null) {
   }
   return {
     label: category || 'Général',
+    shortLabel: category || 'Général',
     emoji: '🎬',
     color: 'text-slate-300',
     badgeBg: 'bg-white/10 text-slate-200 border-white/15',
     border: 'border-white/20',
+    glow: 'shadow-[0_0_8px_rgba(255,255,255,0.1)]',
+    gradient: 'from-white/10 to-white/5',
   };
 }

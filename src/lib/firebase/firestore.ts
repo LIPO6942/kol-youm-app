@@ -63,17 +63,91 @@ export const MOVIE_CATEGORIES = [
   'Sci-Fi',
   'Mind blowing',
   'Action',
+  'Autobiographie/Histoire réelle',
 ] as const;
 
 export type MovieCategory = typeof MOVIE_CATEGORIES[number];
 
-export const MOVIE_CATEGORY_CONFIG: Record<MovieCategory, { label: string; emoji: string; color: string; badgeBg: string; border: string }> = {
-  'Drame': { label: 'Drame', emoji: '🎭', color: 'text-rose-400', badgeBg: 'bg-rose-500/20 text-rose-300 border-rose-500/30', border: 'border-rose-500/40' },
-  'Comédie': { label: 'Comédie', emoji: '😂', color: 'text-amber-400', badgeBg: 'bg-amber-500/20 text-amber-300 border-amber-500/30', border: 'border-amber-500/40' },
-  'Histoire/Guerre': { label: 'Histoire/Guerre', emoji: '⚔️', color: 'text-orange-400', badgeBg: 'bg-orange-500/20 text-orange-300 border-orange-500/30', border: 'border-orange-500/40' },
-  'Sci-Fi': { label: 'Sci-Fi', emoji: '🚀', color: 'text-cyan-400', badgeBg: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30', border: 'border-cyan-500/40' },
-  'Mind blowing': { label: 'Mind blowing', emoji: '🤯', color: 'text-purple-400', badgeBg: 'bg-purple-500/20 text-purple-300 border-purple-500/30', border: 'border-purple-500/40' },
-  'Action': { label: 'Action', emoji: '💥', color: 'text-red-400', badgeBg: 'bg-red-500/20 text-red-300 border-red-500/30', border: 'border-red-500/40' },
+export const MOVIE_CATEGORY_CONFIG: Record<MovieCategory, {
+  label: string;
+  shortLabel?: string;
+  emoji: string;
+  color: string;
+  badgeBg: string;
+  border: string;
+  glow?: string;
+  gradient?: string;
+}> = {
+  'Drame': {
+    label: 'Drame',
+    shortLabel: 'Drame',
+    emoji: '🎭',
+    color: 'text-rose-400',
+    badgeBg: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+    border: 'border-rose-500/40',
+    glow: 'shadow-[0_0_12px_rgba(244,63,94,0.25)]',
+    gradient: 'from-rose-500/20 to-pink-500/10',
+  },
+  'Comédie': {
+    label: 'Comédie',
+    shortLabel: 'Comédie',
+    emoji: '😂',
+    color: 'text-amber-400',
+    badgeBg: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+    border: 'border-amber-500/40',
+    glow: 'shadow-[0_0_12px_rgba(245,158,11,0.25)]',
+    gradient: 'from-amber-500/20 to-yellow-500/10',
+  },
+  'Histoire/Guerre': {
+    label: 'Histoire/Guerre',
+    shortLabel: 'Histoire/Guerre',
+    emoji: '⚔️',
+    color: 'text-orange-400',
+    badgeBg: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
+    border: 'border-orange-500/40',
+    glow: 'shadow-[0_0_12px_rgba(249,115,22,0.25)]',
+    gradient: 'from-orange-500/20 to-amber-600/10',
+  },
+  'Sci-Fi': {
+    label: 'Sci-Fi',
+    shortLabel: 'Sci-Fi',
+    emoji: '🚀',
+    color: 'text-cyan-400',
+    badgeBg: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
+    border: 'border-cyan-500/40',
+    glow: 'shadow-[0_0_12px_rgba(6,182,212,0.25)]',
+    gradient: 'from-cyan-500/20 to-blue-500/10',
+  },
+  'Mind blowing': {
+    label: 'Mind blowing',
+    shortLabel: 'Mind blowing',
+    emoji: '🤯',
+    color: 'text-purple-400',
+    badgeBg: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
+    border: 'border-purple-500/40',
+    glow: 'shadow-[0_0_12px_rgba(168,85,247,0.25)]',
+    gradient: 'from-purple-500/20 to-violet-500/10',
+  },
+  'Action': {
+    label: 'Action',
+    shortLabel: 'Action',
+    emoji: '💥',
+    color: 'text-red-400',
+    badgeBg: 'bg-red-500/15 text-red-300 border-red-500/30',
+    border: 'border-red-500/40',
+    glow: 'shadow-[0_0_12px_rgba(239,68,68,0.25)]',
+    gradient: 'from-red-500/20 to-rose-600/10',
+  },
+  'Autobiographie/Histoire réelle': {
+    label: 'Autobiographie/Histoire réelle',
+    shortLabel: 'Autobio / Réel',
+    emoji: '📖',
+    color: 'text-emerald-400',
+    badgeBg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+    border: 'border-emerald-500/40',
+    glow: 'shadow-[0_0_12px_rgba(16,185,129,0.25)]',
+    gradient: 'from-emerald-500/20 to-teal-500/10',
+  },
 };
 
 export type MonthlyMovieRanking = {
