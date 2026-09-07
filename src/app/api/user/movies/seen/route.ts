@@ -23,7 +23,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { userId, title, type = 'movie', posterPath = null } = body;
+    const { userId, title, type = 'movie', posterPath = null, category = null } = body;
 
     if (!userId || !title) {
       return NextResponse.json(
@@ -46,24 +46,33 @@ export async function POST(req: NextRequest) {
     const historyFieldName = type === 'movie' ? 'seenMovieHistory' : 'seenSeriesHistory';
     const dataFieldName = type === 'movie' ? 'seenMoviesData' : 'seenSeriesData';
 
-    const historyObject = {
+    const historyObject: Record<string, any> = {
         title,
         addedAt: Date.now(),
-        ...(posterPath && { posterPath })
+        ...(posterPath && { posterPath }),
+        ...(category && { category }),
     };
 
-    const dataObject = {
+    const dataObject: Record<string, any> = {
         title,
         viewedAt: Date.now(),
         addedAt: Date.now(),
-        ...(posterPath && { posterUrl: posterPath })
+        ...(posterPath && { posterUrl: posterPath }),
+        ...(category && { category }),
     };
 
-    await setDoc(userDoc, {
+    const updatePayload: Record<string, any> = {
       [fieldName]: arrayUnion(title),
       [historyFieldName]: arrayUnion(historyObject),
-      [dataFieldName]: arrayUnion(dataObject)
-    }, { merge: true });
+      [dataFieldName]: arrayUnion(dataObject),
+    };
+
+    if (category && type === 'movie') {
+      const norm = title.toLowerCase().trim();
+      updatePayload[`movieCategories.${norm}`] = category;
+    }
+
+    await setDoc(userDoc, updatePayload, { merge: true });
 
     return NextResponse.json({
       success: true,

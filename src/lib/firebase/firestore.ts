@@ -56,6 +56,26 @@ export type TriviaFeedback = {
     category?: string;
 };
 
+export const MOVIE_CATEGORIES = [
+  'Drame',
+  'Comédie',
+  'Histoire/Guerre',
+  'Sci-Fi',
+  'Mind blowing',
+  'Action',
+] as const;
+
+export type MovieCategory = typeof MOVIE_CATEGORIES[number];
+
+export const MOVIE_CATEGORY_CONFIG: Record<MovieCategory, { label: string; emoji: string; color: string; badgeBg: string; border: string }> = {
+  'Drame': { label: 'Drame', emoji: '🎭', color: 'text-rose-400', badgeBg: 'bg-rose-500/20 text-rose-300 border-rose-500/30', border: 'border-rose-500/40' },
+  'Comédie': { label: 'Comédie', emoji: '😂', color: 'text-amber-400', badgeBg: 'bg-amber-500/20 text-amber-300 border-amber-500/30', border: 'border-amber-500/40' },
+  'Histoire/Guerre': { label: 'Histoire/Guerre', emoji: '⚔️', color: 'text-orange-400', badgeBg: 'bg-orange-500/20 text-orange-300 border-orange-500/30', border: 'border-orange-500/40' },
+  'Sci-Fi': { label: 'Sci-Fi', emoji: '🚀', color: 'text-cyan-400', badgeBg: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30', border: 'border-cyan-500/40' },
+  'Mind blowing': { label: 'Mind blowing', emoji: '🤯', color: 'text-purple-400', badgeBg: 'bg-purple-500/20 text-purple-300 border-purple-500/30', border: 'border-purple-500/40' },
+  'Action': { label: 'Action', emoji: '💥', color: 'text-red-400', badgeBg: 'bg-red-500/20 text-red-300 border-red-500/30', border: 'border-red-500/40' },
+};
+
 export type MonthlyMovieRanking = {
     monthKey: string;             // e.g. "2026-09"
     rankedTitles: string[];       // Ordered list of titles [1st, 2nd, 3rd, ...]
@@ -76,6 +96,7 @@ export type SeenMovie = {
     watchedInCinema?: boolean;
     cinemaPlace?: string;
     genres?: string[];
+    category?: MovieCategory;
 };
 
 export type UserProfile = {
@@ -89,6 +110,7 @@ export type UserProfile = {
     // These lists are synced via Firestore
     seenMovieTitles?: string[];
     seenMoviesData?: SeenMovie[]; // New: detailed seen movies with dates
+    movieCategories?: Record<string, MovieCategory>; // Map: normalized title -> Category
     rejectedMovieTitles?: string[];
     moviesToWatch?: string[];
     // Series lists
@@ -546,7 +568,7 @@ export async function addSeenSeriesWithDate(
     }
 }
 
-// Add a movie to seen list with viewing date (for manual entry)
+// Add a movie to seen list with viewing date and optional category
 export async function addSeenMovieWithDate(
     uid: string,
     movie: {
@@ -557,9 +579,11 @@ export async function addSeenMovieWithDate(
         rating?: number;
         watchedInCinema?: boolean;
         cinemaPlace?: string;
+        category?: MovieCategory;
     }
 ) {
     const userRef = doc(firestoreDb, "users", uid);
+    const norm = movie.title.toLowerCase().trim();
 
     const seenMovie: any = {
         title: movie.title,
@@ -573,22 +597,78 @@ export async function addSeenMovieWithDate(
     if (movie.rating !== undefined && movie.rating !== null) seenMovie.rating = movie.rating;
     if (movie.watchedInCinema) seenMovie.watchedInCinema = movie.watchedInCinema;
     if (movie.cinemaPlace) seenMovie.cinemaPlace = movie.cinemaPlace;
+    if (movie.category) seenMovie.category = movie.category;
 
-    await setDoc(userRef, {
+    const firestorePayload: Record<string, any> = {
         moviesToWatch: arrayRemove(movie.title),
         seenMovieTitles: arrayUnion(movie.title),
-        seenMoviesData: arrayUnion(seenMovie)
-    }, { merge: true });
+        seenMoviesData: arrayUnion(seenMovie),
+    };
+    if (movie.category) {
+        firestorePayload[`movieCategories.${norm}`] = movie.category;
+    }
+
+    if (uid && uid !== 'guest') {
+        try {
+            await setDoc(userRef, firestorePayload, { merge: true });
+        } catch (e) {
+            console.warn('Erreur Firestore addSeenMovieWithDate:', e);
+        }
+    }
 
     const localProfile = await getUserFromDb(uid);
     if (localProfile) {
+        const updatedCategories = {
+            ...(localProfile.movieCategories || {}),
+            ...(movie.category ? { [norm]: movie.category } : {}),
+        };
         const updatedProfile = {
             ...localProfile,
             moviesToWatch: (localProfile.moviesToWatch || []).filter((t: string) => t.toLowerCase() !== movie.title.toLowerCase()),
             seenMovieTitles: Array.from(new Set([...(localProfile.seenMovieTitles || []), movie.title])),
-            seenMoviesData: [...(localProfile.seenMoviesData || []).filter(m => m.title !== movie.title), seenMovie]
+            seenMoviesData: [...(localProfile.seenMoviesData || []).filter(m => m.title?.toLowerCase()?.trim() !== norm), seenMovie],
+            movieCategories: updatedCategories,
         };
         await storeUserInDb(uid, updatedProfile);
+    }
+}
+
+// Update the category of an existing movie
+export async function updateMovieCategory(uid: string, movieTitle: string, category: MovieCategory) {
+    const norm = movieTitle.toLowerCase().trim();
+    const effectiveUid = uid || 'guest';
+    const localProfile = await getUserFromDb(effectiveUid);
+    if (!localProfile) return;
+
+    const currentSeenData = [...(localProfile.seenMoviesData || [])];
+    const itemIndex = currentSeenData.findIndex((m: any) => m?.title && m.title.toLowerCase().trim() === norm);
+    if (itemIndex >= 0) {
+        currentSeenData[itemIndex] = { ...currentSeenData[itemIndex], category };
+    }
+
+    const updatedCategories = {
+        ...(localProfile.movieCategories || {}),
+        [norm]: category,
+    };
+
+    const updatedProfile = {
+        ...localProfile,
+        seenMoviesData: currentSeenData,
+        movieCategories: updatedCategories,
+    };
+
+    await storeUserInDb(effectiveUid, updatedProfile);
+
+    if (uid && uid !== 'guest') {
+        try {
+            const userRef = doc(firestoreDb, 'users', uid);
+            await setDoc(userRef, {
+                seenMoviesData: currentSeenData,
+                [`movieCategories.${norm}`]: category,
+            }, { merge: true });
+        } catch (e) {
+            console.warn('Erreur updateMovieCategory Firestore:', e);
+        }
     }
 }
 
@@ -1497,6 +1577,8 @@ export async function sanitizeAndHealMovieData(
         const watchedInCinema = item.watchedInCinema || !!cinemaInfo;
         const cinemaPlace = item.cinemaPlace || cinemaInfo?.placeName;
 
+        const category = item.category || updated.movieCategories?.[norm];
+
         seenMap.set(norm, {
             title: item.title.trim(),
             ...(item.posterUrl && { posterUrl: item.posterUrl }),
@@ -1507,6 +1589,7 @@ export async function sanitizeAndHealMovieData(
             ...(viewedAt && { viewedAt }),
             ...(addedAt && { addedAt }),
             ...(Array.isArray(item.genres) && { genres: item.genres }),
+            ...(category && { category }),
         });
     });
 

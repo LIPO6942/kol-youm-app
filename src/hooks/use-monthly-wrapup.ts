@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { getStoredMovieRanking, type UserProfile, type VisitLog, type SeenMovie, type MonthlyMovieRanking, isTestMovieTitle } from '@/lib/firebase/firestore';
+import { getStoredMovieRanking, type UserProfile, type VisitLog, type SeenMovie, type MonthlyMovieRanking, isTestMovieTitle, type MovieCategory } from '@/lib/firebase/firestore';
 import { analyzeMonthlyMovieTastes, MonthlyMovieTasteAnalysis } from '@/lib/movie-genre-analyzer';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
+import { guessMovieCategory } from '@/lib/movie-category-utils';
 
 export type CinemaSession = {
   title: string;
@@ -411,7 +412,8 @@ export function useMonthlyWrapUp(
     // 1. Enrichir avec seenMoviesData
     ((user as any)?.seenMoviesData || []).forEach((m: any) => {
       if (m?.title && !isExcluded(m.title)) {
-        metadataMap.set(m.title.toLowerCase().trim(), {
+        const norm = m.title.toLowerCase().trim();
+        metadataMap.set(norm, {
           posterUrl: m.posterUrl,
           year: m.year,
           rating: m.rating,
@@ -419,6 +421,7 @@ export function useMonthlyWrapUp(
           cinemaPlace: m.cinemaPlace,
           viewedAt: m.viewedAt || m.addedAt,
           genres: m.genres,
+          category: m.category || (user as any)?.movieCategories?.[norm],
         });
       }
     });
@@ -521,7 +524,9 @@ export function useMonthlyWrapUp(
 
     // DuelMovieItem[] final pour les stats et le modal
     const duelItems: DuelMovieItem[] = uniqueMonthTitles.map(title => {
-      const meta = metadataMap.get((title || '').toLowerCase().trim()) || {};
+      const norm = (title || '').toLowerCase().trim();
+      const meta = metadataMap.get(norm) || {};
+      const cat = meta.category || (user as any)?.movieCategories?.[norm] || guessMovieCategory(title, meta.genres);
       return {
         title,
         posterUrl: meta.posterUrl,
@@ -531,6 +536,7 @@ export function useMonthlyWrapUp(
         cinemaPlace: meta.cinemaPlace,
         viewedAt: meta.viewedAt,
         genres: meta.genres,
+        category: cat,
       };
     });
 

@@ -14,6 +14,7 @@ import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
 import { useAuth } from '@/hooks/use-auth';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
 import { getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters } from '@/lib/firebase/firestore';
+import { guessMovieCategory } from '@/lib/movie-category-utils';
 
 const genres = [
   { name: 'Comédie', iconName: 'Laugh', description: 'Pour rire aux éclats.' },
@@ -128,7 +129,8 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
     // 1. Enrichir avec seenMoviesData
     seenDataList.forEach(m => {
       if (m?.title) {
-        metadataMap.set(m.title.toLowerCase().trim(), {
+        const norm = m.title.toLowerCase().trim();
+        metadataMap.set(norm, {
           posterUrl: m.posterUrl,
           year: m.year,
           rating: m.rating,
@@ -136,6 +138,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
           cinemaPlace: m.cinemaPlace,
           viewedAt: m.viewedAt || m.addedAt,
           genres: m.genres,
+          category: m.category || (userProfile?.movieCategories || {})[norm],
         });
       }
     });
@@ -150,6 +153,9 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         }
         if (!existing.viewedAt && h.addedAt) {
           existing.viewedAt = h.addedAt;
+        }
+        if (!existing.category && h.category) {
+          existing.category = h.category;
         }
         metadataMap.set(key, existing);
       }
@@ -176,8 +182,10 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
 
     // 5. Construction de la liste finale pour le duel
     const results: DuelMovieItem[] = allUniqueTitles.map(title => {
-      const meta = metadataMap.get(title.toLowerCase().trim()) || {};
-      const cached = postersCache[title.toLowerCase().trim()];
+      const norm = title.toLowerCase().trim();
+      const meta = metadataMap.get(norm) || {};
+      const cached = postersCache[norm];
+      const cat = meta.category || (userProfile?.movieCategories || {})[norm] || guessMovieCategory(title, meta.genres);
       return {
         title,
         posterUrl: meta.posterUrl || cached?.posterUrl,
@@ -187,6 +195,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         cinemaPlace: meta.cinemaPlace,
         viewedAt: meta.viewedAt,
         genres: meta.genres,
+        category: cat,
       };
     });
 

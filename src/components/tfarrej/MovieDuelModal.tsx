@@ -35,8 +35,12 @@ import {
   isTestMovieTitle,
   backfillMoviePosters,
   removeMovieFromList,
+  MovieCategory,
+  updateMovieCategory,
 } from '@/lib/firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { CategoryTabs, CategoryBadge, CategorySelectModal } from '@/components/tfarrej/movie-category-picker';
+import { guessMovieCategory } from '@/lib/movie-category-utils';
 
 interface MovieDuelModalProps {
   isOpen: boolean;
@@ -46,6 +50,7 @@ interface MovieDuelModalProps {
   seenMovies: DuelMovieItem[]; // All seen movies for this month
   existingRanking?: MonthlyMovieRanking | null;
   onRankingSaved?: (ranking: MonthlyMovieRanking) => void;
+  initialCategory?: MovieCategory | 'all';
 }
 
 export function MovieDuelModal({
@@ -56,6 +61,7 @@ export function MovieDuelModal({
   seenMovies,
   existingRanking,
   onRankingSaved,
+  initialCategory = 'all',
 }: MovieDuelModalProps) {
   const { user, userProfile } = useAuth();
   const { toast } = useToast();
@@ -63,6 +69,15 @@ export function MovieDuelModal({
   const [session, setSession] = useState<DuelSessionState | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedWinnerSide, setSelectedWinnerSide] = useState<'A' | 'B' | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<MovieCategory | 'all'>(initialCategory || 'all');
+  const [editingCategoryMovie, setEditingCategoryMovie] = useState<{ title: string; category?: MovieCategory } | null>(null);
+
+  // Sync category if initialCategory changes
+  useEffect(() => {
+    if (initialCategory) {
+      setSelectedCategory(initialCategory);
+    }
+  }, [initialCategory]);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -78,10 +93,27 @@ export function MovieDuelModal({
     return existingRanking || getStoredMovieRanking(monthKey, userProfile);
   }, [existingRanking, monthKey, userProfile]);
 
-  // Filtrer les films de test (test00, test000...)
+  // Filtrer les films de test et enrichir avec leur catégorie
   const validSeenMovies = useMemo(() => {
-    return seenMovies.filter(m => !isTestMovieTitle(m.title));
-  }, [seenMovies]);
+    return seenMovies
+      .filter(m => !isTestMovieTitle(m.title))
+      .map(m => {
+        const norm = m.title.toLowerCase().trim();
+        const cat = m.category || (userProfile?.movieCategories || {})[norm] || guessMovieCategory(m.title, m.genres);
+        return { ...m, category: cat };
+      });
+  }, [seenMovies, userProfile]);
+
+  // Calcul du nombre de films par catégorie
+  const categoryCounts = useMemo(() => {
+    const counts: Partial<Record<MovieCategory, number>> = {};
+    validSeenMovies.forEach(m => {
+      if (m.category) {
+        counts[m.category] = (counts[m.category] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [validSeenMovies]);
 
   // Déterminer s'il s'agit d'un reclassement incrémental ou d'un premier classement
   const { isIncrementalMode, unrankedMovies, rankedTitles } = useMemo(() => {
@@ -432,8 +464,8 @@ export function MovieDuelModal({
     const baseList = (effectiveExistingRanking?.initialRankedTitles || session.initialRankedTitles || []).filter(t => !isTestMovieTitle(t));
     const sorted = (session.sortedTitles || []).filter(t => !isTestMovieTitle(t));
     const newlyAdded = (session.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t));
-    return calculateRankMovements(baseList, sorted, newlyAdded).filter(item => !isTestMovieTitle(item.title));
-  }, [session, effectiveExistingRanking]);
+    return calculateRankMovements(baseList, sorted, newlyAdded, session.movieCatalog, selectedCategory).filter(item => !isTestMovieTitle(item.title));
+  }, [session, effectiveExistingRanking, selectedCategory]);
 
   // Helper pour formater l'affiche
   const getPosterUrl = (url?: string) => {
@@ -476,6 +508,18 @@ export function MovieDuelModal({
               </DialogDescription>
             </div>
           </div>
+        </div>
+
+        {/* Barre de navigation Général & Catégories */}
+        <div className="px-4 py-2 bg-white/[0.03] border-b border-white/10 flex items-center justify-start overflow-x-auto no-scrollbar">
+          <CategoryTabs
+            selectedCategory={selectedCategory}
+            onSelectCategory={(cat) => setSelectedCategory(cat)}
+            categoryCounts={categoryCounts}
+            totalCount={validSeenMovies.length}
+            availableCategoriesOnly={session.isFinished}
+            size="sm"
+          />
         </div>
 
         {/* Corps principal : Stage de duel OU Écran de classement animé */}
@@ -790,7 +834,9 @@ export function MovieDuelModal({
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <Trophy className="w-6 h-6 text-yellow-400" />
                   <h3 className="text-xl font-black text-white">
-                    {session.mode === 'incremental' ? "Classement Réactualisé !" : "Ton Palmarès Officiel !"}
+                    {selectedCategory === 'all'
+                      ? (session.mode === 'incremental' ? "Classement Réactualisé !" : "Ton Palmarès Général !")
+                      : `Palmarès ${selectedCategory} !`}
                   </h3>
                 </div>
                 {/* Badge de confirmation de sauvegarde automatique */}
@@ -804,10 +850,26 @@ export function MovieDuelModal({
                 </motion.div>
 
                 <p className="text-xs text-white/60 text-center max-w-[480px] mb-5">
-                  {session.mode === 'incremental'
-                    ? "Les nouveaux films ont bousculé les positions ! Observe les montées, descentes et nouvelles entrées ci-dessous."
-                    : "Chaque film a trouvé sa place grâce à tes duels. Prêt à publier pour le Wrap-Up ?"}
+                  {selectedCategory === 'all'
+                    ? (session.mode === 'incremental'
+                      ? "Les nouveaux films ont bousculé les positions ! Observe les montées, descentes et nouvelles entrées ci-dessous."
+                      : "Chaque film a trouvé sa place grâce à tes duels. Prêt à publier pour le Wrap-Up ?")
+                    : `Hiérarchie exclusive de vos films ${selectedCategory} pour ce mois (${rankMovements.length} film${rankMovements.length > 1 ? 's' : ''}).`}
                 </p>
+
+                {rankMovements.length === 0 && (
+                  <div className="py-8 text-center text-white/50 text-xs flex flex-col items-center gap-2">
+                    <span>Aucun film dans la catégorie « {selectedCategory} » ce mois-ci.</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedCategory('all')}
+                      className="text-amber-400 text-xs font-bold"
+                    >
+                      ← Revenir au classement général
+                    </Button>
+                  </div>
+                )}
 
                 {/* Liste animée avec Framer Motion layout */}
                 <motion.div layout className="w-full max-w-[550px] space-y-2 mb-6">
@@ -861,10 +923,27 @@ export function MovieDuelModal({
                             <h4 className="text-sm font-bold text-white truncate max-w-[220px] sm:max-w-[280px]">
                               {item.title}
                             </h4>
-                            <div className="flex items-center gap-2 text-[11px] text-white/50">
+                            <div className="flex items-center flex-wrap gap-1.5 text-[11px] text-white/50 mt-0.5">
                               {movie?.year && <span>{movie.year}</span>}
                               {movie?.watchedInCinema && (
                                 <span className="text-violet-300 font-semibold">🎬 Cinéma</span>
+                              )}
+                              <CategoryBadge
+                                category={item.category || movie?.category}
+                                size="xs"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingCategoryMovie({
+                                    title: item.title,
+                                    category: item.category || movie?.category,
+                                  });
+                                }}
+                                className="cursor-pointer hover:ring-1 hover:ring-current"
+                              />
+                              {selectedCategory !== 'all' && (
+                                <span className="px-1.5 py-0.2 rounded-full bg-white/10 text-white/70 text-[9px] font-mono">
+                                  #{item.generalRank} Général
+                                </span>
                               )}
                             </div>
                           </div>
@@ -953,6 +1032,34 @@ export function MovieDuelModal({
             )}
           </AnimatePresence>
         </div>
+
+        {editingCategoryMovie && (
+          <CategorySelectModal
+            isOpen={Boolean(editingCategoryMovie)}
+            onOpenChange={(open) => { if (!open) setEditingCategoryMovie(null); }}
+            movieTitle={editingCategoryMovie.title}
+            currentCategory={editingCategoryMovie.category}
+            onSelect={async (newCategory) => {
+              const effectiveUid = user?.uid || userProfile?.uid || 'guest';
+              await updateMovieCategory(effectiveUid, editingCategoryMovie.title, newCategory);
+              if (session) {
+                const updatedCatalog = { ...session.movieCatalog };
+                if (updatedCatalog[editingCategoryMovie.title]) {
+                  updatedCatalog[editingCategoryMovie.title] = {
+                    ...updatedCatalog[editingCategoryMovie.title],
+                    category: newCategory,
+                  };
+                }
+                setSession({ ...session, movieCatalog: updatedCatalog });
+              }
+              toast({
+                title: "Catégorie mise à jour !",
+                description: `"${editingCategoryMovie.title}" est maintenant classé en « ${newCategory} ».`,
+              });
+              setEditingCategoryMovie(null);
+            }}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

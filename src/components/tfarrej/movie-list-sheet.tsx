@@ -13,8 +13,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv, Swords } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters } from '@/lib/firebase/firestore';
+import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters, MovieCategory, updateMovieCategory } from '@/lib/firebase/firestore';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
+import { MovieCategoryPicker, CategoryBadge, CategorySelectModal } from '@/components/tfarrej/movie-category-picker';
+import { guessMovieCategory } from '@/lib/movie-category-utils';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
@@ -61,7 +63,7 @@ interface MovieListSheetProps {
 
 // Add Movie Dialog Component
 function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 'seen', initialMovie = null }: {
-  onAdd: (movie: SearchResult, viewedAt: Date) => Promise<void>;
+  onAdd: (movie: SearchResult, viewedAt: Date, category?: MovieCategory) => Promise<void>;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   type?: 'movie' | 'tv';
@@ -73,6 +75,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
   const [isSearching, setIsSearching] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<SearchResult | null>(null);
   const [viewedDate, setViewedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedCategory, setSelectedCategory] = useState<MovieCategory>('Drame');
   const [isAdding, setIsAdding] = useState(false);
 
   // Manual Mode State
@@ -85,8 +88,20 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
   useEffect(() => {
     if (isOpen && initialMovie) {
       setSelectedMovie(initialMovie);
+      if (initialMovie.title) {
+        setSelectedCategory(initialMovie.category || guessMovieCategory(initialMovie.title));
+      }
     }
   }, [isOpen, initialMovie]);
+
+  // Auto-guess category when movie or title changes
+  useEffect(() => {
+    if (selectedMovie?.title) {
+      setSelectedCategory(selectedMovie.category || guessMovieCategory(selectedMovie.title, selectedMovie.genres));
+    } else if (manualTitle.trim()) {
+      setSelectedCategory(guessMovieCategory(manualTitle));
+    }
+  }, [selectedMovie, manualTitle]);
 
   // Search TMDb
   const searchTMDb = useCallback(async (query: string) => {
@@ -156,8 +171,8 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
           posterUrl: `default:${manualPosterVariant}`
         };
 
-        console.log('Calling onAdd with', pseudoMovie);
-        await onAdd(pseudoMovie, new Date(viewedDate));
+        console.log('Calling onAdd with', pseudoMovie, selectedCategory);
+        await onAdd(pseudoMovie, new Date(viewedDate), selectedCategory);
         console.log('onAdd completed');
         resetAndClose();
       } catch (err) {
@@ -169,7 +184,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
       if (!selectedMovie) return;
       setIsAdding(true);
       try {
-        await onAdd(selectedMovie, new Date(viewedDate));
+        await onAdd(selectedMovie, new Date(viewedDate), selectedCategory);
         resetAndClose();
       } catch (err) {
         console.error('Error in handleAdd (search):', err);
@@ -372,6 +387,24 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
             </div>
           )}
 
+          {/* Category Picker (Only for movie seen mode) */}
+          {(selectedMovie || isManualMode) && mode === 'seen' && type === 'movie' && (
+            <div className="space-y-2 pt-1">
+              <Label className="text-xs font-bold flex items-center justify-between text-white/90">
+                <span className="flex items-center gap-1.5">
+                  <span>🏷️</span>
+                  <span>Catégorie du film :</span>
+                </span>
+                <span className="text-[10px] text-muted-foreground font-normal">Pour le classement par genre</span>
+              </Label>
+              <MovieCategoryPicker
+                selectedCategory={selectedCategory}
+                onSelectCategory={setSelectedCategory}
+                size="sm"
+              />
+            </div>
+          )}
+
           {/* Date Picker (Common - Only for seen mode) */}
           {(selectedMovie || isManualMode) && mode === 'seen' && (
             <div className="space-y-2">
@@ -424,7 +457,8 @@ function MovieListContent({
   movieDetails: Record<string, MovieDetails>;
   isLoadingDetails: boolean;
 }) {
-  const { userProfile } = useAuth();
+  const { user, userProfile } = useAuth();
+  const { toast } = useToast();
 
   // Constants
   const TWO_YEARS_MS = 2 * 365 * 24 * 60 * 60 * 1000; // ~2 years in milliseconds
@@ -437,6 +471,7 @@ function MovieListContent({
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [showOldMovies, setShowOldMovies] = useState(false);
   const [isDuelModalOpen, setIsDuelModalOpen] = useState(false);
+  const [editingCategoryMovie, setEditingCategoryMovie] = useState<{ title: string; category?: MovieCategory } | null>(null);
 
   const movieTitles = useMemo(() => {
     const raw = userProfile?.[listType];
@@ -536,7 +571,8 @@ function MovieListContent({
     // 1. Enrichir avec seenMoviesData
     seenDataList.forEach(m => {
       if (m?.title) {
-        metadataMap.set(m.title.toLowerCase().trim(), {
+        const norm = m.title.toLowerCase().trim();
+        metadataMap.set(norm, {
           posterUrl: m.posterUrl || movieDetails[m.title]?.posterUrl,
           year: m.year || movieDetails[m.title]?.year,
           rating: m.rating || movieDetails[m.title]?.rating,
@@ -544,6 +580,7 @@ function MovieListContent({
           cinemaPlace: m.cinemaPlace,
           viewedAt: m.viewedAt || m.addedAt,
           genres: m.genres,
+          category: m.category || (userProfile?.movieCategories || {})[norm],
         });
       }
     });
@@ -558,6 +595,9 @@ function MovieListContent({
         }
         if (!existing.viewedAt && h.addedAt) {
           existing.viewedAt = h.addedAt;
+        }
+        if (!existing.category && h.category) {
+          existing.category = h.category;
         }
         metadataMap.set(key, existing);
       }
@@ -585,7 +625,9 @@ function MovieListContent({
 
     // 5. Construction de la liste finale pour le duel
     const results: DuelMovieItem[] = allUniqueTitles.map(title => {
-      const meta = metadataMap.get(title.toLowerCase().trim()) || {};
+      const norm = title.toLowerCase().trim();
+      const meta = metadataMap.get(norm) || {};
+      const cat = meta.category || (userProfile?.movieCategories || {})[norm] || guessMovieCategory(title, meta.genres);
       return {
         title,
         posterUrl: meta.posterUrl || movieDetails[title]?.posterUrl,
@@ -595,6 +637,7 @@ function MovieListContent({
         cinemaPlace: meta.cinemaPlace,
         viewedAt: meta.viewedAt,
         genres: meta.genres,
+        category: cat,
       };
     });
 
@@ -846,6 +889,20 @@ function MovieListContent({
                         {details.country}
                       </span>
                     )}
+                    {/* Category Badge */}
+                    {type === 'movie' && listType === 'seenMovieTitles' && (() => {
+                      const currentCat = seenData?.category || (userProfile?.movieCategories || {})[norm] || guessMovieCategory(movieTitle, details?.genres);
+                      return (
+                        <CategoryBadge
+                          category={currentCat}
+                          size="xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingCategoryMovie({ title: movieTitle, category: currentCat });
+                          }}
+                        />
+                      );
+                    })()}
                   </div>
                 )}
                 {/* Show when the movie was watched and Cinema badge */}
@@ -948,6 +1005,22 @@ function MovieListContent({
                 <Clapperboard className="h-2.5 w-2.5 text-violet-300" />
                 Cinéma
               </span>
+            </div>
+          );
+        })()}
+        {/* Category badge in grid view */}
+        {type === 'movie' && listType === 'seenMovieTitles' && (() => {
+          const currentCat = seenData?.category || (userProfile?.movieCategories || {})[norm] || guessMovieCategory(movieTitle, details?.genres);
+          return (
+            <div className="absolute top-1.5 right-1.5 z-20">
+              <CategoryBadge
+                category={currentCat}
+                size="xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingCategoryMovie({ title: movieTitle, category: currentCat });
+                }}
+              />
             </div>
           );
         })()}
@@ -1341,6 +1414,24 @@ function MovieListContent({
           onRankingSaved={(saved) => setLocalRanking(saved)}
         />
       )}
+
+      {editingCategoryMovie && (
+        <CategorySelectModal
+          isOpen={Boolean(editingCategoryMovie)}
+          onOpenChange={(open) => { if (!open) setEditingCategoryMovie(null); }}
+          movieTitle={editingCategoryMovie.title}
+          currentCategory={editingCategoryMovie.category}
+          onSelect={async (newCategory) => {
+            const effectiveUid = user?.uid || userProfile?.uid || 'guest';
+            await updateMovieCategory(effectiveUid, editingCategoryMovie.title, newCategory);
+            toast({
+              title: "Catégorie mise à jour !",
+              description: `"${editingCategoryMovie.title}" est classé en « ${newCategory} ».`,
+            });
+            setEditingCategoryMovie(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1508,7 +1599,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
     }
   };
 
-  const handleAddMovieManually = async (movie: SearchResult, viewedAt: Date) => {
+  const handleAddMovieManually = async (movie: SearchResult, viewedAt: Date, category?: MovieCategory) => {
     if (!user) {
       toast({ variant: 'destructive', title: "Erreur", description: "Vous devez être connecté." });
       return;
@@ -1526,6 +1617,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
           posterUrl: movie.posterUrl || undefined,
           year: movie.year || undefined,
           rating: movie.rating || undefined,
+          category: category || guessMovieCategory(movie.title),
         });
       } else {
         await addSeenSeriesWithDate(user.uid, {

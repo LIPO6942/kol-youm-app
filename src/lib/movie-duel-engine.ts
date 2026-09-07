@@ -1,3 +1,6 @@
+import { MovieCategory } from '@/lib/firebase/firestore';
+import { guessMovieCategory } from '@/lib/movie-category-utils';
+
 export type DuelMovieItem = {
   title: string;
   posterUrl?: string;
@@ -7,14 +10,17 @@ export type DuelMovieItem = {
   cinemaPlace?: string;
   viewedAt?: number;
   genres?: string[];
+  category?: MovieCategory;
 };
 
 export type RankMovement = {
   title: string;
   currentRank: number; // 1-indexed (1 = Top 1)
+  generalRank?: number; // 1-indexed general rank
   previousRank?: number; // 1-indexed
   diff: number; // +1 if climbed, -1 if fell, 0 if same
   isNew: boolean;
+  category?: MovieCategory;
 };
 
 export type DuelHistorySnapshot = {
@@ -336,7 +342,9 @@ export function undoDuelDecision(state: DuelSessionState): DuelSessionState {
 export function calculateRankMovements(
   initialRanked: string[] = [],
   currentRanked: string[] = [],
-  newTitles: string[] = []
+  newTitles: string[] = [],
+  movieCatalog?: Record<string, DuelMovieItem>,
+  selectedCategory: MovieCategory | 'all' = 'all'
 ): RankMovement[] {
   const initialMap = new Map<string, number>();
   (initialRanked || []).forEach((title, index) => {
@@ -345,24 +353,39 @@ export function calculateRankMovements(
 
   const newSet = new Set(newTitles || []);
 
-  return (currentRanked || []).map((title, index) => {
+  const generalRankMap = new Map<string, number>();
+  (currentRanked || []).forEach((title, index) => {
+    if (title) generalRankMap.set(title, index + 1);
+  });
+
+  const filteredTitles = selectedCategory === 'all'
+    ? (currentRanked || [])
+    : (currentRanked || []).filter(title => {
+        const item = movieCatalog?.[title];
+        const category = item?.category || guessMovieCategory(title, item?.genres);
+        return category === selectedCategory;
+      });
+
+  return filteredTitles.map((title, index) => {
     const currentRank = index + 1;
     const isNew = newSet.has(title) || !initialMap.has(title);
     const previousRank = initialMap.get(title);
+    const item = movieCatalog?.[title];
+    const category = item?.category || guessMovieCategory(title, item?.genres);
 
     let diff = 0;
     if (previousRank !== undefined) {
-      // Si previousRank était 3 et currentRank est 1: diff = +2 (gagné 2 places)
-      // Si previousRank était 1 et currentRank est 2: diff = -1 (perdu 1 place)
-      diff = previousRank - currentRank;
+      diff = previousRank - (generalRankMap.get(title) || currentRank);
     }
 
     return {
       title,
       currentRank,
+      generalRank: generalRankMap.get(title) || currentRank,
       previousRank,
       diff,
       isNew,
+      category,
     };
   });
 }

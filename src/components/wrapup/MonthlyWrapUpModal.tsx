@@ -8,14 +8,16 @@ import {
   Swords, Trophy, ArrowUp, ArrowDown, Rocket, Minus, Check
 } from 'lucide-react';
 import { useMonthlyWrapUp, WrapUpStats, KharjetOuting, MomentyMoment } from '@/hooks/use-monthly-wrapup';
-import { type UserProfile, type MonthlyMovieRanking, getStoredMovieRanking, isTestMovieTitle } from '@/lib/firebase/firestore';
+import { type UserProfile, type MonthlyMovieRanking, getStoredMovieRanking, isTestMovieTitle, MovieCategory, MOVIE_CATEGORIES, MOVIE_CATEGORY_CONFIG } from '@/lib/firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { toPng } from 'html-to-image';
 import { wrapUpAudio } from '@/lib/wrapup-audio';
 import { fetchCarCareMonthlyMileage, CarCareMonthlyStats } from '@/lib/carcare-service';
 import { useAuth } from '@/hooks/use-auth';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
-import { calculateRankMovements } from '@/lib/movie-duel-engine';
+import { calculateRankMovements, type DuelMovieItem } from '@/lib/movie-duel-engine';
+import { CategoryTabs, CategoryBadge } from '@/components/tfarrej/movie-category-picker';
+import { guessMovieCategory } from '@/lib/movie-category-utils';
 
 type Props = {
   user: UserProfile | null;
@@ -242,6 +244,8 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
   const [isPaused, setIsPaused] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isDuelOpen, setIsDuelOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<MovieCategory | 'all'>('all');
+  const [duelInitialCategory, setDuelInitialCategory] = useState<MovieCategory | 'all'>('all');
   const storyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -352,6 +356,63 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
       totalMoviesCount: totalCount,
     };
   }, [effectiveRanking, effectiveMovies, stats?.movies?.total, stats?.movies?.isAllRanked]);
+
+  const categoryBreakdown = useMemo(() => {
+    const counts: Partial<Record<MovieCategory, number>> = {};
+    const categoryRankedMap: Partial<Record<MovieCategory, string[]>> = {};
+    const categoryUnrankedMap: Partial<Record<MovieCategory, DuelMovieItem[]>> = {};
+
+    MOVIE_CATEGORIES.forEach(cat => {
+      categoryRankedMap[cat] = [];
+      categoryUnrankedMap[cat] = [];
+    });
+
+    const rTitles = (effectiveRanking?.rankedTitles || []).filter(t => typeof t === 'string' && !isTestMovieTitle(t));
+    const rSet = new Set(rTitles.map(t => (t || '').toLowerCase().trim()));
+
+    effectiveMovies.forEach(m => {
+      if (!m?.title) return;
+      const norm = m.title.toLowerCase().trim();
+      const cat = m.category || (effectiveUserProfile?.movieCategories || {})[norm] || guessMovieCategory(m.title, m.genres);
+      counts[cat] = (counts[cat] || 0) + 1;
+      if (!rSet.has(norm)) {
+        categoryUnrankedMap[cat]?.push(m);
+      }
+    });
+
+    rTitles.forEach(t => {
+      const norm = t.toLowerCase().trim();
+      const found = effectiveMovies.find(m => m?.title && m.title.toLowerCase().trim() === norm);
+      const cat = found?.category || (effectiveUserProfile?.movieCategories || {})[norm] || guessMovieCategory(t, found?.genres);
+      categoryRankedMap[cat]?.push(t);
+    });
+
+    return {
+      counts,
+      categoryRankedMap,
+      categoryUnrankedMap,
+    };
+  }, [effectiveMovies, effectiveRanking, effectiveUserProfile]);
+
+  const displayedRankedTitles = useMemo(() => {
+    if (selectedCategory === 'all') return rankedTitles;
+    return categoryBreakdown.categoryRankedMap[selectedCategory] || [];
+  }, [selectedCategory, rankedTitles, categoryBreakdown]);
+
+  const displayedUnrankedCount = useMemo(() => {
+    if (selectedCategory === 'all') return unrankedCount;
+    return (categoryBreakdown.categoryUnrankedMap[selectedCategory] || []).length;
+  }, [selectedCategory, unrankedCount, categoryBreakdown]);
+
+  const displayedTotalCount = useMemo(() => {
+    if (selectedCategory === 'all') return totalMoviesCount;
+    return categoryBreakdown.counts[selectedCategory] || 0;
+  }, [selectedCategory, totalMoviesCount, categoryBreakdown]);
+
+  const isAllRankedForSelected = useMemo(() => {
+    if (selectedCategory === 'all') return isAllRanked;
+    return displayedRankedTitles.length > 0 && displayedUnrankedCount === 0;
+  }, [selectedCategory, isAllRanked, displayedRankedTitles.length, displayedUnrankedCount]);
 
   // Sub-indices for multi-item slides
   const [activeKharjetIdx, setActiveKharjetIdx] = useState(0);
@@ -1009,33 +1070,50 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                         </motion.div>
                       )}
 
+                      {/* Barre d'onglets Général / Catégorie dans le Wrap Up */}
+                      <motion.div variants={itemVariants} className="w-full max-w-[325px] mb-2 pointer-events-auto flex items-center justify-center">
+                        <CategoryTabs
+                          selectedCategory={selectedCategory}
+                          onSelectCategory={(cat) => setSelectedCategory(cat)}
+                          categoryCounts={categoryBreakdown.counts}
+                          totalCount={totalMoviesCount}
+                          availableCategoriesOnly={true}
+                          size="sm"
+                        />
+                      </motion.div>
+
                       {/* 🏆 SECTION CLASSEMENT DU MOIS (À JOUR SI TOUT CLASSÉ / PROPOSITION DE DUEL SI NON CLASSÉ) */}
-                      {isAllRanked ? (
-                        /* ÉTAT 1 : TOUS LES FILMS DU MOIS SONT CLASSÉS (100% À JOUR) */
+                      {isAllRankedForSelected && displayedRankedTitles.length > 0 ? (
+                        /* ÉTAT 1 : TOUS LES FILMS SONT CLASSÉS DANS CETTE VUE */
                         <motion.div
                           variants={itemVariants}
                           className="w-full max-w-[320px] bg-gradient-to-b from-emerald-950/40 via-black/75 to-black/85 backdrop-blur-xl p-3 rounded-2xl border border-emerald-500/40 text-center shadow-[0_10px_35px_rgba(16,185,129,0.2)] pointer-events-auto flex flex-col gap-2 relative overflow-hidden"
                         >
                           <div className="absolute -top-10 -right-10 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
 
-                          {/* Statut explicite : Tous les films sont classés */}
+                          {/* Statut explicite */}
                           <div className="flex items-center justify-between px-0.5">
                             <div className="flex items-center gap-1.5">
                               <Trophy className="w-4 h-4 text-yellow-400" />
                               <span className="text-[11px] font-black uppercase tracking-wider text-amber-300">
-                                Palmarès Officiel
+                                {selectedCategory === 'all' ? "Palmarès Officiel" : `Palmarès ${selectedCategory}`}
                               </span>
                             </div>
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/25 border border-emerald-400/50 text-[9.5px] font-black text-emerald-300 shadow-sm">
                               <Check className="w-3 h-3 text-emerald-300 stroke-[3]" />
-                              Tous classés ({rankedTitles.length}/{rankedTitles.length})
+                              Tous classés ({displayedRankedTitles.length}/{displayedTotalCount})
                             </span>
                           </div>
 
                           {/* Podium des 3 premiers avec les vrais titres à jour */}
                           <div className="space-y-1 text-left my-0.5">
-                            {rankedTitles.slice(0, 3).map((title, idx) => {
+                            {displayedRankedTitles.slice(0, 3).map((title, idx) => {
                               const isNew = Boolean(effectiveRanking?.newlyAddedTitles?.includes(title));
+                              const norm = title.toLowerCase().trim();
+                              const movie = effectiveMovies.find(m => m?.title?.toLowerCase()?.trim() === norm);
+                              const cat = movie?.category || (effectiveUserProfile?.movieCategories || {})[norm] || guessMovieCategory(title, movie?.genres);
+                              const generalIndex = (effectiveRanking?.rankedTitles || []).findIndex(t => t?.toLowerCase()?.trim() === norm);
+
                               return (
                                 <div
                                   key={idx}
@@ -1050,12 +1128,20 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                                   <div className="flex items-center gap-2 min-w-0">
                                     <span className="text-sm">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</span>
                                     <span className="truncate font-black">{title}</span>
+                                    {selectedCategory !== 'all' && generalIndex >= 0 && (
+                                      <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-md bg-white/10 text-white/70 shrink-0">
+                                        #{generalIndex + 1} Gén.
+                                      </span>
+                                    )}
                                   </div>
-                                  {isNew && (
-                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-500/30 border border-purple-400/50 text-[8.5px] font-bold text-purple-200 shrink-0">
-                                      <Rocket className="w-2 h-2" /> Nouveau
-                                    </span>
-                                  )}
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <CategoryBadge category={cat} size="xs" />
+                                    {isNew && (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-500/30 border border-purple-400/50 text-[8.5px] font-bold text-purple-200 shrink-0">
+                                        <Rocket className="w-2 h-2" /> Nouveau
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })}
@@ -1064,14 +1150,19 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                           {/* Bouton pour consulter le classement complet */}
                           <Button
                             size="sm"
-                            onClick={(e) => { e.stopPropagation(); setIsPaused(true); setIsDuelOpen(true); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsPaused(true);
+                              setDuelInitialCategory(selectedCategory);
+                              setIsDuelOpen(true);
+                            }}
                             className="w-full mt-0.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-[11px] py-2 rounded-xl shadow-[0_4px_15px_rgba(16,185,129,0.3)] active:scale-95 transition-all flex items-center justify-center gap-1.5 border border-white/10"
                           >
                             <Trophy className="w-3.5 h-3.5 text-yellow-300" />
-                            <span>Voir le classement complet ({rankedTitles.length} films)</span>
+                            <span>Voir le classement {selectedCategory === 'all' ? 'complet' : selectedCategory} ({displayedRankedTitles.length} film{displayedRankedTitles.length > 1 ? 's' : ''})</span>
                           </Button>
                         </motion.div>
-                      ) : unrankedCount > 0 && rankedTitles.length > 0 ? (
+                      ) : displayedUnrankedCount > 0 && displayedRankedTitles.length > 0 ? (
                         /* ÉTAT 2 : DES NOUVEAUX FILMS N'ONT PAS ÉTÉ CLASSÉS (PROPOSITION DE LES CLASSER) */
                         <motion.div
                           variants={itemVariants}
@@ -1079,23 +1170,23 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                         >
                           <div className="absolute -top-10 -right-10 w-24 h-24 bg-amber-500/15 rounded-full blur-2xl pointer-events-none" />
 
-                          {/* Statut explicite : Des films attendent d'être classés */}
+                          {/* Statut explicite */}
                           <div className="flex items-center justify-between px-0.5">
                             <div className="flex items-center gap-1.5">
                               <Trophy className="w-4 h-4 text-yellow-400" />
                               <span className="text-[11px] font-black uppercase tracking-wider text-amber-300">
-                                Classement Incomplet
+                                {selectedCategory === 'all' ? "Classement Incomplet" : `Classement ${selectedCategory}`}
                               </span>
                             </div>
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/25 border border-amber-400/50 text-[9.5px] font-black text-amber-300 animate-pulse shadow-sm">
                               <Swords className="w-3 h-3 text-amber-400" />
-                              {unrankedCount} non classé{unrankedCount > 1 ? 's' : ''}
+                              {displayedUnrankedCount} non classé{displayedUnrankedCount > 1 ? 's' : ''}
                             </span>
                           </div>
 
                           {/* Aperçu du palmarès partiel */}
                           <div className="space-y-1 text-left my-0.5">
-                            {rankedTitles.slice(0, 2).map((title, idx) => (
+                            {displayedRankedTitles.slice(0, 2).map((title, idx) => (
                               <div
                                 key={idx}
                                 className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-white/10 bg-white/5 text-white/80 text-xs font-bold"
@@ -1107,20 +1198,24 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                           </div>
 
                           <p className="text-[10.5px] text-amber-200/90 font-medium">
-                            {unrankedCount} nouveau{unrankedCount > 1 ? 'x' : ''} film{unrankedCount > 1 ? 's' : ''} attend{unrankedCount > 1 ? 'ent' : ''} d'intégrer votre palmarès !
+                            {displayedUnrankedCount} film{displayedUnrankedCount > 1 ? 's' : ''} {selectedCategory === 'all' ? '' : `« ${selectedCategory} » `}attend{displayedUnrankedCount > 1 ? 'ent' : ''} d'intégrer votre palmarès !
                           </p>
 
-                          {/* Bouton Proéminent de proposition de classement */}
                           <Button
                             size="sm"
-                            onClick={(e) => { e.stopPropagation(); setIsPaused(true); setIsDuelOpen(true); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsPaused(true);
+                              setDuelInitialCategory(selectedCategory);
+                              setIsDuelOpen(true);
+                            }}
                             className="w-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-400 hover:to-orange-400 text-black font-black text-xs py-2.5 rounded-xl shadow-[0_4px_20px_rgba(245,158,11,0.4)] active:scale-95 transition-all flex items-center justify-center gap-2"
                           >
                             <Swords className="w-4 h-4 text-black" />
-                            <span>Classer les {unrankedCount} film{unrankedCount > 1 ? 's' : ''} restant{unrankedCount > 1 ? 's' : ''}</span>
+                            <span>Classer les {displayedUnrankedCount} film{displayedUnrankedCount > 1 ? 's' : ''} restant{displayedUnrankedCount > 1 ? 's' : ''}</span>
                           </Button>
                         </motion.div>
-                      ) : totalMoviesCount >= 2 ? (
+                      ) : displayedTotalCount >= 2 ? (
                         /* ÉTAT 3 : AUCUN FILM N'A ENCORE ÉTÉ CLASSÉ (PROPOSITION DU GRAND DUEL INITIAL) */
                         <motion.div
                           variants={itemVariants}
@@ -1129,35 +1224,61 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                           <div className="flex items-center justify-center gap-1.5">
                             <Swords className="w-4 h-4 text-blue-400" />
                             <span className="text-[11px] font-black uppercase tracking-wider text-blue-300">
-                              Films non classés ({totalMoviesCount})
+                              Films {selectedCategory === 'all' ? 'non classés' : selectedCategory} ({displayedTotalCount})
                             </span>
                           </div>
 
                           <p className="text-xs text-white/80 font-medium leading-relaxed px-1">
-                            Vous avez vu <strong className="text-amber-300 font-bold">{totalMoviesCount} films</strong> ce mois-ci, mais votre palmarès n'a pas encore été établi !
+                            Vous avez vu <strong className="text-amber-300 font-bold">{displayedTotalCount} films</strong> {selectedCategory === 'all' ? '' : `de genre ${selectedCategory} `}ce mois-ci, mais votre palmarès n'a pas encore été établi !
                           </p>
 
                           <Button
                             size="sm"
-                            onClick={(e) => { e.stopPropagation(); setIsPaused(true); setIsDuelOpen(true); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsPaused(true);
+                              setDuelInitialCategory(selectedCategory);
+                              setIsDuelOpen(true);
+                            }}
                             className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-xs py-2.5 rounded-xl shadow-[0_6px_25px_rgba(99,102,241,0.45)] active:scale-95 transition-all flex items-center justify-center gap-2 border border-white/15"
                           >
                             <Swords className="w-4 h-4 text-amber-300" />
-                            <span>Lancer le Grand Duel ({totalMoviesCount} films)</span>
+                            <span>Lancer le Duel {selectedCategory === 'all' ? '' : selectedCategory} ({displayedTotalCount} films)</span>
                           </Button>
 
                           <p className="text-[10px] text-white/50">
                             Quelques duels rapides 1 vs 1 pour couronner votre n°1 du mois !
                           </p>
                         </motion.div>
+                      ) : displayedTotalCount === 1 ? (
+                        /* ÉTAT 4 : 1 SEUL FILM DANS CETTE CATÉGORIE */
+                        <motion.div
+                          variants={itemVariants}
+                          className="w-full max-w-[300px] bg-white/5 backdrop-blur-md p-3.5 rounded-2xl border border-white/10 text-center pointer-events-auto flex flex-col gap-2"
+                        >
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Trophy className="w-4 h-4 text-yellow-400" />
+                            <span className="text-xs font-black text-white">
+                              1er en {selectedCategory} !
+                            </span>
+                          </div>
+                          <div className="p-2 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-amber-200">
+                            🥇 {displayedRankedTitles[0] || (categoryBreakdown.categoryUnrankedMap[selectedCategory]?.[0]?.title) || "Film unique"}
+                          </div>
+                          <p className="text-[10px] text-white/60">
+                            Seul représentant du genre ce mois-ci, il trône en tête de sa catégorie !
+                          </p>
+                        </motion.div>
                       ) : (
-                        /* ÉTAT 4 : MOINS DE 2 FILMS */
+                        /* ÉTAT 5 : MOINS DE 2 FILMS */
                         <motion.div
                           variants={itemVariants}
                           className="w-full max-w-[300px] bg-white/5 backdrop-blur-md p-3 rounded-2xl border border-white/10 text-center pointer-events-auto"
                         >
                           <p className="text-xs text-white/60">
-                            Au moins 2 films sont requis pour organiser un tournoi de duels.
+                            {selectedCategory === 'all'
+                              ? "Au moins 2 films sont requis pour organiser un tournoi de duels."
+                              : `Aucun film enregistré dans la catégorie « ${selectedCategory} » ce mois-ci.`}
                           </p>
                         </motion.div>
                       )}
