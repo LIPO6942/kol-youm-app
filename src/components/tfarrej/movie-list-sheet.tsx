@@ -439,17 +439,22 @@ function MovieListContent({
   const [isDuelModalOpen, setIsDuelModalOpen] = useState(false);
 
   const movieTitles = useMemo(() => {
-    const rawTitles = ((userProfile?.[listType] || []) as string[]).filter(t => !isTestMovieTitle(t));
+    const raw = userProfile?.[listType];
+    const rawTitles = (Array.isArray(raw) ? raw : []).filter((t: any) => typeof t === 'string' && !isTestMovieTitle(t));
     if (listType === 'seenMovieTitles') {
-      const fromData = (userProfile?.seenMoviesData || []).map(m => m?.title).filter(Boolean) as string[];
-      const cinemaVisits = (userProfile?.visits || [])
-        .filter(v => v.category === 'Cinéma' && v.orderedItem)
+      const fromData = (Array.isArray(userProfile?.seenMoviesData) ? userProfile.seenMoviesData : [])
+        .map(m => m?.title)
+        .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t));
+      const cinemaVisits = (Array.isArray(userProfile?.visits) ? userProfile.visits : [])
+        .filter(v => v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string' && !isTestMovieTitle(v.orderedItem))
         .map(v => v.orderedItem as string);
-      return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits])).filter(t => !isTestMovieTitle(t));
+      return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits]));
     }
     if (listType === 'seenSeriesTitles') {
-      const fromData = (userProfile?.seenSeriesData || []).map(s => s?.title).filter(Boolean) as string[];
-      return Array.from(new Set([...rawTitles, ...fromData])).filter(t => !isTestMovieTitle(t));
+      const fromData = (Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : [])
+        .map(s => s?.title)
+        .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t));
+      return Array.from(new Set([...rawTitles, ...fromData]));
     }
     return rawTitles;
   }, [userProfile, listType]);
@@ -1359,17 +1364,22 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
   // Fetch movie details logic lifted from MovieListContent
   const seenMoviesData = type === 'movie' ? userProfile?.seenMoviesData : userProfile?.seenSeriesData;
   const movieTitles = useMemo(() => {
-    const rawTitles = ((userProfile?.[listType] || []) as string[]).filter(t => !isTestMovieTitle(t));
+    const raw = userProfile?.[listType];
+    const rawTitles = (Array.isArray(raw) ? raw : []).filter((t: any) => typeof t === 'string' && !isTestMovieTitle(t));
     if (listType === 'seenMovieTitles') {
-      const fromData = (userProfile?.seenMoviesData || []).map(m => m?.title).filter(Boolean) as string[];
-      const cinemaVisits = (userProfile?.visits || [])
-        .filter(v => v.category === 'Cinéma' && v.orderedItem)
+      const fromData = (Array.isArray(userProfile?.seenMoviesData) ? userProfile.seenMoviesData : [])
+        .map(m => m?.title)
+        .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t));
+      const cinemaVisits = (Array.isArray(userProfile?.visits) ? userProfile.visits : [])
+        .filter(v => v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string' && !isTestMovieTitle(v.orderedItem))
         .map(v => v.orderedItem as string);
-      return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits])).filter(t => !isTestMovieTitle(t));
+      return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits]));
     }
     if (listType === 'seenSeriesTitles') {
-      const fromData = (userProfile?.seenSeriesData || []).map(s => s?.title).filter(Boolean) as string[];
-      return Array.from(new Set([...rawTitles, ...fromData])).filter(t => !isTestMovieTitle(t));
+      const fromData = (Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : [])
+        .map(s => s?.title)
+        .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t));
+      return Array.from(new Set([...rawTitles, ...fromData]));
     }
     return rawTitles;
   }, [userProfile, listType]);

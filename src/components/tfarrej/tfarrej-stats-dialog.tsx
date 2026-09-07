@@ -53,17 +53,17 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
     const seriesStats = useMemo(() => aggregateData(userProfile?.seenSeriesData), [userProfile?.seenSeriesData]);
 
     const totalSeenMovies = useMemo(() => {
-        const fromTitles = (userProfile?.seenMovieTitles || []).filter(t => !isTestMovieTitle(t));
-        const fromData = (userProfile?.seenMoviesData || []).map(m => m?.title).filter((t): t is string => Boolean(t && !isTestMovieTitle(t)));
-        const fromVisits = (userProfile?.visits || [])
-            .filter(v => v.category === 'Cinéma' && v.orderedItem && !isTestMovieTitle(v.orderedItem))
+        const fromTitles = (Array.isArray(userProfile?.seenMovieTitles) ? userProfile.seenMovieTitles : []).filter(t => typeof t === 'string' && !isTestMovieTitle(t));
+        const fromData = (Array.isArray(userProfile?.seenMoviesData) ? userProfile.seenMoviesData : []).map(m => m?.title).filter((t): t is string => Boolean(t && typeof t === 'string' && !isTestMovieTitle(t)));
+        const fromVisits = (Array.isArray(userProfile?.visits) ? userProfile.visits : [])
+            .filter(v => v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string' && !isTestMovieTitle(v.orderedItem))
             .map(v => v.orderedItem as string);
         return Array.from(new Set([...fromTitles, ...fromData, ...fromVisits])).length;
     }, [userProfile?.seenMovieTitles, userProfile?.seenMoviesData, userProfile?.visits]);
 
     const totalSeenSeries = useMemo(() => {
-        const fromTitles = (userProfile?.seenSeriesTitles || []).filter(t => !isTestMovieTitle(t));
-        const fromData = (userProfile?.seenSeriesData || []).map(m => m?.title).filter((t): t is string => Boolean(t && !isTestMovieTitle(t)));
+        const fromTitles = (Array.isArray(userProfile?.seenSeriesTitles) ? userProfile.seenSeriesTitles : []).filter(t => typeof t === 'string' && !isTestMovieTitle(t));
+        const fromData = (Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : []).map(m => m?.title).filter((t): t is string => Boolean(t && typeof t === 'string' && !isTestMovieTitle(t)));
         return Array.from(new Set([...fromTitles, ...fromData])).length;
     }, [userProfile?.seenSeriesTitles, userProfile?.seenSeriesData]);
 

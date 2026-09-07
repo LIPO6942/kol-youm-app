@@ -27,19 +27,6 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              // Auto-récupération silencieuse des erreurs de chunk suite aux déploiements
-              window.addEventListener('error', function(e) {
-                var msg = (e && e.message) ? e.message : '';
-                if (/Loading chunk [\\d]+ failed/i.test(msg) || /ChunkLoadError/i.test(msg) || /Failed to fetch dynamically imported module/i.test(msg)) {
-                  var lastReload = sessionStorage.getItem('chunk_reload_ts');
-                  var now = Date.now();
-                  if (!lastReload || (now - parseInt(lastReload, 10)) > 10000) {
-                    sessionStorage.setItem('chunk_reload_ts', now.toString());
-                    window.location.reload();
-                  }
-                }
-              });
-
               if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.getRegistrations().then(function(registrations) {
                   for (var i = 0; i < registrations.length; i++) {

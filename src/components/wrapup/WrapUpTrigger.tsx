@@ -32,6 +32,10 @@ export function WrapUpTrigger({ userProfile }: { userProfile: UserProfile }) {
       router.replace(`${pathname}${newQuery ? `?${newQuery}` : ''}`);
   };
 
+  if (!isWrapUpOpen) {
+    return null;
+  }
+
   return (
     <MonthlyWrapUpModal 
       user={userProfile} 
