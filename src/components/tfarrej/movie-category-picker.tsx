@@ -88,10 +88,17 @@ export function CategoryBadge({
 
   const sizeClasses =
     size === 'xs'
-      ? 'px-2 py-0.5 text-[10px] sm:text-[10.5px] leading-tight'
+      ? 'px-2.5 py-0.5 text-[11px] sm:text-[11.5px] leading-tight font-extrabold'
       : size === 'sm'
-      ? 'px-2.5 py-1 text-[11px] leading-tight'
-      : 'px-3 py-1.5 text-xs leading-normal';
+      ? 'px-3 py-1 text-xs sm:text-[12.5px] leading-tight font-black tracking-tight shadow-xs'
+      : 'px-3.5 py-1.5 text-xs sm:text-sm leading-normal font-black';
+
+  const emojiSize =
+    size === 'xs'
+      ? 'text-xs leading-none'
+      : size === 'sm'
+      ? 'text-xs sm:text-sm leading-none'
+      : 'text-sm sm:text-base leading-none';
 
   const isInteractive = Boolean(onClick);
 
@@ -99,20 +106,20 @@ export function CategoryBadge({
     <span
       onClick={onClick}
       title={isInteractive ? `Catégorie : ${config.label} (Cliquer pour modifier)` : `Catégorie : ${config.label}`}
-      className={`group/cat inline-flex items-center gap-1.5 rounded-full font-bold border backdrop-blur-md transition-all duration-200 select-none ${config.badgeBg} ${sizeClasses} ${
+      className={`group/cat inline-flex items-center gap-1.5 rounded-full border backdrop-blur-md transition-all duration-200 select-none ${config.badgeBg} ${sizeClasses} ${
         isInteractive
           ? 'cursor-pointer hover:scale-105 active:scale-95 hover:brightness-125 hover:shadow-md hover:border-current/60'
           : ''
       } ${className}`}
     >
-      <span className="shrink-0 text-xs sm:text-[13px] leading-none">{config.emoji}</span>
+      <span className={`shrink-0 leading-none ${emojiSize}`}>{config.emoji}</span>
       {shortOnMobile && config.shortLabel && config.shortLabel !== config.label ? (
         <>
-          <span className="hidden sm:inline font-extrabold tracking-tight">{config.label}</span>
-          <span className="sm:hidden font-extrabold tracking-tight">{config.shortLabel}</span>
+          <span className="hidden sm:inline tracking-tight">{config.label}</span>
+          <span className="sm:hidden tracking-tight">{config.shortLabel}</span>
         </>
       ) : (
-        <span className="font-extrabold tracking-tight">{config.label}</span>
+        <span className="tracking-tight">{config.label}</span>
       )}
       {isInteractive && (
         <span className="text-[9px] opacity-40 group-hover/cat:opacity-100 transition-opacity ml-0.5" title="Modifier">

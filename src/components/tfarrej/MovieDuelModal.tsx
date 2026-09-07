@@ -36,10 +36,9 @@ import {
   backfillMoviePosters,
   removeMovieFromList,
   MovieCategory,
-  updateMovieCategory,
 } from '@/lib/firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { CategoryTabs, CategoryBadge, CategorySelectModal } from '@/components/tfarrej/movie-category-picker';
+import { CategoryTabs, CategoryBadge } from '@/components/tfarrej/movie-category-picker';
 import { guessMovieCategory } from '@/lib/movie-category-utils';
 
 interface MovieDuelModalProps {
@@ -70,7 +69,6 @@ export function MovieDuelModal({
   const [isSaving, setIsSaving] = useState(false);
   const [selectedWinnerSide, setSelectedWinnerSide] = useState<'A' | 'B' | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<MovieCategory | 'all'>(initialCategory || 'all');
-  const [editingCategoryMovie, setEditingCategoryMovie] = useState<{ title: string; category?: MovieCategory } | null>(null);
 
   // Sync category if initialCategory changes
   useEffect(() => {
@@ -930,14 +928,8 @@ export function MovieDuelModal({
                               )}
                               <CategoryBadge
                                 category={item.category || movie?.category}
-                                size="xs"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingCategoryMovie({
-                                    title: item.title,
-                                    category: item.category || movie?.category,
-                                  });
-                                }}
+                                size={selectedCategory === 'all' ? 'sm' : 'xs'}
+                                className="shadow-xs"
                               />
                               {selectedCategory !== 'all' && (
                                 <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-white/70 text-[9.5px] font-mono font-semibold leading-none">
@@ -1031,34 +1023,6 @@ export function MovieDuelModal({
             )}
           </AnimatePresence>
         </div>
-
-        {editingCategoryMovie && (
-          <CategorySelectModal
-            isOpen={Boolean(editingCategoryMovie)}
-            onOpenChange={(open) => { if (!open) setEditingCategoryMovie(null); }}
-            movieTitle={editingCategoryMovie.title}
-            currentCategory={editingCategoryMovie.category}
-            onSelect={async (newCategory) => {
-              const effectiveUid = user?.uid || userProfile?.uid || 'guest';
-              await updateMovieCategory(effectiveUid, editingCategoryMovie.title, newCategory);
-              if (session) {
-                const updatedCatalog = { ...session.movieCatalog };
-                if (updatedCatalog[editingCategoryMovie.title]) {
-                  updatedCatalog[editingCategoryMovie.title] = {
-                    ...updatedCatalog[editingCategoryMovie.title],
-                    category: newCategory,
-                  };
-                }
-                setSession({ ...session, movieCatalog: updatedCatalog });
-              }
-              toast({
-                title: "Catégorie mise à jour !",
-                description: `"${editingCategoryMovie.title}" est maintenant classé en « ${newCategory} ».`,
-              });
-              setEditingCategoryMovie(null);
-            }}
-          />
-        )}
       </DialogContent>
     </Dialog>
   );

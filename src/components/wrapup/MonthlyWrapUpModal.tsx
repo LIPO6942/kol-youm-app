@@ -1134,8 +1134,8 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                                       </span>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <CategoryBadge category={cat} size="xs" />
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <CategoryBadge category={cat} size={selectedCategory === 'all' ? 'sm' : 'xs'} />
                                     {isNew && (
                                       <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-purple-500/30 border border-purple-400/50 text-[8.5px] font-bold text-purple-200 shrink-0">
                                         <Rocket className="w-2 h-2" /> Nouveau
