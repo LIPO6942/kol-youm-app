@@ -32,6 +32,7 @@ export type VisitLog = {
     date: number; // timestamp
     orderedItem?: string;
     note?: string; // free-text note (used for Kharjet outings)
+    zone?: string; // Zone géographique enregistrée (ex: Lac 2, La Marsa, etc.)
     source?: 'momenty' | 'app';
     isPending?: boolean;
     possibleCategories?: string[];
@@ -935,28 +936,41 @@ export function getStoredMovieRanking(
         };
     };
 
+    let userRanking: MonthlyMovieRanking | null = null;
     if (userProfile?.movieRankings?.[monthKey]) {
-        return sanitizeRanking(userProfile.movieRankings[monthKey]);
+        userRanking = sanitizeRanking(userProfile.movieRankings[monthKey]);
     }
+
+    let localRanking: MonthlyMovieRanking | null = null;
     if (typeof window !== 'undefined') {
         try {
             const specific = localStorage.getItem(`kolyoum_movie_ranking_${monthKey}`);
             if (specific) {
                 const parsed = JSON.parse(specific);
-                if (parsed?.rankedTitles?.length) return sanitizeRanking(parsed);
+                if (parsed?.rankedTitles?.length) localRanking = sanitizeRanking(parsed);
             }
-            const all = localStorage.getItem('kolyoum_movie_rankings');
-            if (all) {
-                const parsedAll = JSON.parse(all);
-                if (parsedAll?.[monthKey]?.rankedTitles?.length) {
-                    return sanitizeRanking(parsedAll[monthKey]);
+            if (!localRanking) {
+                const all = localStorage.getItem('kolyoum_movie_rankings');
+                if (all) {
+                    const parsedAll = JSON.parse(all);
+                    if (parsedAll?.[monthKey]?.rankedTitles?.length) {
+                        localRanking = sanitizeRanking(parsedAll[monthKey]);
+                    }
                 }
             }
         } catch (e) {
             console.warn("Failed reading movie ranking from localStorage", e);
         }
     }
-    return null;
+
+    // Toujours privilégier la version avec le timestamp le plus récent (bidirectionnel)
+    if (userRanking && localRanking) {
+        const userTime = userRanking.updatedAt || userRanking.publishedAt || 0;
+        const localTime = localRanking.updatedAt || localRanking.publishedAt || 0;
+        return localTime >= userTime ? localRanking : userRanking;
+    }
+
+    return userRanking || localRanking || null;
 }
 
 export async function saveMonthlyMovieRanking(
@@ -988,6 +1002,12 @@ export async function saveMonthlyMovieRanking(
             const existingAll = JSON.parse(localStorage.getItem('kolyoum_movie_rankings') || '{}');
             existingAll[safeRanking.monthKey] = safeRanking;
             localStorage.setItem('kolyoum_movie_rankings', JSON.stringify(existingAll));
+
+            // Émettre l'événement navigateur synchrone pour mettre à jour instantanément
+            // l'onglet Tfarrej, le Wrap-Up mensuel, et tout composant à l'écoute !
+            window.dispatchEvent(new CustomEvent('kolyoum_ranking_updated', {
+                detail: { monthKey: safeRanking.monthKey, ranking: safeRanking }
+            }));
         } catch (err) {
             console.warn("Erreur sauvegarde localStorage pour movie ranking:", err);
         }

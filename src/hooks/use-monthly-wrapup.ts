@@ -396,9 +396,15 @@ export function useMonthlyWrapUp(
 
     const monthKey = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
     const directMonthlyRanking: MonthlyMovieRanking | null = 
-      (user as any)?.movieRankings?.[monthKey] || 
       getStoredMovieRanking(monthKey, user) || 
+      (user as any)?.movieRankings?.[monthKey] || 
       null;
+
+    const isDateInMonth = (timestamp?: any) => {
+      if (!timestamp) return false;
+      const d = new Date(timestamp);
+      return !isNaN(d.getTime()) && d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+    };
 
     const filterByDate = (history: any[], dateField: string) => {
         return (history || []).filter((m: any) => {
@@ -458,7 +464,7 @@ export function useMonthlyWrapUp(
     // - Films vus en salle durant ce mois (cinemaSessions)
     // - Si un classement officiel pour ce mois précis existe déjà, ses films
     const datedMovies = [
-      ...filterByDate((user as any).seenMoviesData || [], 'viewedAt'),
+      ...((user as any).seenMoviesData || []).filter((m: any) => isDateInMonth(m?.viewedAt) || (!m?.viewedAt && isDateInMonth(m?.addedAt))),
       ...filterByDate((user as any).seenMovieHistory || [], 'addedAt'),
     ].filter((m: any) => !isExcluded(m?.title));
 
@@ -538,38 +544,71 @@ export function useMonthlyWrapUp(
     });
 
     // Fusion intelligente et déduplication des séances de cinéma (visites IRL + films vus en salle)
-    duelItems.forEach((m) => {
-      if (m.watchedInCinema) {
-        const normTitle = (m.title || '').toLowerCase().trim();
-        const normPlace = (m.cinemaPlace || '').toLowerCase().trim();
+    const monthCinemaMovies = [
+      ...((user as any).seenMoviesData || []).filter((m: any) => 
+        (m.watchedInCinema || m.cinemaPlace) && (isDateInMonth(m.viewedAt) || (!m.viewedAt && isDateInMonth(m.addedAt)))
+      ),
+      ...duelItems.filter(m => m.watchedInCinema)
+    ];
 
-        const matchedIndex = cinemaSessions.findIndex(s => {
-          const sTitle = (s.title || '').toLowerCase().trim();
-          const sPlace = (s.cinemaPlace || '').toLowerCase().trim();
-          
-          if (sTitle === normTitle) return true;
-          if ((s as any).isPlaceholder && normPlace && sPlace === normPlace) return true;
-          if ((s as any).isPlaceholder && cinemaSessions.length === 1) return true;
-          return false;
-        });
-
-        if (matchedIndex !== -1) {
-          const s = cinemaSessions[matchedIndex];
-          s.title = m.title;
-          s.cinemaPlace = s.cinemaPlace || m.cinemaPlace;
-          s.posterUrl = m.posterUrl || s.posterUrl;
-          s.date = s.date || (typeof m.viewedAt === 'number' ? m.viewedAt : undefined);
-          (s as any).isPlaceholder = false;
-        } else {
-          cinemaSessions.push({
-            title: m.title,
-            cinemaPlace: m.cinemaPlace || 'Cinéma',
-            date: typeof m.viewedAt === 'number' ? m.viewedAt : undefined,
-            posterUrl: m.posterUrl
-          });
+    const seenCinemaTitlesMap = new Map<string, any>();
+    monthCinemaMovies.forEach(m => {
+      if (m?.title && !isExcluded(m.title)) {
+        const key = m.title.toLowerCase().trim();
+        if (!seenCinemaTitlesMap.has(key)) {
+          seenCinemaTitlesMap.set(key, m);
         }
       }
     });
+
+    // 1. Fusionner avec les séances existantes ou ajouter les films cinéma vus
+    seenCinemaTitlesMap.forEach((m) => {
+      const normTitle = (m.title || '').toLowerCase().trim();
+      const normPlace = (m.cinemaPlace || '').toLowerCase().trim();
+
+      const matchedIndex = cinemaSessions.findIndex(s => {
+        const sTitle = (s.title || '').toLowerCase().trim();
+        const sPlace = (s.cinemaPlace || '').toLowerCase().trim();
+        
+        if (sTitle === normTitle) return true;
+        if ((s as any).isPlaceholder && normPlace && sPlace === normPlace) return true;
+        if ((s as any).isPlaceholder && cinemaSessions.length === 1) return true;
+        return false;
+      });
+
+      if (matchedIndex !== -1) {
+        const s = cinemaSessions[matchedIndex];
+        s.title = m.title;
+        s.cinemaPlace = s.cinemaPlace || m.cinemaPlace || 'Cinéma';
+        s.posterUrl = m.posterUrl || s.posterUrl;
+        s.date = s.date || (typeof m.viewedAt === 'number' ? m.viewedAt : undefined);
+        (s as any).isPlaceholder = false;
+      } else {
+        cinemaSessions.push({
+          title: m.title,
+          cinemaPlace: m.cinemaPlace || 'Cinéma',
+          date: typeof m.viewedAt === 'number' ? m.viewedAt : undefined,
+          posterUrl: m.posterUrl
+        });
+      }
+    });
+
+    // 2. Si après le premier tour il reste des séances placeholder mais qu'on a des films cinéma vus,
+    // remplacer le titre placeholder par le film cinéma correspondant
+    const realCinemaList = Array.from(seenCinemaTitlesMap.values());
+    if (realCinemaList.length > 0) {
+      cinemaSessions.forEach((s, idx) => {
+        if ((s as any).isPlaceholder || s.title === 'Film au cinéma') {
+          const fallbackMovie = realCinemaList[idx % realCinemaList.length];
+          if (fallbackMovie) {
+            s.title = fallbackMovie.title;
+            s.cinemaPlace = s.cinemaPlace && s.cinemaPlace !== 'Cinéma' ? s.cinemaPlace : (fallbackMovie.cinemaPlace || s.cinemaPlace);
+            s.posterUrl = fallbackMovie.posterUrl || s.posterUrl;
+            (s as any).isPlaceholder = false;
+          }
+        }
+      });
+    }
 
     // Calculer les comptes par cinéma et le total réel dédupliqué
     cinemaSessions.forEach(s => {
@@ -630,7 +669,7 @@ export function useMonthlyWrapUp(
     const totalMovies = (movies?.total || duelItems.length) + uniqueSeries.length;
 
     // Consolidate Cinema Stats
-    const allCinemaTitles = Array.from(new Set(cinemaSessions.map(s => s.title).filter(Boolean)));
+    const allCinemaTitles = Array.from(new Set(cinemaSessions.map(s => s.title).filter(t => t && t !== 'Film au cinéma')));
     const allCinemaVenues = Array.from(new Set(cinemaSessions.map(s => s.cinemaPlace).filter(Boolean))) as string[];
 
     // 4. Determine Persona

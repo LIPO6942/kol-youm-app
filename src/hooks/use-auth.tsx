@@ -17,6 +17,26 @@ interface AuthContextType {
   updateUserProfile: (data: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>>) => Promise<void>;
 }
 
+function mergeRankingsByTimestamp(...rankingMaps: (Record<string, any> | undefined)[]): Record<string, any> {
+  const result: Record<string, any> = {};
+  rankingMaps.forEach(map => {
+    if (!map) return;
+    Object.entries(map).forEach(([monthKey, ranking]) => {
+      const existing = result[monthKey];
+      if (!existing) {
+        result[monthKey] = ranking;
+      } else {
+        const existingTime = existing.updatedAt || existing.publishedAt || 0;
+        const newTime = ranking?.updatedAt || ranking?.publishedAt || 0;
+        if (newTime >= existingTime) {
+          result[monthKey] = ranking;
+        }
+      }
+    });
+  });
+  return result;
+}
+
 const AuthContext = createContext<AuthContextType>({
   user: null,
   userProfile: null,
@@ -30,6 +50,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Écoute des mises à jour en temps réel des classements de films (bidirectionnel)
+  useEffect(() => {
+    const handleRankingUpdate = (e: any) => {
+      const detail = e.detail;
+      if (detail?.ranking && detail?.monthKey) {
+        setUserProfile(prev => {
+          if (!prev) return prev;
+          const currentRankings = prev.movieRankings || {};
+          return {
+            ...prev,
+            movieRankings: {
+              ...currentRankings,
+              [detail.monthKey]: detail.ranking,
+            },
+          };
+        });
+      }
+    };
+
+    window.addEventListener('kolyoum_ranking_updated', handleRankingUpdate);
+    return () => {
+      window.removeEventListener('kolyoum_ranking_updated', handleRankingUpdate);
+    };
+  }, []);
+
   const fetchAndSetProfile = useCallback(async (uid: string) => {
     const localProfile = await getUserFromDb(uid);
     let localStoredRankings: Record<string, any> = {};
@@ -41,10 +86,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (localProfile) {
       const mergedProfile = {
         ...localProfile,
-        movieRankings: {
-          ...localStoredRankings,
-          ...(localProfile.movieRankings || {}),
-        }
+        movieRankings: mergeRankingsByTimestamp(localProfile.movieRankings, localStoredRankings),
       };
       setUserProfile(mergedProfile);
       return mergedProfile;
@@ -122,21 +164,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             wardrobe: uniqueItems, // Use de-duplicated wardrobe
             fullBodyPhotoUrl: localProfile?.fullBodyPhotoUrl, // Keep local
             closeupPhotoUrl: localProfile?.closeupPhotoUrl, // Keep local
-            movieRankings: {
-              ...localStoredRankings,
-              ...(localProfile?.movieRankings || {}),
-              ...(firestoreData.movieRankings || {}),
-            },
+            movieRankings: mergeRankingsByTimestamp(
+              localStoredRankings,
+              localProfile?.movieRankings,
+              firestoreData.movieRankings
+            ),
           } as UserProfile;
           
           await storeUserInDb(user.uid, finalProfile);
         } else if (localProfile) {
           finalProfile = {
             ...localProfile,
-            movieRankings: {
-              ...localStoredRankings,
-              ...(localProfile.movieRankings || {}),
-            }
+            movieRankings: mergeRankingsByTimestamp(
+              localStoredRankings,
+              localProfile.movieRankings
+            ),
           };
         }
         

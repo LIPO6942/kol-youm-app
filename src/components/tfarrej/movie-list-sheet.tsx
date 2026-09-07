@@ -460,7 +460,42 @@ function MovieListContent({
     }
   }, [currentMonthKey, userProfile]);
 
-  const existingRanking = userProfile?.movieRankings?.[currentMonthKey] || localRanking || getStoredMovieRanking(currentMonthKey, userProfile);
+  // Synchronisation bidirectionnelle en temps réel avec le Wrap-Up et les autres onglets
+  useEffect(() => {
+    const handleRankingUpdate = (e: any) => {
+      const detail = e.detail;
+      if (!detail) {
+        const stored = getStoredMovieRanking(currentMonthKey, userProfile);
+        if (stored) setLocalRanking(stored);
+        return;
+      }
+      if (detail.monthKey === currentMonthKey || !detail.monthKey) {
+        const fresh = detail.ranking || getStoredMovieRanking(currentMonthKey, userProfile);
+        if (fresh) {
+          setLocalRanking(fresh);
+        }
+      }
+    };
+
+    window.addEventListener('kolyoum_ranking_updated', handleRankingUpdate);
+    window.addEventListener('storage', handleRankingUpdate);
+    return () => {
+      window.removeEventListener('kolyoum_ranking_updated', handleRankingUpdate);
+      window.removeEventListener('storage', handleRankingUpdate);
+    };
+  }, [currentMonthKey, userProfile]);
+
+  const existingRanking = useMemo(() => {
+    const fromProfile = userProfile?.movieRankings?.[currentMonthKey];
+    const fromStored = getStoredMovieRanking(currentMonthKey, userProfile);
+    const candidates = [localRanking, fromStored, fromProfile].filter(Boolean) as MonthlyMovieRanking[];
+    if (candidates.length === 0) return null;
+    return candidates.reduce((best, curr) => {
+      const bestTime = best.updatedAt || best.publishedAt || 0;
+      const currTime = curr.updatedAt || curr.publishedAt || 0;
+      return currTime >= bestTime ? curr : best;
+    });
+  }, [userProfile?.movieRankings, currentMonthKey, localRanking, userProfile]);
 
   const duelSeenMovies: DuelMovieItem[] = useMemo(() => {
     if (listType !== 'seenMovieTitles') return [];

@@ -250,37 +250,78 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     }
   }, [isDuelOpen]);
 
-  // Classement dynamique et réactif du Wrap-Up
+  // Classement dynamique et réactif du Wrap-Up (Synchronisation bidirectionnelle avec Tfarrej)
   const effectiveMovies = stats?.movies?.allMonthMovies || [];
   const [activeRanking, setActiveRanking] = useState<MonthlyMovieRanking | null>(null);
 
-  useEffect(() => {
-    if (stats?.movies?.ranking) {
-      setActiveRanking(stats.movies.ranking);
-    } else if (isOpen) {
-      const stored = getStoredMovieRanking(monthKey, effectiveUserProfile);
-      if (stored) {
-        setActiveRanking(stored);
-      } else {
-        const sourceRanking = getStoredMovieRanking(currentMonthKey, effectiveUserProfile);
-        if (sourceRanking?.rankedTitles?.length && effectiveMovies.length > 0) {
-          const monthTitlesLower = new Set(effectiveMovies.map(m => (m?.title || '').toLowerCase().trim()));
-          const derived = (sourceRanking.rankedTitles || []).filter(t => typeof t === 'string' && monthTitlesLower.has(t.toLowerCase().trim()));
-          if (derived.length > 0) {
-            setActiveRanking({
-              monthKey,
-              rankedTitles: derived,
-              initialRankedTitles: derived,
-              newlyAddedTitles: [],
-              publishedAt: sourceRanking.publishedAt || Date.now(),
-              updatedAt: Date.now(),
-              movieCatalog: sourceRanking.movieCatalog,
-            });
-          }
+  // Fonction pour charger le classement le plus frais possible
+  const refreshActiveRanking = useCallback(() => {
+    const stored = getStoredMovieRanking(monthKey, effectiveUserProfile);
+    const fromStats = stats?.movies?.ranking;
+
+    let candidate: MonthlyMovieRanking | null = null;
+    if (stored && fromStats) {
+      const storedTime = stored.updatedAt || stored.publishedAt || 0;
+      const statsTime = fromStats.updatedAt || fromStats.publishedAt || 0;
+      candidate = storedTime >= statsTime ? stored : fromStats;
+    } else {
+      candidate = stored || fromStats || null;
+    }
+
+    if (!candidate && effectiveMovies.length > 0) {
+      const sourceRanking = getStoredMovieRanking(currentMonthKey, effectiveUserProfile);
+      if (sourceRanking?.rankedTitles?.length) {
+        const monthTitlesLower = new Set(effectiveMovies.map(m => (m?.title || '').toLowerCase().trim()));
+        const derived = (sourceRanking.rankedTitles || []).filter(t => typeof t === 'string' && monthTitlesLower.has(t.toLowerCase().trim()));
+        if (derived.length > 0) {
+          candidate = {
+            monthKey,
+            rankedTitles: derived,
+            initialRankedTitles: derived,
+            newlyAddedTitles: [],
+            publishedAt: sourceRanking.publishedAt || Date.now(),
+            updatedAt: Date.now(),
+            movieCatalog: sourceRanking.movieCatalog,
+          };
         }
       }
     }
-  }, [stats?.movies?.ranking, isOpen, monthKey, currentMonthKey, effectiveUserProfile, effectiveMovies]);
+
+    if (candidate) {
+      setActiveRanking(candidate);
+    }
+  }, [monthKey, effectiveUserProfile, stats?.movies?.ranking, currentMonthKey, effectiveMovies]);
+
+  useEffect(() => {
+    if (isOpen) {
+      refreshActiveRanking();
+    }
+  }, [isOpen, refreshActiveRanking]);
+
+  // Écoute synchrone et en temps réel des classements mis à jour dans Tfarrej ou n'importe quel onglet
+  useEffect(() => {
+    const handleRankingUpdate = (e: any) => {
+      const detail = e.detail;
+      if (!detail) {
+        refreshActiveRanking();
+        return;
+      }
+      if (detail.monthKey === monthKey || !detail.monthKey || detail.monthKey === currentMonthKey) {
+        if (detail.ranking && detail.monthKey === monthKey) {
+          setActiveRanking(detail.ranking);
+        } else {
+          refreshActiveRanking();
+        }
+      }
+    };
+
+    window.addEventListener('kolyoum_ranking_updated', handleRankingUpdate);
+    window.addEventListener('storage', handleRankingUpdate);
+    return () => {
+      window.removeEventListener('kolyoum_ranking_updated', handleRankingUpdate);
+      window.removeEventListener('storage', handleRankingUpdate);
+    };
+  }, [monthKey, currentMonthKey, refreshActiveRanking]);
 
   const effectiveRanking = activeRanking || stats?.movies?.ranking || null;
 
@@ -682,21 +723,34 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                             <motion.div
                               key={idx}
                               variants={itemVariants}
-                              className="bg-black/60 backdrop-blur-xl border border-orange-500/30 rounded-2xl p-3 text-left shadow-[0_4px_20px_rgba(0,0,0,0.4)]"
+                              className="bg-black/60 backdrop-blur-xl border border-orange-500/30 rounded-2xl p-3 text-left shadow-[0_4px_20px_rgba(0,0,0,0.4)] hover:border-orange-400/50 transition-colors"
                             >
-                              <div className="flex items-start gap-2.5">
-                                <div className="p-2 rounded-xl bg-orange-500/20 border border-orange-500/30 mt-0.5 flex-shrink-0">
-                                  <Film className="w-4 h-4 text-orange-400" />
-                                </div>
+                              <div className="flex items-start gap-3">
+                                {session.posterUrl ? (
+                                  <img
+                                    src={session.posterUrl.startsWith('/') ? session.posterUrl : `/api/image-proxy?url=${encodeURIComponent(session.posterUrl)}`}
+                                    alt={session.title}
+                                    className="w-11 h-16 object-cover rounded-xl border border-orange-500/40 shadow-md flex-shrink-0"
+                                  />
+                                ) : (
+                                  <div className="p-2.5 rounded-xl bg-orange-500/20 border border-orange-500/30 mt-0.5 flex-shrink-0">
+                                    <Film className="w-5 h-5 text-orange-400" />
+                                  </div>
+                                )}
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-white font-black text-sm leading-snug line-clamp-2">
+                                  <p className="text-white font-black text-sm sm:text-base leading-snug line-clamp-2">
                                     {session.title}
                                   </p>
                                   {session.cinemaPlace && (
-                                    <div className="flex items-center gap-1 mt-1 text-orange-200/90 text-xs">
-                                      <MapPin className="w-3 h-3 text-orange-400 flex-shrink-0" />
+                                    <div className="flex items-center gap-1.5 mt-1.5 text-orange-200/90 text-xs">
+                                      <MapPin className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
                                       <span className="font-semibold truncate">{session.cinemaPlace}</span>
                                     </div>
+                                  )}
+                                  {session.date && (
+                                    <p className="text-[10px] text-white/50 mt-1">
+                                      Vu le {new Date(session.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                                    </p>
                                   )}
                                 </div>
                               </div>
@@ -1593,6 +1647,10 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                     stats.movies.isAllRanked = true;
                     stats.movies.hasUpdatesSincePublish = Boolean(updatedRanking.hasUpdatesSincePublish);
                   }
+                  // Notifier immédiatement les autres onglets / Tfarrej
+                  window.dispatchEvent(new CustomEvent('kolyoum_ranking_updated', {
+                    detail: { monthKey, ranking: updatedRanking }
+                  }));
                 }}
               />
             )}

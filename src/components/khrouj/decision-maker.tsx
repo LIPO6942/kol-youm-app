@@ -297,7 +297,7 @@ export default function DecisionMaker() {
         const knownPlace = combinedPlaces.find(
           p => p.name.toLowerCase() === v.placeName.toLowerCase() && p.category === 'Kharjet'
         );
-        const zone = (v as any).zone || (v as any).cityName || knownPlace?.zone || 'La Marsa';
+        const zone = (v as any).zone || (v as any).cityName || knownPlace?.zone || (v.category === 'Kharjet' ? kharjetZones[0] : 'La Marsa') || 'La Marsa';
         const tags = (v.orderedItem || '').split(',').map((s: string) => s.trim()).filter(Boolean);
         await fetch('/api/places-database-firestore', {
           method: 'POST',
@@ -384,7 +384,7 @@ export default function DecisionMaker() {
           }
         });
       } else {
-        const fallbackZone = (v as any).zone || (v as any).cityName || (cat === 'Kharjet' ? 'La Marsa' : generalZones[0]) || 'La Marsa';
+        const fallbackZone = (v as any).zone || (v as any).cityName || (cat === 'Kharjet' ? kharjetZones[0] : generalZones[0]) || 'La Marsa';
         map.set(key, {
           name: cleanPlace,
           category: cat,
@@ -729,13 +729,20 @@ export default function DecisionMaker() {
 
       // Place stats
       if (!byPlaceMap[v.placeName]) {
-        const placeDetails = allPlaces.find((p: any) => p.name?.toLowerCase() === v.placeName?.toLowerCase());
+        const placeDetails = allPlaces.find((p: any) =>
+          p.name?.toLowerCase() === v.placeName?.toLowerCase() &&
+          (!v.category || p.category?.toLowerCase() === v.category?.toLowerCase())
+        ) || allPlaces.find((p: any) => p.name?.toLowerCase() === v.placeName?.toLowerCase());
+
         byPlaceMap[v.placeName] = {
           count: 0,
           category: v.category,
           dates: [],
           zone: (v as any).zone || (v as any).cityName || placeDetails?.zone
         };
+      } else if ((v as any).zone && (!byPlaceMap[v.placeName].zone || byPlaceMap[v.placeName].zone === 'La Marsa')) {
+        // Mettre à jour avec la zone spécifique enregistrée si elle était vide ou sur le fallback
+        byPlaceMap[v.placeName].zone = (v as any).zone;
       }
       byPlaceMap[v.placeName].count++;
       byPlaceMap[v.placeName].dates.push(v.date);
@@ -928,25 +935,29 @@ export default function DecisionMaker() {
 
           const finalOrderedItem = commands.length > 0 ? commands.join(', ') : undefined;
 
-          await addVisitLog(user.uid, {
-            placeName: cleanedName,
-            category: selectedCat,
-            date: dateMs,
-            orderedItem: finalOrderedItem,
-            note: selectedCat === 'Kharjet' && kharjetNote.trim() ? kharjetNote.trim() : undefined
-          });
-
           const existingPlace = allPlaces.find((p: { name: string; category: string; zone: string; specialties: string[] }) =>
             p.name.toLowerCase() === cleanedName.toLowerCase() &&
             p.category.toLowerCase() === selectedCat.toLowerCase()
           );
 
           const customZoneName = newCustomZone.trim();
-          const finalZone = (selectedCat === 'Kharjet' && isCreatingNewZone && customZoneName)
+          const chosenZone = (selectedCat === 'Kharjet' && isCreatingNewZone && customZoneName)
             ? customZoneName
             : (selectedZoneToAdd || (selectedCat === 'Kharjet' ? kharjetZones[0] : generalZones[0]) || 'La Marsa');
 
-          const targetZone = existingPlace ? existingPlace.zone : finalZone;
+          // Si l'utilisateur est dans Kharjet et a sélectionné/saisi une zone (ex: Lac 2), on respecte son choix !
+          const targetZone = (selectedCat === 'Kharjet' && chosenZone)
+            ? chosenZone
+            : (existingPlace ? existingPlace.zone : chosenZone);
+
+          await addVisitLog(user.uid, {
+            placeName: cleanedName,
+            category: selectedCat,
+            date: dateMs,
+            orderedItem: finalOrderedItem,
+            note: selectedCat === 'Kharjet' && kharjetNote.trim() ? kharjetNote.trim() : undefined,
+            zone: targetZone
+          });
 
           if (!existingPlace) {
             // C'est un nouveau lieu : l'enregistrer dans Firestore et dans allPlaces
@@ -1052,12 +1063,12 @@ export default function DecisionMaker() {
             </span>
           </Button>
         </DialogTrigger>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="max-h-[90dvh] sm:max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden sm:max-w-lg w-[95vw] rounded-2xl">
+          <DialogHeader className="p-5 pb-3 border-b border-border/40 shrink-0 text-left">
             <DialogTitle>Où êtes-vous allé ?</DialogTitle>
             <DialogDescription>Notez une sortie faite sans l'aide de l'application.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 p-5 overflow-y-auto flex-1 overscroll-contain">
             <div className="space-y-2">
               <Label>Catégorie</Label>
               <div className="flex flex-wrap gap-2">
@@ -1559,8 +1570,8 @@ export default function DecisionMaker() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button onClick={handleSave} disabled={!(selectedPlace || searchQuery) || isSaving}>
+          <DialogFooter className="p-4 pt-3 border-t border-border/40 bg-background/95 backdrop-blur-sm shrink-0 flex sm:justify-end">
+            <Button onClick={handleSave} disabled={!(selectedPlace || searchQuery) || isSaving} className="w-full sm:w-auto font-bold">
               {isSaving ? <RotateCw className="h-4 w-4 animate-spin mr-2" /> : null}
               Enregistrer la visite
             </Button>
