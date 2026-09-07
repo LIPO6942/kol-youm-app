@@ -442,19 +442,23 @@ function MovieListContent({
     const raw = userProfile?.[listType];
     const rawTitles = (Array.isArray(raw) ? raw : []).filter((t: any) => typeof t === 'string' && !isTestMovieTitle(t));
     if (listType === 'seenMovieTitles') {
+      const watchlistSet = new Set((userProfile?.moviesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
       const fromData = (Array.isArray(userProfile?.seenMoviesData) ? userProfile.seenMoviesData : [])
         .map(m => m?.title)
         .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t));
       const cinemaVisits = (Array.isArray(userProfile?.visits) ? userProfile.visits : [])
         .filter(v => v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string' && !isTestMovieTitle(v.orderedItem))
         .map(v => v.orderedItem as string);
-      return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits]));
+      return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits]))
+        .filter(t => !watchlistSet.has(t.toLowerCase().trim()));
     }
     if (listType === 'seenSeriesTitles') {
+      const watchlistSet = new Set((userProfile?.seriesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
       const fromData = (Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : [])
         .map(s => s?.title)
         .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t));
-      return Array.from(new Set([...rawTitles, ...fromData]));
+      return Array.from(new Set([...rawTitles, ...fromData]))
+        .filter(t => !watchlistSet.has(t.toLowerCase().trim()));
     }
     return rawTitles;
   }, [userProfile, listType]);
@@ -473,14 +477,6 @@ function MovieListContent({
     return getStoredMovieRanking(currentMonthKey, userProfile);
   });
 
-  useEffect(() => {
-    const stored = getStoredMovieRanking(currentMonthKey, userProfile);
-    if (stored) {
-      setLocalRanking(stored);
-    }
-  }, [currentMonthKey, userProfile]);
-
-  // Synchronisation bidirectionnelle en temps réel avec le Wrap-Up et les autres onglets
   useEffect(() => {
     const handleRankingUpdate = (e: any) => {
       const detail = e.detail;
@@ -520,10 +516,12 @@ function MovieListContent({
   const duelSeenMovies: DuelMovieItem[] = useMemo(() => {
     if (listType !== 'seenMovieTitles') return [];
 
+    const watchlistTitles = new Set((userProfile?.moviesToWatch || []).map(t => (t || '').toLowerCase().trim()));
     const isExcluded = (t: string) => {
       if (!t || typeof t !== 'string' || !t.trim()) return true;
       const norm = t.toLowerCase().trim();
       if (isTestMovieTitle(norm)) return true;
+      if (watchlistTitles.has(norm)) return true;
       return false;
     };
 
@@ -1367,19 +1365,23 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
     const raw = userProfile?.[listType];
     const rawTitles = (Array.isArray(raw) ? raw : []).filter((t: any) => typeof t === 'string' && !isTestMovieTitle(t));
     if (listType === 'seenMovieTitles') {
+      const watchlistSet = new Set((userProfile?.moviesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
       const fromData = (Array.isArray(userProfile?.seenMoviesData) ? userProfile.seenMoviesData : [])
         .map(m => m?.title)
         .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t));
       const cinemaVisits = (Array.isArray(userProfile?.visits) ? userProfile.visits : [])
         .filter(v => v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string' && !isTestMovieTitle(v.orderedItem))
         .map(v => v.orderedItem as string);
-      return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits]));
+      return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits]))
+        .filter(t => !watchlistSet.has(t.toLowerCase().trim()));
     }
     if (listType === 'seenSeriesTitles') {
+      const watchlistSet = new Set((userProfile?.seriesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
       const fromData = (Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : [])
         .map(s => s?.title)
         .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t));
-      return Array.from(new Set([...rawTitles, ...fromData]));
+      return Array.from(new Set([...rawTitles, ...fromData]))
+        .filter(t => !watchlistSet.has(t.toLowerCase().trim()));
     }
     return rawTitles;
   }, [userProfile, listType]);
@@ -1447,8 +1449,8 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
         }
       }));
 
-      // Rétro-remplissage persistant dans Firestore si affiche trouvée
-      if (posterUrl && (user?.uid || userProfile?.uid)) {
+      // Rétro-remplissage persistant dans Firestore UNIQUEMENT pour les listes de films/séries déjà vus
+      if (posterUrl && (user?.uid || userProfile?.uid) && (listType === 'seenMovieTitles' || listType === 'seenSeriesTitles')) {
         backfillMoviePosters(user?.uid || userProfile?.uid || 'guest', {
           [movieTitle]: { posterUrl, year, rating }
         }, type);
@@ -1458,7 +1460,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
     } finally {
       setIsLoadingDetails(false);
     }
-  }, [movieDetails, seenMoviesData, type, user?.uid, userProfile?.uid]);
+  }, [movieDetails, seenMoviesData, type, user?.uid, userProfile?.uid, listType]);
 
   useEffect(() => {
     if (allTitlesToFetch.length > 0) {

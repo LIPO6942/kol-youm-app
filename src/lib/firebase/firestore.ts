@@ -630,11 +630,10 @@ export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' 
     const firestoreUpdate: any = {};
     firestoreUpdate[listName] = [];
 
-    // Special handling for seenMovieTitles to also clear moviesToWatch
     if (listName === 'seenMovieTitles') {
-        firestoreUpdate.moviesToWatch = [];
+        firestoreUpdate.seenMoviesData = [];
     } else if (listName === 'seenSeriesTitles') {
-        firestoreUpdate.seriesToWatch = [];
+        firestoreUpdate.seenSeriesData = [];
     }
 
     await setDoc(userRef, firestoreUpdate, { merge: true });
@@ -644,9 +643,9 @@ export async function clearUserMovieList(uid: string, listName: 'moviesToWatch' 
         const updatedProfile = { ...localProfile };
         (updatedProfile as any)[listName] = [];
         if (listName === 'seenMovieTitles') {
-            updatedProfile.moviesToWatch = [];
+            updatedProfile.seenMoviesData = [];
         } else if (listName === 'seenSeriesTitles') {
-            updatedProfile.seriesToWatch = [];
+            updatedProfile.seenSeriesData = [];
         }
         await storeUserInDb(uid, updatedProfile);
     }
@@ -1307,14 +1306,18 @@ export async function backfillMoviePosters(
                     hasChanges = true;
                 }
             } else {
-                // Le film n'était que dans seenMovieTitles : on l'ajoute proprement avec son affiche dans seenMoviesData SANS lui inventer de date de visionnage
-                currentList.push({
-                    title,
-                    posterUrl: meta.posterUrl,
-                    ...(meta.year && { year: meta.year }),
-                    ...(meta.rating && { rating: meta.rating }),
-                });
-                hasChanges = true;
+                // SÉCURITÉ : Ne JAMAIS ajouter à seenMoviesData/seenSeriesData si le titre n'est pas explicitement dans les titres vus
+                const titlesList: string[] = type === 'movie' ? (localProfile.seenMovieTitles || []) : (localProfile.seenSeriesTitles || []);
+                const isExplicitlySeen = titlesList.some((t: string) => t && t.trim().toLowerCase() === normalizedTitle);
+                if (isExplicitlySeen) {
+                    currentList.push({
+                        title,
+                        posterUrl: meta.posterUrl,
+                        ...(meta.year && { year: meta.year }),
+                        ...(meta.rating && { rating: meta.rating }),
+                    });
+                    hasChanges = true;
+                }
             }
         });
 
@@ -1398,62 +1401,92 @@ export async function sanitizeAndHealMovieData(
         });
     }
 
-    // D. Collecte des films présents dans les classements mensuels passés (ex: 2026-08, 2026-07)
+    // D. Collecte de tous les films classés ou engagés dans des duels (tous mois confondus)
+    const rankedTitlesSet = new Set<string>();
     const monthlyRankingDateByTitle = new Map<string, number>();
     if (updated.movieRankings && typeof updated.movieRankings === 'object') {
         Object.entries(updated.movieRankings).forEach(([mKey, r]: [string, any]) => {
-            if (mKey !== '2026-09' && r && Array.isArray(r.rankedTitles)) {
+            if (r) {
                 const [yStr, mStr] = mKey.split('-');
                 const y = parseInt(yStr, 10);
                 const m = parseInt(mStr, 10) - 1;
                 const estimatedTime = (!isNaN(y) && !isNaN(m)) ? new Date(y, m, 15).getTime() : undefined;
-                if (estimatedTime) {
-                    r.rankedTitles.forEach((t: string) => {
-                        if (t && typeof t === 'string') {
-                            monthlyRankingDateByTitle.set(t.trim().toLowerCase(), estimatedTime);
+
+                const registerTitle = (t: string) => {
+                    if (t && typeof t === 'string') {
+                        const norm = t.trim().toLowerCase();
+                        rankedTitlesSet.add(norm);
+                        if (estimatedTime && mKey !== '2026-09' && !monthlyRankingDateByTitle.has(norm)) {
+                            monthlyRankingDateByTitle.set(norm, estimatedTime);
                         }
+                    }
+                };
+
+                if (Array.isArray(r.rankedTitles)) r.rankedTitles.forEach(registerTitle);
+                if (Array.isArray(r.initialRankedTitles)) r.initialRankedTitles.forEach(registerTitle);
+                if (Array.isArray(r.newlyAddedTitles)) r.newlyAddedTitles.forEach(registerTitle);
+                if (Array.isArray(r.duelHistory)) {
+                    r.duelHistory.forEach((d: any) => {
+                        if (d?.winner) registerTitle(d.winner);
+                        if (d?.loser) registerTitle(d.loser);
+                        if (d?.movieA) registerTitle(d.movieA);
+                        if (d?.movieB) registerTitle(d.movieB);
                     });
                 }
             }
         });
     }
 
-    // E. Fusion de tous les films vus connus
+    // E. Fusion et tri minutieux entre VRAIS films vus et films 'À voir'
     const seenTitlesRaw: string[] = Array.isArray(updated.seenMovieTitles) ? updated.seenMovieTitles : [];
     const seenDataRaw: any[] = Array.isArray(updated.seenMoviesData) ? updated.seenMoviesData : [];
     const cinemaTitlesRaw = Array.from(cinemaDateByTitle.keys());
 
-    // Regrouper par titre normalisé
-    const seenMap = new Map<string, { title: string; posterUrl?: string; year?: number; rating?: number; watchedInCinema?: boolean; cinemaPlace?: string; viewedAt?: number; addedAt?: number; genres?: string[] }>();
-
-    // Helper : tester si un horodatage correspond au bug massif du 4 septembre 2026
     const isFakeSept4 = (ts?: any) => {
         if (!ts) return false;
         const d = new Date(ts);
         return !isNaN(d.getTime()) && d.getFullYear() === 2026 && d.getMonth() === 8 && d.getDate() === 4;
     };
 
-    // Remplir depuis seenMoviesData d'abord
+    // Helper : déterminer si un film est authentiquement un film vu
+    const isTrulySeen = (norm: string, item?: any) => {
+        if (cinemaDateByTitle.has(norm)) return true;
+        if (historyDateByTitle.has(norm)) return true;
+        if (rankedTitlesSet.has(norm)) return true;
+        if (item?.watchedInCinema) return true;
+        if (item?.viewedAt && !isFakeSept4(item.viewedAt)) return true;
+        return false;
+    };
+
+    const seenMap = new Map<string, { title: string; posterUrl?: string; year?: number; rating?: number; watchedInCinema?: boolean; cinemaPlace?: string; viewedAt?: number; addedAt?: number; genres?: string[] }>();
+    const restoredToWatchlist = new Set<string>();
+
+    // 1. Examiner seenMoviesData
     seenDataRaw.forEach((item: any) => {
         if (!item || !item.title || typeof item.title !== 'string') return;
         const norm = item.title.trim().toLowerCase();
         if (isTestMovieTitle(norm)) return;
 
+        if (!isTrulySeen(norm, item)) {
+            // Le film n'a aucune visite cinéma, aucun historique, aucun classement, aucune date authentique :
+            // Il appartenait à l'origine à la liste 'À voir' et a été aspiré par le bug du backfill !
+            restoredToWatchlist.add(item.title.trim());
+            hasChanges = true;
+            return;
+        }
+
         let viewedAt = item.viewedAt;
         let addedAt = item.addedAt;
 
         if (isFakeSept4(viewedAt) || isFakeSept4(addedAt)) {
-            // Chercher si une vraie date antérieure existe
             const cinemaInfo = cinemaDateByTitle.get(norm);
             const historyDate = historyDateByTitle.get(norm);
             const rankingDate = monthlyRankingDateByTitle.get(norm);
-
             const realDate = cinemaInfo?.date || historyDate || rankingDate;
             if (realDate) {
                 viewedAt = realDate;
                 addedAt = realDate;
             } else {
-                // Aucune date réelle connue : suppression de la fausse date du 04 septembre !
                 viewedAt = undefined;
                 addedAt = undefined;
             }
@@ -1477,11 +1510,17 @@ export async function sanitizeAndHealMovieData(
         });
     });
 
-    // Ajouter ou compléter avec les titres de seenMovieTitles
+    // 2. Examiner seenMovieTitles
     seenTitlesRaw.forEach(t => {
         if (!t || typeof t !== 'string') return;
         const norm = t.trim().toLowerCase();
         if (isTestMovieTitle(norm)) return;
+
+        if (!isTrulySeen(norm)) {
+            restoredToWatchlist.add(t.trim());
+            hasChanges = true;
+            return;
+        }
 
         const existing = seenMap.get(norm);
         const cinemaInfo = cinemaDateByTitle.get(norm);
@@ -1510,7 +1549,7 @@ export async function sanitizeAndHealMovieData(
         }
     });
 
-    // Ajouter depuis les visites Cinéma
+    // 3. Ajouter depuis les visites Cinéma
     cinemaTitlesRaw.forEach(norm => {
         if (isTestMovieTitle(norm)) return;
         if (!seenMap.has(norm)) {
@@ -1527,7 +1566,7 @@ export async function sanitizeAndHealMovieData(
         }
     });
 
-    // Construire les nouvelles listes assainies
+    // 4. Construire les nouvelles listes assainies de films vus
     const newSeenMoviesData = Array.from(seenMap.values());
     const newSeenMovieTitles = Array.from(seenMap.values()).map(m => m.title);
 
@@ -1538,19 +1577,71 @@ export async function sanitizeAndHealMovieData(
     updated.seenMoviesData = newSeenMoviesData;
     updated.seenMovieTitles = newSeenMovieTitles;
 
-    // F. Retirer les films vus de moviesToWatch et rejectedMovieTitles
+    // F. Reconstitution fidèle de moviesToWatch
     const seenNormSet = new Set(seenMap.keys());
-    if (Array.isArray(updated.moviesToWatch)) {
-        const filteredWatchlist = updated.moviesToWatch.filter((t: string) => !isTestMovieTitle(t) && !seenNormSet.has(t.trim().toLowerCase()));
-        if (filteredWatchlist.length !== updated.moviesToWatch.length) {
-            updated.moviesToWatch = filteredWatchlist;
-            hasChanges = true;
-        }
+    const currentWatchlist: string[] = Array.isArray(updated.moviesToWatch) ? updated.moviesToWatch : [];
+    const combinedWatchlist = Array.from(new Set([
+        ...currentWatchlist,
+        ...Array.from(restoredToWatchlist)
+    ])).filter(t => !isTestMovieTitle(t) && !seenNormSet.has(t.trim().toLowerCase()));
+
+    if (combinedWatchlist.length !== currentWatchlist.length || restoredToWatchlist.size > 0) {
+        updated.moviesToWatch = combinedWatchlist;
+        hasChanges = true;
     }
+
     if (Array.isArray(updated.rejectedMovieTitles)) {
         const filteredRejected = updated.rejectedMovieTitles.filter((t: string) => !isTestMovieTitle(t) && !seenNormSet.has(t.trim().toLowerCase()));
         if (filteredRejected.length !== updated.rejectedMovieTitles.length) {
             updated.rejectedMovieTitles = filteredRejected;
+            hasChanges = true;
+        }
+    }
+
+    // G. Assainissement similaire pour les séries
+    if (Array.isArray(updated.seenSeriesTitles) || Array.isArray(updated.seenSeriesData)) {
+        const seenSeriesTitlesRaw: string[] = Array.isArray(updated.seenSeriesTitles) ? updated.seenSeriesTitles : [];
+        const seenSeriesDataRaw: any[] = Array.isArray(updated.seenSeriesData) ? updated.seenSeriesData : [];
+        const currentSeriesWatchlist: string[] = Array.isArray(updated.seriesToWatch) ? updated.seriesToWatch : [];
+        const restoredSeriesToWatch = new Set<string>();
+        const seenSeriesMap = new Map<string, any>();
+
+        seenSeriesDataRaw.forEach((s: any) => {
+            if (!s || !s.title || typeof s.title !== 'string') return;
+            const norm = s.title.trim().toLowerCase();
+            if (isTestMovieTitle(norm)) return;
+
+            if (!s.viewedAt || isFakeSept4(s.viewedAt)) {
+                restoredSeriesToWatch.add(s.title.trim());
+                hasChanges = true;
+                return;
+            }
+            seenSeriesMap.set(norm, s);
+        });
+
+        seenSeriesTitlesRaw.forEach((t: string) => {
+            if (!t || typeof t !== 'string') return;
+            const norm = t.trim().toLowerCase();
+            if (isTestMovieTitle(norm)) return;
+            if (!seenSeriesMap.has(norm)) {
+                restoredSeriesToWatch.add(t.trim());
+                hasChanges = true;
+            }
+        });
+
+        const newSeenSeriesData = Array.from(seenSeriesMap.values());
+        const newSeenSeriesTitles = Array.from(seenSeriesMap.values()).map(s => s.title);
+        const seenSeriesNormSet = new Set(seenSeriesMap.keys());
+
+        const combinedSeriesWatchlist = Array.from(new Set([
+            ...currentSeriesWatchlist,
+            ...Array.from(restoredSeriesToWatch)
+        ])).filter(t => !isTestMovieTitle(t) && !seenSeriesNormSet.has(t.trim().toLowerCase()));
+
+        if (newSeenSeriesTitles.length !== seenSeriesTitlesRaw.length || combinedSeriesWatchlist.length !== currentSeriesWatchlist.length) {
+            updated.seenSeriesTitles = newSeenSeriesTitles;
+            updated.seenSeriesData = newSeenSeriesData;
+            updated.seriesToWatch = combinedSeriesWatchlist;
             hasChanges = true;
         }
     }
@@ -1565,6 +1656,10 @@ export async function sanitizeAndHealMovieData(
                     seenMoviesData: updated.seenMoviesData,
                     moviesToWatch: updated.moviesToWatch || [],
                     rejectedMovieTitles: updated.rejectedMovieTitles || [],
+                    seenSeriesTitles: updated.seenSeriesTitles || [],
+                    seenSeriesData: updated.seenSeriesData || [],
+                    seriesToWatch: updated.seriesToWatch || [],
+                    rejectedSeriesTitles: updated.rejectedSeriesTitles || [],
                 }, { merge: true });
             } catch (err) {
                 console.warn("Erreur synchronisation Firestore sanitizeAndHealMovieData:", err);
@@ -1573,7 +1668,7 @@ export async function sanitizeAndHealMovieData(
         return { healed: true, updatedProfile: updated };
     }
 
-    return { healed: false, updatedProfile: profileToClean };
+    return { healed: false, updatedProfile: profileToHeal };
 }
 
 

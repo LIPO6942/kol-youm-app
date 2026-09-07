@@ -376,10 +376,12 @@ export function useMonthlyWrapUp(
     const topKharjetZone = getTop(kharjetZoneCounts);
 
     // 3. Tfarrej Stats (Separated Movies and Series)
+    const watchlistTitles = new Set(((user as any)?.moviesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
     const isExcluded = (t: string) => {
       if (!t || typeof t !== 'string' || !t.trim()) return true;
       const norm = t.toLowerCase().trim();
       if (isTestMovieTitle(norm)) return true;
+      if (watchlistTitles.has(norm)) return true;
       return false;
     };
 

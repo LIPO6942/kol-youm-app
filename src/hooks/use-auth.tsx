@@ -202,7 +202,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Assainissement et réparation unique des données de films au chargement
   const hasHealedMoviesRef = useRef(false);
   useEffect(() => {
-    if (user?.uid && !hasHealedMoviesRef.current) {
+    if (user?.uid && userProfile && !hasHealedMoviesRef.current) {
       hasHealedMoviesRef.current = true;
       sanitizeAndHealMovieData(user.uid, userProfile).then(({ healed, updatedProfile }) => {
         if (healed && updatedProfile) {
