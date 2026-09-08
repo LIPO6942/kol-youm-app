@@ -10,6 +10,19 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 
+export const CATEGORY_HEX_COLORS: Record<MovieCategory, string> = {
+  'Drame': '#fb7185',
+  'Comédie': '#fbbf24',
+  'Histoire/Guerre': '#fb923c',
+  'Sci-Fi': '#22d3ee',
+  'Mind blowing': '#c084fc',
+  'Action': '#f87171',
+  'Autobiographie/Histoire réelle': '#34d399',
+  'Romance': '#f472b6',
+  'Horreur/Thriller psy': '#a78bfa',
+  'Animation': '#38bdf8',
+};
+
 interface MovieCategoryPickerProps {
   selectedCategory?: MovieCategory | null;
   onSelectCategory: (category: MovieCategory) => void;
@@ -58,20 +71,7 @@ export function MovieCategoryPicker({
     );
   }
 
-export const CATEGORY_HEX_COLORS: Record<MovieCategory, string> = {
-  'Drame': '#fb7185',
-  'Comédie': '#fbbf24',
-  'Histoire/Guerre': '#fb923c',
-  'Sci-Fi': '#22d3ee',
-  'Mind blowing': '#c084fc',
-  'Action': '#f87171',
-  'Autobiographie/Histoire réelle': '#34d399',
-  'Romance': '#f472b6',
-  'Horreur/Thriller psy': '#a78bfa',
-  'Animation': '#38bdf8',
-};
-
-// Présentation par défaut : Pastilles élégantes côte à côte (fond sombre opaque contrasté, couleurs vives et nettes)
+  // Présentation par défaut : Pastilles élégantes côte à côte (fond sombre opaque contrasté, couleurs vives et nettes)
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className}`}>
       {MOVIE_CATEGORIES.map((category) => {
