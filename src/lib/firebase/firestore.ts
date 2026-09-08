@@ -64,6 +64,8 @@ export const MOVIE_CATEGORIES = [
   'Mind blowing',
   'Action',
   'Autobiographie/Histoire réelle',
+  'Romance',
+  'Horreur/Thriller psy',
 ] as const;
 
 export type MovieCategory = typeof MOVIE_CATEGORIES[number];
@@ -147,6 +149,26 @@ export const MOVIE_CATEGORY_CONFIG: Record<MovieCategory, {
     border: 'border-emerald-500/40',
     glow: 'shadow-[0_0_12px_rgba(16,185,129,0.25)]',
     gradient: 'from-emerald-500/20 to-teal-500/10',
+  },
+  'Romance': {
+    label: 'Romance',
+    shortLabel: 'Romance',
+    emoji: '💖',
+    color: 'text-pink-400',
+    badgeBg: 'bg-pink-500/20 text-pink-300 border-pink-500/35',
+    border: 'border-pink-500/40',
+    glow: 'shadow-[0_0_12px_rgba(236,72,153,0.3)]',
+    gradient: 'from-pink-500/25 to-rose-500/15',
+  },
+  'Horreur/Thriller psy': {
+    label: 'Horreur/Thriller psy',
+    shortLabel: 'Horreur / Thriller',
+    emoji: '👻',
+    color: 'text-violet-400',
+    badgeBg: 'bg-violet-950/40 text-violet-300 border-violet-500/40',
+    border: 'border-violet-500/50',
+    glow: 'shadow-[0_0_12px_rgba(139,92,246,0.3)]',
+    gradient: 'from-violet-900/30 to-purple-950/40',
   },
 };
 

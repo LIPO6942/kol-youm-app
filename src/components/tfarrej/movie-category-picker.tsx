@@ -58,9 +58,9 @@ export function MovieCategoryPicker({
     );
   }
 
-  // Présentation par défaut : Pastilles élégantes côte à côte
+  // Présentation par défaut : Pastilles élégantes côte à côte (couleurs thématiques visibles et distinctes)
   return (
-    <div className={`flex flex-wrap items-center gap-1.5 sm:gap-2 ${className}`}>
+    <div className={`flex flex-wrap items-center gap-2 ${className}`}>
       {MOVIE_CATEGORIES.map((category) => {
         const config = MOVIE_CATEGORY_CONFIG[category];
         const isSelected = selectedCategory === category;
@@ -70,23 +70,23 @@ export function MovieCategoryPicker({
             key={category}
             type="button"
             onClick={() => onSelectCategory(category)}
-            className={`inline-flex items-center gap-1.5 rounded-full font-bold transition-all duration-200 border select-none cursor-pointer ${
+            className={`inline-flex items-center gap-1.5 rounded-full font-extrabold transition-all duration-200 border select-none cursor-pointer backdrop-blur-md ${
               size === 'sm'
-                ? 'px-3 py-1.5 text-xs'
+                ? 'px-3 py-1.5 text-xs sm:text-[12.5px]'
                 : size === 'lg'
                 ? 'px-4 py-2.5 text-sm sm:text-base'
                 : 'px-3.5 py-2 text-xs sm:text-sm'
             } ${
               isSelected
-                ? `${config.badgeBg} ${config.border} border-current ring-2 ring-current/40 shadow-md scale-105 font-black`
-                : 'bg-white/[0.04] hover:bg-white/[0.09] text-white/70 hover:text-white border-white/10 hover:border-white/25'
+                ? `${config.badgeBg} ${config.border} border-current ring-2 ring-current/60 shadow-md ${config.glow || ''} scale-105 font-black brightness-125 text-white`
+                : `${config.badgeBg} opacity-85 hover:opacity-100 hover:scale-105 hover:brightness-125 shadow-xs`
             }`}
           >
-            <span className="text-sm shrink-0 leading-none">{config.emoji}</span>
+            <span className="text-sm sm:text-[15px] shrink-0 leading-none">{config.emoji}</span>
             <span className="tracking-tight">{config.label}</span>
-            {isSelected && (
-              <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0 shadow-xs ml-0.5" />
-            )}
+            {isSelected ? (
+              <span className="w-2 h-2 rounded-full bg-current shrink-0 shadow-xs ml-0.5 animate-pulse" />
+            ) : null}
           </button>
         );
       })}

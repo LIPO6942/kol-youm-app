@@ -586,6 +586,20 @@ export function MovieDuelModal({
                   </div>
                 </div>
 
+                {/* Indicateur de phase : Catégorie vs Général */}
+                <div className="flex items-center justify-center mb-3 sm:mb-4">
+                  {session.phase === 'category' || (session.activeDuel && session.activeDuel.movieA.category && session.activeDuel.movieA.category === session.activeDuel.movieB.category) ? (
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/15 border border-purple-400/30 text-purple-200 text-xs font-bold shadow-[0_0_15px_rgba(168,85,247,0.2)]">
+                      <span>⚔️ Duel Intra-Catégorie :</span>
+                      <CategoryBadge category={session.currentDuelCategory || session.activeDuel?.movieA.category} size="xs" />
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-400/30 text-amber-200 text-xs font-bold shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+                      <span>🏆 Duel Général : Arbitrage inter-catégories</span>
+                    </div>
+                  )}
+                </div>
+
                 {/* Arène 1 vs 1 : Côte à côte garanti */}
                 <div className="w-full grid grid-cols-2 gap-2.5 sm:gap-6 relative items-stretch max-w-[620px]">
                   {/* Carte Film A (Candidat à classer) */}
@@ -649,6 +663,11 @@ export function MovieDuelModal({
                           </span>
                         )}
                       </div>
+                      {session.activeDuel.movieA.category && (
+                        <div className="mt-1.5">
+                          <CategoryBadge category={session.activeDuel.movieA.category} size="xs" />
+                        </div>
+                      )}
                     </div>
 
                     {/* Bouton de vote direct */}
@@ -749,6 +768,11 @@ export function MovieDuelModal({
                           </span>
                         )}
                       </div>
+                      {session.activeDuel.movieB.category && (
+                        <div className="mt-1.5">
+                          <CategoryBadge category={session.activeDuel.movieB.category} size="xs" />
+                        </div>
+                      )}
                     </div>
 
                     {/* Bouton de vote direct */}

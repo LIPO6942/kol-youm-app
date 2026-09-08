@@ -92,7 +92,42 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Comédie';
   }
 
-  // 6. Action
+  // 6. Horreur / Thriller psy
+  if (
+    text.includes('horreur') ||
+    text.includes('horror') ||
+    text.includes('épouvante') ||
+    text.includes('epouvante') ||
+    text.includes('thriller psychologique') ||
+    text.includes('thriller psy') ||
+    text.includes('psychological thriller') ||
+    text.includes('slasher') ||
+    text.includes('zombie') ||
+    text.includes('paranormal') ||
+    text.includes('démon') ||
+    text.includes('demon') ||
+    text.includes('exorcisme') ||
+    text.includes('possession') ||
+    text.includes('angoisse')
+  ) {
+    return 'Horreur/Thriller psy';
+  }
+
+  // 7. Romance
+  if (
+    text.includes('romance') ||
+    text.includes('romantique') ||
+    text.includes('romantic') ||
+    text.includes('comédie romantique') ||
+    text.includes('histoire d\'amour') ||
+    text.includes('coup de foudre') ||
+    text.includes('amour') ||
+    text.includes('love')
+  ) {
+    return 'Romance';
+  }
+
+  // 8. Action
   if (
     text.includes('action') ||
     text.includes('aventure') ||
@@ -106,7 +141,7 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Action';
   }
 
-  // 7. Drame par défaut ou si mots clés dramatiques
+  // 9. Drame par défaut ou si mots clés dramatiques
   return 'Drame';
 }
 
