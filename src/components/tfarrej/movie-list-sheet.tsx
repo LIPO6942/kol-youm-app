@@ -208,7 +208,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) resetAndClose(); else onOpenChange(open); }}>
-      <DialogContent className="sm:max-w-[520px] max-h-[90vh] sm:max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-[520px] max-h-[90vh] sm:max-h-[85vh] overflow-hidden flex flex-col bg-[#0F1015] border-white/15 text-white shadow-2xl">
         <DialogHeader className="shrink-0 pb-1">
           <DialogTitle className="flex items-center gap-2">
             <Plus className="h-5 w-5" />
@@ -237,7 +237,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
                   placeholder={`Rechercher ${type === 'movie' ? 'un film' : 'une série'} (FR/EN)...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 bg-white/5 border-white/15 text-white placeholder:text-white/40 focus-visible:ring-primary/50"
                   autoFocus
                 />
               </div>
@@ -345,6 +345,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
                   placeholder={`Titre ${type === 'movie' ? 'du film' : 'de la série'}`}
                   value={manualTitle}
                   onChange={(e) => setManualTitle(e.target.value)}
+                  className="bg-white/5 border-white/15 text-white placeholder:text-white/40 focus-visible:ring-primary/50"
                   autoFocus
                 />
               </div>
@@ -382,6 +383,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
                   placeholder="Ex: 2024"
                   value={manualYear}
                   onChange={(e) => setManualYear(e.target.value)}
+                  className="bg-white/5 border-white/15 text-white placeholder:text-white/40 focus-visible:ring-primary/50"
                 />
               </div>
             </div>
@@ -389,13 +391,13 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
 
           {/* Category Picker (Only for movie seen mode) */}
           {(selectedMovie || isManualMode) && mode === 'seen' && type === 'movie' && (
-            <div className="space-y-2 pt-1">
-              <Label className="text-xs font-bold flex items-center justify-between text-white/90">
+            <div className="p-3 sm:p-3.5 rounded-2xl bg-black/60 border border-white/15 space-y-2.5 shadow-inner">
+              <Label className="text-xs font-black flex items-center justify-between text-white">
                 <span className="flex items-center gap-1.5">
-                  <span>🏷️</span>
+                  <span className="text-sm">🏷️</span>
                   <span>Catégorie du film :</span>
                 </span>
-                <span className="text-[10px] text-muted-foreground font-normal">Pour le classement par genre</span>
+                <span className="text-[10.5px] text-white/50 font-normal">Pour le classement par genre</span>
               </Label>
               <MovieCategoryPicker
                 selectedCategory={selectedCategory}
@@ -416,12 +418,13 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
                 value={viewedDate}
                 onChange={(e) => setViewedDate(e.target.value)}
                 max={new Date().toISOString().split('T')[0]}
+                className="bg-white/5 border-white/15 text-white [color-scheme:dark] focus-visible:ring-primary/50"
               />
             </div>
           )}
         </div>
 
-        <DialogFooter className="shrink-0 pt-3 border-t border-white/10 gap-2 sm:gap-0 mt-2 bg-background/95 backdrop-blur-xs">
+        <DialogFooter className="shrink-0 pt-3 border-t border-white/10 gap-2 sm:gap-0 mt-2 bg-[#0F1015]/95 backdrop-blur-xs">
           <Button variant="outline" onClick={isManualMode ? () => setIsManualMode(false) : resetAndClose}>
             {isManualMode ? 'Retour' : 'Annuler'}
           </Button>

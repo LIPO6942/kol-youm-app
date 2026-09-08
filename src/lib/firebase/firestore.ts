@@ -66,6 +66,7 @@ export const MOVIE_CATEGORIES = [
   'Autobiographie/Histoire réelle',
   'Romance',
   'Horreur/Thriller psy',
+  'Animation',
 ] as const;
 
 export type MovieCategory = typeof MOVIE_CATEGORIES[number];
@@ -169,6 +170,16 @@ export const MOVIE_CATEGORY_CONFIG: Record<MovieCategory, {
     border: 'border-violet-500/50',
     glow: 'shadow-[0_0_12px_rgba(139,92,246,0.3)]',
     gradient: 'from-violet-900/30 to-purple-950/40',
+  },
+  'Animation': {
+    label: 'Animation',
+    shortLabel: 'Animation',
+    emoji: '🎨',
+    color: 'text-sky-400',
+    badgeBg: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
+    border: 'border-sky-500/50',
+    glow: 'shadow-[0_0_12px_rgba(14,165,233,0.3)]',
+    gradient: 'from-sky-500/25 to-blue-600/15',
   },
 };
 

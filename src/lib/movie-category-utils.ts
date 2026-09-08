@@ -35,7 +35,24 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Autobiographie/Histoire réelle';
   }
 
-  // 2. Sci-Fi
+  // 2. Animation (Prioritaire pour tous les films d'animation, anime, Pixar, Disney, etc.)
+  if (
+    text.includes('animation') ||
+    text.includes('animé') ||
+    text.includes('anime') ||
+    text.includes('dessin animé') ||
+    text.includes('cartoon') ||
+    text.includes('pixar') ||
+    text.includes('disney') ||
+    text.includes('ghibli') ||
+    text.includes('dreamworks') ||
+    text.includes('illumination') ||
+    text.includes('manga')
+  ) {
+    return 'Animation';
+  }
+
+  // 3. Sci-Fi
   if (
     text.includes('science-fiction') ||
     text.includes('science fiction') ||
@@ -141,7 +158,7 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Action';
   }
 
-  // 9. Drame par défaut ou si mots clés dramatiques
+  // 10. Drame par défaut ou si mots clés dramatiques
   return 'Drame';
 }
 

@@ -58,7 +58,7 @@ export function MovieCategoryPicker({
     );
   }
 
-  // Présentation par défaut : Pastilles élégantes côte à côte (couleurs thématiques visibles et distinctes)
+  // Présentation par défaut : Pastilles élégantes côte à côte (fond sombre opaque contrasté, couleurs vives et nettes)
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className}`}>
       {MOVIE_CATEGORIES.map((category) => {
@@ -70,7 +70,7 @@ export function MovieCategoryPicker({
             key={category}
             type="button"
             onClick={() => onSelectCategory(category)}
-            className={`inline-flex items-center gap-1.5 rounded-full font-extrabold transition-all duration-200 border select-none cursor-pointer backdrop-blur-md ${
+            className={`inline-flex items-center gap-1.5 rounded-full font-black transition-all duration-200 border select-none cursor-pointer ${
               size === 'sm'
                 ? 'px-3 py-1.5 text-xs sm:text-[12.5px]'
                 : size === 'lg'
@@ -78,8 +78,8 @@ export function MovieCategoryPicker({
                 : 'px-3.5 py-2 text-xs sm:text-sm'
             } ${
               isSelected
-                ? `${config.badgeBg} ${config.border} border-current ring-2 ring-current/60 shadow-md ${config.glow || ''} scale-105 font-black brightness-125 text-white`
-                : `${config.badgeBg} opacity-85 hover:opacity-100 hover:scale-105 hover:brightness-125 shadow-xs`
+                ? `${config.badgeBg} ${config.border} border-current ring-2 ring-current/80 shadow-lg ${config.glow || ''} scale-105 font-black brightness-125`
+                : `bg-[#181A24] hover:bg-[#202330] ${config.border} ${config.color} border shadow-xs hover:scale-105 hover:brightness-125`
             }`}
           >
             <span className="text-sm sm:text-[15px] shrink-0 leading-none">{config.emoji}</span>
