@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, getApp, cert } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { buildSundayNotificationForUser, SundayNotificationPayload } from '@/lib/sunday-notification-utils';
 
 // Initialiser Firebase Admin SDK
 if (!getApps().length) {
@@ -206,7 +207,7 @@ async function sendWeeklyNotifications() {
     const db = getFirestore();
     const messaging = getMessaging();
 
-    // Récupérer tous les utilisateurs qui ont un fcmToken
+    // Récupérer tous les utilisateurs qui ont les notifications activées
     const usersSnapshot = await db.collection('users').where('notificationsEnabled', '==', true).get();
     console.log(`[Send Notification] Utilisateurs avec notifications activées: ${usersSnapshot.size}`);
 
@@ -219,8 +220,12 @@ async function sendWeeklyNotifications() {
         });
     }
 
-    const tokens: string[] = [];
-    const userIds: string[] = [];
+    // Regrouper les tokens par utilisateur (pour garantir le même message sur tous les appareils d'un utilisateur)
+    const userGroups: {
+        userId: string;
+        userData: FirebaseFirestore.DocumentData;
+        tokens: string[];
+    }[] = [];
     const processedTokens = new Set<string>();
 
     usersSnapshot.forEach((doc) => {
@@ -230,56 +235,108 @@ async function sendWeeklyNotifications() {
             ? data.fcmTokens.filter(Boolean)
             : (data.fcmToken ? [data.fcmToken] : []);
 
-        userTokens.forEach((token: string) => {
-            if (!token || processedTokens.has(token)) return;
-            tokens.push(token);
-            userIds.push(doc.id);
-            processedTokens.add(token);
-        });
+        const validTokens = userTokens.filter(token => token && !processedTokens.has(token));
+        if (validTokens.length > 0) {
+            validTokens.forEach(t => processedTokens.add(t));
+            userGroups.push({
+                userId: doc.id,
+                userData: data,
+                tokens: validTokens,
+            });
+        }
     });
 
-    console.log(`[Send Notification] Tokens FCM found: ${tokens.length}`);
+    const totalTokensCount = processedTokens.size;
+    console.log(`[Send Notification] Utilisateurs ciblés: ${userGroups.length}, Total Tokens FCM: ${totalTokensCount}`);
 
-    if (tokens.length === 0) {
+    if (totalTokensCount === 0) {
         return NextResponse.json({
             success: true,
-            message: 'Aucun token FCM trouvé',
+            message: 'Aucun token FCM valide trouvé',
             sent: 0,
         });
     }
 
-    const message = getRandomMessage();
-    console.log(`[Send Notification] Message choisi: "${message.title}"`);
-    console.log(`[Send Notification] Envoi à ${tokens.length} utilisateurs...`);
+    // Construire le message personnalisé pour chaque utilisateur (TMDb film ou Quiz 5amem)
+    const messages: any[] = [];
+    const messageUserIds: string[] = [];
+    const messageTokens: string[] = [];
+    const userUpdates: {
+        userId: string;
+        lastSuggestedMovie?: string;
+        lastNotificationType: 'movie' | '5amem';
+    }[] = [];
+    const notificationsSummary: { userId: string; type: string; title: string }[] = [];
 
-    // Préparer les messages pour l'envoi en batch
-    const messages = tokens.map(token => ({
-        token,
-        notification: {
-            title: message.title,
-            body: message.body,
-        },
-        data: {
-            url: message.link || '/',
-        },
-        webpush: {
-            headers: {
-                Urgency: 'high',
-                TTL: '86400'
-            },
-            notification: {
-                icon: '/icons/icon-192x192.png',  // icône dans le drawer de notification
-                badge: '/icons/badge-96x96.png',  // icône barre de statut Android (monochrome)
-                tag: 'weekly-reminder',
-                renotify: true,
-            },
-            fcmOptions: {
-                link: message.link || '/',
-            },
-        },
-    }));
+    for (const group of userGroups) {
+        try {
+            const notif: SundayNotificationPayload = await buildSundayNotificationForUser({
+                moviesToWatch: group.userData.moviesToWatch,
+                lastSuggestedMovie: group.userData.lastSuggestedMovie,
+                lastNotificationType: group.userData.lastNotificationType,
+            });
 
-    // Envoyer toutes les notifications d'un coup (Batch)
+            notificationsSummary.push({
+                userId: group.userId,
+                type: notif.type,
+                title: notif.title,
+            });
+
+            userUpdates.push({
+                userId: group.userId,
+                lastSuggestedMovie: notif.suggestedMovieTitle,
+                lastNotificationType: notif.type,
+            });
+
+            console.log(`[Send Notification] User ${group.userId.substring(0, 6)}... -> [${notif.type.toUpperCase()}] "${notif.title}"`);
+
+            for (const token of group.tokens) {
+                messages.push({
+                    token,
+                    notification: {
+                        title: notif.title,
+                        body: notif.body,
+                        ...(notif.imageUrl ? { imageUrl: notif.imageUrl } : {}),
+                    },
+                    data: {
+                        url: notif.link || '/',
+                    },
+                    webpush: {
+                        headers: {
+                            Urgency: 'high',
+                            TTL: '86400',
+                        },
+                        notification: {
+                            icon: '/icons/icon-192x192.png',
+                            badge: '/icons/badge-96x96.png',
+                            tag: 'sunday-weekly-reminder',
+                            renotify: true,
+                            ...(notif.imageUrl ? { image: notif.imageUrl } : {}),
+                        },
+                        fcmOptions: {
+                            link: notif.link || '/',
+                        },
+                    },
+                });
+                messageUserIds.push(group.userId);
+                messageTokens.push(token);
+            }
+        } catch (userError) {
+            console.error(`[Send Notification] Erreur construction message pour user ${group.userId}:`, userError);
+        }
+    }
+
+    if (messages.length === 0) {
+        return NextResponse.json({
+            success: true,
+            message: 'Aucun message préparé pour l\'envoi',
+            sent: 0,
+        });
+    }
+
+    console.log(`[Send Notification] Envoi en batch de ${messages.length} messages...`);
+
+    // Envoyer toutes les notifications d'un coup (Batch FCM)
     let successCount = 0;
     let failureCount = 0;
     const invalidTokens: { userId: string; token: string }[] = [];
@@ -293,14 +350,13 @@ async function sendWeeklyNotifications() {
             } else {
                 failureCount++;
                 const error = res.error as any;
-                // Si le token est invalide, le marquer pour suppression
                 if (
                     error?.code === 'messaging/registration-token-not-registered' ||
                     error?.code === 'messaging/invalid-registration-token'
                 ) {
-                    invalidTokens.push({ userId: userIds[i], token: tokens[i] });
+                    invalidTokens.push({ userId: messageUserIds[i], token: messageTokens[i] });
                 }
-                console.error(`[Send Notification] Erreur pour token ${tokens[i].substring(0, 10)}...:`, error?.code || error);
+                console.error(`[Send Notification] Erreur pour token ${messageTokens[i].substring(0, 10)}...:`, error?.code || error);
             }
         });
     } catch (batchError) {
@@ -311,12 +367,25 @@ async function sendWeeklyNotifications() {
         );
     }
 
+    // Mettre à jour l'historique de rotation (dernier film suggéré, type envoyé)
+    for (const update of userUpdates) {
+        try {
+            await db.collection('users').doc(update.userId).update({
+                lastNotificationType: update.lastNotificationType,
+                ...(update.lastSuggestedMovie ? { lastSuggestedMovie: update.lastSuggestedMovie } : {}),
+                lastSundayNotificationAt: new Date().toISOString(),
+            });
+        } catch (historyError) {
+            console.warn(`[Send Notification] Erreur mise à jour historique pour user ${update.userId}:`, historyError);
+        }
+    }
+
     // Nettoyer les tokens invalides
-    for (const { userId } of invalidTokens) {
+    for (const { userId, token } of invalidTokens) {
         try {
             await db.collection('users').doc(userId).update({
+                fcmTokens: FieldValue.arrayRemove(token),
                 fcmToken: null,
-                notificationsEnabled: false,
             });
             console.log(`[Send Notification] Token invalide nettoyé pour user ${userId}`);
         } catch (cleanupError) {
@@ -326,14 +395,15 @@ async function sendWeeklyNotifications() {
 
     const result = {
         success: true,
-        message: `Notifications envoyées`,
+        message: `Notifications du dimanche envoyées avec succès`,
         sent: successCount,
         failed: failureCount,
         cleaned: invalidTokens.length,
-        total: tokens.length,
-        notificationMessage: message.title,
+        totalTokens: messages.length,
+        usersCount: userGroups.length,
+        notificationsSummary,
     };
 
-    console.log('[Send Notification] Résultat:', result);
+    console.log('[Send Notification] Résultat final:', result);
     return NextResponse.json(result);
 }
