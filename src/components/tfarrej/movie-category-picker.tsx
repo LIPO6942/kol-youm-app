@@ -78,8 +78,8 @@ export function MovieCategoryPicker({
                 : 'px-3.5 py-2 text-xs sm:text-sm'
             } ${
               isSelected
-                ? `${config.badgeBg} ${config.border} border-current ring-2 ring-current/80 shadow-lg ${config.glow || ''} scale-105 font-black brightness-125`
-                : `bg-[#181A24] hover:bg-[#202330] ${config.border} ${config.color} border shadow-xs hover:scale-105 hover:brightness-125`
+                ? `bg-[#0F111A] ${config.border} border-current ${config.color} ring-2 ring-current/80 shadow-lg ${config.glow || ''} scale-105 font-black brightness-125`
+                : `bg-[#181A24] hover:bg-[#222536] ${config.border} ${config.color} border shadow-xs hover:scale-105 hover:brightness-125`
             }`}
           >
             <span className="text-sm sm:text-[15px] shrink-0 leading-none">{config.emoji}</span>
@@ -186,14 +186,14 @@ export function CategorySelectModal({
 }: CategorySelectModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] bg-[#0F1015] border-white/15 text-white p-5 sm:p-6 rounded-2xl shadow-2xl">
+      <DialogContent className="sm:max-w-[480px] bg-card text-card-foreground border border-border p-5 sm:p-6 rounded-2xl shadow-xl">
         <DialogHeader>
           <DialogTitle className="text-base sm:text-lg font-black flex items-center gap-2">
             <span>🏷️</span>
             <span>Catégorie du film</span>
           </DialogTitle>
-          <DialogDescription className="text-xs text-white/60">
-            Attribuez ou modifiez le genre pour <span className="font-bold text-white">« {movieTitle} »</span> afin d&apos;ajuster vos classements par catégorie.
+          <DialogDescription className="text-xs text-muted-foreground">
+            Attribuez ou modifiez le genre pour <span className="font-bold text-foreground">« {movieTitle} »</span> afin d&apos;ajuster vos classements par catégorie.
           </DialogDescription>
         </DialogHeader>
 
