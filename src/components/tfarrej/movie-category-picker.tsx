@@ -58,18 +58,36 @@ export function MovieCategoryPicker({
     );
   }
 
-  // Présentation par défaut : Pastilles élégantes côte à côte (fond sombre opaque contrasté, couleurs vives et nettes)
+export const CATEGORY_HEX_COLORS: Record<MovieCategory, string> = {
+  'Drame': '#fb7185',
+  'Comédie': '#fbbf24',
+  'Histoire/Guerre': '#fb923c',
+  'Sci-Fi': '#22d3ee',
+  'Mind blowing': '#c084fc',
+  'Action': '#f87171',
+  'Autobiographie/Histoire réelle': '#34d399',
+  'Romance': '#f472b6',
+  'Horreur/Thriller psy': '#a78bfa',
+  'Animation': '#38bdf8',
+};
+
+// Présentation par défaut : Pastilles élégantes côte à côte (fond sombre opaque contrasté, couleurs vives et nettes)
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className}`}>
       {MOVIE_CATEGORIES.map((category) => {
         const config = MOVIE_CATEGORY_CONFIG[category];
         const isSelected = selectedCategory === category;
+        const hexColor = CATEGORY_HEX_COLORS[category];
 
         return (
           <button
             key={category}
             type="button"
             onClick={() => onSelectCategory(category)}
+            style={{
+              color: hexColor,
+              borderColor: isSelected ? hexColor : `${hexColor}55`,
+            }}
             className={`inline-flex items-center gap-1.5 rounded-full font-black transition-all duration-200 border select-none cursor-pointer ${
               size === 'sm'
                 ? 'px-3 py-1.5 text-xs sm:text-[12.5px]'
@@ -78,8 +96,8 @@ export function MovieCategoryPicker({
                 : 'px-3.5 py-2 text-xs sm:text-sm'
             } ${
               isSelected
-                ? `bg-[#0F111A] ${config.border} border-current ${config.color} ring-2 ring-current/80 shadow-lg ${config.glow || ''} scale-105 font-black brightness-125`
-                : `bg-[#181A24] hover:bg-[#222536] ${config.border} ${config.color} border shadow-xs hover:scale-105 hover:brightness-125`
+                ? `bg-[#0F111A] ring-2 ring-current/80 shadow-lg ${config.glow || ''} scale-105 font-black brightness-125`
+                : `bg-[#181A24] hover:bg-[#222536] shadow-xs hover:scale-105 hover:brightness-125`
             }`}
           >
             <span className="text-sm sm:text-[15px] shrink-0 leading-none">{config.emoji}</span>
@@ -145,6 +163,9 @@ export function CategoryBadge({
     <span
       onClick={onClick}
       title={isInteractive ? `Catégorie : ${config.label} (Cliquer pour modifier)` : `Catégorie : ${config.label}`}
+      style={{
+        color: (category && CATEGORY_HEX_COLORS[category as MovieCategory]) || undefined,
+      }}
       className={`group/cat inline-flex items-center gap-1.5 rounded-full border backdrop-blur-md transition-all duration-200 select-none ${config.badgeBg} ${sizeClasses} ${
         isInteractive
           ? 'cursor-pointer hover:scale-105 active:scale-95 hover:brightness-125 hover:shadow-md hover:border-current/60'

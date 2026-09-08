@@ -301,27 +301,27 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
               "Swipez" pour découvrir votre prochain coup de cœur.
             </p>
           </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0 pt-0.5">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 pt-0.5">
             <TfarrejStatsDialog
               trigger={
                 <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 rounded-xl border border-border/60 bg-card/60 hover:bg-accent/80 hover:border-border transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center"
+                  className="h-9 sm:h-10 px-2.5 sm:px-3.5 rounded-xl font-bold text-xs sm:text-sm text-white shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98] border border-indigo-500/30 bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 flex items-center justify-center cursor-pointer"
                   aria-label="Statistiques de visionnage"
+                  title="Statistiques de visionnage"
                 >
-                  <BarChart3 className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+                  <BarChart3 className="h-4 w-4 text-purple-200 sm:mr-1.5 flex-shrink-0" />
+                  <span className="hidden sm:inline font-bold">Stats</span>
                 </Button>
               }
             />
             <Button
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 rounded-xl border border-border/60 bg-card/60 hover:bg-accent/80 hover:border-border transition-all duration-200 shadow-sm active:scale-95 flex items-center justify-center"
+              className="h-9 sm:h-10 px-2.5 sm:px-3.5 rounded-xl font-bold text-xs sm:text-sm text-white shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98] border border-slate-700/40 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 hover:from-slate-800 hover:to-slate-700 text-white flex items-center justify-center cursor-pointer"
               aria-label="Paramètres"
+              title="Paramètres"
               onClick={() => router.push('/settings?tab=tfarrej')}
             >
-              <Settings className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+              <Settings className="h-4 w-4 text-slate-300 sm:mr-1.5 flex-shrink-0" />
+              <span className="hidden sm:inline font-bold">Paramètres</span>
             </Button>
           </div>
         </div>
