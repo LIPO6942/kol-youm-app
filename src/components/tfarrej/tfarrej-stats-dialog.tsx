@@ -4,10 +4,11 @@ import { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { BarChart3, Film, Tv, Calendar } from 'lucide-react';
+import { BarChart3, Film, Tv, Calendar, Layers, Trophy, Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import type { SeenMovie } from '@/lib/firebase/firestore';
 import { isTestMovieTitle } from '@/lib/firebase/firestore';
+import { SagaDetailModal } from '@/components/tfarrej/SagaDetailModal';
 
 interface TfarrejStatsDialogProps {
     trigger?: React.ReactNode;
@@ -21,7 +22,8 @@ interface YearlyStats {
 
 export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
     const { userProfile } = useAuth();
-    const [activeTab, setActiveTab] = useState<'movie' | 'tv'>('movie');
+    const [activeTab, setActiveTab] = useState<'movie' | 'tv' | 'sagas'>('movie');
+    const [inspectSaga, setInspectSaga] = useState<{ id: string; name: string; isCustom?: boolean; posterUrl?: string } | null>(null);
 
     // Helper to aggregate data with valid dates
     const aggregateData = (data: SeenMovie[] | undefined): YearlyStats[] => {
@@ -67,7 +69,61 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
         return Array.from(new Set([...fromTitles, ...fromData])).length;
     }, [userProfile?.seenSeriesTitles, userProfile?.seenSeriesData]);
 
-    const totalWatched = activeTab === 'movie' ? totalSeenMovies : totalSeenSeries;
+    // Statistiques des Sagas & Trilogies
+    const sagaStats = useMemo(() => {
+        const sagasMap = new Map<string, {
+            id: string;
+            name: string;
+            isCustom?: boolean;
+            seenTitles: string[];
+            posterUrl?: string;
+        }>();
+
+        // 1. Sagas personnalisées
+        Object.values(userProfile?.customSagas || {}).forEach(s => {
+            const seen = (s.movieTitles || []).filter(t => {
+                const norm = t.toLowerCase().trim();
+                return (userProfile?.seenMovieTitles || []).some(st => st.toLowerCase().trim() === norm)
+                    || (userProfile?.seenMoviesData || []).some(sm => sm?.title?.toLowerCase()?.trim() === norm);
+            });
+            sagasMap.set(s.id, {
+                id: s.id,
+                name: s.name,
+                isCustom: true,
+                seenTitles: seen,
+                posterUrl: s.posterUrl,
+            });
+        });
+
+        // 2. Collections TMDb depuis seenMoviesData
+        (userProfile?.seenMoviesData || []).forEach(m => {
+            if (m?.collection && m.collection.id) {
+                const colId = String(m.collection.id);
+                if (!sagasMap.has(colId)) {
+                    sagasMap.set(colId, {
+                        id: colId,
+                        name: m.collection.name,
+                        isCustom: false,
+                        seenTitles: [m.title],
+                        posterUrl: m.collection.posterUrl || m.posterUrl,
+                    });
+                } else {
+                    const existing = sagasMap.get(colId)!;
+                    if (!existing.seenTitles.includes(m.title)) {
+                        existing.seenTitles.push(m.title);
+                    }
+                }
+            }
+        });
+
+        return Array.from(sagasMap.values()).sort((a, b) => b.seenTitles.length - a.seenTitles.length);
+    }, [userProfile?.customSagas, userProfile?.seenMoviesData, userProfile?.seenMovieTitles]);
+
+    const totalWatched = activeTab === 'movie'
+        ? totalSeenMovies
+        : activeTab === 'tv'
+        ? totalSeenSeries
+        : sagaStats.length;
 
     const monthNames = [
         "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -83,7 +139,7 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
                     </Button>
                 )}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px] max-h-[80vh] overflow-hidden flex flex-col">
+            <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-hidden flex flex-col">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <BarChart3 className="h-5 w-5 text-primary" />
@@ -91,20 +147,27 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
                     </DialogTitle>
                 </DialogHeader>
 
-                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'movie' | 'tv')} className="flex-1 overflow-hidden flex flex-col">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="movie" className="gap-2">
-                            <Film className="h-4 w-4" /> Films
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'movie' | 'tv' | 'sagas')} className="flex-1 overflow-hidden flex flex-col">
+                    <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="movie" className="gap-1.5 text-xs">
+                            <Film className="h-3.5 w-3.5" /> Films
                         </TabsTrigger>
-                        <TabsTrigger value="tv" className="gap-2">
-                            <Tv className="h-4 w-4" /> Séries
+                        <TabsTrigger value="tv" className="gap-1.5 text-xs">
+                            <Tv className="h-3.5 w-3.5" /> Séries
+                        </TabsTrigger>
+                        <TabsTrigger value="sagas" className="gap-1.5 text-xs">
+                            <Layers className="h-3.5 w-3.5" /> Sagas
                         </TabsTrigger>
                     </TabsList>
 
-                    <div className="py-4 text-center">
+                    <div className="py-3 text-center">
                         <div className="text-3xl font-bold font-headline">{totalWatched}</div>
-                        <div className="text-sm text-muted-foreground uppercase tracking-wider font-medium">
-                            {activeTab === 'movie' ? 'Films vus au total' : 'Séries vues au total'}
+                        <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                            {activeTab === 'movie'
+                                ? 'Films vus au total'
+                                : activeTab === 'tv'
+                                ? 'Séries vues au total'
+                                : 'Sagas entamées'}
                         </div>
                     </div>
 
@@ -115,10 +178,75 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
                     <TabsContent value="tv" className="flex-1 overflow-y-auto pr-1 space-y-4">
                         <StatsList stats={seriesStats} monthNames={monthNames} />
                     </TabsContent>
+
+                    <TabsContent value="sagas" className="flex-1 overflow-y-auto pr-1 space-y-3">
+                        {sagaStats.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2 text-center">
+                                <Layers className="h-8 w-8 opacity-20" />
+                                <p className="text-xs">Aucune saga ou trilogie enregistrée pour l'instant.</p>
+                                <p className="text-[11px] text-muted-foreground/70">
+                                    Ajoutez des films d'une franchise ou liez vos films manuellement pour suivre vos sagas !
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-2.5">
+                                {sagaStats.map((saga) => {
+                                    const ranking = userProfile?.sagaRankings?.[saga.id];
+                                    return (
+                                        <div
+                                            key={saga.id}
+                                            onClick={() => setInspectSaga({ id: saga.id, name: saga.name, isCustom: saga.isCustom, posterUrl: saga.posterUrl })}
+                                            className="p-3 rounded-xl border border-border/70 hover:border-indigo-400/60 bg-muted/20 hover:bg-muted/40 transition-all cursor-pointer flex items-center justify-between gap-3 group"
+                                        >
+                                            <div className="space-y-1 min-w-0 flex-1">
+                                                <div className="font-bold text-xs sm:text-sm text-foreground truncate flex items-center gap-1.5 group-hover:text-indigo-300 transition-colors">
+                                                    🎬 {saga.name}
+                                                </div>
+                                                <div className="text-[11px] text-muted-foreground flex items-center gap-2">
+                                                    <span className="text-emerald-400 font-semibold">{saga.seenTitles.length} volet(s) vu(s)</span>
+                                                    {saga.isCustom && (
+                                                        <span className="bg-indigo-500/15 text-indigo-300 px-1.5 py-0.2 rounded text-[9px] font-bold">
+                                                            Custom
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {ranking && ranking.rankedTitles.length > 0 && (
+                                                    <div className="text-[11px] text-amber-300 font-medium flex items-center gap-1 pt-0.5">
+                                                        <Trophy className="h-3 w-3 text-amber-400 shrink-0" />
+                                                        <span className="truncate">Favori : {ranking.rankedTitles[0]}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-7 text-xs text-primary group-hover:translate-x-0.5 transition-transform"
+                                            >
+                                                Voir →
+                                            </Button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </TabsContent>
                 </Tabs>
+
+                {inspectSaga && (
+                    <SagaDetailModal
+                        isOpen={!!inspectSaga}
+                        onOpenChange={(open) => { if (!open) setInspectSaga(null); }}
+                        sagaId={inspectSaga.id}
+                        sagaName={inspectSaga.name}
+                        isCustom={inspectSaga.isCustom}
+                        fallbackPosterUrl={inspectSaga.posterUrl}
+                    />
+                )}
             </DialogContent>
         </Dialog>
     );
+}
 }
 
 function StatsList({ stats, monthNames }: { stats: YearlyStats[], monthNames: string[] }) {

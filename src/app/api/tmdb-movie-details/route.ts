@@ -130,6 +130,12 @@ export async function POST(req: NextRequest) {
       actors: [],
       genres: details.genres?.map((g: any) => g.name) || [],
       posterUrl: details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : undefined,
+      collection: details.belongs_to_collection ? {
+        id: details.belongs_to_collection.id,
+        name: details.belongs_to_collection.name,
+        posterUrl: details.belongs_to_collection.poster_path ? `https://image.tmdb.org/t/p/w500${details.belongs_to_collection.poster_path}` : undefined,
+        backdropUrl: details.belongs_to_collection.backdrop_path ? `https://image.tmdb.org/t/p/original${details.belongs_to_collection.backdrop_path}` : undefined,
+      } : null,
     };
 
     console.log('Détails trouvés:', formattedItem);

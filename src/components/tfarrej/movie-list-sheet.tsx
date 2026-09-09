@@ -10,12 +10,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv, Swords } from "lucide-react";
+import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv, Swords, Layers } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters, MovieCategory, updateMovieCategory } from '@/lib/firebase/firestore';
+import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters, MovieCategory, updateMovieCategory, MovieCollectionInfo } from '@/lib/firebase/firestore';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
 import { MovieCategoryPicker, CategoryBadge, CategorySelectModal } from '@/components/tfarrej/movie-category-picker';
+import { SagaDetailModal } from '@/components/tfarrej/SagaDetailModal';
+import { ManageSagaDialog } from '@/components/tfarrej/ManageSagaDialog';
 import { guessMovieCategory } from '@/lib/movie-category-utils';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -42,6 +44,7 @@ interface MovieDetails {
   country?: string;
   posterUrl?: string;
   viewedAt?: number;
+  collection?: MovieCollectionInfo | null;
 }
 
 interface SearchResult {
@@ -473,6 +476,22 @@ function MovieListContent({
   const [showOldMovies, setShowOldMovies] = useState(false);
   const [isDuelModalOpen, setIsDuelModalOpen] = useState(false);
   const [editingCategoryMovie, setEditingCategoryMovie] = useState<{ title: string; category?: MovieCategory } | null>(null);
+  const [selectedSaga, setSelectedSaga] = useState<{ id: string; name: string; isCustom?: boolean; posterUrl?: string } | null>(null);
+  const [manageSagaMovie, setManageSagaMovie] = useState<{ title: string; posterUrl?: string } | null>(null);
+
+  const getMovieSaga = useCallback((title: string, details?: MovieDetails, seenItem?: any): MovieCollectionInfo | null => {
+    const norm = title.toLowerCase().trim();
+    const sagaId = userProfile?.movieSagaLinks?.[norm];
+    if (sagaId) {
+      const custom = userProfile?.customSagas?.[sagaId];
+      if (custom) {
+        return { id: custom.id, name: custom.name, posterUrl: custom.posterUrl, isCustom: true };
+      }
+    }
+    if (seenItem?.collection) return seenItem.collection;
+    if (details?.collection) return details.collection;
+    return null;
+  }, [userProfile?.movieSagaLinks, userProfile?.customSagas]);
 
   const movieTitles = useMemo(() => {
     const raw = userProfile?.[listType];
@@ -904,6 +923,30 @@ function MovieListContent({
                         />
                       );
                     })()}
+                    {/* Saga Badge */}
+                    {type === 'movie' && (() => {
+                      const saga = getMovieSaga(movieTitle, details, seenData);
+                      if (!saga) return null;
+                      return (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedSaga({
+                              id: String(saga.id),
+                              name: saga.name,
+                              isCustom: saga.isCustom,
+                              posterUrl: saga.posterUrl || details?.posterUrl,
+                            });
+                          }}
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/35 hover:bg-indigo-500/25 hover:border-indigo-400 transition-all cursor-pointer truncate max-w-[170px] shadow-xs"
+                          title={`Voir la saga : ${saga.name}`}
+                        >
+                          <span>🎬</span>
+                          <span className="truncate">{saga.name}</span>
+                        </button>
+                      );
+                    })()}
                   </div>
                 )}
                 {/* Show when the movie was watched and Cinema badge */}
@@ -952,6 +995,28 @@ function MovieListContent({
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Marquer comme vu</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {type === 'movie' && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-indigo-400"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setManageSagaMovie({ title: movieTitle, posterUrl: details?.posterUrl || posterUrl });
+                    }}
+                    title="Lier à une saga / trilogie"
+                  >
+                    <Layers className="h-4 w-4" />
+                    <span className="sr-only">Lier à une saga</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Lier à une saga / trilogie</p>
                 </TooltipContent>
               </Tooltip>
             )}
@@ -1025,6 +1090,32 @@ function MovieListContent({
             </div>
           );
         })()}
+        {/* Saga badge in grid view */}
+        {type === 'movie' && (() => {
+          const saga = getMovieSaga(movieTitle, details, seenData);
+          if (!saga) return null;
+          return (
+            <div className="absolute top-1.5 left-1.5 z-20 max-w-[80%]">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedSaga({
+                    id: String(saga.id),
+                    name: saga.name,
+                    isCustom: saga.isCustom,
+                    posterUrl: saga.posterUrl || details?.posterUrl,
+                  });
+                }}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-950/90 border border-indigo-500/60 text-indigo-200 text-[8px] font-bold shadow-md backdrop-blur-xs truncate max-w-full hover:bg-indigo-900 cursor-pointer"
+                title={`Voir la saga : ${saga.name}`}
+              >
+                <span>🎬</span>
+                <span className="truncate">{saga.name}</span>
+              </button>
+            </div>
+          );
+        })()}
         {/* Custom rendering for missing posters in grid view to ensure contrast */}
         {(!posterUrl || (posterUrl && !posterUrl.startsWith('default:') && !posterUrl.startsWith('http'))) ? (
           <div className="w-full h-full bg-slate-800 flex flex-col items-center justify-center p-2 text-center relative">
@@ -1068,6 +1159,20 @@ function MovieListContent({
               disabled={isUpdating}
             >
               <Eye className="h-3 w-3" />
+            </Button>
+          )}
+          {type === 'movie' && (
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-5 w-5 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-indigo-300 hover:text-indigo-200"
+              onClick={(e) => {
+                e.stopPropagation();
+                setManageSagaMovie({ title: movieTitle, posterUrl: details?.posterUrl || posterUrl });
+              }}
+              title="Lier à une saga"
+            >
+              <Layers className="h-3 w-3" />
             </Button>
           )}
           <AlertDialog>
@@ -1433,6 +1538,26 @@ function MovieListContent({
           }}
         />
       )}
+
+      {selectedSaga && (
+        <SagaDetailModal
+          isOpen={!!selectedSaga}
+          onOpenChange={(open) => { if (!open) setSelectedSaga(null); }}
+          sagaId={selectedSaga.id}
+          sagaName={selectedSaga.name}
+          isCustom={selectedSaga.isCustom}
+          fallbackPosterUrl={selectedSaga.posterUrl}
+        />
+      )}
+
+      {manageSagaMovie && (
+        <ManageSagaDialog
+          isOpen={!!manageSagaMovie}
+          onOpenChange={(open) => { if (!open) setManageSagaMovie(null); }}
+          targetMovieTitle={manageSagaMovie.title}
+          targetMoviePosterUrl={manageSagaMovie.posterUrl}
+        />
+      )}
     </div>
   );
 }
@@ -1494,6 +1619,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
       let year = seenData?.year || undefined;
       let country: string | undefined;
       let wikipediaUrl: string | undefined;
+      let collection: MovieCollectionInfo | undefined = seenData?.collection;
 
       const response = await fetch('/api/tmdb-movie-details', {
         method: 'POST',
@@ -1510,6 +1636,9 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
           wikipediaUrl = data.movie.wikipediaUrl;
           if (!posterUrl && data.movie.posterUrl) {
             posterUrl = data.movie.posterUrl;
+          }
+          if (!collection && data.movie.collection) {
+            collection = data.movie.collection;
           }
         }
       }
@@ -1537,6 +1666,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
           year,
           country,
           posterUrl,
+          collection,
           viewedAt: seenData?.viewedAt,
         }
       }));

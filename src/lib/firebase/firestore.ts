@@ -1,5 +1,5 @@
 
-import { doc, setDoc, getDoc, serverTimestamp, arrayUnion, arrayRemove, writeBatch, updateDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp, arrayUnion, arrayRemove, writeBatch, updateDoc, deleteField } from "firebase/firestore";
 import { db as firestoreDb } from "./client";
 import { getUserFromDb, storeUserInDb } from "@/lib/indexeddb";
 
@@ -204,6 +204,29 @@ export type MonthlyMovieRanking = {
     hasUpdatesSincePublish: boolean; // Flag indicating incremental duels were performed
 };
 
+export type MovieCollectionInfo = {
+    id: number | string;
+    name: string;
+    posterUrl?: string;
+    backdropUrl?: string;
+    isCustom?: boolean;
+};
+
+export type CustomSaga = {
+    id: string;
+    name: string;
+    movieTitles: string[];
+    posterUrl?: string;
+    createdAt?: number;
+};
+
+export type SagaRanking = {
+    sagaId: string;
+    sagaName: string;
+    rankedTitles: string[];
+    updatedAt: number;
+};
+
 export type SeenMovie = {
     title: string;
     viewedAt: number; // timestamp of when the movie was watched
@@ -215,6 +238,7 @@ export type SeenMovie = {
     cinemaPlace?: string;
     genres?: string[];
     category?: MovieCategory;
+    collection?: MovieCollectionInfo;
 };
 
 export type UserProfile = {
@@ -260,6 +284,10 @@ export type UserProfile = {
     cinemaTheaters?: string[];
     // Classements mensuels de films vus (Jeux de duels)
     movieRankings?: Record<string, MonthlyMovieRanking>;
+    // Sagas / Trilogies
+    customSagas?: Record<string, CustomSaga>; // sagaId -> CustomSaga
+    sagaRankings?: Record<string, SagaRanking>; // sagaId -> SagaRanking
+    movieSagaLinks?: Record<string, string>; // normalized movie title -> sagaId
     // These are stored ONLY in IndexedDB for privacy
     fullBodyPhotoUrl?: string; // This will also be a Cloudinary URL
     closeupPhotoUrl?: string; // This will also be a Cloudinary URL
@@ -698,6 +726,7 @@ export async function addSeenMovieWithDate(
         watchedInCinema?: boolean;
         cinemaPlace?: string;
         category?: MovieCategory;
+        collection?: MovieCollectionInfo;
     }
 ) {
     const userRef = doc(firestoreDb, "users", uid);
@@ -716,6 +745,7 @@ export async function addSeenMovieWithDate(
     if (movie.watchedInCinema) seenMovie.watchedInCinema = movie.watchedInCinema;
     if (movie.cinemaPlace) seenMovie.cinemaPlace = movie.cinemaPlace;
     if (movie.category) seenMovie.category = movie.category;
+    if (movie.collection) seenMovie.collection = movie.collection;
 
     const firestorePayload: Record<string, any> = {
         moviesToWatch: arrayRemove(movie.title),
@@ -724,6 +754,9 @@ export async function addSeenMovieWithDate(
     };
     if (movie.category) {
         firestorePayload[`movieCategories.${norm}`] = movie.category;
+    }
+    if (movie.collection) {
+        firestorePayload[`movieSagaLinks.${norm}`] = String(movie.collection.id);
     }
 
     if (uid && uid !== 'guest') {
@@ -740,12 +773,17 @@ export async function addSeenMovieWithDate(
             ...(localProfile.movieCategories || {}),
             ...(movie.category ? { [norm]: movie.category } : {}),
         };
+        const updatedSagaLinks = {
+            ...(localProfile.movieSagaLinks || {}),
+            ...(movie.collection ? { [norm]: String(movie.collection.id) } : {}),
+        };
         const updatedProfile = {
             ...localProfile,
             moviesToWatch: (localProfile.moviesToWatch || []).filter((t: string) => t.toLowerCase() !== movie.title.toLowerCase()),
             seenMovieTitles: Array.from(new Set([...(localProfile.seenMovieTitles || []), movie.title])),
             seenMoviesData: [...(localProfile.seenMoviesData || []).filter(m => m.title?.toLowerCase()?.trim() !== norm), seenMovie],
             movieCategories: updatedCategories,
+            movieSagaLinks: updatedSagaLinks,
         };
         await storeUserInDb(uid, updatedProfile);
     }
@@ -786,6 +824,219 @@ export async function updateMovieCategory(uid: string, movieTitle: string, categ
             }, { merge: true });
         } catch (e) {
             console.warn('Erreur updateMovieCategory Firestore:', e);
+        }
+    }
+}
+
+// Enregistrer ou modifier une saga personnalisée créée par l'utilisateur
+export async function saveCustomSaga(uid: string, saga: CustomSaga) {
+    const effectiveUid = uid || 'guest';
+    const localProfile = await getUserFromDb(effectiveUid);
+    if (!localProfile) return;
+
+    const customSagas = { ...(localProfile.customSagas || {}), [saga.id]: saga };
+    const movieSagaLinks = { ...(localProfile.movieSagaLinks || {}) };
+
+    saga.movieTitles.forEach(t => {
+        const norm = t.toLowerCase().trim();
+        movieSagaLinks[norm] = saga.id;
+    });
+
+    const updatedProfile = {
+        ...localProfile,
+        customSagas,
+        movieSagaLinks,
+    };
+    await storeUserInDb(effectiveUid, updatedProfile);
+
+    if (uid && uid !== 'guest') {
+        try {
+            const userRef = doc(firestoreDb, 'users', uid);
+            await setDoc(userRef, {
+                [`customSagas.${saga.id}`]: saga,
+                movieSagaLinks,
+            }, { merge: true });
+        } catch (e) {
+            console.warn('Erreur saveCustomSaga Firestore:', e);
+        }
+    }
+}
+
+// Supprimer une saga personnalisée
+export async function removeCustomSaga(uid: string, sagaId: string) {
+    const effectiveUid = uid || 'guest';
+    const localProfile = await getUserFromDb(effectiveUid);
+    if (!localProfile) return;
+
+    const customSagas = { ...(localProfile.customSagas || {}) };
+    delete customSagas[sagaId];
+
+    const movieSagaLinks = { ...(localProfile.movieSagaLinks || {}) };
+    Object.keys(movieSagaLinks).forEach(k => {
+        if (movieSagaLinks[k] === sagaId) delete movieSagaLinks[k];
+    });
+
+    const updatedProfile = {
+        ...localProfile,
+        customSagas,
+        movieSagaLinks,
+    };
+    await storeUserInDb(effectiveUid, updatedProfile);
+
+    if (uid && uid !== 'guest') {
+        try {
+            const userRef = doc(firestoreDb, 'users', uid);
+            await updateDoc(userRef, {
+                [`customSagas.${sagaId}`]: deleteField(),
+                movieSagaLinks,
+            });
+        } catch (e) {
+            console.warn('Erreur removeCustomSaga Firestore:', e);
+        }
+    }
+}
+
+// Lier un film à une saga (TMDb ou personnalisée)
+export async function linkMovieToSaga(uid: string, movieTitle: string, collection: MovieCollectionInfo) {
+    const norm = movieTitle.toLowerCase().trim();
+    const effectiveUid = uid || 'guest';
+    const localProfile = await getUserFromDb(effectiveUid);
+    if (!localProfile) return;
+
+    const sagaId = String(collection.id);
+    const movieSagaLinks = {
+        ...(localProfile.movieSagaLinks || {}),
+        [norm]: sagaId,
+    };
+
+    let customSagas = { ...(localProfile.customSagas || {}) };
+    if (collection.isCustom) {
+        if (!customSagas[sagaId]) {
+            customSagas[sagaId] = {
+                id: sagaId,
+                name: collection.name,
+                movieTitles: [movieTitle],
+                posterUrl: collection.posterUrl,
+                createdAt: Date.now(),
+            };
+        } else {
+            const titles = customSagas[sagaId].movieTitles || [];
+            if (!titles.some(t => t.toLowerCase().trim() === norm)) {
+                customSagas[sagaId] = {
+                    ...customSagas[sagaId],
+                    movieTitles: [...titles, movieTitle],
+                };
+            }
+        }
+    }
+
+    const seenMoviesData = (localProfile.seenMoviesData || []).map((m: any) => {
+        if (m?.title && m.title.toLowerCase().trim() === norm) {
+            return { ...m, collection };
+        }
+        return m;
+    });
+
+    const updatedProfile = {
+        ...localProfile,
+        movieSagaLinks,
+        customSagas,
+        seenMoviesData,
+    };
+    await storeUserInDb(effectiveUid, updatedProfile);
+
+    if (uid && uid !== 'guest') {
+        try {
+            const userRef = doc(firestoreDb, 'users', uid);
+            const payload: Record<string, any> = {
+                [`movieSagaLinks.${norm}`]: sagaId,
+                seenMoviesData,
+            };
+            if (collection.isCustom && customSagas[sagaId]) {
+                payload[`customSagas.${sagaId}`] = customSagas[sagaId];
+            }
+            await setDoc(userRef, payload, { merge: true });
+        } catch (e) {
+            console.warn('Erreur linkMovieToSaga Firestore:', e);
+        }
+    }
+}
+
+// Dissocier un film d'une saga
+export async function unlinkMovieFromSaga(uid: string, movieTitle: string) {
+    const norm = movieTitle.toLowerCase().trim();
+    const effectiveUid = uid || 'guest';
+    const localProfile = await getUserFromDb(effectiveUid);
+    if (!localProfile) return;
+
+    const sagaId = localProfile.movieSagaLinks?.[norm];
+    const movieSagaLinks = { ...(localProfile.movieSagaLinks || {}) };
+    delete movieSagaLinks[norm];
+
+    let customSagas = { ...(localProfile.customSagas || {}) };
+    if (sagaId && customSagas[sagaId]) {
+        customSagas[sagaId] = {
+            ...customSagas[sagaId],
+            movieTitles: (customSagas[sagaId].movieTitles || []).filter(t => t.toLowerCase().trim() !== norm),
+        };
+    }
+
+    const seenMoviesData = (localProfile.seenMoviesData || []).map((m: any) => {
+        if (m?.title && m.title.toLowerCase().trim() === norm) {
+            const copy = { ...m };
+            delete copy.collection;
+            return copy;
+        }
+        return m;
+    });
+
+    const updatedProfile = {
+        ...localProfile,
+        movieSagaLinks,
+        customSagas,
+        seenMoviesData,
+    };
+    await storeUserInDb(effectiveUid, updatedProfile);
+
+    if (uid && uid !== 'guest') {
+        try {
+            const userRef = doc(firestoreDb, 'users', uid);
+            await updateDoc(userRef, {
+                [`movieSagaLinks.${norm}`]: deleteField(),
+                seenMoviesData,
+                ...(sagaId && customSagas[sagaId] ? { [`customSagas.${sagaId}`]: customSagas[sagaId] } : {}),
+            });
+        } catch (e) {
+            console.warn('Erreur unlinkMovieFromSaga Firestore:', e);
+        }
+    }
+}
+
+// Enregistrer le classement officiel d'une saga issu d'un duel
+export async function saveSagaRanking(uid: string, ranking: SagaRanking) {
+    const effectiveUid = uid || 'guest';
+    const localProfile = await getUserFromDb(effectiveUid);
+    if (!localProfile) return;
+
+    const sagaRankings = {
+        ...(localProfile.sagaRankings || {}),
+        [ranking.sagaId]: ranking,
+    };
+
+    const updatedProfile = {
+        ...localProfile,
+        sagaRankings,
+    };
+    await storeUserInDb(effectiveUid, updatedProfile);
+
+    if (uid && uid !== 'guest') {
+        try {
+            const userRef = doc(firestoreDb, 'users', uid);
+            await setDoc(userRef, {
+                [`sagaRankings.${ranking.sagaId}`]: ranking,
+            }, { merge: true });
+        } catch (e) {
+            console.warn('Erreur saveSagaRanking Firestore:', e);
         }
     }
 }
