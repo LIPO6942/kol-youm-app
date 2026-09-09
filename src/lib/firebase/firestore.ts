@@ -719,7 +719,7 @@ export async function addSeenMovieWithDate(
     uid: string,
     movie: {
         title: string;
-        viewedAt: number;
+        viewedAt?: number;
         posterUrl?: string;
         year?: number;
         rating?: number;
@@ -734,9 +734,11 @@ export async function addSeenMovieWithDate(
 
     const seenMovie: any = {
         title: movie.title,
-        viewedAt: movie.viewedAt,
         addedAt: Date.now(),
     };
+    if (movie.viewedAt !== undefined && movie.viewedAt !== null) {
+        seenMovie.viewedAt = movie.viewedAt;
+    }
 
     // Conditionally add optional fields to avoid 'undefined' values which Firestore rejects
     if (movie.posterUrl) seenMovie.posterUrl = movie.posterUrl;

@@ -8,12 +8,23 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { addItemToWatchlist, isTestMovieTitle, SagaRanking } from '@/lib/firebase/firestore';
+import {
+  addItemToWatchlist,
+  addSeenMovieWithDate,
+  removeMovieFromList,
+  isTestMovieTitle,
+  SagaRanking,
+  MovieCategory,
+} from '@/lib/firebase/firestore';
+import { guessMovieCategory } from '@/lib/movie-category-utils';
+import { MovieCategoryPicker } from '@/components/tfarrej/movie-category-picker';
 import { SagaDuelModal, SagaDuelMovie } from '@/components/tfarrej/SagaDuelModal';
 import { ManageSagaDialog } from '@/components/tfarrej/ManageSagaDialog';
 import {
@@ -28,6 +39,7 @@ import {
   Star,
   Loader2,
   Sparkles,
+  HelpCircle,
 } from 'lucide-react';
 
 export interface SagaPartItem {
@@ -75,6 +87,14 @@ export function SagaDetailModal({
   const [isDuelOpen, setIsDuelOpen] = useState(false);
   const [isManageOpen, setIsManageOpen] = useState(false);
   const [addingToWatchlist, setAddingToWatchlist] = useState<Record<string, boolean>>({});
+
+  // État pour marquer un film comme vu avec date approximative / sans date
+  const [markingSeenPart, setMarkingSeenPart] = useState<SagaPartItem | null>(null);
+  const [dateMode, setDateMode] = useState<'none' | 'year' | 'exact'>('none');
+  const [approxYear, setApproxYear] = useState<string>('');
+  const [exactDate, setExactDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [chosenCategory, setChosenCategory] = useState<MovieCategory>('Drame');
+  const [isSubmittingSeen, setIsSubmittingSeen] = useState(false);
 
   // Sets des films de l'utilisateur pour vérifier le statut
   const seenSet = useMemo(() => {
@@ -180,6 +200,76 @@ export function SagaDetailModal({
       toast({ variant: 'destructive', title: 'Erreur', description: "Impossible d'ajouter à la liste." });
     } finally {
       setAddingToWatchlist(prev => ({ ...prev, [part.title]: false }));
+    }
+  };
+
+  // Ouvrir la boîte de dialogue pour marquer comme vu avec date
+  const openMarkAsSeen = (part: SagaPartItem) => {
+    setMarkingSeenPart(part);
+    setDateMode('none');
+    setApproxYear(part.year ? String(part.year) : String(new Date().getFullYear()));
+    setExactDate(new Date().toISOString().split('T')[0]);
+    setChosenCategory(guessMovieCategory(part.title));
+  };
+
+  // Confirmer l'ajout dans les films vus
+  const handleConfirmMarkAsSeen = async () => {
+    if (!markingSeenPart) return;
+    if (!user) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Vous devez être connecté.' });
+      return;
+    }
+
+    setIsSubmittingSeen(true);
+    try {
+      let viewedAtTimestamp: number | undefined = undefined;
+
+      if (dateMode === 'year') {
+        const y = parseInt(approxYear, 10);
+        if (!isNaN(y) && y >= 1900 && y <= 2100) {
+          viewedAtTimestamp = new Date(y, 5, 1).getTime(); // Milieu d'année
+        }
+      } else if (dateMode === 'exact') {
+        const d = new Date(exactDate).getTime();
+        if (!isNaN(d)) {
+          viewedAtTimestamp = d;
+        }
+      }
+
+      await addSeenMovieWithDate(user.uid, {
+        title: markingSeenPart.title,
+        posterUrl: markingSeenPart.posterUrl || undefined,
+        year: markingSeenPart.year || undefined,
+        rating: markingSeenPart.rating || undefined,
+        viewedAt: viewedAtTimestamp,
+        category: chosenCategory,
+        collection: {
+          id: sagaId,
+          name: collectionData?.name || sagaName,
+          posterUrl: collectionData?.posterUrl || fallbackPosterUrl,
+          isCustom,
+        },
+      });
+
+      // Retirer de la watchlist si le film y figurait
+      if (userProfile?.moviesToWatch?.includes(markingSeenPart.title)) {
+        await removeMovieFromList(user.uid, 'moviesToWatch', markingSeenPart.title);
+      }
+
+      toast({
+        title: '🎬 Ajouté aux Films Vus !',
+        description: `"${markingSeenPart.title}" a été marqué comme vu avec succès.`,
+        className: 'bg-emerald-600 text-white font-bold border-none shadow-lg',
+      });
+
+      setMarkingSeenPart(null);
+      fetchSagaData();
+      onRefresh?.();
+    } catch (e) {
+      console.error('Erreur addSeenMovieWithDate:', e);
+      toast({ variant: 'destructive', title: 'Erreur', description: "Impossible d'enregistrer le film." });
+    } finally {
+      setIsSubmittingSeen(false);
     }
   };
 
@@ -311,20 +401,33 @@ export function SagaDetailModal({
                           {index + 1}
                         </div>
 
-                        {/* Affiche miniature */}
-                        <div className="relative w-10 h-14 rounded-lg overflow-hidden shadow shrink-0 border border-white/10 bg-black">
+                        {/* Affiche miniature (cliquable pour marquer comme vu) */}
+                        <div
+                          onClick={() => {
+                            if (!isSeen) openMarkAsSeen(part);
+                          }}
+                          className={`relative w-11 h-15 rounded-lg overflow-hidden shadow shrink-0 border border-white/10 bg-black ${
+                            !isSeen ? 'cursor-pointer hover:ring-2 hover:ring-emerald-400 group/poster' : ''
+                          }`}
+                          title={!isSeen ? "Cliquer pour marquer comme vu" : undefined}
+                        >
                           {part.posterUrl ? (
                             <Image
                               src={part.posterUrl}
                               alt={part.title}
                               fill
                               sizes="45px"
-                              className="object-cover"
+                              className="object-cover group-hover/poster:scale-105 transition-transform"
                               unoptimized
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-xs">
                               🎬
+                            </div>
+                          )}
+                          {!isSeen && (
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/poster:opacity-100 transition-opacity flex items-center justify-center">
+                              <Check className="h-4 w-4 text-emerald-400 stroke-[3]" />
                             </div>
                           )}
                         </div>
@@ -348,31 +451,48 @@ export function SagaDetailModal({
                           </div>
                         </div>
 
-                        {/* Statut & Action */}
-                        <div className="shrink-0">
+                        {/* Statut & Actions */}
+                        <div className="shrink-0 flex items-center gap-1.5">
                           {isSeen ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                               <Check className="h-3 w-3 stroke-[2.5]" /> Vu
                             </span>
-                          ) : isWatchlist ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                              <Clock className="h-3 w-3" /> À Voir
-                            </span>
                           ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleAddToWatchlist(part)}
-                              disabled={isAdding}
-                              className="h-7 text-[11px] font-bold border-primary/50 text-primary hover:bg-primary hover:text-primary-foreground gap-1"
-                            >
-                              {isAdding ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
+                            <>
+                              {/* Bouton pour marquer comme vu avec date approx / sans date */}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openMarkAsSeen(part)}
+                                className="h-7 px-2.5 text-[11px] font-bold border-emerald-500/50 text-emerald-400 hover:bg-emerald-500 hover:text-white gap-1 transition-all"
+                                title="Marquer ce film comme déjà vu"
+                              >
+                                <Check className="h-3 w-3" />
+                                <span>Vu</span>
+                              </Button>
+
+                              {/* Statut ou Bouton À Voir */}
+                              {isWatchlist ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                  <Clock className="h-3 w-3" /> À Voir
+                                </span>
                               ) : (
-                                <Plus className="h-3 w-3" />
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleAddToWatchlist(part)}
+                                  disabled={isAdding}
+                                  className="h-7 px-2.5 text-[11px] font-bold border-primary/50 text-primary hover:bg-primary hover:text-primary-foreground gap-1"
+                                >
+                                  {isAdding ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Plus className="h-3 w-3" />
+                                  )}
+                                  + À Voir
+                                </Button>
                               )}
-                              + À Voir
-                            </Button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -384,6 +504,167 @@ export function SagaDetailModal({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Boîte de dialogue pour marquer comme vu avec option de date approximative */}
+      {markingSeenPart && (
+        <Dialog open={Boolean(markingSeenPart)} onOpenChange={(open) => { if (!open) setMarkingSeenPart(null); }}>
+          <DialogContent className="sm:max-w-[460px] max-h-[85vh] overflow-hidden flex flex-col rounded-2xl bg-card border border-border shadow-2xl text-card-foreground p-4 sm:p-5">
+            <DialogHeader className="pb-2">
+              <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                <Check className="h-5 w-5 text-emerald-400" />
+                Marquer comme Vu
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Ajouter &ldquo;{markingSeenPart.title}&rdquo; à vos films vus.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto space-y-4 py-1 pr-1">
+              {/* En-tête miniature du film */}
+              <div className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/25 border border-border/50">
+                {markingSeenPart.posterUrl && (
+                  <div className="relative w-10 h-14 rounded-md overflow-hidden shrink-0 border border-white/10 bg-black">
+                    <Image
+                      src={markingSeenPart.posterUrl}
+                      alt={markingSeenPart.title}
+                      fill
+                      sizes="45px"
+                      className="object-cover"
+                      unoptimized
+                    />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-bold text-sm truncate text-foreground">{markingSeenPart.title}</h4>
+                  <p className="text-xs text-muted-foreground">
+                    {markingSeenPart.year ? `${markingSeenPart.year} • ` : ''}Saga {collectionData?.name || sagaName}
+                  </p>
+                </div>
+              </div>
+
+              {/* Choix de la date de visionnage */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>Quand l&apos;avez-vous vu ?</span>
+                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                </label>
+
+                {/* Boutons d'options de date */}
+                <div className="grid grid-cols-3 gap-1.5 p-1 bg-muted/40 rounded-lg text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setDateMode('none')}
+                    className={`py-1.5 px-2 rounded-md transition-all text-center ${
+                      dateMode === 'none'
+                        ? 'bg-emerald-600 text-white font-bold shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Sans date
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDateMode('year')}
+                    className={`py-1.5 px-2 rounded-md transition-all text-center ${
+                      dateMode === 'year'
+                        ? 'bg-emerald-600 text-white font-bold shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Année approx.
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDateMode('exact')}
+                    className={`py-1.5 px-2 rounded-md transition-all text-center ${
+                      dateMode === 'exact'
+                        ? 'bg-emerald-600 text-white font-bold shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Date précise
+                  </button>
+                </div>
+
+                {/* Champs selon l'option choisie */}
+                {dateMode === 'none' && (
+                  <p className="text-[11px] text-muted-foreground bg-muted/20 p-2.5 rounded-lg border border-border/40">
+                    💡 Le film sera comptabilisé dans vos films vus sans date de visionnage précise.
+                  </p>
+                )}
+
+                {dateMode === 'year' && (
+                  <div className="space-y-1 pt-1">
+                    <label className="text-[11px] font-medium text-muted-foreground">
+                      Année approximative de visionnage :
+                    </label>
+                    <Input
+                      type="number"
+                      placeholder="Ex: 2015, 2021..."
+                      value={approxYear}
+                      onChange={(e) => setApproxYear(e.target.value)}
+                      className="text-sm bg-muted/20"
+                    />
+                  </div>
+                )}
+
+                {dateMode === 'exact' && (
+                  <div className="space-y-1 pt-1">
+                    <label className="text-[11px] font-medium text-muted-foreground">
+                      Date de visionnage :
+                    </label>
+                    <Input
+                      type="date"
+                      value={exactDate}
+                      onChange={(e) => setExactDate(e.target.value)}
+                      className="text-sm bg-muted/20"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Sélection de Catégorie */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-xs font-bold text-foreground">
+                  Catégorie du film :
+                </label>
+                <MovieCategoryPicker
+                  selectedCategory={chosenCategory}
+                  onSelectCategory={(cat) => setChosenCategory(cat)}
+                  size="sm"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="pt-3 border-t border-border/50 gap-2 sm:gap-0 flex-row justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setMarkingSeenPart(null)}
+                disabled={isSubmittingSeen}
+                className="text-xs"
+              >
+                Annuler
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleConfirmMarkAsSeen}
+                disabled={isSubmittingSeen}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5"
+              >
+                {isSubmittingSeen ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+                Confirmer l&apos;ajout aux Films Vus
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Modale de Duel Spécial Saga */}
       <SagaDuelModal
