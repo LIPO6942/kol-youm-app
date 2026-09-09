@@ -1025,18 +1025,50 @@ export async function saveSagaRanking(uid: string, ranking: SagaRanking) {
         [ranking.sagaId]: ranking,
     };
 
+    // Lier automatiquement tous les films classés de cette saga dans movieSagaLinks
+    const movieSagaLinks = { ...(localProfile.movieSagaLinks || {}) };
+    (ranking.rankedTitles || []).forEach(t => {
+        const norm = (t || '').toLowerCase().trim();
+        if (norm) movieSagaLinks[norm] = String(ranking.sagaId);
+    });
+
+    // Mettre à jour également collection dans seenMoviesData si les films y sont présents
+    const seenMoviesData = (localProfile.seenMoviesData || []).map((m: any) => {
+        const norm = (m?.title || '').toLowerCase().trim();
+        if (ranking.rankedTitles.some(t => (t || '').toLowerCase().trim() === norm)) {
+            return {
+                ...m,
+                collection: {
+                    id: ranking.sagaId,
+                    name: ranking.sagaName,
+                    posterUrl: m.collection?.posterUrl || m.posterUrl,
+                    isCustom: String(ranking.sagaId).startsWith('custom_'),
+                }
+            };
+        }
+        return m;
+    });
+
     const updatedProfile = {
         ...localProfile,
         sagaRankings,
+        movieSagaLinks,
+        seenMoviesData,
     };
     await storeUserInDb(effectiveUid, updatedProfile);
 
     if (uid && uid !== 'guest') {
         try {
             const userRef = doc(firestoreDb, 'users', uid);
-            await setDoc(userRef, {
+            const firestorePayload: Record<string, any> = {
                 [`sagaRankings.${ranking.sagaId}`]: ranking,
-            }, { merge: true });
+                seenMoviesData,
+            };
+            (ranking.rankedTitles || []).forEach(t => {
+                const norm = (t || '').toLowerCase().trim();
+                if (norm) firestorePayload[`movieSagaLinks.${norm}`] = String(ranking.sagaId);
+            });
+            await setDoc(userRef, firestorePayload, { merge: true });
         } catch (e) {
             console.warn('Erreur saveSagaRanking Firestore:', e);
         }

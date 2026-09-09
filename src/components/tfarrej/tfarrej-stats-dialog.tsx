@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import Image from 'next/image';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -79,23 +80,83 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
             posterUrl?: string;
         }>();
 
+        const seenSet = new Set([
+            ...(userProfile?.seenMovieTitles || []).map(t => (t || '').toLowerCase().trim()),
+            ...(userProfile?.seenMoviesData || []).map(m => (m?.title || '').toLowerCase().trim()),
+        ]);
+
         // 1. Sagas personnalisées
         Object.values(userProfile?.customSagas || {}).forEach(s => {
+            if (!s || !s.id) return;
+            const sid = String(s.id);
             const seen = (s.movieTitles || []).filter(t => {
-                const norm = t.toLowerCase().trim();
-                return (userProfile?.seenMovieTitles || []).some(st => st.toLowerCase().trim() === norm)
-                    || (userProfile?.seenMoviesData || []).some(sm => sm?.title?.toLowerCase()?.trim() === norm);
+                const norm = (t || '').toLowerCase().trim();
+                return seenSet.has(norm);
             });
-            sagasMap.set(s.id, {
-                id: s.id,
+            sagasMap.set(sid, {
+                id: sid,
                 name: s.name,
                 isCustom: true,
-                seenTitles: seen,
+                seenTitles: seen.length > 0 ? seen : (s.movieTitles || []),
                 posterUrl: s.posterUrl,
             });
         });
 
-        // 2. Collections TMDb depuis seenMoviesData
+        // 2. Sagas depuis sagaRankings (ex: duel joué, classement officiel enregistré)
+        Object.values(userProfile?.sagaRankings || {}).forEach(r => {
+            if (!r || !r.sagaId) return;
+            const sid = String(r.sagaId);
+            const seen = (r.rankedTitles || []).filter(t => {
+                const norm = (t || '').toLowerCase().trim();
+                return seenSet.has(norm) || (r.rankedTitles || []).includes(t);
+            });
+            if (!sagasMap.has(sid)) {
+                sagasMap.set(sid, {
+                    id: sid,
+                    name: r.sagaName || 'Saga',
+                    isCustom: sid.startsWith('custom_'),
+                    seenTitles: seen.length > 0 ? seen : (r.rankedTitles || []),
+                });
+            } else {
+                const existing = sagasMap.get(sid)!;
+                if (!existing.name || existing.name === 'Saga') {
+                    existing.name = r.sagaName;
+                }
+                seen.forEach(t => {
+                    if (!existing.seenTitles.some(st => st.toLowerCase().trim() === t.toLowerCase().trim())) {
+                        existing.seenTitles.push(t);
+                    }
+                });
+            }
+        });
+
+        // 3. Sagas depuis movieSagaLinks
+        Object.entries(userProfile?.movieSagaLinks || {}).forEach(([movieNorm, sid]) => {
+            if (!sid) return;
+            const sidStr = String(sid);
+            const realTitle = (userProfile?.seenMovieTitles || []).find(t => (t || '').toLowerCase().trim() === movieNorm)
+                || (userProfile?.seenMoviesData || []).find(m => m?.title?.toLowerCase()?.trim() === movieNorm)?.title
+                || movieNorm;
+
+            if (!sagasMap.has(sidStr)) {
+                const custom = userProfile?.customSagas?.[sidStr];
+                const ranking = userProfile?.sagaRankings?.[sidStr];
+                sagasMap.set(sidStr, {
+                    id: sidStr,
+                    name: custom?.name || ranking?.sagaName || 'Saga',
+                    isCustom: sidStr.startsWith('custom_'),
+                    seenTitles: [realTitle],
+                    posterUrl: custom?.posterUrl,
+                });
+            } else {
+                const existing = sagasMap.get(sidStr)!;
+                if (!existing.seenTitles.some(st => st.toLowerCase().trim() === movieNorm)) {
+                    existing.seenTitles.push(realTitle);
+                }
+            }
+        });
+
+        // 4. Collections TMDb depuis seenMoviesData
         (userProfile?.seenMoviesData || []).forEach(m => {
             if (m?.collection && m.collection.id) {
                 const colId = String(m.collection.id);
@@ -103,21 +164,36 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
                     sagasMap.set(colId, {
                         id: colId,
                         name: m.collection.name,
-                        isCustom: false,
+                        isCustom: Boolean(m.collection.isCustom),
                         seenTitles: [m.title],
                         posterUrl: m.collection.posterUrl || m.posterUrl,
                     });
                 } else {
                     const existing = sagasMap.get(colId)!;
-                    if (!existing.seenTitles.includes(m.title)) {
+                    if (!existing.posterUrl && (m.collection.posterUrl || m.posterUrl)) {
+                        existing.posterUrl = m.collection.posterUrl || m.posterUrl;
+                    }
+                    if (!existing.seenTitles.some(st => st.toLowerCase().trim() === m.title.toLowerCase().trim())) {
                         existing.seenTitles.push(m.title);
                     }
                 }
             }
         });
 
+        // Résoudre les affiches manquantes depuis seenMoviesData si possible
+        sagasMap.forEach(item => {
+            if (!item.posterUrl) {
+                const match = (userProfile?.seenMoviesData || []).find(m =>
+                    item.seenTitles.some(st => st.toLowerCase().trim() === (m?.title || '').toLowerCase().trim()) && m?.posterUrl
+                );
+                if (match?.posterUrl) {
+                    item.posterUrl = match.posterUrl;
+                }
+            }
+        });
+
         return Array.from(sagasMap.values()).sort((a, b) => b.seenTitles.length - a.seenTitles.length);
-    }, [userProfile?.customSagas, userProfile?.seenMoviesData, userProfile?.seenMovieTitles]);
+    }, [userProfile?.customSagas, userProfile?.sagaRankings, userProfile?.movieSagaLinks, userProfile?.seenMoviesData, userProfile?.seenMovieTitles]);
 
     const totalWatched = activeTab === 'movie'
         ? totalSeenMovies
@@ -198,6 +274,18 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
                                             onClick={() => setInspectSaga({ id: saga.id, name: saga.name, isCustom: saga.isCustom, posterUrl: saga.posterUrl })}
                                             className="p-3 rounded-xl border border-border/70 hover:border-indigo-400/60 bg-muted/20 hover:bg-muted/40 transition-all cursor-pointer flex items-center justify-between gap-3 group"
                                         >
+                                            {saga.posterUrl && (
+                                                <div className="relative w-10 h-14 rounded-lg overflow-hidden shadow shrink-0 border border-white/10 bg-black aspect-[2/3]">
+                                                    <Image
+                                                        src={saga.posterUrl}
+                                                        alt={saga.name}
+                                                        fill
+                                                        sizes="45px"
+                                                        className="object-cover"
+                                                        unoptimized
+                                                    />
+                                                </div>
+                                            )}
                                             <div className="space-y-1 min-w-0 flex-1">
                                                 <div className="font-bold text-xs sm:text-sm text-foreground truncate flex items-center gap-1.5 group-hover:text-indigo-300 transition-colors">
                                                     🎬 {saga.name}
