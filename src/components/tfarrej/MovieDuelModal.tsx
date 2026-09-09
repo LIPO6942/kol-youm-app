@@ -26,6 +26,7 @@ import {
   RankMovement,
   dismissCandidate,
   removeReferenceFromSession,
+  autoResolveSagaDuels,
 } from '@/lib/movie-duel-engine';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -185,14 +186,22 @@ export function MovieDuelModal({
         unrankedMovies,
         existingCatalog
       );
-      setSession(newSession);
+      const resolvedSession = autoResolveSagaDuels(newSession, userProfile?.sagaRankings);
+      setSession(resolvedSession);
+      if (resolvedSession.isFinished) {
+        executeSaveRanking(resolvedSession, { notifyToast: false, closeModal: false });
+      }
       return;
     }
 
     // 3. Mode Initial : tri complet depuis zéro (si au moins 2 films)
     if (validSeenMovies.length >= 2) {
       const newSession = createInitialDuelSession(validSeenMovies);
-      setSession(newSession);
+      const resolvedSession = autoResolveSagaDuels(newSession, userProfile?.sagaRankings);
+      setSession(resolvedSession);
+      if (resolvedSession.isFinished) {
+        executeSaveRanking(resolvedSession, { notifyToast: false, closeModal: false });
+      }
       return;
     }
 
@@ -388,11 +397,12 @@ export function MovieDuelModal({
       setSession(prev => {
         if (!prev) return null;
         const next = processDuelDecision(prev, winner);
-        if (next.isFinished) {
+        const resolvedNext = autoResolveSagaDuels(next, userProfile?.sagaRankings);
+        if (resolvedNext.isFinished) {
           // Sauvegarde automatique et immédiate dès la fin du duel !
-          executeSaveRanking(next, { notifyToast: false, closeModal: false });
+          executeSaveRanking(resolvedNext, { notifyToast: false, closeModal: false });
         }
-        return next;
+        return resolvedNext;
       });
     }, 180);
   }, [session, executeSaveRanking]);
@@ -415,10 +425,11 @@ export function MovieDuelModal({
     } else {
       nextSession = removeReferenceFromSession(session, title);
     }
-    setSession(nextSession);
+    const resolvedNext = autoResolveSagaDuels(nextSession, userProfile?.sagaRankings);
+    setSession(resolvedNext);
 
-    if (nextSession.isFinished) {
-      executeSaveRanking(nextSession, { notifyToast: false, closeModal: false });
+    if (resolvedNext.isFinished) {
+      executeSaveRanking(resolvedNext, { notifyToast: false, closeModal: false });
     }
 
     const effectiveUid = user?.uid || userProfile?.uid || 'guest';
@@ -1036,7 +1047,14 @@ export function MovieDuelModal({
                   <Button
                     type="button"
                     variant="ghost"
-                    onClick={() => setSession(createInitialDuelSession(validSeenMovies))}
+                    onClick={() => {
+                      const initial = createInitialDuelSession(validSeenMovies);
+                      const resolved = autoResolveSagaDuels(initial, userProfile?.sagaRankings);
+                      setSession(resolved);
+                      if (resolved.isFinished) {
+                        executeSaveRanking(resolved, { notifyToast: false, closeModal: false });
+                      }
+                    }}
                     className="h-12 px-6 rounded-2xl bg-slate-800/90 hover:bg-slate-700/90 text-white font-bold border border-white/20 hover:border-white/40 shadow-lg shadow-black/40 backdrop-blur-md transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2 group"
                   >
                     <RotateCcw className="w-4 h-4 text-rose-400 group-hover:-rotate-90 transition-transform duration-300" />

@@ -1,4 +1,4 @@
-import { MovieCategory } from '@/lib/firebase/firestore';
+import { MovieCategory, SagaRanking } from '@/lib/firebase/firestore';
 import { guessMovieCategory } from '@/lib/movie-category-utils';
 
 export type DuelMovieItem = {
@@ -57,6 +57,7 @@ export type DuelHistorySnapshot = {
   incrementalCategoryLow?: number;
   incrementalCategoryHigh?: number;
   incrementalStage?: 'category' | 'general';
+  isAutoResolved?: boolean;
 };
 
 export type DuelSessionState = {
@@ -434,7 +435,8 @@ export function createIncrementalDuelSession(
  */
 export function processDuelDecision(
   state: DuelSessionState,
-  winner: 'candidate' | 'reference'
+  winner: 'candidate' | 'reference',
+  options?: { isAutoResolved?: boolean }
 ): DuelSessionState {
   if (state.isFinished || !state.activeDuel) {
     return state;
@@ -463,6 +465,7 @@ export function processDuelDecision(
     incrementalCategoryLow: state.incrementalCategoryLow,
     incrementalCategoryHigh: state.incrementalCategoryHigh,
     incrementalStage: state.incrementalStage,
+    isAutoResolved: options?.isAutoResolved,
   };
 
   // =========================================================================
@@ -985,9 +988,9 @@ function advanceIncrementalCandidate(
 }
 
 /**
- * Annule le dernier choix de duel (Undo complet).
+ * Effectue un unique retour en arrière d'un pas dans l'historique du duel.
  */
-export function undoDuelDecision(state: DuelSessionState): DuelSessionState {
+function performSingleUndo(state: DuelSessionState): DuelSessionState {
   if (state.history.length === 0) return state;
 
   const previous = state.history[state.history.length - 1];
@@ -1038,6 +1041,87 @@ export function undoDuelDecision(state: DuelSessionState): DuelSessionState {
     incrementalCategoryHigh: previous.incrementalCategoryHigh,
     incrementalStage: previous.incrementalStage,
   };
+}
+
+/**
+ * Annule le dernier choix de duel manuel de l'utilisateur
+ * (déroule automatiquement les éventuels duels de saga auto-résolus qui ont suivi).
+ */
+export function undoDuelDecision(state: DuelSessionState): DuelSessionState {
+  if (state.history.length === 0) return state;
+
+  let current = state;
+  while (current.history.length > 0) {
+    const previous = current.history[current.history.length - 1];
+    const isAuto = previous.isAutoResolved;
+    current = performSingleUndo(current);
+    if (!isAuto) {
+      break;
+    }
+  }
+  return current;
+}
+
+/**
+ * Vérifie si deux films ont déjà un ordre de préférence établi dans les duels de saga de l'utilisateur.
+ * Retourne 'candidate' si movieA bat movieB, 'reference' si movieB bat movieA, ou null si inconnu.
+ */
+export function getKnownSagaWinner(
+  titleA: string,
+  titleB: string,
+  sagaRankings?: Record<string, SagaRanking> | null
+): 'candidate' | 'reference' | null {
+  if (!sagaRankings || !titleA || !titleB) return null;
+  const normA = titleA.toLowerCase().trim();
+  const normB = titleB.toLowerCase().trim();
+  if (normA === normB) return null;
+
+  for (const ranking of Object.values(sagaRankings)) {
+    if (!ranking || !Array.isArray(ranking.rankedTitles) || ranking.rankedTitles.length < 2) continue;
+
+    const idxA = ranking.rankedTitles.findIndex(t => (t || '').toLowerCase().trim() === normA);
+    const idxB = ranking.rankedTitles.findIndex(t => (t || '').toLowerCase().trim() === normB);
+
+    if (idxA >= 0 && idxB >= 0 && idxA !== idxB) {
+      // Dans le classement de la saga : le premier indice (0) est le champion
+      // Si idxA < idxB : titleA (candidate) est meilleur que titleB (reference)
+      return idxA < idxB ? 'candidate' : 'reference';
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Résout automatiquement et silencieusement tous les duels consécutifs
+ * dont l'issue a déjà été déterminée lors d'un duel de saga précédent.
+ * Évite à l'utilisateur de devoir re-choisir entre deux films de la même saga.
+ */
+export function autoResolveSagaDuels(
+  initialState: DuelSessionState,
+  sagaRankings?: Record<string, SagaRanking> | null
+): DuelSessionState {
+  if (!sagaRankings || Object.keys(sagaRankings).length === 0) return initialState;
+
+  let current = initialState;
+  let safetyCounter = 0;
+  const maxIterations = 150;
+
+  while (!current.isFinished && current.activeDuel && safetyCounter < maxIterations) {
+    safetyCounter++;
+    const movieA = current.activeDuel.movieA.title;
+    const movieB = current.activeDuel.movieB.title;
+
+    const knownWinner = getKnownSagaWinner(movieA, movieB, sagaRankings);
+    if (!knownWinner) {
+      break;
+    }
+
+    // Résoudre automatiquement ce duel avec le gagnant de la saga
+    current = processDuelDecision(current, knownWinner, { isAutoResolved: true });
+  }
+
+  return current;
 }
 
 /**
