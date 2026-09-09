@@ -1043,6 +1043,78 @@ export async function saveSagaRanking(uid: string, ranking: SagaRanking) {
     }
 }
 
+// Synchroniser l'ordre établi lors du duel de saga avec les classements mensuels existants (général et catégorie)
+export async function syncSagaRankingWithMonthly(
+    uid: string,
+    sagaRankedTitles: string[]
+): Promise<void> {
+    if (!sagaRankedTitles || sagaRankedTitles.length < 2) return;
+    const effectiveUid = uid || 'guest';
+    const localProfile = await getUserFromDb(effectiveUid);
+    if (!localProfile?.movieRankings) return;
+
+    for (const [monthKey, ranking] of Object.entries(localProfile.movieRankings)) {
+        if (!ranking || !Array.isArray(ranking.rankedTitles) || ranking.rankedTitles.length < 2) continue;
+
+        let changed = false;
+        const currentRanked = [...ranking.rankedTitles];
+
+        // Pour chaque paire (le volet d'indice inférieur est supérieur au volet d'indice supérieur)
+        for (let i = 0; i < sagaRankedTitles.length; i++) {
+            for (let j = i + 1; j < sagaRankedTitles.length; j++) {
+                const titleBetter = sagaRankedTitles[i].toLowerCase().trim();
+                const titleWorse = sagaRankedTitles[j].toLowerCase().trim();
+
+                const idxBetter = currentRanked.findIndex(t => t.toLowerCase().trim() === titleBetter);
+                const idxWorse = currentRanked.findIndex(t => t.toLowerCase().trim() === titleWorse);
+
+                // Si les deux films sont présents dans le classement général et que le perdant était classé avant le gagnant
+                if (idxBetter >= 0 && idxWorse >= 0 && idxBetter > idxWorse) {
+                    const [item] = currentRanked.splice(idxBetter, 1);
+                    currentRanked.splice(idxWorse, 0, item);
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed) {
+            const updatedRanking: MonthlyMovieRanking = {
+                ...ranking,
+                rankedTitles: currentRanked,
+                updatedAt: Date.now(),
+            };
+
+            // Mettre à jour également dans les classements par catégorie si applicable
+            if (ranking.categoryRankings) {
+                const updatedCategoryRankings: Record<string, string[]> = {};
+                for (const [cat, catTitles] of Object.entries(ranking.categoryRankings)) {
+                    if (!Array.isArray(catTitles) || catTitles.length < 2) {
+                        updatedCategoryRankings[cat] = catTitles;
+                        continue;
+                    }
+                    const catRanked = [...catTitles];
+                    for (let i = 0; i < sagaRankedTitles.length; i++) {
+                        for (let j = i + 1; j < sagaRankedTitles.length; j++) {
+                            const titleBetter = sagaRankedTitles[i].toLowerCase().trim();
+                            const titleWorse = sagaRankedTitles[j].toLowerCase().trim();
+                            const idxB = catRanked.findIndex(t => t.toLowerCase().trim() === titleBetter);
+                            const idxW = catRanked.findIndex(t => t.toLowerCase().trim() === titleWorse);
+                            if (idxB >= 0 && idxW >= 0 && idxB > idxW) {
+                                const [it] = catRanked.splice(idxB, 1);
+                                catRanked.splice(idxW, 0, it);
+                            }
+                        }
+                    }
+                    updatedCategoryRankings[cat] = catRanked;
+                }
+                updatedRanking.categoryRankings = updatedCategoryRankings;
+            }
+
+            await saveMonthlyMovieRanking(effectiveUid, updatedRanking);
+        }
+    }
+}
+
 export async function rejectMovie(uid: string, movieTitle: string, type: 'movie' | 'tv' = 'movie') {
     const userRef = doc(firestoreDb, "users", uid);
     const fieldName = type === 'movie' ? 'rejectedMovieTitles' : 'rejectedSeriesTitles';

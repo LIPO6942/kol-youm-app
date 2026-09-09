@@ -287,10 +287,10 @@ export function SagaDetailModal({
     <>
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[580px] max-h-[90vh] overflow-hidden flex flex-col rounded-2xl bg-card border border-border shadow-2xl text-card-foreground p-4 sm:p-6">
-          <DialogHeader className="pb-3 border-b border-border/50 shrink-0">
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-1">
-                <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl font-bold font-headline text-foreground">
+          <DialogHeader className="pb-3 border-b border-border/50 shrink-0 pr-8">
+            <div className="flex items-start justify-between gap-2">
+              <div className="space-y-1 min-w-0 flex-1">
+                <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold font-headline text-foreground leading-tight">
                   🎬 {collectionData?.name || sagaName}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground">
@@ -304,7 +304,7 @@ export function SagaDetailModal({
                   size="sm"
                   variant="outline"
                   onClick={() => setIsManageOpen(true)}
-                  className="h-8 text-xs border-border/70 hover:border-indigo-400 gap-1"
+                  className="h-7 px-2 text-xs border-border/70 hover:border-indigo-400 gap-1"
                   title="Gérer les films associés"
                 >
                   <Settings2 className="h-3.5 w-3.5" />
@@ -388,7 +388,7 @@ export function SagaDetailModal({
                     return (
                       <div
                         key={part.title + index}
-                        className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all ${
+                        className={`flex items-center gap-2.5 sm:gap-3 p-2.5 rounded-xl border transition-all ${
                           isSeen
                             ? 'border-emerald-500/40 bg-emerald-500/5'
                             : isWatchlist
@@ -397,7 +397,7 @@ export function SagaDetailModal({
                         }`}
                       >
                         {/* Numéro du volet */}
-                        <div className="w-5 text-center font-bold text-xs text-muted-foreground shrink-0">
+                        <div className="w-4 sm:w-5 text-center font-bold text-xs text-muted-foreground shrink-0">
                           {index + 1}
                         </div>
 
@@ -406,7 +406,7 @@ export function SagaDetailModal({
                           onClick={() => {
                             if (!isSeen) openMarkAsSeen(part);
                           }}
-                          className={`relative w-11 h-15 rounded-lg overflow-hidden shadow shrink-0 border border-white/10 bg-black ${
+                          className={`relative w-11 h-16 rounded-lg overflow-hidden shadow shrink-0 border border-white/10 bg-black/40 aspect-[2/3] ${
                             !isSeen ? 'cursor-pointer hover:ring-2 hover:ring-emerald-400 group/poster' : ''
                           }`}
                           title={!isSeen ? "Cliquer pour marquer comme vu" : undefined}
@@ -416,7 +416,7 @@ export function SagaDetailModal({
                               src={part.posterUrl}
                               alt={part.title}
                               fill
-                              sizes="45px"
+                              sizes="50px"
                               className="object-cover group-hover/poster:scale-105 transition-transform"
                               unoptimized
                             />
@@ -433,10 +433,10 @@ export function SagaDetailModal({
                         </div>
 
                         {/* Métadonnées du film */}
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-xs sm:text-sm text-foreground truncate flex items-center gap-1.5">
-                            <span className="truncate">{part.title}</span>
-                          </div>
+                        <div className="flex-1 min-w-0 pr-1">
+                          <h4 className="font-bold text-xs sm:text-sm text-foreground line-clamp-2 leading-snug break-words">
+                            {part.title}
+                          </h4>
                           <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
                             {part.year && (
                               <span className="flex items-center gap-0.5">
@@ -452,9 +452,9 @@ export function SagaDetailModal({
                         </div>
 
                         {/* Statut & Actions */}
-                        <div className="shrink-0 flex items-center gap-1.5">
+                        <div className="shrink-0 flex items-center gap-1 sm:gap-1.5">
                           {isSeen ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
                               <Check className="h-3 w-3 stroke-[2.5]" /> Vu
                             </span>
                           ) : (
@@ -464,7 +464,7 @@ export function SagaDetailModal({
                                 size="sm"
                                 variant="outline"
                                 onClick={() => openMarkAsSeen(part)}
-                                className="h-7 px-2.5 text-[11px] font-bold border-emerald-500/50 text-emerald-400 hover:bg-emerald-500 hover:text-white gap-1 transition-all"
+                                className="h-7 px-2 text-[11px] font-bold border-emerald-500/50 text-emerald-400 hover:bg-emerald-500 hover:text-white gap-1 transition-all whitespace-nowrap"
                                 title="Marquer ce film comme déjà vu"
                               >
                                 <Check className="h-3 w-3" />
@@ -473,7 +473,7 @@ export function SagaDetailModal({
 
                               {/* Statut ou Bouton À Voir */}
                               {isWatchlist ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 whitespace-nowrap">
                                   <Clock className="h-3 w-3" /> À Voir
                                 </span>
                               ) : (
@@ -482,7 +482,7 @@ export function SagaDetailModal({
                                   variant="outline"
                                   onClick={() => handleAddToWatchlist(part)}
                                   disabled={isAdding}
-                                  className="h-7 px-2.5 text-[11px] font-bold border-primary/50 text-primary hover:bg-primary hover:text-primary-foreground gap-1"
+                                  className="h-7 px-2 text-[11px] font-bold border-primary/50 text-primary hover:bg-primary hover:text-primary-foreground gap-1 whitespace-nowrap"
                                 >
                                   {isAdding ? (
                                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -523,20 +523,20 @@ export function SagaDetailModal({
               {/* En-tête miniature du film */}
               <div className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/25 border border-border/50">
                 {markingSeenPart.posterUrl && (
-                  <div className="relative w-10 h-14 rounded-md overflow-hidden shrink-0 border border-white/10 bg-black">
+                  <div className="relative w-11 h-16 rounded-md overflow-hidden shrink-0 border border-white/10 bg-black aspect-[2/3]">
                     <Image
                       src={markingSeenPart.posterUrl}
                       alt={markingSeenPart.title}
                       fill
-                      sizes="45px"
+                      sizes="50px"
                       className="object-cover"
                       unoptimized
                     />
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <h4 className="font-bold text-sm truncate text-foreground">{markingSeenPart.title}</h4>
-                  <p className="text-xs text-muted-foreground">
+                  <h4 className="font-bold text-sm text-foreground line-clamp-2 leading-snug break-words">{markingSeenPart.title}</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {markingSeenPart.year ? `${markingSeenPart.year} • ` : ''}Saga {collectionData?.name || sagaName}
                   </p>
                 </div>
