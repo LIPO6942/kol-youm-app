@@ -247,7 +247,6 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
         </Dialog>
     );
 }
-}
 
 function StatsList({ stats, monthNames }: { stats: YearlyStats[], monthNames: string[] }) {
     if (stats.length === 0) {
