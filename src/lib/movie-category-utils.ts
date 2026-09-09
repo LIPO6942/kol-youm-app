@@ -67,7 +67,43 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Sci-Fi';
   }
 
-  // 3. Mind blowing
+  // 4. Crime / Policier
+  if (
+    text.includes('crime') ||
+    text.includes('criminel') ||
+    text.includes('policier') ||
+    text.includes('police') ||
+    text.includes('flic') ||
+    text.includes('détective') ||
+    text.includes('detective') ||
+    text.includes('enquête') ||
+    text.includes('enquete') ||
+    text.includes('investigation') ||
+    text.includes('gangster') ||
+    text.includes('mafia') ||
+    text.includes('parrain') ||
+    text.includes('godfather') ||
+    text.includes('cartel') ||
+    text.includes('narco') ||
+    text.includes('braquage') ||
+    text.includes('heist') ||
+    text.includes('meurtre') ||
+    text.includes('murder') ||
+    text.includes('homicide') ||
+    text.includes('assassinat') ||
+    text.includes('tueur en série') ||
+    text.includes('serial killer') ||
+    text.includes('polar') ||
+    text.includes('film noir') ||
+    text.includes('procureur') ||
+    text.includes('sherlock') ||
+    text.includes('cambriolage') ||
+    text.includes('robbery')
+  ) {
+    return 'Crime/Policier';
+  }
+
+  // 5. Mind blowing
   if (
     text.includes('mind blowing') ||
     text.includes('mindfuck') ||

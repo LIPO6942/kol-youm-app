@@ -67,6 +67,7 @@ export const MOVIE_CATEGORIES = [
   'Romance',
   'Horreur/Thriller psy',
   'Animation',
+  'Crime/Policier',
 ] as const;
 
 export type MovieCategory = typeof MOVIE_CATEGORIES[number];
@@ -180,6 +181,16 @@ export const MOVIE_CATEGORY_CONFIG: Record<MovieCategory, {
     border: 'border-sky-500/50',
     glow: 'shadow-[0_0_12px_rgba(14,165,233,0.3)]',
     gradient: 'from-sky-500/25 to-blue-600/15',
+  },
+  'Crime/Policier': {
+    label: 'Crime/Policier',
+    shortLabel: 'Crime / Polar',
+    emoji: '🕵️‍♂️',
+    color: 'text-blue-400',
+    badgeBg: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
+    border: 'border-blue-500/40',
+    glow: 'shadow-[0_0_12px_rgba(59,130,246,0.25)]',
+    gradient: 'from-blue-500/20 to-indigo-600/10',
   },
 };
 

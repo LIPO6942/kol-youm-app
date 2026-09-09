@@ -21,12 +21,17 @@ export default {
     'text-emerald-400',
     'text-pink-400',
     'text-violet-400',
+    'text-blue-400',
+    'text-blue-300',
     'border-cyan-500/40',
     'border-cyan-500/50',
     'border-sky-500/40',
     'border-sky-500/50',
+    'border-blue-500/40',
+    'border-blue-500/50',
     'bg-cyan-500/15',
     'bg-sky-500/20',
+    'bg-blue-500/15',
   ],
   theme: {
     extend: {
