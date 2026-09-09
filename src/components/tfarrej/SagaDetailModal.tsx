@@ -20,6 +20,7 @@ import {
   addSeenMovieWithDate,
   removeMovieFromList,
   isTestMovieTitle,
+  toggleSagaCompleted,
   SagaRanking,
   MovieCategory,
 } from '@/lib/firebase/firestore';
@@ -33,6 +34,7 @@ import {
   Swords,
   Plus,
   Check,
+  CheckCircle2,
   Clock,
   Settings2,
   Calendar,
@@ -41,6 +43,7 @@ import {
   Sparkles,
   HelpCircle,
 } from 'lucide-react';
+
 
 export interface SagaPartItem {
   id?: number | string;
@@ -171,8 +174,10 @@ export function SagaDetailModal({
   // Statistiques de complétion
   const seenCount = seenParts.length;
   const totalCount = parts.length;
-  const progressPercent = totalCount > 0 ? Math.round((seenCount / totalCount) * 100) : 0;
-  const isComplete = totalCount > 0 && seenCount === totalCount;
+  const isManuallyCompleted = Boolean(userProfile?.completedSagas?.[sagaId]);
+  const isComplete = isManuallyCompleted || (totalCount > 0 && seenCount >= totalCount);
+  const progressPercent = isComplete ? 100 : (totalCount > 0 ? Math.round((seenCount / totalCount) * 100) : 0);
+
 
   // Classement existant pour cette saga
   const existingRanking: SagaRanking | null = useMemo(() => {
@@ -302,6 +307,31 @@ export function SagaDetailModal({
               <div className="flex items-center gap-1.5 shrink-0">
                 <Button
                   size="sm"
+                  variant={isComplete ? "secondary" : "outline"}
+                  onClick={async () => {
+                    const nextState = !isComplete;
+                    await toggleSagaCompleted(user?.uid || 'guest', sagaId, nextState);
+                    toast({
+                      title: nextState ? "Saga marquée comme terminée ! 🏆" : "Saga marquée en cours ⏳",
+                      description: nextState 
+                        ? `"${collectionData?.name || sagaName}" est désormais classée dans vos sagas terminées.`
+                        : `"${collectionData?.name || sagaName}" est désormais classée dans vos sagas entamées.`,
+                    });
+                    onRefresh?.();
+                  }}
+                  className={`h-7 px-2 text-xs gap-1 transition-all ${
+                    isComplete 
+                      ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20' 
+                      : 'border-border/70 hover:border-emerald-400/80 text-muted-foreground hover:text-emerald-400'
+                  }`}
+                  title={isComplete ? "Marquer la saga comme en cours" : "Marquer la saga comme terminée (100% vue)"}
+                >
+                  <Check className={`h-3.5 w-3.5 ${isComplete ? 'stroke-[2.5]' : 'opacity-60'}`} />
+                  <span className="hidden sm:inline">{isComplete ? "Terminée" : "Marquer vue"}</span>
+                </Button>
+
+                <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => setIsManageOpen(true)}
                   className="h-7 px-2 text-xs border-border/70 hover:border-indigo-400 gap-1"
@@ -317,17 +347,26 @@ export function SagaDetailModal({
             <div className="pt-3 space-y-1.5">
               <div className="flex items-center justify-between text-xs font-semibold">
                 <span className="text-muted-foreground flex items-center gap-1">
-                  Progression de visionnage :{' '}
+                  Progression :{' '}
                   <span className="text-foreground font-bold">{seenCount} / {totalCount} vus</span>
                 </span>
-                <span className={isComplete ? 'text-amber-400 font-bold flex items-center gap-1' : 'text-primary'}>
-                  {isComplete && <Trophy className="h-3.5 w-3.5" />}
-                  {progressPercent}% {isComplete && '• Complétée !'}
+                <span className={isComplete ? 'text-emerald-400 font-bold flex items-center gap-1' : 'text-amber-400 font-semibold flex items-center gap-1'}>
+                  {isComplete ? (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                      100% • Terminée !
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="h-3.5 w-3.5 text-amber-400" />
+                      {progressPercent}% • En cours
+                    </>
+                  )}
                 </span>
               </div>
               <Progress
                 value={progressPercent}
-                className="h-2 rounded-full bg-muted/30"
+                className={`h-2 rounded-full ${isComplete ? '[&>div]:bg-emerald-500 bg-emerald-500/20' : '[&>div]:bg-amber-500 bg-muted/30'}`}
               />
             </div>
           </DialogHeader>

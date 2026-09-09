@@ -288,6 +288,8 @@ export type UserProfile = {
     customSagas?: Record<string, CustomSaga>; // sagaId -> CustomSaga
     sagaRankings?: Record<string, SagaRanking>; // sagaId -> SagaRanking
     movieSagaLinks?: Record<string, string>; // normalized movie title -> sagaId
+    completedSagas?: Record<string, boolean>; // sagaId -> true si terminée
+
     // These are stored ONLY in IndexedDB for privacy
     fullBodyPhotoUrl?: string; // This will also be a Cloudinary URL
     closeupPhotoUrl?: string; // This will also be a Cloudinary URL
@@ -1074,6 +1076,35 @@ export async function saveSagaRanking(uid: string, ranking: SagaRanking) {
         }
     }
 }
+
+// Basculer l'état terminé d'une saga (100% vue ou terminée manuellement)
+export async function toggleSagaCompleted(uid: string, sagaId: string, isCompleted: boolean) {
+    const effectiveUid = uid || 'guest';
+    const localProfile = await getUserFromDb(effectiveUid);
+    if (!localProfile) return;
+
+    const completedSagas = { ...(localProfile.completedSagas || {}) };
+    if (isCompleted) {
+        completedSagas[sagaId] = true;
+    } else {
+        delete completedSagas[sagaId];
+    }
+
+    const updatedProfile = { ...localProfile, completedSagas };
+    await storeUserInDb(effectiveUid, updatedProfile);
+
+    if (uid && uid !== 'guest') {
+        try {
+            const userRef = doc(firestoreDb, 'users', uid);
+            await setDoc(userRef, {
+                [`completedSagas.${sagaId}`]: isCompleted ? true : deleteField()
+            }, { merge: true });
+        } catch (e) {
+            console.warn('Erreur toggleSagaCompleted Firestore:', e);
+        }
+    }
+}
+
 
 // Synchroniser l'ordre établi lors du duel de saga avec les classements mensuels existants (général et catégorie)
 export async function syncSagaRankingWithMonthly(

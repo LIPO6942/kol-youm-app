@@ -487,11 +487,16 @@ function MovieListContent({
       if (custom) {
         return { id: custom.id, name: custom.name, posterUrl: custom.posterUrl, isCustom: true };
       }
+      const ranking = userProfile?.sagaRankings?.[sagaId];
+      if (ranking) {
+        return { id: ranking.sagaId, name: ranking.sagaName, isCustom: String(ranking.sagaId).startsWith('custom_') };
+      }
     }
     if (seenItem?.collection) return seenItem.collection;
     if (details?.collection) return details.collection;
     return null;
-  }, [userProfile?.movieSagaLinks, userProfile?.customSagas]);
+  }, [userProfile?.movieSagaLinks, userProfile?.customSagas, userProfile?.sagaRankings]);
+
 
   const movieTitles = useMemo(() => {
     const raw = userProfile?.[listType];
