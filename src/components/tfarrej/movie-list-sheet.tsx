@@ -1076,193 +1076,171 @@ function MovieListContent({
     const isOld = (listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && isOlderThanTwoYears(movieTitle);
 
     return (
-      <div key={`${movieTitle}-${index}`} className="relative flex flex-col p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded group">
-        <div className="flex items-start justify-between gap-2 w-full">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-8 h-12 relative rounded overflow-hidden bg-muted">
-                {renderPoster(posterUrl, movieTitle, isOld)}
-              </div>
-
-              <div className="flex-1 min-w-0 pr-1">
-                <div className="flex items-center gap-1.5 overflow-hidden">
-                  <h4 className="text-[11px] sm:text-xs font-medium truncate tracking-tight leading-none" title={movieTitle}>
-                    {movieTitle}
-                  </h4>
-                  {details?.wikipediaUrl && (
-                    <a
-                      href={details.wikipediaUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center h-4 w-4 rounded-md hover:bg-accent hover:text-accent-foreground text-muted-foreground transition-colors"
-                      onClick={(e) => e.stopPropagation()}
-                      title="Wikipedia"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      <span className="sr-only">Wikipedia</span>
-                    </a>
-                  )}
-                </div>
-                {details && (
-                  <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
-                    {!isOld && details.rating && (
-                      <div className="flex items-center gap-0.5 flex-shrink-0">
-                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        <span className="font-medium">{details.rating}/10</span>
-                      </div>
-                    )}
-                    {!isOld && details.year && (
-                      <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80 px-1.5 py-0 text-[10px] h-5 flex-shrink-0">
-                        {details.year}
-                      </span>
-                    )}
-                    {!isOld && details.country && (
-                      <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-transparent border-input border text-foreground hover:bg-accent hover:text-accent-foreground px-1.5 py-0 text-[10px] h-5 truncate max-w-[80px]">
-                        {details.country}
-                      </span>
-                    )}
-                    {/* Category Badge */}
-                    {((type === 'movie' && listType === 'seenMovieTitles') || (type === 'tv' && listType === 'seenSeriesTitles')) && (() => {
-                      const currentCat = seenData?.category || (type === 'movie' ? (userProfile?.movieCategories || {})[norm] : (userProfile?.seriesCategories || {})[norm]) || guessMovieCategory(movieTitle, details?.genres);
-                      return (
-                        <CategoryBadge
-                          category={currentCat}
-                          size="xs"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingCategoryMovie({ title: movieTitle, category: currentCat });
-                          }}
-                        />
-                      );
-                    })()}
-                    {/* Saga Badge */}
-                    {type === 'movie' && (() => {
-                      const saga = getMovieSaga(movieTitle, details, seenData);
-                      if (!saga) return null;
-                      return (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedSaga({
-                              id: String(saga.id),
-                              name: saga.name,
-                              isCustom: saga.isCustom,
-                              posterUrl: saga.posterUrl || details?.posterUrl,
-                            });
-                          }}
-                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/35 hover:bg-indigo-500/25 hover:border-indigo-400 transition-all cursor-pointer truncate max-w-[170px] shadow-xs"
-                          title={`Voir la saga : ${saga.name}`}
-                        >
-                          <span>🎬</span>
-                          <span className="truncate">{saga.name}</span>
-                        </button>
-                      );
-                    })()}
-                  </div>
-                )}
-                {/* Show when the movie was watched (clickable to edit date) and Cinema badge */}
-                {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
-                  <div className="flex flex-wrap items-center gap-1.5 mt-1 text-xs text-muted-foreground">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openDateModal(movieTitle, viewedAt, seenData?.watchedInCinema);
-                      }}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground border border-transparent hover:border-border transition-colors cursor-pointer text-[10.5px]"
-                      title="Cliquer pour modifier la date de visionnage"
-                    >
-                      <Calendar className="h-3 w-3 text-emerald-400" />
-                      <span>{viewedAt ? `Vu le ${formatViewedDate(viewedAt)}` : 'Ajouter date'}</span>
-                      <Edit2 className="h-2.5 w-2.5 opacity-60 ml-0.5" />
-                    </button>
-                    {(() => {
-                      const cinemaVisit = userProfile?.visits?.find(v => v.category === 'Cinéma' && v.orderedItem?.toLowerCase() === movieTitle.toLowerCase());
-                      const isCinema = seenData?.watchedInCinema || !!cinemaVisit;
-                      const place = seenData?.cinemaPlace || cinemaVisit?.placeName;
-                      if (!isCinema) return null;
-
-                      return (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950/80 border border-violet-200 dark:border-violet-800 text-[9px] font-bold text-violet-700 dark:text-violet-300">
-                          <Clapperboard className="h-2.5 w-2.5" />
-                          Vu au Cinéma{place ? ` · ${place}` : ''}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                )}
-              </div>
-            </div>
+      <div key={`${movieTitle}-${index}`} className="relative flex flex-col p-2.5 sm:p-3 hover:bg-muted/40 rounded-xl group transition-colors">
+        <div className="flex items-start gap-3 w-full">
+          {/* Affiche */}
+          <div className="flex-shrink-0 w-9 h-13 sm:w-10 sm:h-14 relative rounded-md overflow-hidden bg-muted border border-border/50">
+            {renderPoster(posterUrl, movieTitle, isOld)}
           </div>
 
-          {/* Action buttons integrated into flex layout - always visible on mobile, no overflow */}
-          <div className="flex-shrink-0 flex items-center gap-1 self-start ml-2 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-            {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
+          {/* Contenu principal */}
+          <div className="flex-1 min-w-0">
+            {/* Ligne 1 : Titre + Wikipedia + Boutons Saga / Supprimer / Vu RAPPROCHÉS DU TITRE */}
+            <div className="flex items-center gap-1.5 min-w-0 w-full">
+              <h4 className="text-xs sm:text-sm font-semibold truncate tracking-tight text-foreground shrink min-w-0" title={movieTitle}>
+                {movieTitle}
+              </h4>
+              {details?.wikipediaUrl && (
+                <a
+                  href={details.wikipediaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                  title="Wikipedia"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  <span className="sr-only">Wikipedia</span>
+                </a>
+              )}
+
+              {/* Boutons d'actions immédiatement à côté du titre - 100% visibles, aucun décalage à droite */}
+              <div className="inline-flex items-center gap-1 ml-1 shrink-0">
+                {type === 'movie' && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setManageSagaMovie({ title: movieTitle, posterUrl: details?.posterUrl || posterUrl });
+                    }}
+                    className="h-6 w-6 rounded-md inline-flex items-center justify-center text-muted-foreground hover:text-indigo-400 bg-muted/40 hover:bg-indigo-500/20 transition-all cursor-pointer"
+                    title="Lier à une saga / trilogie"
+                  >
+                    <Layers className="h-3.5 w-3.5" />
+                    <span className="sr-only">Lier à une saga</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMovieToDelete(movieTitle);
+                  }}
+                  className="h-6 w-6 rounded-md inline-flex items-center justify-center text-red-500 hover:text-red-600 dark:text-red-400 bg-red-500/10 hover:bg-red-500/25 transition-all cursor-pointer"
+                  title="Supprimer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span className="sr-only">Supprimer</span>
+                </button>
+                {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && (
+                  <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       onMarkAsWatched(movieTitle);
                     }}
                     disabled={isUpdating}
+                    className="h-6 w-6 rounded-md inline-flex items-center justify-center text-muted-foreground hover:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all cursor-pointer"
+                    title="Marquer comme vu"
                   >
-                    <Eye className="h-4 w-4" />
+                    <Eye className="h-3.5 w-3.5" />
                     <span className="sr-only">Marquer comme vu</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Marquer comme vu</p>
-                </TooltipContent>
-              </Tooltip>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Ligne 2 : Badges de détails (Note, Année, Pays, Catégorie, Saga) */}
+            {details && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                {!isOld && details.rating && (
+                  <div className="flex items-center gap-0.5 flex-shrink-0">
+                    <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                    <span className="font-medium text-[11px]">{details.rating}/10</span>
+                  </div>
+                )}
+                {!isOld && details.year && (
+                  <span className="inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] h-4 font-semibold border-transparent bg-secondary text-secondary-foreground">
+                    {details.year}
+                  </span>
+                )}
+                {!isOld && details.country && (
+                  <span className="inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] h-4 font-medium border-border bg-transparent text-foreground truncate max-w-[80px]">
+                    {details.country}
+                  </span>
+                )}
+                {/* Category Badge */}
+                {((type === 'movie' && listType === 'seenMovieTitles') || (type === 'tv' && listType === 'seenSeriesTitles')) && (() => {
+                  const currentCat = seenData?.category || (type === 'movie' ? (userProfile?.movieCategories || {})[norm] : (userProfile?.seriesCategories || {})[norm]) || guessMovieCategory(movieTitle, details?.genres);
+                  return (
+                    <CategoryBadge
+                      category={currentCat}
+                      size="xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingCategoryMovie({ title: movieTitle, category: currentCat });
+                      }}
+                    />
+                  );
+                })()}
+                {/* Saga Badge */}
+                {type === 'movie' && (() => {
+                  const saga = getMovieSaga(movieTitle, details, seenData);
+                  if (!saga) return null;
+                  return (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedSaga({
+                          id: String(saga.id),
+                          name: saga.name,
+                          isCustom: saga.isCustom,
+                          posterUrl: saga.posterUrl || details?.posterUrl,
+                        });
+                      }}
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/35 hover:bg-indigo-500/25 hover:border-indigo-400 transition-all cursor-pointer truncate max-w-[170px] shadow-xs"
+                      title={`Voir la saga : ${saga.name}`}
+                    >
+                      <span>🎬</span>
+                      <span className="truncate">{saga.name}</span>
+                    </button>
+                  );
+                })()}
+              </div>
             )}
-            {type === 'movie' && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-indigo-400"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setManageSagaMovie({ title: movieTitle, posterUrl: details?.posterUrl || posterUrl });
-                    }}
-                    title="Lier à une saga / trilogie"
-                  >
-                    <Layers className="h-4 w-4" />
-                    <span className="sr-only">Lier à une saga</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Lier à une saga / trilogie</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg cursor-pointer transition-colors"
+
+            {/* Ligne 3 : Date de visionnage & badge cinéma */}
+            {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setMovieToDelete(movieTitle);
+                    openDateModal(movieTitle, viewedAt, seenData?.watchedInCinema);
                   }}
-                  disabled={isUpdating}
-                  title="Supprimer"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground border border-transparent hover:border-border transition-colors cursor-pointer text-[10.5px]"
+                  title="Cliquer pour modifier la date de visionnage"
                 >
-                  <Trash2 className="h-4 w-4" />
-                  <span className="sr-only">Supprimer</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Supprimer</p>
-              </TooltipContent>
-            </Tooltip>
+                  <Calendar className="h-3 w-3 text-emerald-400" />
+                  <span>{viewedAt ? `Vu le ${formatViewedDate(viewedAt)}` : 'Ajouter date'}</span>
+                  <Edit2 className="h-2.5 w-2.5 opacity-60 ml-0.5" />
+                </button>
+                {(() => {
+                  const cinemaVisit = userProfile?.visits?.find(v => v.category === 'Cinéma' && v.orderedItem?.toLowerCase() === movieTitle.toLowerCase());
+                  const isCinema = seenData?.watchedInCinema || !!cinemaVisit;
+                  const place = seenData?.cinemaPlace || cinemaVisit?.placeName;
+                  if (!isCinema) return null;
+
+                  return (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950/80 border border-violet-200 dark:border-violet-800 text-[9px] font-bold text-violet-700 dark:text-violet-300">
+                      <Clapperboard className="h-2.5 w-2.5" />
+                      Vu au Cinéma{place ? ` · ${place}` : ''}
+                    </span>
+                  );
+                })()}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1375,8 +1353,8 @@ function MovieListContent({
           </div>
         )}
 
-        {/* Action buttons on hover */}
-        <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+        {/* Action buttons on hover / mobile */}
+        <div className="absolute top-1 right-1 flex gap-1 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-20">
           {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && (
             <Button
               variant="secondary"
@@ -1386,6 +1364,21 @@ function MovieListContent({
               disabled={isUpdating}
             >
               <Eye className="h-3 w-3" />
+            </Button>
+          )}
+          {type === 'movie' && (
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-5 w-5 bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                setManageSagaMovie({ title: movieTitle, posterUrl: details?.posterUrl || posterUrl });
+              }}
+              disabled={isUpdating}
+              title="Lier à une saga / trilogie"
+            >
+              <Layers className="h-2.5 w-2.5" />
             </Button>
           )}
           <Button
