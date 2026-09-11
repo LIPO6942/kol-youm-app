@@ -1824,139 +1824,177 @@ function MovieListContent({
         />
       )}
 
-      {editingDateMovie && (
-        <Dialog open={Boolean(editingDateMovie)} onOpenChange={(open) => { if (!open) setEditingDateMovie(null); }}>
-          <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-slate-100">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
-                <Calendar className="h-5 w-5 text-emerald-400" />
-                Date de visionnage
-              </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground line-clamp-1">
-                {editingDateMovie.title}
-              </DialogDescription>
-            </DialogHeader>
+      {editingDateMovie && (() => {
+        const editingNorm = editingDateMovie.title.toLowerCase().trim();
+        const editingDetails = movieDetails[editingDateMovie.title] || Object.entries(movieDetails).find(([k]) => k.toLowerCase().trim() === editingNorm)?.[1];
+        const editingSeen = seenMoviesData?.find((m: any) => m?.title?.toLowerCase()?.trim() === editingNorm);
+        const editingPoster = editingDetails?.posterUrl || editingSeen?.posterUrl;
+        const editingYear = editingDetails?.year || editingSeen?.year;
 
-            <div className="space-y-4 py-3">
-              {/* Option Mode Selector */}
-              <div className="grid grid-cols-3 gap-1.5 p-1 bg-muted/40 rounded-lg border border-border/40 text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setEditDateMode('none')}
-                  className={`py-1.5 px-2 rounded-md transition-all text-center cursor-pointer ${
-                    editDateMode === 'none'
-                      ? 'bg-emerald-600 text-white font-bold shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Sans date
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditDateMode('year')}
-                  className={`py-1.5 px-2 rounded-md transition-all text-center cursor-pointer ${
-                    editDateMode === 'year'
-                      ? 'bg-emerald-600 text-white font-bold shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Année approx.
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditDateMode('exact')}
-                  className={`py-1.5 px-2 rounded-md transition-all text-center cursor-pointer ${
-                    editDateMode === 'exact'
-                      ? 'bg-emerald-600 text-white font-bold shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Date précise
-                </button>
+        return (
+          <Dialog open={Boolean(editingDateMovie)} onOpenChange={(open) => { if (!open) setEditingDateMovie(null); }}>
+            <DialogContent className="sm:max-w-[440px] max-h-[90vh] overflow-hidden flex flex-col rounded-2xl bg-card border border-border shadow-2xl text-card-foreground p-5">
+              <DialogHeader className="pb-1">
+                <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                  <Calendar className="h-5 w-5 text-emerald-500" />
+                  Date de visionnage
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Ajuster ou ajouter la date de visionnage pour cette œuvre.
+                </DialogDescription>
+              </DialogHeader>
+
+              {/* Aperçu miniature de l'œuvre */}
+              <div className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/40 border border-border/60 my-1">
+                {editingPoster ? (
+                  <div className="relative w-10 h-14 rounded-md overflow-hidden shrink-0 border border-border/60 bg-muted">
+                    <Image
+                      src={editingPoster}
+                      alt={editingDateMovie.title}
+                      fill
+                      sizes="40px"
+                      className="object-cover"
+                      unoptimized={editingPoster.startsWith('http')}
+                    />
+                  </div>
+                ) : (
+                  <div className="w-10 h-14 rounded-md bg-muted flex items-center justify-center shrink-0 text-muted-foreground border border-border/60">
+                    {type === 'movie' ? <Film className="h-5 w-5" /> : <Tv className="h-5 w-5" />}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-bold text-sm text-foreground line-clamp-1 leading-snug">{editingDateMovie.title}</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {editingYear ? `${editingYear} • ` : ''}{type === 'movie' ? 'Film' : 'Série'}
+                  </p>
+                </div>
               </div>
 
-              {/* Form Input based on mode */}
-              {editDateMode === 'none' && (
-                <p className="text-xs text-muted-foreground bg-muted/20 p-3 rounded-lg border border-border/40">
-                  💡 {type === 'movie' ? 'Le film' : 'La série'} sera conservé{type === 'tv' ? 'e' : ''} dans vos visionnages sans date précise.
-                </p>
-              )}
-
-              {editDateMode === 'year' && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground">
-                    Année approximative de visionnage :
-                  </Label>
-                  <Input
-                    type="number"
-                    placeholder="Ex: 2018, 2022..."
-                    value={editApproxYear}
-                    onChange={(e) => setEditApproxYear(e.target.value)}
-                    className="text-sm bg-muted/20"
-                    min={1900}
-                    max={2100}
-                  />
+              <div className="space-y-4 py-2">
+                {/* Option Mode Selector */}
+                <div className="grid grid-cols-3 gap-1.5 p-1.5 bg-muted/60 dark:bg-muted/40 rounded-xl border border-border text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setEditDateMode('none')}
+                    className={`py-2 px-2 rounded-lg transition-all text-center cursor-pointer font-bold ${
+                      editDateMode === 'none'
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-background/80'
+                    }`}
+                  >
+                    Sans date
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditDateMode('year')}
+                    className={`py-2 px-2 rounded-lg transition-all text-center cursor-pointer font-bold ${
+                      editDateMode === 'year'
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-background/80'
+                    }`}
+                  >
+                    Année approx.
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditDateMode('exact')}
+                    className={`py-2 px-2 rounded-lg transition-all text-center cursor-pointer font-bold ${
+                      editDateMode === 'exact'
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-background/80'
+                    }`}
+                  >
+                    Date précise
+                  </button>
                 </div>
-              )}
 
-              {editDateMode === 'exact' && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-muted-foreground">
-                    Date de visionnage :
-                  </Label>
-                  <Input
-                    type="date"
-                    value={editExactDate}
-                    onChange={(e) => setEditExactDate(e.target.value)}
-                    className="text-sm bg-muted/20"
-                  />
-                </div>
-              )}
-
-              {/* Vu au cinéma option */}
-              {type === 'movie' && (
-                <div className="flex items-center space-x-2 pt-1">
-                  <Checkbox
-                    id="edit-cinema-checkbox"
-                    checked={editWatchedInCinema}
-                    onCheckedChange={(c) => setEditWatchedInCinema(Boolean(c))}
-                  />
-                  <Label htmlFor="edit-cinema-checkbox" className="text-xs cursor-pointer text-muted-foreground flex items-center gap-1.5">
-                    <Clapperboard className="h-3.5 w-3.5 text-violet-400" />
-                    <span>Vu au cinéma</span>
-                  </Label>
-                </div>
-              )}
-            </div>
-
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setEditingDateMovie(null)}
-                disabled={isSavingDate}
-              >
-                Annuler
-              </Button>
-              <Button
-                size="sm"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                onClick={handleSaveViewingDate}
-                disabled={isSavingDate}
-              >
-                {isSavingDate ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                    Enregistrement...
-                  </>
-                ) : (
-                  'Enregistrer'
+                {/* Form Input based on mode */}
+                {editDateMode === 'none' && (
+                  <div className="p-3 rounded-xl bg-muted/30 border border-border/60 text-xs text-muted-foreground leading-relaxed">
+                    💡 {type === 'movie' ? 'Le film' : 'La série'} sera conservé{type === 'tv' ? 'e' : ''} dans vos visionnages sans date précise.
+                  </div>
                 )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+
+                {editDateMode === 'year' && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-foreground">
+                      Année approximative :
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="Ex: 2018, 2022..."
+                      value={editApproxYear}
+                      onChange={(e) => setEditApproxYear(e.target.value)}
+                      className="text-sm bg-background border-input text-foreground focus-visible:ring-emerald-500 h-10"
+                      min={1900}
+                      max={2100}
+                    />
+                  </div>
+                )}
+
+                {editDateMode === 'exact' && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-foreground">
+                      Date exacte de visionnage :
+                    </Label>
+                    <Input
+                      type="date"
+                      value={editExactDate}
+                      onChange={(e) => setEditExactDate(e.target.value)}
+                      className="text-sm bg-background border-input text-foreground focus-visible:ring-emerald-500 h-10 cursor-pointer"
+                    />
+                  </div>
+                )}
+
+                {/* Vu au cinéma option */}
+                {type === 'movie' && (
+                  <div className="pt-1">
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/30 border border-border/60 cursor-pointer hover:bg-muted/50 transition-colors">
+                      <Checkbox
+                        id="edit-cinema-checkbox"
+                        checked={editWatchedInCinema}
+                        onCheckedChange={(c) => setEditWatchedInCinema(Boolean(c))}
+                        className="border-input data-[state=checked]:bg-emerald-600 data-[state=checked]:border-emerald-600 cursor-pointer"
+                      />
+                      <Clapperboard className="h-4 w-4 text-violet-500 dark:text-violet-400 shrink-0" />
+                      <span className="text-xs font-semibold text-foreground">Vu au Cinéma 🍿</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter className="pt-4 border-t border-border/60 gap-2 flex flex-row items-center justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditingDateMovie(null)}
+                  disabled={isSavingDate}
+                  className="h-9 px-4 border-border bg-background hover:bg-muted text-foreground font-semibold cursor-pointer"
+                >
+                  Annuler
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-9 px-5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-bold shadow-md cursor-pointer transition-all"
+                  onClick={handleSaveViewingDate}
+                  disabled={isSavingDate}
+                >
+                  {isSavingDate ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                      Enregistrement...
+                    </>
+                  ) : (
+                    'Enregistrer'
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
     </div>
   );
 }
