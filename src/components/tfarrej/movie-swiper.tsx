@@ -1,15 +1,26 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader2, Eye, X, RotateCcw, ChevronRight, Film } from 'lucide-react';
+import { Loader2, Eye, X, RotateCcw, ChevronRight, Film, Check, HelpCircle, Calendar, Clapperboard } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { auth } from '@/lib/firebase/client';
-import { rejectMovie } from '@/lib/firebase/firestore';
+import { rejectMovie, addSeenMovieWithDate, addSeenSeriesWithDate, MovieCategory } from '@/lib/firebase/firestore';
+import { guessMovieCategory } from '@/lib/movie-category-utils';
+import { MovieCategoryPicker } from '@/components/tfarrej/movie-category-picker';
 import Image from 'next/image';
 
 // Client-side filtering util
@@ -104,8 +115,90 @@ export default function MovieSwiper({ genre, type = 'movie' }: { genre: string; 
   const [tempYearRange, setTempYearRange] = useState<[number, number]>([1997, new Date().getFullYear()]);
 
   // Hooks d'authentification et toast
-  const { user, userProfile, loading: authLoading } = useAuth();
+  const { user, userProfile, loading: authLoading, forceProfileRefresh } = useAuth();
   const { toast } = useToast();
+
+  // État pour marquer comme vu avec boîte de dialogue date & catégorie
+  const [markingSeenMovie, setMarkingSeenMovie] = useState<MovieSuggestion | null>(null);
+  const [dateMode, setDateMode] = useState<'none' | 'year' | 'exact'>('none');
+  const [approxYear, setApproxYear] = useState<string>('');
+  const [exactDate, setExactDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [chosenCategory, setChosenCategory] = useState<MovieCategory>('Drame');
+  const [isCinema, setIsCinema] = useState(false);
+  const [isSubmittingSeen, setIsSubmittingSeen] = useState(false);
+
+  // Ouvrir le dialogue pour marquer comme vu
+  const openMarkAsSeen = useCallback((movie: MovieSuggestion) => {
+    setMarkingSeenMovie(movie);
+    setDateMode('none');
+    setApproxYear(movie.year ? String(movie.year) : String(new Date().getFullYear()));
+    setExactDate(new Date().toISOString().split('T')[0]);
+    setChosenCategory(guessMovieCategory(movie.title, movie.genre ? [movie.genre] : undefined, movie.synopsis));
+    setIsCinema(false);
+  }, []);
+
+  // Confirmer le visionnage avec date et catégorie
+  const handleConfirmMarkAsSeen = async () => {
+    if (!markingSeenMovie || !user) return;
+    setIsSubmittingSeen(true);
+    try {
+      let viewedAtTimestamp: number | undefined = undefined;
+      if (dateMode === 'year') {
+        const y = parseInt(approxYear, 10);
+        if (!isNaN(y) && y >= 1900 && y <= 2100) {
+          viewedAtTimestamp = new Date(y, 5, 1).getTime(); // Milieu d'année
+        }
+      } else if (dateMode === 'exact') {
+        const d = new Date(exactDate).getTime();
+        if (!isNaN(d)) {
+          viewedAtTimestamp = d;
+        }
+      }
+
+      if (type === 'movie') {
+        await addSeenMovieWithDate(user.uid, {
+          title: markingSeenMovie.title,
+          posterUrl: markingSeenMovie.posterUrl || undefined,
+          year: markingSeenMovie.year || undefined,
+          rating: markingSeenMovie.rating || undefined,
+          viewedAt: viewedAtTimestamp,
+          category: chosenCategory,
+          watchedInCinema: isCinema,
+        });
+      } else {
+        await addSeenSeriesWithDate(user.uid, {
+          title: markingSeenMovie.title,
+          posterUrl: markingSeenMovie.posterUrl || undefined,
+          year: markingSeenMovie.year || undefined,
+          rating: markingSeenMovie.rating || undefined,
+          viewedAt: viewedAtTimestamp,
+          category: chosenCategory,
+        });
+      }
+
+      forceProfileRefresh?.();
+
+      toast({
+        title: `${markingSeenMovie.title} marqué${type === 'tv' ? 'e' : ''} comme vu${type === 'tv' ? 'e' : ''} !`,
+        description: viewedAtTimestamp
+          ? (dateMode === 'exact' ? `Vu le ${new Date(exactDate).toLocaleDateString('fr-FR')}` : `Vu vers ${approxYear}`)
+          : "Ajouté à vos visionnages.",
+        className: 'bg-emerald-600 text-white font-bold border-none shadow-lg',
+      });
+
+      setMarkingSeenMovie(null);
+      setCurrentIndex(prev => prev + 1);
+    } catch (err) {
+      console.error('Erreur mark seen:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: "Impossible d'enregistrer le visionnage pour le moment.",
+      });
+    } finally {
+      setIsSubmittingSeen(false);
+    }
+  };
 
   // Vérification du côté client
   useEffect(() => {
@@ -168,89 +261,61 @@ export default function MovieSwiper({ genre, type = 'movie' }: { genre: string; 
       }
     } catch (error) {
       console.error('Erreur de chargement:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Erreur',
-        description: 'Impossible de charger les films',
-      });
+      handleAiError(error, toast);
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [user, userProfile, yearRange, genre, toast]);
+  }, [user, userProfile, type, yearRange, genre, toast]);
 
+  // Initial fetch and fetch when dependencies change
   useEffect(() => {
-    if (!isClient || authLoading) {
-      setIsLoading(false);
-      return;
+    if (user && userProfile && !initialFetchDone.current) {
+      initialFetchDone.current = true;
+      loadMovies(false);
     }
+  }, [user, userProfile, loadMovies]);
 
-    if (!user || !userProfile) {
-      setIsLoading(false);
-      return;
-    }
-
-    loadMovies(false);
-  }, [isClient, authLoading, user, userProfile, loadMovies]);
-
-  // Load more when getting close to end
+  // Load more when reaching near the end
   useEffect(() => {
-    if (movies.length > 0 && currentIndex >= movies.length - 2 && !isLoadingMore) {
+    if (currentIndex >= movies.length - 2 && !isLoadingMore && movies.length > 0) {
       loadMovies(true);
     }
   }, [currentIndex, movies.length, isLoadingMore, loadMovies]);
 
   const handleSwipe = useCallback(async (direction: 'left' | 'right') => {
     if (!user || currentIndex >= movies.length) return;
-
-    const action = direction === 'left' ? 'vu' : 'ajouté à votre liste';
     const item = movies[currentIndex];
 
+    // Quand l'utilisateur choisit "Vu" (ou swipe gauche) -> ouvrir la boîte de dialogue avec choix de date
+    if (direction === 'left') {
+      openMarkAsSeen(item);
+      return;
+    }
+
     try {
-      if (direction === 'left') {
-        const currentUser = auth.currentUser;
-        if (!currentUser) throw new Error('Utilisateur non connecté');
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Utilisateur non connecté');
 
-        const token = await currentUser.getIdToken();
-        const response = await fetch('/api/user/movies/seen', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            userId: user.uid,
-            title: item.title,
-            type,
-            posterPath: item.posterUrl,
-          }),
-        });
+      const token = await currentUser.getIdToken();
+      const response = await fetch('/api/user/movies/watchlist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+          title: item.title,
+          type,
+        }),
+      });
 
-        if (!response.ok) throw new Error(`Impossible d'enregistrer ${type === 'movie' ? 'le film' : 'la série'} comme vu`);
-      } else {
-        const currentUser = auth.currentUser;
-        if (!currentUser) throw new Error('Utilisateur non connecté');
-
-        const token = await currentUser.getIdToken();
-        const response = await fetch('/api/user/movies/watchlist', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            userId: user.uid,
-            title: item.title,
-            type,
-          }),
-        });
-
-        if (!response.ok) throw new Error(`Impossible d'ajouter ${type === 'movie' ? 'le film' : 'la série'} à la liste`);
-      }
+      if (!response.ok) throw new Error(`Impossible d'ajouter ${type === 'movie' ? 'le film' : 'la série'} à la liste`);
 
       toast({
-        title: `${item.title} ${action} !`,
-        description: direction === 'right' ? `Consultez la liste 'À Voir' pour ${type === 'movie' ? 'le' : 'la'} retrouver.` : undefined
+        title: `${item.title} ajouté à votre liste !`,
+        description: `Consultez la liste 'À Voir' pour ${type === 'movie' ? 'le' : 'la'} retrouver.`
       });
 
       setCurrentIndex(prev => prev + 1);
@@ -262,7 +327,7 @@ export default function MovieSwiper({ genre, type = 'movie' }: { genre: string; 
         description: 'Une erreur est survenue lors du traitement de votre action.'
       });
     }
-  }, [user, currentIndex, movies, toast]);
+  }, [user, currentIndex, movies, toast, type, openMarkAsSeen]);
 
   const handleReject = useCallback(async () => {
     if (currentIndex >= movies.length) return;
@@ -447,8 +512,8 @@ export default function MovieSwiper({ genre, type = 'movie' }: { genre: string; 
               <Button
                 variant="outline"
                 size="sm"
-                className="border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950 h-11 flex flex-col items-center justify-center gap-0.5"
-                onClick={() => handleSwipe('left')}
+                className="border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950 h-11 flex flex-col items-center justify-center gap-0.5 cursor-pointer"
+                onClick={() => openMarkAsSeen(currentMovie)}
                 title="Marquer comme vu"
               >
                 <Eye className="h-4 w-4" />
@@ -502,6 +567,187 @@ export default function MovieSwiper({ genre, type = 'movie' }: { genre: string; 
           </div>
         )}
       </div>
+
+      {/* Boîte de dialogue pour marquer comme vu avec option de date approximative */}
+      {markingSeenMovie && (
+        <Dialog open={Boolean(markingSeenMovie)} onOpenChange={(open) => { if (!open) setMarkingSeenMovie(null); }}>
+          <DialogContent className="sm:max-w-[460px] max-h-[85vh] overflow-hidden flex flex-col rounded-2xl bg-card border border-border shadow-2xl text-card-foreground p-4 sm:p-5">
+            <DialogHeader className="pb-2">
+              <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                <Check className="h-5 w-5 text-emerald-400" />
+                Marquer comme Vu{type === 'tv' ? 'e' : ''}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Ajouter &ldquo;{markingSeenMovie.title}&rdquo; à vos {type === 'movie' ? 'films vus' : 'séries vues'}.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto space-y-4 py-1 pr-1">
+              {/* En-tête miniature de l'œuvre */}
+              <div className="flex items-center gap-3 p-2.5 rounded-xl bg-muted/25 border border-border/50">
+                {markingSeenMovie.posterUrl && (
+                  <div className="relative w-11 h-16 rounded-md overflow-hidden shrink-0 border border-white/10 bg-black aspect-[2/3]">
+                    <Image
+                      src={markingSeenMovie.posterUrl}
+                      alt={markingSeenMovie.title}
+                      fill
+                      sizes="50px"
+                      className="object-cover"
+                      unoptimized
+                    />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-bold text-sm text-foreground line-clamp-2 leading-snug break-words">{markingSeenMovie.title}</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {markingSeenMovie.year ? `${markingSeenMovie.year} • ` : ''}{type === 'movie' ? 'Film' : 'Série'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Choix de la date de visionnage */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>Quand l&apos;avez-vous vu{type === 'tv' ? 'e' : ''} ?</span>
+                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                </label>
+
+                {/* Boutons d'options de date */}
+                <div className="grid grid-cols-3 gap-1.5 p-1 bg-muted/40 rounded-lg text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setDateMode('none')}
+                    className={`py-1.5 px-2 rounded-md transition-all text-center cursor-pointer ${
+                      dateMode === 'none'
+                        ? 'bg-emerald-600 text-white font-bold shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Sans date
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDateMode('year')}
+                    className={`py-1.5 px-2 rounded-md transition-all text-center cursor-pointer ${
+                      dateMode === 'year'
+                        ? 'bg-emerald-600 text-white font-bold shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Année approx.
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDateMode('exact')}
+                    className={`py-1.5 px-2 rounded-md transition-all text-center cursor-pointer ${
+                      dateMode === 'exact'
+                        ? 'bg-emerald-600 text-white font-bold shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Date précise
+                  </button>
+                </div>
+
+                {/* Champs selon l'option choisie */}
+                {dateMode === 'none' && (
+                  <p className="text-[11px] text-muted-foreground bg-muted/20 p-2.5 rounded-lg border border-border/40">
+                    💡 {type === 'movie' ? 'Le film' : 'La série'} sera comptabilisé{type === 'tv' ? 'e' : ''} dans vos visionnages sans date précise.
+                  </p>
+                )}
+
+                {dateMode === 'year' && (
+                  <div className="space-y-1 pt-1">
+                    <label className="text-[11px] font-medium text-muted-foreground">
+                      Année approximative de visionnage :
+                    </label>
+                    <Input
+                      type="number"
+                      placeholder="Ex: 2015, 2021..."
+                      value={approxYear}
+                      onChange={(e) => setApproxYear(e.target.value)}
+                      className="text-sm bg-muted/20"
+                    />
+                  </div>
+                )}
+
+                {dateMode === 'exact' && (
+                  <div className="space-y-1 pt-1">
+                    <label className="text-[11px] font-medium text-muted-foreground">
+                      Date de visionnage :
+                    </label>
+                    <Input
+                      type="date"
+                      value={exactDate}
+                      onChange={(e) => setExactDate(e.target.value)}
+                      className="text-sm bg-muted/20"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Sélection de Catégorie */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-xs font-bold text-foreground">
+                  Catégorie :
+                </label>
+                <MovieCategoryPicker
+                  selectedCategory={chosenCategory}
+                  onSelectCategory={(cat) => setChosenCategory(cat)}
+                  size="sm"
+                />
+              </div>
+
+              {/* Option Vu au cinéma pour les films */}
+              {type === 'movie' && (
+                <div className="pt-1">
+                  <label className="flex items-center gap-2 p-2.5 rounded-xl bg-muted/20 border border-border/40 cursor-pointer hover:bg-muted/30 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={isCinema}
+                      onChange={(e) => setIsCinema(e.target.checked)}
+                      className="rounded border-border text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                    />
+                    <Clapperboard className="h-4 w-4 text-violet-400" />
+                    <span className="text-xs font-medium text-foreground">Vu au Cinéma 🍿</span>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter className="pt-3 border-t border-border/50 gap-2 sm:gap-0 flex-row justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setMarkingSeenMovie(null)}
+                disabled={isSubmittingSeen}
+              >
+                Annuler
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleConfirmMarkAsSeen}
+                disabled={isSubmittingSeen}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 shadow-md shadow-emerald-900/20"
+              >
+                {isSubmittingSeen ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Enregistrement...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Confirmer
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
