@@ -198,6 +198,19 @@ const ARCHETYPE_RULES: Array<{
       secondaryCategory: c2,
     }),
   },
+  {
+    match: (c1, c2) => (c1 === 'Documentaire' && c2 === 'Histoire/Guerre') || (c1 === 'Histoire/Guerre' && c2 === 'Documentaire'),
+    archetype: (c1, c2) => ({
+      id: 'archiviste-siecles',
+      title: "L'Archiviste des Siècles",
+      badge: "🎙️⚔️ Documentaire & Histoire",
+      tagline: "Gardien de la mémoire, des archives inestimables et des grandes vérités.",
+      description: "Vous aimez percer les secrets du passé grâce aux documents authentiques, aux reconstitutions fidèles et aux témoignages poignants qui ont façonné notre époque.",
+      gradient: "from-teal-600 via-stone-700 to-amber-900",
+      primaryCategory: c1,
+      secondaryCategory: c2,
+    }),
+  },
 ];
 
 // Archétypes génériques par genre dominant unique
@@ -286,6 +299,13 @@ const SINGLE_GENRE_ARCHETYPES: Record<MovieCategory, { title: string; badge: str
     description: "L'amour sous toutes ses formes guide vos choix cinématographiques. Vous croyez à la force irrésistible des regards et aux histoires qui réchauffent l'âme.",
     gradient: "from-pink-500 via-rose-600 to-red-600",
   },
+  'Documentaire': {
+    title: "L'Explorateur du Réel",
+    badge: "🎙️ Spécialiste Documentaire",
+    tagline: "En quête de vérité, de sciences, de nature et de destins authentiques.",
+    description: "Le monde réel et ses trésors inépuisables nourrissent votre cinéphilie. Vous privilégiez les témoignages poignants, la découverte du vivant et la rigueur des enquêtes de terrain.",
+    gradient: "from-teal-500 via-emerald-600 to-slate-900",
+  },
 };
 
 // Matrice d'archétypes pour les Séries
@@ -367,6 +387,19 @@ const TV_ARCHETYPE_RULES: Array<{
       tagline: "Amateur de mystères anxiogènes et de marathons à huis clos dans le noir.",
       description: "Vous aimez que les séries vous fassent douter de tout et frissonner d'épisode en épisode. Les atmosphères pesantes et les secrets enfouis sont votre péché mignon.",
       gradient: "from-violet-800 via-purple-900 to-black",
+      primaryCategory: c1,
+      secondaryCategory: c2,
+    }),
+  },
+  {
+    match: (c1, c2) => (c1 === 'Documentaire' && c2 === 'Crime/Policier') || (c1 === 'Crime/Policier' && c2 === 'Documentaire'),
+    archetype: (c1, c2) => ({
+      id: 'profileur-true-crime',
+      title: "Le Profileur True Crime",
+      badge: "🎙️🕵️‍♂️ Docu-Série & Polar",
+      tagline: "Incollable sur les grandes affaires criminelles, les procès et les énigmes du réel.",
+      description: "Vous disséquez les enquêtes judiciaires, les témoignages d'enquêteurs et la psychologie criminelle. Pour vous, la réalité dépasse toujours la fiction.",
+      gradient: "from-teal-600 via-slate-800 to-indigo-950",
       primaryCategory: c1,
       secondaryCategory: c2,
     }),
@@ -471,6 +504,13 @@ const SINGLE_GENRE_TV_ARCHETYPES: Record<MovieCategory, {
     tagline: "Ému par les histoires d'amour passionnées et les liens indestructibles.",
     description: "Vous vibrez pour les rapprochements lents, les dilemmes amoureux et les dénouements heureux.",
     gradient: "from-pink-500 via-rose-600 to-red-700",
+  },
+  'Documentaire': {
+    title: "L'Investigateur du Réel",
+    badge: "🎙️ Spécialiste Séries Documentaires",
+    tagline: "Fasciné par les docu-séries, le true crime, la science et les merveilles de notre monde.",
+    description: "Vous dévorez les docu-séries immersives et les enquêtes au long cours. Rien ne vous captive plus que la réalité racontée avec force et exigence.",
+    gradient: "from-teal-500 via-emerald-700 to-slate-900",
   },
 };
 

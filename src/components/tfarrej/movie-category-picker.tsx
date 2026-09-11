@@ -23,6 +23,7 @@ export const CATEGORY_HEX_COLORS: Record<MovieCategory, string> = {
   'Animation': '#38bdf8',
   'Crime/Policier': '#60a5fa',
   'Fantaisie': '#e879f9',
+  'Documentaire': '#14b8a6',
 };
 
 

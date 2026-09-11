@@ -69,6 +69,7 @@ export const MOVIE_CATEGORIES = [
   'Animation',
   'Crime/Policier',
   'Fantaisie',
+  'Documentaire',
 ] as const;
 
 
@@ -203,6 +204,16 @@ export const MOVIE_CATEGORY_CONFIG: Record<MovieCategory, {
     border: 'border-fuchsia-500/40',
     glow: 'shadow-[0_0_12px_rgba(217,70,239,0.25)]',
     gradient: 'from-fuchsia-500/20 to-purple-600/10',
+  },
+  'Documentaire': {
+    label: 'Documentaire',
+    shortLabel: 'Docu',
+    emoji: '🎙️',
+    color: 'text-teal-400',
+    badgeBg: 'bg-teal-500/15 text-teal-300 border-teal-500/30',
+    border: 'border-teal-500/40',
+    glow: 'shadow-[0_0_12px_rgba(20,184,166,0.25)]',
+    gradient: 'from-teal-500/20 to-cyan-600/10',
   },
 };
 

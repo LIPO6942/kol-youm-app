@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import MovieSwiper from '@/components/tfarrej/movie-swiper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo, Settings, Loader2, Swords, BarChart3, Wand2, Dna } from 'lucide-react';
+import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo, Settings, Loader2, Swords, BarChart3, Wand2, Dna, Compass } from 'lucide-react';
 import { MovieListSheet } from '@/components/tfarrej/movie-list-sheet';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TfarrejStatsDialog } from '@/components/tfarrej/tfarrej-stats-dialog';
@@ -24,6 +24,7 @@ const genres = [
   { name: 'Mind-Blow', iconName: 'Lightbulb', description: 'Pour retourner le cerveau.' },
   { name: 'Science-Fiction', iconName: 'Rocket', description: 'Pour voyager dans le futur.' },
   { name: 'Fantaisie', iconName: 'Wand2', description: 'Magie, mythes et mondes imaginaires.' },
+  { name: 'Documentaire', iconName: 'Compass', description: 'Récits réels, sciences et découvertes.' },
   { name: 'Découverte', iconName: 'Sparkles', description: 'Pour une surprise totale.' },
 ];
 
@@ -36,6 +37,7 @@ const GenreIcon = ({ iconName, className }: { iconName: string, className?: stri
     case 'Lightbulb': return <Lightbulb className={className} />;
     case 'Rocket': return <Rocket className={className} />;
     case 'Wand2': return <Wand2 className={className} />;
+    case 'Compass': return <Compass className={className} />;
     case 'Sparkles': return <Sparkles className={className} />;
     default: return null;
   }

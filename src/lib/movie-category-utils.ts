@@ -7,7 +7,26 @@ import { MovieCategory, MOVIE_CATEGORIES, MOVIE_CATEGORY_CONFIG } from '@/lib/fi
 export function guessMovieCategory(title?: string, genres?: string[], synopsis?: string): MovieCategory {
   const text = `${title || ''} ${(genres || []).join(' ')} ${synopsis || ''}`.toLowerCase();
 
-  // 1. Autobiographie / Histoire réelle (biopic, faits réels, autobiographie, documentaire...)
+  // 0. Documentaire (Documentary, docu, docu-série, docuseries, reportage, faune, nature...)
+  if (
+    text.includes('documentaire') ||
+    text.includes('documentary') ||
+    text.includes('docu') ||
+    text.includes('docuseries') ||
+    text.includes('docu-série') ||
+    text.includes('docu-serie') ||
+    text.includes('reportage') ||
+    text.includes('investigation') && (text.includes('journal') || text.includes('réel')) ||
+    text.includes('planet earth') ||
+    text.includes('our planet') ||
+    text.includes('national geographic') ||
+    text.includes('nature documentary') ||
+    text.includes('animalier')
+  ) {
+    return 'Documentaire';
+  }
+
+  // 1. Autobiographie / Histoire réelle (biopic, faits réels, autobiographie...)
   if (
     text.includes('autobiographie') ||
     text.includes('autobiography') ||
@@ -27,8 +46,6 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     text.includes('true story') ||
     text.includes('based on a true story') ||
     text.includes('based on true') ||
-    text.includes('documentaire') ||
-    text.includes('documentary') ||
     text.includes('mémoires') ||
     text.includes('memoir')
   ) {
