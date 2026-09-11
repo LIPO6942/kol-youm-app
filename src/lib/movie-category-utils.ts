@@ -154,19 +154,14 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Crime/Policier';
   }
 
-  // 5. Mind blowing
+  // Mind blowing retiré -> reclassé en Drame
   if (
     text.includes('mind blowing') ||
     text.includes('mindfuck') ||
     text.includes('plot twist') ||
-    text.includes('psychologique') ||
-    text.includes('twist') ||
-    text.includes('mystère') ||
-    text.includes('thriller') ||
-    text.includes('suspense') ||
     text.includes('illusion')
   ) {
-    return 'Mind blowing';
+    return 'Drame';
   }
 
   // 4. Histoire / Guerre
@@ -253,17 +248,17 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
  * Retourne la configuration visuelle (icône, couleur, bordure, gradient) d'une catégorie
  */
 export function getCategoryConfig(category?: string | null) {
-  if (category && (MOVIE_CATEGORIES as readonly string[]).includes(category)) {
-    return MOVIE_CATEGORY_CONFIG[category as MovieCategory];
-  }
-  return {
-    label: category || 'Général',
-    shortLabel: category || 'Général',
-    emoji: '🎬',
-    color: 'text-slate-300',
-    badgeBg: 'bg-white/10 text-slate-200 border-white/15',
-    border: 'border-white/20',
-    glow: 'shadow-[0_0_8px_rgba(255,255,255,0.1)]',
-    gradient: 'from-white/10 to-white/5',
-  };
+  const normCat = normalizeCategory(category);
+  return MOVIE_CATEGORY_CONFIG[normCat];
 }
+
+export function normalizeCategory(category?: string | null): MovieCategory {
+  if (!category) return 'Drame';
+  if (category === 'Mind blowing' || category === 'Mind-Blow') return 'Drame';
+  if ((MOVIE_CATEGORIES as readonly string[]).includes(category)) {
+    return category as MovieCategory;
+  }
+  return 'Drame';
+}
+
+

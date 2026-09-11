@@ -10,10 +10,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv, Swords, Layers } from "lucide-react";
+import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv, Swords, Layers, Edit2 } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, getStoredSeriesRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters, MovieCategory, updateMovieCategory, MovieCollectionInfo } from '@/lib/firebase/firestore';
+import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, getStoredSeriesRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters, MovieCategory, updateMovieCategory, MovieCollectionInfo, updateMovieViewingDate } from '@/lib/firebase/firestore';
+import { storeUserInDb } from '@/lib/indexeddb';
+import { Checkbox } from '@/components/ui/checkbox';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
 import { CinematicDnaModal } from '@/components/tfarrej/CinematicDnaModal';
 import { MovieCategoryPicker, CategoryBadge, CategorySelectModal } from '@/components/tfarrej/movie-category-picker';
@@ -481,6 +483,109 @@ function MovieListContent({
   const [selectedSaga, setSelectedSaga] = useState<{ id: string; name: string; isCustom?: boolean; posterUrl?: string } | null>(null);
   const [manageSagaMovie, setManageSagaMovie] = useState<{ title: string; posterUrl?: string } | null>(null);
 
+  // State for editing viewing date
+  const [editingDateMovie, setEditingDateMovie] = useState<{
+    title: string;
+    viewedAt?: number;
+    watchedInCinema?: boolean;
+  } | null>(null);
+  const [editDateMode, setEditDateMode] = useState<'none' | 'year' | 'exact'>('exact');
+  const [editExactDate, setEditExactDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [editApproxYear, setEditApproxYear] = useState<string>('');
+  const [editWatchedInCinema, setEditWatchedInCinema] = useState<boolean>(false);
+  const [isSavingDate, setIsSavingDate] = useState<boolean>(false);
+  const [localViewedDates, setLocalViewedDates] = useState<Record<string, number | null>>({});
+
+  const openDateModal = useCallback((title: string, viewedAt?: number, watchedInCinema?: boolean) => {
+    setEditingDateMovie({ title, viewedAt, watchedInCinema });
+    setEditWatchedInCinema(!!watchedInCinema);
+    if (viewedAt) {
+      const d = new Date(viewedAt);
+      if (d.getMonth() === 5 && d.getDate() === 15) {
+        setEditDateMode('year');
+        setEditApproxYear(String(d.getFullYear()));
+        setEditExactDate(d.toISOString().split('T')[0]);
+      } else {
+        setEditDateMode('exact');
+        setEditExactDate(d.toISOString().split('T')[0]);
+        setEditApproxYear(String(d.getFullYear()));
+      }
+    } else {
+      setEditDateMode('none');
+      setEditExactDate(new Date().toISOString().split('T')[0]);
+      setEditApproxYear(String(new Date().getFullYear()));
+    }
+  }, []);
+
+  const handleSaveViewingDate = async () => {
+    if (!editingDateMovie || !user) return;
+    setIsSavingDate(true);
+    try {
+      let finalTimestamp: number | null = null;
+      if (editDateMode === 'year') {
+        const y = parseInt(editApproxYear, 10);
+        if (!isNaN(y) && y >= 1900 && y <= 2100) {
+          finalTimestamp = new Date(y, 5, 15).getTime();
+        }
+      } else if (editDateMode === 'exact') {
+        finalTimestamp = new Date(editExactDate).getTime();
+      }
+
+      await updateMovieViewingDate(
+        user.uid,
+        editingDateMovie.title,
+        finalTimestamp,
+        isSeries ? 'tv' : 'movie',
+        editWatchedInCinema
+      );
+
+      const norm = editingDateMovie.title.toLowerCase().trim();
+      setLocalViewedDates(prev => ({
+        ...prev,
+        [norm]: finalTimestamp,
+      }));
+
+      if (userProfile) {
+        const dataKey = isSeries ? 'seenSeriesData' : 'seenMoviesData';
+        const currentData = [...(userProfile[dataKey] || [])];
+        const idx = currentData.findIndex((m: any) => m?.title && m.title.toLowerCase().trim() === norm);
+        if (idx >= 0) {
+          currentData[idx] = {
+            ...currentData[idx],
+            viewedAt: finalTimestamp || undefined,
+            watchedInCinema: editWatchedInCinema,
+          };
+        } else {
+          currentData.push({
+            title: editingDateMovie.title,
+            viewedAt: finalTimestamp || undefined,
+            watchedInCinema: editWatchedInCinema,
+            addedAt: Date.now(),
+          });
+        }
+        await storeUserInDb(user.uid, {
+          ...userProfile,
+          [dataKey]: currentData,
+        });
+      }
+
+      toast({
+        title: "Date mise à jour",
+        description: `La date de visionnage pour "${editingDateMovie.title}" a été enregistrée.`,
+      });
+      setEditingDateMovie(null);
+    } catch (e) {
+      console.error("Error saving viewing date:", e);
+      toast({
+        title: "Erreur",
+        description: "Impossible d'enregistrer la date.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingDate(false);
+    }
+  };
+
   const getMovieSaga = useCallback((title: string, details?: MovieDetails, seenItem?: any): MovieCollectionInfo | null => {
     const norm = title.toLowerCase().trim();
     const sagaId = userProfile?.movieSagaLinks?.[norm];
@@ -746,38 +851,11 @@ function MovieListContent({
 
   const hasUnrankedMovies = unrankedCount > 0 && duelSeenMovies.length >= 2;
 
-  // Sort movies: Recent First (for seen list), Alphabetical otherwise
+  // Preserve movie positioning in the user's list (do not reorder when viewing date is edited)
   const sortedMovieTitles = useMemo(() => {
     if (!movieTitles) return [];
-    const isSeenList = listType === 'seenMovieTitles' || listType === 'seenSeriesTitles';
-
-    if (isSeenList && seenMoviesData) {
-      // Create a map for fast lookup with normalized keys
-      const movieMap = new Map<string, any>();
-      seenMoviesData.forEach(m => {
-        if (m?.title) {
-          movieMap.set(m.title.toLowerCase().trim(), m);
-        }
-      });
-
-      return [...movieTitles].sort((a, b) => {
-        const movieA = movieMap.get(a.toLowerCase().trim());
-        const movieB = movieMap.get(b.toLowerCase().trim());
-
-        // If viewedAt is available, use it (descending: newest first)
-        const dateA = movieA?.viewedAt || 0;
-        const dateB = movieB?.viewedAt || 0;
-
-        if (dateA !== dateB) return dateB - dateA;
-
-        // Fallback to title if dates are equal or missing
-        return a.localeCompare(b, 'fr', { sensitivity: 'base' });
-      });
-    }
-
-    // Default alphabetical sort for watchlist
-    return [...movieTitles].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
-  }, [movieTitles, listType, seenMoviesData]);
+    return [...movieTitles];
+  }, [movieTitles]);
 
   // Helper function to check if a movie is older than 2 years
   const isOlderThanTwoYears = useCallback((movieTitle: string) => {
@@ -932,21 +1010,22 @@ function MovieListContent({
     const norm = movieTitle.toLowerCase().trim();
     const details = movieDetails[movieTitle] || Object.entries(movieDetails).find(([k]) => k.toLowerCase().trim() === norm)?.[1];
     const seenData = seenMoviesData?.find(m => m?.title?.toLowerCase()?.trim() === norm);
-    const viewedAt = details?.viewedAt || seenData?.viewedAt;
+    const localDate = localViewedDates[norm];
+    const viewedAt = localDate !== undefined ? (localDate || undefined) : (details?.viewedAt || seenData?.viewedAt);
     const posterUrl = details?.posterUrl || seenData?.posterUrl;
 
     const isOld = (listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && isOlderThanTwoYears(movieTitle);
 
     return (
       <div key={`${movieTitle}-${index}`} className="relative flex flex-col p-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded group">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-2 w-full">
           <div className="flex-1 min-w-0">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 w-8 h-12 relative rounded overflow-hidden bg-muted">
                 {renderPoster(posterUrl, movieTitle, isOld)}
               </div>
 
-              <div className="flex-1 min-w-0 pr-2">
+              <div className="flex-1 min-w-0 pr-1">
                 <div className="flex items-center gap-1.5 overflow-hidden">
                   <h4 className="text-[11px] sm:text-xs font-medium truncate tracking-tight leading-none" title={movieTitle}>
                     {movieTitle}
@@ -1023,13 +1102,22 @@ function MovieListContent({
                     })()}
                   </div>
                 )}
-                {/* Show when the movie was watched and Cinema badge */}
-                {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && viewedAt && (
+                {/* Show when the movie was watched (clickable to edit date) and Cinema badge */}
+                {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
                   <div className="flex flex-wrap items-center gap-1.5 mt-1 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-3 w-3 text-primary/70" />
-                      <span>Vu le {formatViewedDate(viewedAt)}</span>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDateModal(movieTitle, viewedAt, seenData?.watchedInCinema);
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground border border-transparent hover:border-border transition-colors cursor-pointer text-[10.5px]"
+                      title="Cliquer pour modifier la date de visionnage"
+                    >
+                      <Calendar className="h-3 w-3 text-emerald-400" />
+                      <span>{viewedAt ? `Vu le ${formatViewedDate(viewedAt)}` : 'Ajouter date'}</span>
+                      <Edit2 className="h-2.5 w-2.5 opacity-60 ml-0.5" />
+                    </button>
                     {(() => {
                       const cinemaVisit = userProfile?.visits?.find(v => v.category === 'Cinéma' && v.orderedItem?.toLowerCase() === movieTitle.toLowerCase());
                       const isCinema = seenData?.watchedInCinema || !!cinemaVisit;
@@ -1049,7 +1137,8 @@ function MovieListContent({
             </div>
           </div>
 
-          <div className="flex-shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2">
+          {/* Action buttons integrated into flex layout - always visible on mobile, no overflow */}
+          <div className="flex-shrink-0 flex items-center gap-1 self-start ml-2 opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
             {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1069,6 +1158,28 @@ function MovieListContent({
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Marquer comme vu</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-emerald-400"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDateModal(movieTitle, viewedAt, seenData?.watchedInCinema);
+                    }}
+                    title="Modifier la date de visionnage"
+                  >
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span className="sr-only">Modifier date</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Modifier la date de visionnage</p>
                 </TooltipContent>
               </Tooltip>
             )}
@@ -1122,7 +1233,8 @@ function MovieListContent({
     const norm = movieTitle.toLowerCase().trim();
     const details = movieDetails[movieTitle] || Object.entries(movieDetails).find(([k]) => k.toLowerCase().trim() === norm)?.[1];
     const seenData = seenMoviesData?.find(m => m?.title?.toLowerCase()?.trim() === norm);
-    const viewedAt = details?.viewedAt || seenData?.viewedAt;
+    const localDate = localViewedDates[norm];
+    const viewedAt = localDate !== undefined ? (localDate || undefined) : (details?.viewedAt || seenData?.viewedAt);
     const posterUrl = details?.posterUrl || seenData?.posterUrl;
 
     const isOld = (listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && isOlderThanTwoYears(movieTitle);
@@ -1233,6 +1345,20 @@ function MovieListContent({
               disabled={isUpdating}
             >
               <Eye className="h-3 w-3" />
+            </Button>
+          )}
+          {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
+            <Button
+              variant="secondary"
+              size="icon"
+              className="h-5 w-5 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-emerald-300 hover:text-emerald-200"
+              onClick={(e) => {
+                e.stopPropagation();
+                openDateModal(movieTitle, viewedAt, seenData?.watchedInCinema);
+              }}
+              title="Modifier la date de visionnage"
+            >
+              <Calendar className="h-3 w-3" />
             </Button>
           )}
           {type === 'movie' && (
@@ -1644,6 +1770,140 @@ function MovieListContent({
           targetMovieTitle={manageSagaMovie.title}
           targetMoviePosterUrl={manageSagaMovie.posterUrl}
         />
+      )}
+
+      {editingDateMovie && (
+        <Dialog open={Boolean(editingDateMovie)} onOpenChange={(open) => { if (!open) setEditingDateMovie(null); }}>
+          <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-slate-100">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                <Calendar className="h-5 w-5 text-emerald-400" />
+                Date de visionnage
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground line-clamp-1">
+                {editingDateMovie.title}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-3">
+              {/* Option Mode Selector */}
+              <div className="grid grid-cols-3 gap-1.5 p-1 bg-muted/40 rounded-lg border border-border/40 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setEditDateMode('none')}
+                  className={`py-1.5 px-2 rounded-md transition-all text-center cursor-pointer ${
+                    editDateMode === 'none'
+                      ? 'bg-emerald-600 text-white font-bold shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Sans date
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditDateMode('year')}
+                  className={`py-1.5 px-2 rounded-md transition-all text-center cursor-pointer ${
+                    editDateMode === 'year'
+                      ? 'bg-emerald-600 text-white font-bold shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Année approx.
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditDateMode('exact')}
+                  className={`py-1.5 px-2 rounded-md transition-all text-center cursor-pointer ${
+                    editDateMode === 'exact'
+                      ? 'bg-emerald-600 text-white font-bold shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Date précise
+                </button>
+              </div>
+
+              {/* Form Input based on mode */}
+              {editDateMode === 'none' && (
+                <p className="text-xs text-muted-foreground bg-muted/20 p-3 rounded-lg border border-border/40">
+                  💡 {type === 'movie' ? 'Le film' : 'La série'} sera conservé{type === 'tv' ? 'e' : ''} dans vos visionnages sans date précise.
+                </p>
+              )}
+
+              {editDateMode === 'year' && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">
+                    Année approximative de visionnage :
+                  </Label>
+                  <Input
+                    type="number"
+                    placeholder="Ex: 2018, 2022..."
+                    value={editApproxYear}
+                    onChange={(e) => setEditApproxYear(e.target.value)}
+                    className="text-sm bg-muted/20"
+                    min={1900}
+                    max={2100}
+                  />
+                </div>
+              )}
+
+              {editDateMode === 'exact' && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">
+                    Date de visionnage :
+                  </Label>
+                  <Input
+                    type="date"
+                    value={editExactDate}
+                    onChange={(e) => setEditExactDate(e.target.value)}
+                    className="text-sm bg-muted/20"
+                  />
+                </div>
+              )}
+
+              {/* Vu au cinéma option */}
+              {type === 'movie' && (
+                <div className="flex items-center space-x-2 pt-1">
+                  <Checkbox
+                    id="edit-cinema-checkbox"
+                    checked={editWatchedInCinema}
+                    onCheckedChange={(c) => setEditWatchedInCinema(Boolean(c))}
+                  />
+                  <Label htmlFor="edit-cinema-checkbox" className="text-xs cursor-pointer text-muted-foreground flex items-center gap-1.5">
+                    <Clapperboard className="h-3.5 w-3.5 text-violet-400" />
+                    <span>Vu au cinéma</span>
+                  </Label>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditingDateMovie(null)}
+                disabled={isSavingDate}
+              >
+                Annuler
+              </Button>
+              <Button
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                onClick={handleSaveViewingDate}
+                disabled={isSavingDate}
+              >
+                {isSavingDate ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                    Enregistrement...
+                  </>
+                ) : (
+                  'Enregistrer'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

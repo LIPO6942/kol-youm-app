@@ -15,7 +15,6 @@ export const CATEGORY_HEX_COLORS: Record<MovieCategory, string> = {
   'Comédie': '#fbbf24',
   'Histoire/Guerre': '#fb923c',
   'Sci-Fi': '#22d3ee',
-  'Mind blowing': '#c084fc',
   'Action': '#f87171',
   'Autobiographie/Histoire réelle': '#34d399',
   'Romance': '#f472b6',

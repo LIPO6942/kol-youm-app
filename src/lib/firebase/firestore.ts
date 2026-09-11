@@ -61,7 +61,6 @@ export const MOVIE_CATEGORIES = [
   'Comédie',
   'Histoire/Guerre',
   'Sci-Fi',
-  'Mind blowing',
   'Action',
   'Autobiographie/Histoire réelle',
   'Romance',
@@ -124,16 +123,6 @@ export const MOVIE_CATEGORY_CONFIG: Record<MovieCategory, {
     border: 'border-cyan-500/40',
     glow: 'shadow-[0_0_12px_rgba(6,182,212,0.25)]',
     gradient: 'from-cyan-500/20 to-blue-500/10',
-  },
-  'Mind blowing': {
-    label: 'Mind blowing',
-    shortLabel: 'Mind blowing',
-    emoji: '🤯',
-    color: 'text-purple-400',
-    badgeBg: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
-    border: 'border-purple-500/40',
-    glow: 'shadow-[0_0_12px_rgba(168,85,247,0.25)]',
-    gradient: 'from-purple-500/20 to-violet-500/10',
   },
   'Action': {
     label: 'Action',
@@ -850,15 +839,17 @@ export async function updateMovieCategory(uid: string, movieTitle: string, categ
     const dataKey = isTv ? 'seenSeriesData' : 'seenMoviesData';
     const catKey = isTv ? 'seriesCategories' : 'movieCategories';
 
+    const safeCategory = (category as string) === 'Mind blowing' || (category as string) === 'Mind-Blow' ? 'Drame' : category;
+
     const currentSeenData = [...(localProfile[dataKey] || [])];
     const itemIndex = currentSeenData.findIndex((m: any) => m?.title && m.title.toLowerCase().trim() === norm);
     if (itemIndex >= 0) {
-        currentSeenData[itemIndex] = { ...currentSeenData[itemIndex], category };
+        currentSeenData[itemIndex] = { ...currentSeenData[itemIndex], category: safeCategory };
     }
 
     const updatedCategories = {
         ...(localProfile[catKey] || {}),
-        [norm]: category,
+        [norm]: safeCategory,
     };
 
     const updatedProfile = {
@@ -878,6 +869,69 @@ export async function updateMovieCategory(uid: string, movieTitle: string, categ
             }, { merge: true });
         } catch (e) {
             console.warn('Erreur updateMovieCategory Firestore:', e);
+        }
+    }
+}
+
+// Update viewing date of an existing movie or series without modifying other properties
+export async function updateMovieViewingDate(
+    uid: string,
+    movieTitle: string,
+    viewedAt: number | null | undefined,
+    mediaType: 'movie' | 'tv' = 'movie',
+    watchedInCinema?: boolean
+) {
+    const norm = movieTitle.toLowerCase().trim();
+    const effectiveUid = uid || 'guest';
+    const localProfile = await getUserFromDb(effectiveUid);
+    if (!localProfile) return;
+
+    const isTv = mediaType === 'tv';
+    const dataKey = isTv ? 'seenSeriesData' : 'seenMoviesData';
+
+    const currentSeenData = [...(localProfile[dataKey] || [])];
+    const itemIndex = currentSeenData.findIndex((m: any) => m?.title && m.title.toLowerCase().trim() === norm);
+
+    if (itemIndex >= 0) {
+        const updated = { ...currentSeenData[itemIndex] };
+        if (viewedAt !== undefined && viewedAt !== null) {
+            updated.viewedAt = viewedAt;
+        } else {
+            delete updated.viewedAt;
+        }
+        if (watchedInCinema !== undefined) {
+            updated.watchedInCinema = watchedInCinema;
+        }
+        currentSeenData[itemIndex] = updated;
+    } else {
+        const newEntry: any = {
+            title: movieTitle,
+            addedAt: Date.now(),
+        };
+        if (viewedAt !== undefined && viewedAt !== null) {
+            newEntry.viewedAt = viewedAt;
+        }
+        if (watchedInCinema !== undefined) {
+            newEntry.watchedInCinema = watchedInCinema;
+        }
+        currentSeenData.push(newEntry);
+    }
+
+    const updatedProfile = {
+        ...localProfile,
+        [dataKey]: currentSeenData,
+    };
+
+    await storeUserInDb(effectiveUid, updatedProfile);
+
+    if (uid && uid !== 'guest') {
+        try {
+            const userRef = doc(firestoreDb, 'users', uid);
+            await setDoc(userRef, {
+                [dataKey]: currentSeenData,
+            }, { merge: true });
+        } catch (e) {
+            console.warn('Erreur updateMovieViewingDate Firestore:', e);
         }
     }
 }
@@ -2145,6 +2199,40 @@ export async function sanitizeAndHealMovieData(
     if (cleaned && cleanedProfile) {
         Object.assign(updated, cleanedProfile);
         hasChanges = true;
+    }
+
+    // A2. Nettoyage catégorie obsolète 'Mind blowing' -> 'Drame'
+    if (updated.movieCategories) {
+        Object.entries(updated.movieCategories).forEach(([k, v]) => {
+            if (v === 'Mind blowing' || v === 'Mind-Blow') {
+                updated.movieCategories[k] = 'Drame';
+                hasChanges = true;
+            }
+        });
+    }
+    if (updated.seriesCategories) {
+        Object.entries(updated.seriesCategories).forEach(([k, v]) => {
+            if (v === 'Mind blowing' || v === 'Mind-Blow') {
+                updated.seriesCategories[k] = 'Drame';
+                hasChanges = true;
+            }
+        });
+    }
+    if (Array.isArray(updated.seenMoviesData)) {
+        updated.seenMoviesData.forEach((m: any) => {
+            if (m && (m.category === 'Mind blowing' || m.category === 'Mind-Blow')) {
+                m.category = 'Drame';
+                hasChanges = true;
+            }
+        });
+    }
+    if (Array.isArray(updated.seenSeriesData)) {
+        updated.seenSeriesData.forEach((m: any) => {
+            if (m && (m.category === 'Mind blowing' || m.category === 'Mind-Blow')) {
+                m.category = 'Drame';
+                hasChanges = true;
+            }
+        });
     }
 
     // B. Collecte des dates réelles de cinéma (Khrouj)

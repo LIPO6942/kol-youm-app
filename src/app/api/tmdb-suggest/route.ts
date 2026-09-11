@@ -14,23 +14,63 @@ function mapCountryLabelToCode(label: string): string | null {
     'Egypte': 'EG',
     'Corée du Sud': 'KR',
     'Coree du Sud': 'KR',
+    'Corée': 'KR',
+    'Coree': 'KR',
+    'South Korea': 'KR',
+    'Korea': 'KR',
     'Japon': 'JP',
+    'Japan': 'JP',
     'Allemagne': 'DE',
+    'Germany': 'DE',
     'Espagne': 'ES',
+    'Spain': 'ES',
     'Maroc': 'MA',
+    'Morocco': 'MA',
     'Inde': 'IN',
+    'India': 'IN',
     'Turquie': 'TR',
+    'Turkey': 'TR',
     'Canada': 'CA',
     'Mexique': 'MX',
+    'Mexico': 'MX',
     'Brésil': 'BR',
     'Bresil': 'BR',
+    'Brazil': 'BR',
     'Chine': 'CN',
+    'China': 'CN',
     'États-Unis': 'US',
     'Etats-Unis': 'US',
+    'USA': 'US',
+    'United States': 'US',
     'Angleterre': 'GB',
     'Royaume-Uni': 'GB',
-    'United States': 'US',
     'United Kingdom': 'GB',
+    'Australie': 'AU',
+    'Australia': 'AU',
+    'Argentine': 'AR',
+    'Argentina': 'AR',
+    'Russie': 'RU',
+    'Russia': 'RU',
+    'Suède': 'SE',
+    'Suede': 'SE',
+    'Sweden': 'SE',
+    'Norvège': 'NO',
+    'Norvege': 'NO',
+    'Norway': 'NO',
+    'Danemark': 'DK',
+    'Denmark': 'DK',
+    'Pays-Bas': 'NL',
+    'Netherlands': 'NL',
+    'Belgique': 'BE',
+    'Belgium': 'BE',
+    'Suisse': 'CH',
+    'Switzerland': 'CH',
+    'Autriche': 'AT',
+    'Austria': 'AT',
+    'Pologne': 'PL',
+    'Poland': 'PL',
+    'Irlande': 'IE',
+    'Ireland': 'IE',
   }
   return map[label] || null
 }
@@ -205,7 +245,8 @@ async function fetchCountryItems(params: {
   let [yMin, yMax] = yearRange
   const CURRENT_YEAR = new Date().getFullYear()
   const isRecent = yMax >= CURRENT_YEAR - 1
-  const defaultVoteCount = isRecent ? 5 : (type === 'movie' ? 500 : 10)
+  const isNonUS = countryCode && countryCode !== 'US'
+  const defaultVoteCount = isRecent ? 5 : (type === 'movie' ? (isNonUS ? 30 : 150) : 10)
   url.searchParams.set('vote_count.gte', String(voteCountOverride ?? defaultVoteCount))
 
   url.searchParams.set('include_adult', 'false')
@@ -246,6 +287,11 @@ async function fetchCountryItems(params: {
     throw new Error(`TMDB discover failed: ${res.status} ${text?.slice(0, 200)}`)
   }
   const data = await res.json()
+  if (Array.isArray(data?.results) && countryCode) {
+    data.results.forEach((item: any) => {
+      if (item) item._requestedCountry = countryCode;
+    });
+  }
   return data || { results: [], total_pages: 0 }
 }
 
@@ -525,21 +571,22 @@ export async function POST(req: NextRequest) {
     }
 
     // Map labels -> codes and dedupe
-    const codes = Array.from(new Set((countries as string[]).map(mapCountryLabelToCode).filter(Boolean))) as string[]
-    const poolCodes = codes.length ? codes : ['US', 'GB', 'FR', 'IT', 'JP', 'KR']
+    const codes = Array.from(new Set((countries as string[]).map(mapCountryLabelToCode).filter(Boolean))) as string[];
+
+    // Has explicit user country preferences?
+    const hasUserCountries = codes.length > 0;
+    const poolCodes = hasUserCountries ? codes : ['US', 'GB', 'FR', 'IT', 'JP', 'KR'];
 
     // Fetch multiple pages randomly across years to ensure diversity
-    const results: any[] = []
+    const results: any[] = [];
 
     // Strategy: Pick random years within the range and fetch from them
     const [yMin, yMax] = yearRange;
-    // Ensure valid range
     const startYear = Math.max(1888, Math.min(yMin, yMax));
     const endYear = Math.min(new Date().getFullYear(), Math.max(yMin, yMax));
 
     // How many distinct fetch attempts to make?
-    // We want 'count' movies. Let's try to get more candidates.
-    const numberOfFetches = type === 'tv' ? 12 : 5;
+    const numberOfFetches = Math.max(12, poolCodes.length * 3);
 
     for (let i = 0; i < numberOfFetches; i++) {
       const randomYear = Math.floor(Math.random() * (endYear - startYear + 1)) + startYear;
@@ -559,38 +606,39 @@ export async function POST(req: NextRequest) {
         if (fetchResult.results && fetchResult.results.length > 0) {
           results.push(...fetchResult.results);
         } else {
-          // Fallback 1: Global but same year and genre
-          const globalResult = await fetchCountryItems({
+          // Fallback 1: wider range around that year (+- 3 years) with the SAME country
+          const widerRange: [number, number] = [Math.max(startYear, randomYear - 3), Math.min(endYear, randomYear + 3)];
+          const fallbackWider = await fetchCountryItems({
             apiKey, bearer, type,
-            countryCode: '',
-            yearRange: yearSpecificRange,
-            minRating, genre, page: 1
+            countryCode: randomCountry,
+            yearRange: widerRange,
+            minRating: Math.max(5.5, minRating - 0.5),
+            genre, page: 1,
+            voteCountOverride: 15,
           });
 
-          if (globalResult.results && globalResult.results.length > 0) {
-            results.push(...globalResult.results);
-          } else {
-            // Fallback 2: wider range around that year (+- 2 years) + country
-            const widerRange: [number, number] = [randomYear - 2, randomYear + 2];
-            const fallbackWider = await fetchCountryItems({
+          if (fallbackWider.results && fallbackWider.results.length > 0) {
+            results.push(...fallbackWider.results);
+          } else if (hasUserCountries) {
+            // Fallback 2 for users with country filter: query with ALL preferred countries combined
+            const fallbackCombined = await fetchCountryItems({
               apiKey, bearer, type,
-              countryCode: randomCountry,
+              countryCode: poolCodes.join('|'),
+              yearRange: widerRange,
+              minRating: Math.max(5.5, minRating - 0.5),
+              genre, page: 1,
+              voteCountOverride: 10,
+            });
+            results.push(...(fallbackCombined.results || []));
+          } else {
+            // Fallback for users with NO country preference: global query
+            const fallbackGlobalWider = await fetchCountryItems({
+              apiKey, bearer, type,
+              countryCode: '',
               yearRange: widerRange,
               minRating, genre, page: 1
             });
-
-            if (fallbackWider.results && fallbackWider.results.length > 0) {
-              results.push(...fallbackWider.results);
-            } else {
-              // Fallback 3: Wider range + Global
-              const fallbackGlobalWider = await fetchCountryItems({
-                apiKey, bearer, type,
-                countryCode: '',
-                yearRange: widerRange,
-                minRating, genre, page: 1
-              });
-              results.push(...(fallbackGlobalWider.results || []));
-            }
+            results.push(...(fallbackGlobalWider.results || []));
           }
         }
       } catch (e) {
@@ -603,129 +651,220 @@ export async function POST(req: NextRequest) {
       ...(seenMovieTitles || []).map((t: string) => (t || '').toLowerCase().trim()),
       ...(rejectedMovieTitles || []).map((t: string) => (t || '').toLowerCase().trim())
     ]);
-    const unique = [] as any[]
-    const titleSet = new Set<string>()
+    const unique = [] as any[];
+    const titleSet = new Set<string>();
     for (const r of results) {
-      const title = (r?.title || r?.name || r?.original_title || r?.original_name || '').trim()
-      if (!title) continue
-      const key = title.toLowerCase()
-      if (titleSet.has(key)) continue
-      if (seenSet.has(key)) continue
-      titleSet.add(key)
-      unique.push(r)
-    }
+      const title = (r?.title || r?.name || r?.original_title || r?.original_name || '').trim();
+      if (!title) continue;
+      const key = title.toLowerCase();
+      if (titleSet.has(key)) continue;
+      if (seenSet.has(key)) continue;
 
-    // Also collect extra suggestions from Wikipedia (disabled for performance)
-    const extraWiki: any[] = []
-    for (const w of extraWiki) unique.push(w)
+      // Early check: if user has country preferences, reject early if origin_country or original_language contradicts
+      if (hasUserCountries) {
+        const origins: string[] = Array.isArray(r?.origin_country) ? r.origin_country.map((c: string) => c.toUpperCase()) : [];
+        if (origins.length > 0 && !origins.some(c => codes.includes(c))) {
+          continue;
+        }
+        const lang = (r?.original_language || '').toLowerCase();
+        if (lang === 'ko' && !codes.includes('KR')) continue;
+        if (lang === 'ja' && !codes.includes('JP')) continue;
+        if (lang === 'zh' && !codes.includes('CN')) continue;
+        if (lang === 'hi' && !codes.includes('IN')) continue;
+        if (lang === 'tr' && !codes.includes('TR')) continue;
+        if (lang === 'ru' && !codes.includes('RU')) continue;
+      }
+
+      titleSet.add(key);
+      unique.push(r);
+    }
 
     // Randomize fairly across origin countries using round-robin selection
-    const byCountry = new Map<string, any[]>()
+    const byCountry = new Map<string, any[]>();
     for (const m of unique) {
-      const codes: string[] = Array.isArray(m?.origin_country) && m.origin_country.length ? m.origin_country : ['UNK']
-      const key = codes[0]
-      if (!byCountry.has(key)) byCountry.set(key, [])
-      byCountry.get(key)!.push(m)
+      const originArr: string[] = Array.isArray(m?.origin_country) && m.origin_country.length
+        ? m.origin_country
+        : (m._requestedCountry ? [m._requestedCountry] : ['UNK']);
+      const key = originArr[0];
+      if (!byCountry.has(key)) byCountry.set(key, []);
+      byCountry.get(key)!.push(m);
     }
     // Shuffle helper
-    const shuffle = <T,>(arr: T[]) => arr.sort(() => Math.random() - 0.5)
-    const baseKeys = shuffle(Array.from(byCountry.keys()))
-    for (const k of baseKeys) byCountry.set(k, shuffle(byCountry.get(k)!))
-    // Apply stronger bias: US, GB, FR, ES get higher weight
-    const weightFor = (code: string) => (code === 'US' || code === 'GB' || code === 'FR' || code === 'ES' ? 3 : 1)
-    const keys: string[] = []
+    const shuffle = <T,>(arr: T[]) => arr.sort(() => Math.random() - 0.5);
+    const baseKeys = shuffle(Array.from(byCountry.keys()));
+    for (const k of baseKeys) byCountry.set(k, shuffle(byCountry.get(k)!));
+
+    // Priority bias for user countries or popular
+    const weightFor = (code: string) => (codes.includes(code) ? 3 : (code === 'US' || code === 'GB' || code === 'FR' || code === 'ES' ? 2 : 1));
+    const keys: string[] = [];
     for (const k of baseKeys) {
-      const w = weightFor(k)
-      for (let i = 0; i < w; i++) keys.push(k)
-    }
-    const selected: any[] = []
-    let idx = 0
-    while (selected.length < count && keys.length > 0) {
-      const k = keys[idx % keys.length]
-      const arr = byCountry.get(k)!
-      if (arr.length) {
-        selected.push(arr.shift()!)
-      }
-      // Remove empty buckets
-      if (arr.length === 0) {
-        byCountry.delete(k)
-        keys.splice(idx % keys.length, 1)
-        if (keys.length === 0) break
-        idx = idx % keys.length
-      } else {
-        idx++
-      }
+      const w = weightFor(k);
+      for (let j = 0; j < w; j++) keys.push(k);
     }
 
-    // Enrich with cast (parallel with limited concurrency)
-    const concurrency = 5
-    const out: any[] = []
-    let i = 0
-    while (i < selected.length) {
-      const chunk = selected.slice(i, i + concurrency)
-      const data = await Promise.all(chunk.map(async (m) => {
-        const actors: string[] = [] // Skip fetching cast to speed up response
+    // Create ordered candidates list
+    const candidateQueue: any[] = [];
+    let idx = 0;
+    while (keys.length > 0) {
+      const k = keys[idx % keys.length];
+      const arr = byCountry.get(k)!;
+      if (arr && arr.length) {
+        candidateQueue.push(arr.shift()!);
+      }
+      if (!arr || arr.length === 0) {
+        byCountry.delete(k);
+        keys.splice(idx % keys.length, 1);
+        if (keys.length === 0) break;
+        idx = idx % keys.length;
+      } else {
+        idx++;
+      }
+    }
+    // Add any remaining unique items
+    for (const remaining of unique) {
+      if (!candidateQueue.includes(remaining)) candidateQueue.push(remaining);
+    }
+
+    // Helper to verify movie country strictly against user preferences
+    function isStrictlyMatchingCountries(item: any, details: any, allowedCodes: string[]): boolean {
+      if (!allowedCodes || allowedCodes.length === 0) return true;
+
+      const detectedCodes = new Set<string>();
+
+      if (Array.isArray(item?.origin_country)) {
+        item.origin_country.forEach((c: any) => typeof c === 'string' && detectedCodes.add(c.toUpperCase()));
+      }
+      if (Array.isArray(details?.origin_country)) {
+        details.origin_country.forEach((c: any) => {
+          if (typeof c === 'string') detectedCodes.add(c.toUpperCase());
+          else if (c?.iso_3166_1) detectedCodes.add(c.iso_3166_1.toUpperCase());
+        });
+      }
+      if (Array.isArray(details?.production_countries)) {
+        details.production_countries.forEach((c: any) => {
+          if (c?.iso_3166_1) detectedCodes.add(c.iso_3166_1.toUpperCase());
+        });
+      }
+
+      // Check language mismatch
+      const lang = (item?.original_language || details?.original_language || '').toLowerCase();
+      const langMap: Record<string, string> = {
+        ko: 'KR', ja: 'JP', zh: 'CN', hi: 'IN', tr: 'TR', ru: 'RU',
+      };
+      if (langMap[lang] && !allowedCodes.includes(langMap[lang])) {
+        return false;
+      }
+
+      // Check country name strings
+      const allNames = [
+        ...(details?.production_countries || []).map((c: any) => (c?.name || '').toLowerCase()),
+        (item as any)?._countryName?.toLowerCase() || '',
+      ].join(' ');
+
+      if (!allowedCodes.includes('KR') && (allNames.includes('korea') || allNames.includes('corée') || allNames.includes('coree') || allNames.includes('séoul') || allNames.includes('seoul'))) {
+        return false;
+      }
+
+      if (detectedCodes.size > 0) {
+        return Array.from(detectedCodes).some(c => allowedCodes.includes(c));
+      }
+
+      if (item._requestedCountry && allowedCodes.includes(item._requestedCountry)) {
+        return true;
+      }
+
+      return false;
+    }
+
+    // Enrich with cast and details (filter strictly by country if specified)
+    const out: any[] = [];
+    const concurrency = 5;
+    let candidateIndex = 0;
+
+    while (out.length < count && candidateIndex < candidateQueue.length) {
+      const chunk = candidateQueue.slice(candidateIndex, candidateIndex + concurrency);
+      candidateIndex += concurrency;
+
+      const processed = await Promise.all(chunk.map(async (m) => {
         const dateStr = type === 'movie' ? m.release_date : m.first_air_date;
-        const year = Number((dateStr || '0000-00-00').substring(0, 4)) || 0
-        // Robust synopsis: prefer FR details, fallback to EN, then to discover overview
-        const frDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, type, 'fr-FR')
-        let synopsis = (m?.overview || frDetails?.overview || '').trim()
+        const year = Number((dateStr || '0000-00-00').substring(0, 4)) || 0;
+
+        // Fetch details
+        const frDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, type, 'fr-FR');
+
+        // Check strict country adherence
+        if (hasUserCountries && !isStrictlyMatchingCountries(m, frDetails, codes)) {
+          return null;
+        }
+
+        let synopsis = (m?.overview || frDetails?.overview || '').trim();
         if (!synopsis) {
-          const enDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, type, 'en-US')
-          synopsis = (enDetails?.overview || m.overview || '').trim()
+          const enDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, type, 'en-US');
+          synopsis = (enDetails?.overview || m.overview || '').trim();
         }
-        // Limit synopsis length and add ellipsis if needed
+
         const truncate = (text: string, max: number = 180) => {
-          if (text.length <= max) return text
-          const truncated = text.slice(0, max)
-          const lastSpace = truncated.lastIndexOf(' ')
-          return (lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated) + '...'
-        }
-        synopsis = truncate(synopsis)
+          if (text.length <= max) return text;
+          const truncated = text.slice(0, max);
+          const lastSpace = truncated.lastIndexOf(' ');
+          return (lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated) + '...';
+        };
+        synopsis = truncate(synopsis);
 
         // Country name from details (prefer FR names), fallback to origin_country code
-        let country = (m as any)?._countryName || ''
-        const frCountries = (frDetails as any)?.production_countries || (frDetails as any)?.origin_country
+        let country = (m as any)?._countryName || '';
+        const frCountries = (frDetails as any)?.production_countries || (frDetails as any)?.origin_country;
         if (Array.isArray(frCountries) && frCountries.length) {
-          country = typeof frCountries[0] === 'string' ? frCountries.join(', ') : frCountries.map((c: any) => c?.name).filter(Boolean).join(', ')
+          country = typeof frCountries[0] === 'string' ? frCountries.join(', ') : frCountries.map((c: any) => c?.name).filter(Boolean).join(', ');
         }
         if (!country) {
-          const enDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, type, 'en-US')
-          const enCountries = (enDetails as any)?.production_countries || (enDetails as any)?.origin_country
+          const enDetails = await fetchMovieDetails({ apiKey, bearer }, m.id, type, 'en-US');
+          const enCountries = (enDetails as any)?.production_countries || (enDetails as any)?.origin_country;
           if (Array.isArray(enCountries) && enCountries.length) {
-            country = typeof enCountries[0] === 'string' ? enCountries.join(', ') : enCountries.map((c: any) => c?.name).filter(Boolean).join(', ')
+            country = typeof enCountries[0] === 'string' ? enCountries.join(', ') : enCountries.map((c: any) => c?.name).filter(Boolean).join(', ');
           }
         }
         if (!country) {
-          const codes: string[] = Array.isArray(m?.origin_country) ? m.origin_country : []
-          country = codes.join(', ')
+          const originCodes: string[] = Array.isArray(m?.origin_country) ? m.origin_country : (m._requestedCountry ? [m._requestedCountry] : []);
+          country = originCodes.join(', ');
         }
-        // Normalize title to avoid non-Latin scripts in UI
-        let titleStr = (m.title || m.name || m.original_title || m.original_name || '').trim()
-        titleStr = await normalizeTitle({ apiKey, bearer }, m.id, titleStr, type)
-        // Build Wikipedia URL using Wikipedia search API
-        const wikipediaUrl = await findWikipediaUrl(titleStr, year, type)
-        // Build poster URL if available
-        const posterUrl = m.poster_path ? `https://image.tmdb.org/t/p/w185${m.poster_path}` : null
+
+        // Secondary verification: if country string mentions Korea but KR is not in codes, discard!
+        if (hasUserCountries && !codes.includes('KR')) {
+          const lowerC = country.toLowerCase();
+          if (lowerC.includes('corée') || lowerC.includes('coree') || lowerC.includes('korea')) {
+            return null;
+          }
+        }
+
+        let titleStr = (m.title || m.name || m.original_title || m.original_name || '').trim();
+        titleStr = await normalizeTitle({ apiKey, bearer }, m.id, titleStr, type);
+        const wikipediaUrl = await findWikipediaUrl(titleStr, year, type);
+        const posterUrl = m.poster_path ? `https://image.tmdb.org/t/p/w185${m.poster_path}` : null;
+
         return {
           id: String(m.id),
           title: titleStr,
           synopsis,
-          actors,
+          actors: [],
           rating: Number(m.vote_average || 0),
           year,
           wikipediaUrl,
           genre: genre || (m.genre_ids && m.genre_ids.length ? String(m.genre_ids[0]) : ''),
           country,
           posterUrl,
+        };
+      }));
+
+      for (const item of processed) {
+        if (item && out.length < count) {
+          out.push(item);
         }
-      }))
-      out.push(...data)
-      i += concurrency
+      }
     }
 
-    return NextResponse.json({ movies: out })
+    return NextResponse.json({ movies: out });
   } catch (err: any) {
-    return NextResponse.json({ error: err?.message || 'Unknown error' }, { status: 500 })
+    return NextResponse.json({ error: err?.message || 'Unknown error' }, { status: 500 });
   }
 }
