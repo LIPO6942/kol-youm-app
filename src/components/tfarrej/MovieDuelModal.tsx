@@ -32,6 +32,8 @@ import { useAuth } from '@/hooks/use-auth';
 import {
   saveMonthlyMovieRanking,
   getStoredMovieRanking,
+  saveMonthlySeriesRanking,
+  getStoredSeriesRanking,
   MonthlyMovieRanking,
   isTestMovieTitle,
   backfillMoviePosters,
@@ -47,11 +49,12 @@ interface MovieDuelModalProps {
   onOpenChange: (open: boolean) => void;
   monthKey: string; // e.g. "2026-09"
   monthName?: string; // e.g. "Septembre 2026"
-  seenMovies: DuelMovieItem[]; // All seen movies for this month
+  seenMovies: DuelMovieItem[]; // All seen movies or series for this month
   existingRanking?: MonthlyMovieRanking | null;
   onRankingSaved?: (ranking: MonthlyMovieRanking) => void;
   initialCategory?: MovieCategory | 'all';
   onOpenDnaModal?: () => void;
+  mediaType?: 'movie' | 'tv';
 }
 
 export function MovieDuelModal({
@@ -64,7 +67,9 @@ export function MovieDuelModal({
   onRankingSaved,
   initialCategory = 'all',
   onOpenDnaModal,
+  mediaType = 'movie',
 }: MovieDuelModalProps) {
+  const isTv = mediaType === 'tv';
   const { user, userProfile } = useAuth();
   const { toast } = useToast();
 
@@ -92,19 +97,23 @@ export function MovieDuelModal({
 
   // Classement effectif (prop direct ou depuis le stockage local/cloud)
   const effectiveExistingRanking = useMemo(() => {
-    return existingRanking || getStoredMovieRanking(monthKey, userProfile);
-  }, [existingRanking, monthKey, userProfile]);
+    if (existingRanking) return existingRanking;
+    return isTv
+      ? getStoredSeriesRanking(monthKey, userProfile)
+      : getStoredMovieRanking(monthKey, userProfile);
+  }, [existingRanking, monthKey, userProfile, isTv]);
 
-  // Filtrer les films de test et enrichir avec leur catégorie
+  // Filtrer les films/séries de test et enrichir avec leur catégorie
   const validSeenMovies = useMemo(() => {
+    const catMap = isTv ? (userProfile?.seriesCategories || {}) : (userProfile?.movieCategories || {});
     return seenMovies
       .filter(m => !isTestMovieTitle(m.title))
       .map(m => {
         const norm = m.title.toLowerCase().trim();
-        const cat = m.category || (userProfile?.movieCategories || {})[norm] || guessMovieCategory(m.title, m.genres);
+        const cat = m.category || catMap[norm] || guessMovieCategory(m.title, m.genres);
         return { ...m, category: cat };
       });
-  }, [seenMovies, userProfile]);
+  }, [seenMovies, userProfile, isTv]);
 
   // Calcul du nombre de films par catégorie
   const categoryCounts = useMemo(() => {
@@ -250,7 +259,7 @@ export function MovieDuelModal({
         const res = await fetch('/api/movies/posters-batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ titles: titlesNeedingPosters, type: 'movie' }),
+          body: JSON.stringify({ titles: titlesNeedingPosters, type: mediaType }),
         });
 
         if (!res.ok) return;
@@ -283,7 +292,7 @@ export function MovieDuelModal({
                 changed = true;
               }
 
-              // Mise à jour immédiate du duel actif s'il concerne ce film
+              // Mise à jour immédiate du duel actif s'il concerne ce film/série
               if (updatedActiveDuel) {
                 if (updatedActiveDuel.movieA.title.toLowerCase().trim() === normTitle && !updatedActiveDuel.movieA.posterUrl) {
                   updatedActiveDuel.movieA = {
@@ -317,7 +326,7 @@ export function MovieDuelModal({
 
         // Enregistrer définitivement les affiches trouvées dans le profil Firestore
         const effectiveUid = user?.uid || userProfile?.uid || 'guest';
-        await backfillMoviePosters(effectiveUid, returnedPosters, 'movie');
+        await backfillMoviePosters(effectiveUid, returnedPosters, mediaType);
       } catch (err) {
         console.warn("Erreur résolution affiches duel:", err);
       }
@@ -328,7 +337,7 @@ export function MovieDuelModal({
     return () => {
       isCancelled = true;
     };
-  }, [isOpen, session?.isFinished, user?.uid, userProfile?.uid]);
+  }, [isOpen, session?.isFinished, user?.uid, userProfile?.uid, mediaType]);
 
   // Sauvegarde synchrone et persistante (Multi-couches : LocalStorage + IndexedDB + Firestore)
   const executeSaveRanking = useCallback(async (
@@ -355,7 +364,11 @@ export function MovieDuelModal({
         hasUpdatesSincePublish: !isFirstPublish && (targetSession.newlyAddedTitles?.length || 0) > 0,
       };
 
-      await saveMonthlyMovieRanking(effectiveUid, rankingPayload);
+      if (isTv) {
+        await saveMonthlySeriesRanking(effectiveUid, rankingPayload);
+      } else {
+        await saveMonthlyMovieRanking(effectiveUid, rankingPayload);
+      }
 
       if (onRankingSaved) {
         onRankingSaved(rankingPayload);
@@ -365,8 +378,8 @@ export function MovieDuelModal({
         toast({
           title: isFirstPublish ? "🏆 Classement validé !" : "⚡ Reclassement mis à jour !",
           description: isFirstPublish
-            ? "Ton classement officiel est bien sauvegardé pour le Wrap-Up mensuel."
-            : `${targetSession.newlyAddedTitles.length} nouveau(x) film(s) intégré(s) avec succès !`,
+            ? `Ton classement officiel est bien sauvegardé pour le Wrap-Up mensuel.`
+            : `${targetSession.newlyAddedTitles.length} nouvelle(s) ${isTv ? 'série(s)' : 'film(s)'} intégrée(s) avec succès !`,
         });
       }
 
@@ -385,7 +398,7 @@ export function MovieDuelModal({
     } finally {
       setIsSaving(false);
     }
-  }, [user, userProfile, effectiveExistingRanking, monthKey, onRankingSaved, onOpenChange, toast]);
+  }, [user, userProfile, effectiveExistingRanking, monthKey, onRankingSaved, onOpenChange, toast, isTv]);
 
   // Terminer et réintégrer le duel d'une catégorie dans le classement général
   const handleFinishCategoryDuel = useCallback((finishedCatSession: DuelSessionState, category: MovieCategory) => {
@@ -434,17 +447,17 @@ export function MovieDuelModal({
 
     toast({
       title: `🏆 Catégorie ${category} reclassée !`,
-      description: `La nouvelle hiérarchie des films « ${category} » a été intégrée à ton classement général.`,
+      description: `La nouvelle hiérarchie des ${isTv ? 'séries' : 'films'} « ${category} » a été intégrée à ton classement général.`,
     });
-  }, [effectiveExistingRanking, validSeenMovies, executeSaveRanking, toast]);
+  }, [effectiveExistingRanking, validSeenMovies, executeSaveRanking, toast, isTv]);
 
   // Lancer un duel ciblé UNIQUEMENT sur les films d'une catégorie
   const handleStartCategoryDuel = useCallback((category: MovieCategory) => {
     const categoryMovies = validSeenMovies.filter(m => m.category === category);
     if (categoryMovies.length < 2) {
       toast({
-        title: "Pas assez de films",
-        description: `Il faut au moins 2 films dans la catégorie « ${category} » pour lancer un duel.`,
+        title: isTv ? "Pas assez de séries" : "Pas assez de films",
+        description: `Il faut au moins 2 ${isTv ? 'séries' : 'films'} dans la catégorie « ${category} » pour lancer un duel.`,
       });
       return;
     }
@@ -458,7 +471,7 @@ export function MovieDuelModal({
     } else {
       setSession(resolved);
     }
-  }, [validSeenMovies, userProfile?.sagaRankings, handleFinishCategoryDuel, toast]);
+  }, [validSeenMovies, userProfile?.sagaRankings, handleFinishCategoryDuel, toast, isTv]);
 
   // Abandonner le reclassement de catégorie et restaurer l'état précédent
   const handleCancelCategoryDuel = useCallback(() => {
@@ -525,7 +538,7 @@ export function MovieDuelModal({
     setSession(prev => (prev ? undoDuelDecision(prev) : null));
   }, [session]);
 
-  // Écarter un film non vu et le retirer de la liste des films vus
+  // Écarter un film/série non vu(e) et le retirer de la liste des vus
   const handleMarkNotWatched = useCallback(async (side: 'A' | 'B') => {
     if (!session || !session.activeDuel) return;
     const targetMovie = side === 'A' ? session.activeDuel.movieA : session.activeDuel.movieB;
@@ -550,16 +563,16 @@ export function MovieDuelModal({
 
     const effectiveUid = user?.uid || userProfile?.uid || 'guest';
     try {
-      await removeMovieFromList(effectiveUid, 'seenMovieTitles', title);
+      await removeMovieFromList(effectiveUid, isTv ? 'seenSeriesTitles' : 'seenMovieTitles', title);
     } catch (err) {
-      console.warn("Could not remove movie from seen list:", err);
+      console.warn("Could not remove item from seen list:", err);
     }
 
     toast({
-      title: `"${title}" retiré`,
-      description: "Ce film a été retiré du duel et de votre liste de films vus.",
+      title: `"${title}" retiré${isTv ? 'e' : ''}`,
+      description: `Cette ${isTv ? 'série a été retirée' : 'film a été retiré'} du duel et de votre liste de ${isTv ? 'séries vues' : 'films vus'}.`,
     });
-  }, [session, reclassifyingCategory, user?.uid, userProfile?.uid, handleFinishCategoryDuel, executeSaveRanking, toast]);
+  }, [session, reclassifyingCategory, user?.uid, userProfile?.uid, handleFinishCategoryDuel, executeSaveRanking, toast, isTv]);
 
   // Raccourcis clavier (Flèche gauche = Film A, Flèche droite = Film B)
   useEffect(() => {
@@ -624,11 +637,11 @@ export function MovieDuelModal({
             <div>
               <DialogTitle className="text-lg font-black tracking-tight text-white flex items-center gap-2">
                 {session.isFinished ? (
-                  "🏆 Classement Finalisé"
+                  isTv ? "🏆 Classement Séries Finalisé" : "🏆 Classement Finalisé"
                 ) : reclassifyingCategory ? (
                   `⚔️ Duel Exclusif : ${reclassifyingCategory}`
                 ) : (
-                  "⚔️ Duel Ciné : Le Grand Choix"
+                  isTv ? "⚔️ Duel Séries : Le Grand Choix" : "⚔️ Duel Ciné : Le Grand Choix"
                 )}
                 {session.mode === 'incremental' && !session.isFinished && !reclassifyingCategory && (
                   <Badge variant="outline" className="bg-amber-500/20 border-amber-400/40 text-amber-300 text-[10px] font-bold">
@@ -643,10 +656,10 @@ export function MovieDuelModal({
               </DialogTitle>
               <DialogDescription className="text-xs text-white/60">
                 {session.isFinished
-                  ? `Classement des films vus • ${monthName || monthKey}`
+                  ? `Classement des ${isTv ? 'séries vues' : 'films vus'} • ${monthName || monthKey}`
                   : reclassifyingCategory
-                  ? `Seuls les films de la catégorie ${reclassifyingCategory} s'affrontent ici`
-                  : `Vote pour ton film préféré pour affiner la hiérarchie`}
+                  ? `Seul${isTv ? 'es les séries' : 's les films'} de la catégorie ${reclassifyingCategory} s'affrontent ici`
+                  : `Vote pour ${isTv ? 'ta série préférée' : 'ton film préféré'} pour affiner la hiérarchie`}
               </DialogDescription>
             </div>
           </div>
@@ -689,7 +702,7 @@ export function MovieDuelModal({
                     <div className="flex items-center gap-2">
                       <Sparkles className="w-3.5 h-3.5 flex-shrink-0 text-purple-400" />
                       <span>
-                        <strong>Reclassement ciblé « {reclassifyingCategory} » :</strong> Seuls les films de cette catégorie vous sont proposés en duel !
+                        <strong>Reclassement ciblé « {reclassifyingCategory} » :</strong> Seul{isTv ? 'es les séries' : 's les films'} de cette catégorie vous sont proposé{isTv ? 'es' : 's'} en duel !
                       </span>
                     </div>
                     <button
@@ -713,7 +726,7 @@ export function MovieDuelModal({
                         {session.mode === 'incremental' ? (
                           <><strong>Reclassement :</strong> Insertion de <span className="font-semibold text-white">« {session.currentCandidate?.title} »</span> {session.pendingItems.length > 0 && <span className="opacity-75">({session.pendingItems.length} en attente)</span>}</>
                         ) : (
-                          <><strong>Premier duel du mois :</strong> Tous vos films sont comparés cette première fois. Ensuite, seuls vos <strong>futurs ajouts</strong> seront départagés !</>
+                          <><strong>Premier duel du mois :</strong> {isTv ? "Toutes vos séries sont comparées cette première fois. Ensuite, seuls vos " : "Tous vos films sont comparés cette première fois. Ensuite, seuls vos "}<strong>futurs ajouts</strong> seront départagés !</>
                         )}
                       </span>
                     </div>
@@ -722,7 +735,7 @@ export function MovieDuelModal({
                         type="button"
                         onClick={() => handleMarkNotWatched('A')}
                         className="text-[10px] text-amber-300/80 hover:text-amber-200 underline whitespace-nowrap shrink-0 ml-2"
-                        title="Ignorer ce film et passer au suivant s'il n'a pas été vu"
+                        title={isTv ? "Ignorer cette série et passer à la suivante si elle n'a pas été vue" : "Ignorer ce film et passer au suivant s'il n'a pas été vu"}
                       >
                         Passer
                       </button>
@@ -792,7 +805,7 @@ export function MovieDuelModal({
                     <div className="w-full flex items-center justify-between mb-1.5 sm:mb-2">
                       <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-500/15 border border-blue-400/30 text-[9px] sm:text-[10px] font-extrabold text-blue-300 uppercase tracking-wider flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                        Film 1
+                        {isTv ? "Série 1" : "Film 1"}
                       </span>
                       <span className="hidden sm:inline-block text-[10px] text-white/40 font-mono">← Gauche</span>
                     </div>
@@ -848,7 +861,7 @@ export function MovieDuelModal({
                       className="mt-2.5 sm:mt-3.5 w-full py-2 sm:py-2.5 text-[11px] sm:text-xs font-black rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-500 hover:to-indigo-400 text-white shadow-[0_4px_15px_rgba(59,130,246,0.35)] hover:shadow-[0_6px_20px_rgba(59,130,246,0.5)] border border-white/20 backdrop-blur-sm active:scale-95 transition-all duration-200"
                     >
                       <span className="sm:hidden">Choisir</span>
-                      <span className="hidden sm:inline">Préférer ce film</span>
+                      <span className="hidden sm:inline">{isTv ? "Préférer cette série" : "Préférer ce film"}</span>
                     </Button>
 
                     {/* Option écarter si non vu */}
@@ -859,10 +872,10 @@ export function MovieDuelModal({
                         handleMarkNotWatched('A');
                       }}
                       className="mt-1.5 sm:mt-2 text-[10px] sm:text-[11px] text-red-400/75 hover:text-red-300 flex items-center justify-center gap-1 transition-all py-1 px-1.5 rounded-lg hover:bg-red-500/10 w-full border border-transparent hover:border-red-500/20"
-                      title="Retirer ce film s'il n'a pas été vu"
+                      title={isTv ? "Retirer cette série si elle n'a pas été vue" : "Retirer ce film s'il n'a pas été vu"}
                     >
                       <EyeOff className="w-3 h-3 text-red-400/80" />
-                      <span>Pas vu ce film</span>
+                      <span>{isTv ? "Pas vu cette série" : "Pas vu ce film"}</span>
                     </button>
                   </motion.div>
 
@@ -897,7 +910,7 @@ export function MovieDuelModal({
                     <div className="w-full flex items-center justify-between mb-1.5 sm:mb-2">
                       <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-400/30 text-[9px] sm:text-[10px] font-extrabold text-purple-300 uppercase tracking-wider flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-                        Film 2
+                        {isTv ? "Série 2" : "Film 2"}
                       </span>
                       <span className="hidden sm:inline-block text-[10px] text-white/40 font-mono">Droite →</span>
                     </div>
@@ -953,7 +966,7 @@ export function MovieDuelModal({
                       className="mt-2.5 sm:mt-3.5 w-full py-2 sm:py-2.5 text-[11px] sm:text-xs font-black rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-purple-500 hover:from-purple-500 hover:to-pink-400 text-white shadow-[0_4px_15px_rgba(168,85,247,0.35)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.5)] border border-white/20 backdrop-blur-sm active:scale-95 transition-all duration-200"
                     >
                       <span className="sm:hidden">Choisir</span>
-                      <span className="hidden sm:inline">Préférer ce film</span>
+                      <span className="hidden sm:inline">{isTv ? "Préférer cette série" : "Préférer ce film"}</span>
                     </Button>
 
                     {/* Option écarter si non vu */}
@@ -964,10 +977,10 @@ export function MovieDuelModal({
                         handleMarkNotWatched('B');
                       }}
                       className="mt-1.5 sm:mt-2 text-[10px] sm:text-[11px] text-red-400/75 hover:text-red-300 flex items-center justify-center gap-1 transition-all py-1 px-1.5 rounded-lg hover:bg-red-500/10 w-full border border-transparent hover:border-red-500/20"
-                      title="Retirer ce film s'il n'a pas été vu"
+                      title={isTv ? "Retirer cette série si elle n'a pas été vue" : "Retirer ce film s'il n'a pas été vu"}
                     >
                       <EyeOff className="w-3 h-3 text-red-400/80" />
-                      <span>Pas vu ce film</span>
+                      <span>{isTv ? "Pas vu cette série" : "Pas vu ce film"}</span>
                     </button>
                   </motion.div>
                 </div>
@@ -975,7 +988,7 @@ export function MovieDuelModal({
                 {/* Barre d'outils du duel (Annuler & indices clavier) */}
                 <div className="flex items-center justify-between w-full max-w-[500px] mt-3 sm:mt-5 pt-2.5 sm:pt-3 border-t border-white/10 text-xs text-white/40">
                   <span className="hidden sm:inline">
-                    💡 Raccourcis : <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/80">←</kbd> Film 1 / <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/80">→</kbd> Film 2
+                    💡 Raccourcis : <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/80">←</kbd> {isTv ? "Série 1" : "Film 1"} / <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/80">→</kbd> {isTv ? "Série 2" : "Film 2"}
                   </span>
                   <Button
                     variant="ghost"
@@ -999,14 +1012,16 @@ export function MovieDuelModal({
                   <Swords className="w-8 h-8" />
                 </div>
                 <h3 className="text-lg font-black text-white mb-2">
-                  Pas encore assez de films ce mois-ci
+                  {isTv ? "Pas encore assez de séries ce mois-ci" : "Pas encore assez de films ce mois-ci"}
                 </h3>
                 <p className="text-xs text-white/70 leading-relaxed mb-4">
-                  Pour comparer tes films en duel et générer ton palmarès officiel du mois ({monthName || monthKey}), tu dois avoir vu au moins 2 films.
+                  {isTv
+                    ? `Pour comparer tes séries en duel et générer ton palmarès officiel du mois (${monthName || monthKey}), tu dois avoir vu au moins 2 séries.`
+                    : `Pour comparer tes films en duel et générer ton palmarès officiel du mois (${monthName || monthKey}), tu dois avoir vu au moins 2 films.`}
                 </p>
                 <div className="px-3.5 py-1.5 rounded-full bg-white/10 border border-white/15 text-white/90 text-xs font-semibold mb-6 flex items-center gap-2">
                   <Film className="w-3.5 h-3.5 text-blue-400" />
-                  Films vus enregistrés ce mois : <span className="font-bold text-amber-300">{seenMovies.length}</span> / 2
+                  {isTv ? "Séries vues enregistrées ce mois :" : "Films vus enregistrés ce mois :"} <span className="font-bold text-amber-300">{seenMovies.length}</span> / 2
                 </div>
                 <Button
                   onClick={() => onOpenChange(false)}
@@ -1029,7 +1044,7 @@ export function MovieDuelModal({
                   <Trophy className="w-6 h-6 text-yellow-400" />
                   <h3 className="text-xl font-black text-white">
                     {selectedCategory === 'all'
-                      ? (session.mode === 'incremental' ? "Classement Réactualisé !" : "Ton Palmarès Général !")
+                      ? (session.mode === 'incremental' ? (isTv ? "Classement Séries Réactualisé !" : "Classement Réactualisé !") : (isTv ? "Ton Palmarès Séries !" : "Ton Palmarès Général !"))
                       : `Palmarès ${selectedCategory} !`}
                   </h3>
                 </div>
@@ -1046,14 +1061,18 @@ export function MovieDuelModal({
                 <p className="text-xs text-white/60 text-center max-w-[480px] mb-5">
                   {selectedCategory === 'all'
                     ? (session.mode === 'incremental'
-                      ? "Les nouveaux films ont bousculé les positions ! Observe les montées, descentes et nouvelles entrées ci-dessous."
-                      : "Chaque film a trouvé sa place grâce à tes duels. Prêt à publier pour le Wrap-Up ?")
-                    : `Hiérarchie exclusive de vos films ${selectedCategory} pour ce mois (${rankMovements.length} film${rankMovements.length > 1 ? 's' : ''}).`}
+                      ? (isTv
+                        ? "Les nouvelles séries ont bousculé les positions ! Observe les montées, descentes et nouvelles entrées ci-dessous."
+                        : "Les nouveaux films ont bousculé les positions ! Observe les montées, descentes et nouvelles entrées ci-dessous.")
+                      : (isTv
+                        ? "Chaque série a trouvé sa place grâce à tes duels. Prêt à publier pour le Wrap-Up ?"
+                        : "Chaque film a trouvé sa place grâce à tes duels. Prêt à publier pour le Wrap-Up ?"))
+                    : `Hiérarchie exclusive de vos ${isTv ? 'séries' : 'films'} ${selectedCategory} pour ce mois (${rankMovements.length} ${isTv ? 'série' : 'film'}${rankMovements.length > 1 ? 's' : ''}).`}
                 </p>
 
                 {rankMovements.length === 0 && (
                   <div className="py-8 text-center text-white/50 text-xs flex flex-col items-center gap-2">
-                    <span>Aucun film dans la catégorie « {selectedCategory} » ce mois-ci.</span>
+                    <span>Aucun{isTv ? 'e série' : ' film'} dans la catégorie « {selectedCategory} » ce mois-ci.</span>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1191,7 +1210,7 @@ export function MovieDuelModal({
                     >
                       <Swords className="w-4 h-4 text-purple-200" />
                       <span>
-                        ⚔️ Reclasser uniquement « {selectedCategory} » ({categoryCounts[selectedCategory as MovieCategory] || 0} film{(categoryCounts[selectedCategory as MovieCategory] || 0) > 1 ? 's' : ''})
+                        ⚔️ Reclasser uniquement « {selectedCategory} » ({categoryCounts[selectedCategory as MovieCategory] || 0} {isTv ? 'série' : 'film'}{(categoryCounts[selectedCategory as MovieCategory] || 0) > 1 ? 's' : ''})
                       </span>
                     </Button>
                   )}
@@ -1230,10 +1249,10 @@ export function MovieDuelModal({
                           onOpenDnaModal();
                         }}
                         className="h-11 px-3 sm:px-4 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-bold text-xs border border-fuchsia-400/30 shadow-[0_4px_18px_rgba(217,70,239,0.35)] flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all"
-                        title="Découvrir mon ADN Cinématographique"
+                        title={isTv ? "Découvrir mon ADN Télévisuel / Séries" : "Découvrir mon ADN Cinématographique"}
                       >
                         <Dna className="w-4 h-4 text-fuchsia-200 animate-pulse" />
-                        <span className="hidden sm:inline">ADN Ciné</span>
+                        <span className="hidden sm:inline">{isTv ? "ADN Séries" : "ADN Ciné"}</span>
                         <span className="sm:hidden">ADN</span>
                       </Button>
                     )}

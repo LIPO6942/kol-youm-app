@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv, Swords, Layers } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters, MovieCategory, updateMovieCategory, MovieCollectionInfo } from '@/lib/firebase/firestore';
+import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, getStoredSeriesRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters, MovieCategory, updateMovieCategory, MovieCollectionInfo } from '@/lib/firebase/firestore';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
 import { CinematicDnaModal } from '@/components/tfarrej/CinematicDnaModal';
 import { MovieCategoryPicker, CategoryBadge, CategorySelectModal } from '@/components/tfarrej/movie-category-picker';
@@ -535,37 +535,58 @@ function MovieListContent({
   const currentMonthIndex = useMemo(() => new Date().getMonth(), []);
   const currentYear = useMemo(() => new Date().getFullYear(), []);
 
+  const isSeries = type === 'tv' || listType === 'seenSeriesTitles';
+
   const [localRanking, setLocalRanking] = useState<MonthlyMovieRanking | null>(() => {
-    return getStoredMovieRanking(currentMonthKey, userProfile);
+    return isSeries
+      ? getStoredSeriesRanking(currentMonthKey, userProfile)
+      : getStoredMovieRanking(currentMonthKey, userProfile);
   });
 
   useEffect(() => {
     const handleRankingUpdate = (e: any) => {
       const detail = e.detail;
-      if (!detail) {
-        const stored = getStoredMovieRanking(currentMonthKey, userProfile);
-        if (stored) setLocalRanking(stored);
-        return;
-      }
-      if (detail.monthKey === currentMonthKey || !detail.monthKey) {
-        const fresh = detail.ranking || getStoredMovieRanking(currentMonthKey, userProfile);
-        if (fresh) {
-          setLocalRanking(fresh);
+      const isSeriesEvent = e.type === 'kolyoum_series_ranking_updated' || detail?.mediaType === 'tv';
+      if (isSeriesEvent && isSeries) {
+        if (!detail) {
+          const stored = getStoredSeriesRanking(currentMonthKey, userProfile);
+          if (stored) setLocalRanking(stored);
+          return;
+        }
+        if (detail.monthKey === currentMonthKey || !detail.monthKey) {
+          const fresh = detail.ranking || getStoredSeriesRanking(currentMonthKey, userProfile);
+          if (fresh) setLocalRanking(fresh);
+        }
+      } else if (!isSeriesEvent && !isSeries) {
+        if (!detail) {
+          const stored = getStoredMovieRanking(currentMonthKey, userProfile);
+          if (stored) setLocalRanking(stored);
+          return;
+        }
+        if (detail.monthKey === currentMonthKey || !detail.monthKey) {
+          const fresh = detail.ranking || getStoredMovieRanking(currentMonthKey, userProfile);
+          if (fresh) setLocalRanking(fresh);
         }
       }
     };
 
     window.addEventListener('kolyoum_ranking_updated', handleRankingUpdate);
+    window.addEventListener('kolyoum_series_ranking_updated', handleRankingUpdate);
     window.addEventListener('storage', handleRankingUpdate);
     return () => {
       window.removeEventListener('kolyoum_ranking_updated', handleRankingUpdate);
+      window.removeEventListener('kolyoum_series_ranking_updated', handleRankingUpdate);
       window.removeEventListener('storage', handleRankingUpdate);
     };
-  }, [currentMonthKey, userProfile]);
+  }, [currentMonthKey, userProfile, isSeries]);
 
   const existingRanking = useMemo(() => {
-    const fromProfile = userProfile?.movieRankings?.[currentMonthKey];
-    const fromStored = getStoredMovieRanking(currentMonthKey, userProfile);
+    const fromProfile = isSeries
+      ? userProfile?.seriesRankings?.[currentMonthKey]
+      : userProfile?.movieRankings?.[currentMonthKey];
+    const fromStored = isSeries
+      ? getStoredSeriesRanking(currentMonthKey, userProfile)
+      : getStoredMovieRanking(currentMonthKey, userProfile);
     const candidates = [localRanking, fromStored, fromProfile].filter(r => r && typeof r === 'object') as MonthlyMovieRanking[];
     if (candidates.length === 0) return null;
     return candidates.reduce((best, curr) => {
@@ -573,11 +594,65 @@ function MovieListContent({
       const currTime = (curr && typeof curr === 'object') ? (curr.updatedAt || curr.publishedAt || 0) : 0;
       return currTime >= bestTime ? curr : best;
     });
-  }, [userProfile?.movieRankings, currentMonthKey, localRanking, userProfile]);
+  }, [userProfile?.movieRankings, userProfile?.seriesRankings, currentMonthKey, localRanking, userProfile, isSeries]);
 
   const duelSeenMovies: DuelMovieItem[] = useMemo(() => {
-    if (listType !== 'seenMovieTitles') return [];
+    if (listType !== 'seenMovieTitles' && listType !== 'seenSeriesTitles') return [];
 
+    if (isSeries) {
+      const watchlistTitles = new Set((userProfile?.seriesToWatch || []).map(t => (t || '').toLowerCase().trim()));
+      const isExcluded = (t: string) => {
+        if (!t || typeof t !== 'string' || !t.trim()) return true;
+        const norm = t.toLowerCase().trim();
+        if (isTestMovieTitle(norm)) return true;
+        if (watchlistTitles.has(norm)) return true;
+        return false;
+      };
+
+      const seenTitles = (userProfile?.seenSeriesTitles || []).filter(t => !isExcluded(t));
+      const seenDataList = (userProfile?.seenSeriesData || []).filter(s => !isExcluded(s?.title));
+      const rankedFromExisting = (existingRanking?.rankedTitles || []).filter(t => !isExcluded(t));
+
+      const metadataMap = new Map<string, Partial<DuelMovieItem>>();
+
+      seenDataList.forEach(s => {
+        if (s?.title) {
+          const norm = s.title.toLowerCase().trim();
+          metadataMap.set(norm, {
+            posterUrl: s.posterUrl || movieDetails[s.title]?.posterUrl,
+            year: s.year || movieDetails[s.title]?.year,
+            rating: s.rating || movieDetails[s.title]?.rating,
+            viewedAt: s.viewedAt || s.addedAt,
+            genres: s.genres,
+            category: s.category || (userProfile?.seriesCategories || {})[norm],
+          });
+        }
+      });
+
+      const allUniqueTitles = Array.from(new Set([
+        ...seenTitles,
+        ...seenDataList.map(s => s.title),
+        ...rankedFromExisting,
+        ...(movieTitles || []),
+      ])).filter(t => !isExcluded(t));
+
+      return allUniqueTitles.map(title => {
+        const norm = title.toLowerCase().trim();
+        const meta = metadataMap.get(norm) || {};
+        const cat = meta.category || (userProfile?.seriesCategories || {})[norm] || guessMovieCategory(title, meta.genres);
+        return {
+          title,
+          posterUrl: meta.posterUrl || movieDetails[title]?.posterUrl,
+          year: meta.year || movieDetails[title]?.year,
+          rating: meta.rating || movieDetails[title]?.rating,
+          viewedAt: meta.viewedAt,
+          genres: meta.genres,
+          category: cat,
+        };
+      });
+    }
+
+    // Films
     const watchlistTitles = new Set((userProfile?.moviesToWatch || []).map(t => (t || '').toLowerCase().trim()));
     const isExcluded = (t: string) => {
       if (!t || typeof t !== 'string' || !t.trim()) return true;
@@ -592,10 +667,8 @@ function MovieListContent({
     const seenHistory = ((userProfile as any)?.seenMovieHistory || []).filter((h: any) => !isExcluded(h?.title));
     const rankedFromExisting = (existingRanking?.rankedTitles || []).filter(t => !isExcluded(t));
 
-    // Map de métadonnées pour chaque titre (insensible à la casse)
     const metadataMap = new Map<string, Partial<DuelMovieItem>>();
 
-    // 1. Enrichir avec seenMoviesData
     seenDataList.forEach(m => {
       if (m?.title) {
         const norm = m.title.toLowerCase().trim();
@@ -612,7 +685,6 @@ function MovieListContent({
       }
     });
 
-    // 2. Enrichir avec seenMovieHistory (affiches TMDb issues du swiper pour métadonnées uniquement)
     seenHistory.forEach((h: any) => {
       if (h?.title) {
         const key = h.title.toLowerCase().trim();
@@ -630,7 +702,6 @@ function MovieListContent({
       }
     });
 
-    // 3. Enrichir avec les visites Cinéma
     const cinemaVisits = (userProfile?.visits || []).filter(v => v.category === 'Cinéma');
     cinemaVisits.forEach(v => {
       if (v.orderedItem) {
@@ -642,7 +713,6 @@ function MovieListContent({
       }
     });
 
-    // 4. Ensemble des vrais titres vus
     const allUniqueTitles = Array.from(new Set([
       ...seenTitles,
       ...seenDataList.map(m => m.title),
@@ -650,8 +720,7 @@ function MovieListContent({
       ...(movieTitles || []),
     ])).filter(t => !isExcluded(t));
 
-    // 5. Construction de la liste finale pour le duel
-    const results: DuelMovieItem[] = allUniqueTitles.map(title => {
+    return allUniqueTitles.map(title => {
       const norm = title.toLowerCase().trim();
       const meta = metadataMap.get(norm) || {};
       const cat = meta.category || (userProfile?.movieCategories || {})[norm] || guessMovieCategory(title, meta.genres);
@@ -667,9 +736,7 @@ function MovieListContent({
         category: cat,
       };
     });
-
-    return results;
-  }, [listType, userProfile?.seenMovieTitles, userProfile?.seenMoviesData, (userProfile as any)?.seenMovieHistory, userProfile?.visits, userProfile?.moviesToWatch, userProfile?.rejectedMovieTitles, userProfile?.seenSeriesTitles, userProfile?.seriesToWatch, movieTitles, movieDetails, existingRanking]);
+  }, [listType, isSeries, userProfile?.seenMovieTitles, userProfile?.seenMoviesData, (userProfile as any)?.seenMovieHistory, userProfile?.visits, userProfile?.moviesToWatch, userProfile?.rejectedMovieTitles, userProfile?.seenSeriesTitles, userProfile?.seenSeriesData, userProfile?.seriesToWatch, userProfile?.movieCategories, userProfile?.seriesCategories, movieTitles, movieDetails, existingRanking]);
 
   const unrankedCount = useMemo(() => {
     if (!existingRanking) return duelSeenMovies.length;
@@ -917,8 +984,8 @@ function MovieListContent({
                       </span>
                     )}
                     {/* Category Badge */}
-                    {type === 'movie' && listType === 'seenMovieTitles' && (() => {
-                      const currentCat = seenData?.category || (userProfile?.movieCategories || {})[norm] || guessMovieCategory(movieTitle, details?.genres);
+                    {((type === 'movie' && listType === 'seenMovieTitles') || (type === 'tv' && listType === 'seenSeriesTitles')) && (() => {
+                      const currentCat = seenData?.category || (type === 'movie' ? (userProfile?.movieCategories || {})[norm] : (userProfile?.seriesCategories || {})[norm]) || guessMovieCategory(movieTitle, details?.genres);
                       return (
                         <CategoryBadge
                           category={currentCat}
@@ -1082,8 +1149,8 @@ function MovieListContent({
           );
         })()}
         {/* Category badge in grid view */}
-        {type === 'movie' && listType === 'seenMovieTitles' && (() => {
-          const currentCat = seenData?.category || (userProfile?.movieCategories || {})[norm] || guessMovieCategory(movieTitle, details?.genres);
+        {((type === 'movie' && listType === 'seenMovieTitles') || (type === 'tv' && listType === 'seenSeriesTitles')) && (() => {
+          const currentCat = seenData?.category || (type === 'movie' ? (userProfile?.movieCategories || {})[norm] : (userProfile?.seriesCategories || {})[norm]) || guessMovieCategory(movieTitle, details?.genres);
           return (
             <div className="absolute top-1.5 right-1.5 z-20">
               <CategoryBadge
@@ -1303,8 +1370,8 @@ function MovieListContent({
         </div>
       </div>
 
-      {/* Duel Ranking Trigger for Seen Movies */}
-      {listType === 'seenMovieTitles' && (
+      {/* Duel Ranking Trigger for Seen Movies and Series */}
+      {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
         <Button
           onClick={() => setIsDuelModalOpen(true)}
           className={`w-full font-black text-xs sm:text-sm h-10 rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
@@ -1315,7 +1382,9 @@ function MovieListContent({
         >
           <Swords className="w-4 h-4 text-amber-400 drop-shadow" />
           <span>
-            {existingRanking ? (hasUnrankedMovies ? `⚔️ Classer les nouveaux films` : "⚔️ Voir / Ajuster mon Classement") : "⚔️ Lancer le Duel des Films Vus"}
+            {isSeries
+              ? (existingRanking ? (hasUnrankedMovies ? `⚔️ Classer les nouvelles séries` : "⚔️ Voir / Ajuster le Classement Séries") : "⚔️ Lancer le Duel des Séries Vues")
+              : (existingRanking ? (hasUnrankedMovies ? `⚔️ Classer les nouveaux films` : "⚔️ Voir / Ajuster mon Classement") : "⚔️ Lancer le Duel des Films Vus")}
           </span>
           {hasUnrankedMovies && (
             <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-amber-400 text-black text-[10px] font-black leading-none shadow-sm">
@@ -1517,7 +1586,7 @@ function MovieListContent({
         </div>
       )}
 
-      {listType === 'seenMovieTitles' && (
+      {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
         <>
           <MovieDuelModal
             isOpen={isDuelModalOpen}
@@ -1527,12 +1596,14 @@ function MovieListContent({
             existingRanking={existingRanking}
             onRankingSaved={(saved) => setLocalRanking(saved)}
             onOpenDnaModal={() => setIsDnaModalOpen(true)}
+            mediaType={type}
           />
           <CinematicDnaModal
             isOpen={isDnaModalOpen}
             onOpenChange={setIsDnaModalOpen}
             currentMonthKey={currentMonthKey}
             onOpenDuel={() => setIsDuelModalOpen(true)}
+            initialMediaType={type}
           />
         </>
       )}
@@ -1545,10 +1616,10 @@ function MovieListContent({
           currentCategory={editingCategoryMovie.category}
           onSelect={async (newCategory) => {
             const effectiveUid = user?.uid || userProfile?.uid || 'guest';
-            await updateMovieCategory(effectiveUid, editingCategoryMovie.title, newCategory);
+            await updateMovieCategory(effectiveUid, editingCategoryMovie.title, newCategory, type);
             toast({
               title: "Catégorie mise à jour !",
-              description: `"${editingCategoryMovie.title}" est classé en « ${newCategory} ».`,
+              description: `"${editingCategoryMovie.title}" est classé${type === 'tv' ? 'e' : ''} en « ${newCategory} ».`,
             });
             setEditingCategoryMovie(null);
           }}

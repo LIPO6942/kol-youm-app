@@ -297,6 +297,9 @@ export type UserProfile = {
     cinemaTheaters?: string[];
     // Classements mensuels de films vus (Jeux de duels)
     movieRankings?: Record<string, MonthlyMovieRanking>;
+    // Classements et catégories de séries vus (Jeux de duels)
+    seriesRankings?: Record<string, MonthlyMovieRanking>;
+    seriesCategories?: Record<string, MovieCategory>;
     // Sagas / Trilogies
     customSagas?: Record<string, CustomSaga>; // sagaId -> CustomSaga
     sagaRankings?: Record<string, SagaRanking>; // sagaId -> SagaRanking
@@ -697,9 +700,11 @@ export async function addSeenSeriesWithDate(
         posterUrl?: string;
         year?: number;
         rating?: number;
+        category?: MovieCategory;
     }
 ) {
     const userRef = doc(firestoreDb, "users", uid);
+    const norm = series.title.toLowerCase().trim();
 
     const seenSeries: any = {
         title: series.title,
@@ -710,20 +715,37 @@ export async function addSeenSeriesWithDate(
     if (series.posterUrl) seenSeries.posterUrl = series.posterUrl;
     if (series.year !== undefined && series.year !== null) seenSeries.year = series.year;
     if (series.rating !== undefined && series.rating !== null) seenSeries.rating = series.rating;
+    if (series.category) seenSeries.category = series.category;
 
-    await setDoc(userRef, {
+    const firestorePayload: Record<string, any> = {
         seriesToWatch: arrayRemove(series.title),
         seenSeriesTitles: arrayUnion(series.title),
-        seenSeriesData: arrayUnion(seenSeries)
-    }, { merge: true });
+        seenSeriesData: arrayUnion(seenSeries),
+    };
+    if (series.category) {
+        firestorePayload[`seriesCategories.${norm}`] = series.category;
+    }
+
+    if (uid && uid !== 'guest') {
+        try {
+            await setDoc(userRef, firestorePayload, { merge: true });
+        } catch (e) {
+            console.warn('Erreur Firestore addSeenSeriesWithDate:', e);
+        }
+    }
 
     const localProfile = await getUserFromDb(uid);
     if (localProfile) {
+        const updatedCategories = {
+            ...(localProfile.seriesCategories || {}),
+            ...(series.category ? { [norm]: series.category } : {}),
+        };
         const updatedProfile = {
             ...localProfile,
             seriesToWatch: (localProfile.seriesToWatch || []).filter((t: string) => t.toLowerCase() !== series.title.toLowerCase()),
             seenSeriesTitles: Array.from(new Set([...(localProfile.seenSeriesTitles || []), series.title])),
-            seenSeriesData: [...(localProfile.seenSeriesData || []).filter(m => m.title !== series.title), seenSeries]
+            seenSeriesData: [...(localProfile.seenSeriesData || []).filter(m => m.title !== series.title), seenSeries],
+            seriesCategories: updatedCategories,
         };
         await storeUserInDb(uid, updatedProfile);
     }
@@ -806,28 +828,32 @@ export async function addSeenMovieWithDate(
     }
 }
 
-// Update the category of an existing movie
-export async function updateMovieCategory(uid: string, movieTitle: string, category: MovieCategory) {
+// Update the category of an existing movie or series
+export async function updateMovieCategory(uid: string, movieTitle: string, category: MovieCategory, mediaType: 'movie' | 'tv' = 'movie') {
     const norm = movieTitle.toLowerCase().trim();
     const effectiveUid = uid || 'guest';
     const localProfile = await getUserFromDb(effectiveUid);
     if (!localProfile) return;
 
-    const currentSeenData = [...(localProfile.seenMoviesData || [])];
+    const isTv = mediaType === 'tv';
+    const dataKey = isTv ? 'seenSeriesData' : 'seenMoviesData';
+    const catKey = isTv ? 'seriesCategories' : 'movieCategories';
+
+    const currentSeenData = [...(localProfile[dataKey] || [])];
     const itemIndex = currentSeenData.findIndex((m: any) => m?.title && m.title.toLowerCase().trim() === norm);
     if (itemIndex >= 0) {
         currentSeenData[itemIndex] = { ...currentSeenData[itemIndex], category };
     }
 
     const updatedCategories = {
-        ...(localProfile.movieCategories || {}),
+        ...(localProfile[catKey] || {}),
         [norm]: category,
     };
 
     const updatedProfile = {
         ...localProfile,
-        seenMoviesData: currentSeenData,
-        movieCategories: updatedCategories,
+        [dataKey]: currentSeenData,
+        [catKey]: updatedCategories,
     };
 
     await storeUserInDb(effectiveUid, updatedProfile);
@@ -836,8 +862,8 @@ export async function updateMovieCategory(uid: string, movieTitle: string, categ
         try {
             const userRef = doc(firestoreDb, 'users', uid);
             await setDoc(userRef, {
-                seenMoviesData: currentSeenData,
-                [`movieCategories.${norm}`]: category,
+                [dataKey]: currentSeenData,
+                [`${catKey}.${norm}`]: category,
             }, { merge: true });
         } catch (e) {
             console.warn('Erreur updateMovieCategory Firestore:', e);
@@ -1686,6 +1712,151 @@ export async function saveMonthlyMovieRanking(
             }, { merge: true });
         } catch (err) {
             console.warn("Avertissement: Impossible de synchroniser le classement dans Firestore (sauvegardé en local):", err);
+        }
+    }
+}
+
+export function getStoredSeriesRanking(
+    monthKey: string,
+    userProfile?: UserProfile | null
+): MonthlyMovieRanking | null {
+    const sanitizeRanking = (ranking: MonthlyMovieRanking): MonthlyMovieRanking => {
+        return {
+            ...ranking,
+            rankedTitles: (ranking.rankedTitles || []).filter(t => !isTestMovieTitle(t)),
+            initialRankedTitles: (ranking.initialRankedTitles || []).filter(t => !isTestMovieTitle(t)),
+            newlyAddedTitles: (ranking.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t)),
+        };
+    };
+
+    let userRanking: MonthlyMovieRanking | null = null;
+    if (userProfile?.seriesRankings?.[monthKey]) {
+        userRanking = sanitizeRanking(userProfile.seriesRankings[monthKey]);
+    }
+
+    let localRanking: MonthlyMovieRanking | null = null;
+    if (typeof window !== 'undefined') {
+        try {
+            const specific = localStorage.getItem(`kolyoum_series_ranking_${monthKey}`);
+            if (specific) {
+                const parsed = JSON.parse(specific);
+                if (parsed?.rankedTitles?.length) localRanking = sanitizeRanking(parsed);
+            }
+            if (!localRanking) {
+                const all = localStorage.getItem('kolyoum_series_rankings');
+                if (all) {
+                    const parsedAll = JSON.parse(all);
+                    if (parsedAll?.[monthKey]?.rankedTitles?.length) {
+                        localRanking = sanitizeRanking(parsedAll[monthKey]);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("Failed reading series ranking from localStorage", e);
+        }
+    }
+
+    // Toujours privilégier la version avec le timestamp le plus récent
+    if (userRanking && localRanking) {
+        const userTime = userRanking.updatedAt || userRanking.publishedAt || 0;
+        const localTime = localRanking.updatedAt || localRanking.publishedAt || 0;
+        return localTime >= userTime ? localRanking : userRanking;
+    }
+
+    return userRanking || localRanking || null;
+}
+
+export async function saveMonthlySeriesRanking(
+    uid: string,
+    ranking: MonthlyMovieRanking
+): Promise<void> {
+    const cleanRankedTitles = (ranking.rankedTitles || []).filter(t => !isTestMovieTitle(t));
+    const cleanInitialRankedTitles = (ranking.initialRankedTitles || cleanRankedTitles).filter(t => !isTestMovieTitle(t));
+    const cleanNewlyAddedTitles = (ranking.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t));
+    
+    const cleanMovieCatalog = { ...(ranking.movieCatalog || {}) };
+    Object.keys(cleanMovieCatalog).forEach(k => {
+        if (isTestMovieTitle(k)) delete cleanMovieCatalog[k];
+    });
+
+    const safeRanking: MonthlyMovieRanking = {
+        ...ranking,
+        rankedTitles: cleanRankedTitles,
+        initialRankedTitles: cleanInitialRankedTitles,
+        newlyAddedTitles: cleanNewlyAddedTitles,
+        movieCatalog: cleanMovieCatalog,
+    };
+
+    if (typeof window !== 'undefined') {
+        try {
+            localStorage.setItem(`kolyoum_series_ranking_${safeRanking.monthKey}`, JSON.stringify(safeRanking));
+            const existingAll = JSON.parse(localStorage.getItem('kolyoum_series_rankings') || '{}');
+            existingAll[safeRanking.monthKey] = safeRanking;
+            localStorage.setItem('kolyoum_series_rankings', JSON.stringify(existingAll));
+
+            window.dispatchEvent(new CustomEvent('kolyoum_series_ranking_updated', {
+                detail: { monthKey: safeRanking.monthKey, ranking: safeRanking }
+            }));
+            window.dispatchEvent(new CustomEvent('kolyoum_ranking_updated', {
+                detail: { monthKey: safeRanking.monthKey, ranking: safeRanking, mediaType: 'tv' }
+            }));
+        } catch (err) {
+            console.warn("Erreur sauvegarde localStorage pour series ranking:", err);
+        }
+    }
+
+    const effectiveUid = uid && uid !== 'guest' ? uid : 'guest';
+    try {
+        const localProfile = await getUserFromDb(effectiveUid);
+        if (localProfile) {
+            const currentRankings = localProfile.seriesRankings || {};
+            await storeUserInDb(effectiveUid, {
+                ...localProfile,
+                seriesRankings: {
+                    ...currentRankings,
+                    [safeRanking.monthKey]: safeRanking
+                }
+            });
+        }
+    } catch (err) {
+        console.warn("Erreur sauvegarde IndexedDB pour series ranking:", err);
+    }
+
+    if (uid && uid !== 'guest') {
+        try {
+            const userRef = doc(firestoreDb, 'users', uid);
+            const cleanCatalog: Record<string, any> = {};
+            if (safeRanking.movieCatalog) {
+                Object.entries(safeRanking.movieCatalog).forEach(([t, item]) => {
+                    if (item && !isTestMovieTitle(t)) {
+                        cleanCatalog[t] = {
+                            title: item.title,
+                            ...(item.posterUrl && { posterUrl: item.posterUrl }),
+                            ...(item.year && { year: item.year }),
+                            ...(item.rating && { rating: item.rating }),
+                        };
+                    }
+                });
+            }
+
+            const firestoreRanking: Record<string, any> = {
+                monthKey: safeRanking.monthKey,
+                rankedTitles: safeRanking.rankedTitles || [],
+                publishedAt: safeRanking.publishedAt || Date.now(),
+                updatedAt: safeRanking.updatedAt || Date.now(),
+                initialRankedTitles: safeRanking.initialRankedTitles || safeRanking.rankedTitles || [],
+                newlyAddedTitles: safeRanking.newlyAddedTitles || [],
+                hasUpdatesSincePublish: Boolean(safeRanking.hasUpdatesSincePublish),
+                movieCatalog: cleanCatalog,
+            };
+
+            await setDoc(userRef, {
+                seriesRankings: {
+                    [safeRanking.monthKey]: firestoreRanking
+                }
+            }, { merge: true });
+        } catch (err) {
+            console.warn("Avertissement: Impossible de synchroniser le classement des séries dans Firestore:", err);
         }
     }
 }

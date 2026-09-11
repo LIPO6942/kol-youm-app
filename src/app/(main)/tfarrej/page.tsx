@@ -14,7 +14,7 @@ import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
 import { CinematicDnaModal } from '@/components/tfarrej/CinematicDnaModal';
 import { useAuth } from '@/hooks/use-auth';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
-import { getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters } from '@/lib/firebase/firestore';
+import { getStoredMovieRanking, getStoredSeriesRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters } from '@/lib/firebase/firestore';
 import { guessMovieCategory } from '@/lib/movie-category-utils';
 
 const genres = [
@@ -66,11 +66,18 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
   const [localRanking, setLocalRanking] = useState<MonthlyMovieRanking | null>(() => {
     return getStoredMovieRanking(currentMonthKey, userProfile);
   });
+  const [seriesLocalRanking, setSeriesLocalRanking] = useState<MonthlyMovieRanking | null>(() => {
+    return getStoredSeriesRanking(currentMonthKey, userProfile);
+  });
 
   useEffect(() => {
     const stored = getStoredMovieRanking(currentMonthKey, userProfile);
     if (stored) {
       setLocalRanking(stored);
+    }
+    const seriesStored = getStoredSeriesRanking(currentMonthKey, userProfile);
+    if (seriesStored) {
+      setSeriesLocalRanking(seriesStored);
     }
   }, [currentMonthKey, userProfile]);
 
@@ -78,23 +85,40 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
   useEffect(() => {
     const handleRankingUpdate = (e: any) => {
       const detail = e.detail;
-      if (!detail) {
-        const stored = getStoredMovieRanking(currentMonthKey, userProfile);
-        if (stored) setLocalRanking(stored);
-        return;
-      }
-      if (detail.monthKey === currentMonthKey || !detail.monthKey) {
-        const fresh = detail.ranking || getStoredMovieRanking(currentMonthKey, userProfile);
-        if (fresh) {
-          setLocalRanking(fresh);
+      const isSeriesEvent = e.type === 'kolyoum_series_ranking_updated' || detail?.mediaType === 'tv';
+      if (isSeriesEvent) {
+        if (!detail) {
+          const stored = getStoredSeriesRanking(currentMonthKey, userProfile);
+          if (stored) setSeriesLocalRanking(stored);
+          return;
+        }
+        if (detail.monthKey === currentMonthKey || !detail.monthKey) {
+          const fresh = detail.ranking || getStoredSeriesRanking(currentMonthKey, userProfile);
+          if (fresh) {
+            setSeriesLocalRanking(fresh);
+          }
+        }
+      } else {
+        if (!detail) {
+          const stored = getStoredMovieRanking(currentMonthKey, userProfile);
+          if (stored) setLocalRanking(stored);
+          return;
+        }
+        if (detail.monthKey === currentMonthKey || !detail.monthKey) {
+          const fresh = detail.ranking || getStoredMovieRanking(currentMonthKey, userProfile);
+          if (fresh) {
+            setLocalRanking(fresh);
+          }
         }
       }
     };
 
     window.addEventListener('kolyoum_ranking_updated', handleRankingUpdate);
+    window.addEventListener('kolyoum_series_ranking_updated', handleRankingUpdate);
     window.addEventListener('storage', handleRankingUpdate);
     return () => {
       window.removeEventListener('kolyoum_ranking_updated', handleRankingUpdate);
+      window.removeEventListener('kolyoum_series_ranking_updated', handleRankingUpdate);
       window.removeEventListener('storage', handleRankingUpdate);
     };
   }, [currentMonthKey, userProfile]);
@@ -110,6 +134,18 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
       return currTime >= bestTime ? curr : best;
     });
   }, [userProfile?.movieRankings, currentMonthKey, localRanking, userProfile]);
+
+  const existingSeriesRanking = useMemo(() => {
+    const fromProfile = userProfile?.seriesRankings?.[currentMonthKey];
+    const fromStored = getStoredSeriesRanking(currentMonthKey, userProfile);
+    const candidates = [seriesLocalRanking, fromStored, fromProfile].filter(r => r && typeof r === 'object') as MonthlyMovieRanking[];
+    if (candidates.length === 0) return null;
+    return candidates.reduce((best, curr) => {
+      const bestTime = (best && typeof best === 'object') ? (best.updatedAt || best.publishedAt || 0) : 0;
+      const currTime = (curr && typeof curr === 'object') ? (curr.updatedAt || curr.publishedAt || 0) : 0;
+      return currTime >= bestTime ? curr : best;
+    });
+  }, [userProfile?.seriesRankings, currentMonthKey, seriesLocalRanking, userProfile]);
 
   // Liste des films vus par l'utilisateur pour le classement et les duels
   const monthlySeenMovies: DuelMovieItem[] = useMemo(() => {
@@ -206,9 +242,66 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
     return results;
   }, [userProfile?.seenMovieTitles, userProfile?.seenMoviesData, (userProfile as any)?.seenMovieHistory, userProfile?.visits, userProfile?.moviesToWatch, userProfile?.rejectedMovieTitles, userProfile?.seenSeriesTitles, userProfile?.seriesToWatch, existingRanking, postersCache]);
 
-  // Détection et résolution automatique des affiches manquantes
+  // Liste des séries vues par l'utilisateur pour le classement et les duels de séries
+  const monthlySeenSeries: DuelMovieItem[] = useMemo(() => {
+    const watchlistTitles = new Set((userProfile?.seriesToWatch || []).map(t => (t || '').toLowerCase().trim()));
+    const isExcluded = (t: string) => {
+      if (!t || typeof t !== 'string' || !t.trim()) return true;
+      const norm = t.toLowerCase().trim();
+      if (isTestMovieTitle(norm)) return true;
+      if (watchlistTitles.has(norm)) return true;
+      return false;
+    };
+
+    const seenTitles = (userProfile?.seenSeriesTitles || []).filter(t => !isExcluded(t));
+    const seenDataList = (userProfile?.seenSeriesData || []).filter(s => !isExcluded(s?.title));
+    const rankedFromExisting = (existingSeriesRanking?.rankedTitles || []).filter(t => !isExcluded(t));
+
+    const metadataMap = new Map<string, Partial<DuelMovieItem>>();
+
+    seenDataList.forEach(s => {
+      if (s?.title) {
+        const norm = s.title.toLowerCase().trim();
+        metadataMap.set(norm, {
+          posterUrl: s.posterUrl,
+          year: s.year,
+          rating: s.rating,
+          viewedAt: s.viewedAt || s.addedAt,
+          genres: s.genres,
+          category: s.category || (userProfile?.seriesCategories || {})[norm],
+        });
+      }
+    });
+
+    const allUniqueTitles = Array.from(new Set([
+      ...seenTitles,
+      ...seenDataList.map(s => s.title),
+      ...rankedFromExisting,
+    ])).filter(t => !isExcluded(t));
+
+    const results: DuelMovieItem[] = allUniqueTitles.map(title => {
+      const norm = title.toLowerCase().trim();
+      const meta = metadataMap.get(norm) || {};
+      const cached = postersCache[norm];
+      const cat = meta.category || (userProfile?.seriesCategories || {})[norm] || guessMovieCategory(title, meta.genres);
+      return {
+        title,
+        posterUrl: meta.posterUrl || cached?.posterUrl,
+        year: meta.year || cached?.year,
+        rating: meta.rating || cached?.rating,
+        viewedAt: meta.viewedAt,
+        genres: meta.genres,
+        category: cat,
+      };
+    });
+
+    return results;
+  }, [userProfile?.seenSeriesTitles, userProfile?.seenSeriesData, userProfile?.seriesToWatch, userProfile?.seriesCategories, existingSeriesRanking, postersCache]);
+
+  // Détection et résolution automatique des affiches manquantes (films ou séries selon type)
   useEffect(() => {
-    const titlesNeedingPosters = monthlySeenMovies
+    const activeList = type === 'tv' ? monthlySeenSeries : monthlySeenMovies;
+    const titlesNeedingPosters = activeList
       .filter(m => !m.posterUrl && !isTestMovieTitle(m.title))
       .map(m => m.title);
 
@@ -221,7 +314,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         const res = await fetch('/api/movies/posters-batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ titles: titlesNeedingPosters, type: 'movie' }),
+          body: JSON.stringify({ titles: titlesNeedingPosters, type }),
         });
 
         if (!res.ok) return;
@@ -238,7 +331,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         if (Object.keys(newMap).length > 0) {
           setPostersCache(prev => ({ ...prev, ...newMap }));
           const effectiveUid = userProfile?.uid || 'guest';
-          await backfillMoviePosters(effectiveUid, data.posters, 'movie');
+          await backfillMoviePosters(effectiveUid, data.posters, type);
         }
       } catch (e) {
         console.warn('Erreur chargement affiches page tfarrej:', e);
@@ -250,7 +343,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
     return () => {
       isCancelled = true;
     };
-  }, [monthlySeenMovies.length, userProfile?.uid]);
+  }, [type === 'tv' ? monthlySeenSeries.length : monthlySeenMovies.length, type, userProfile?.uid]);
 
   const unrankedCount = useMemo(() => {
     if (!existingRanking) return monthlySeenMovies.length;
@@ -259,6 +352,14 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
   }, [monthlySeenMovies, existingRanking]);
 
   const hasUnrankedMovies = unrankedCount > 0 && monthlySeenMovies.length >= 2;
+
+  const seriesUnrankedCount = useMemo(() => {
+    if (!existingSeriesRanking) return monthlySeenSeries.length;
+    const rankedSet = new Set(existingSeriesRanking.rankedTitles);
+    return monthlySeenSeries.filter(s => !rankedSet.has(s.title)).length;
+  }, [monthlySeenSeries, existingSeriesRanking]);
+
+  const hasUnrankedSeries = seriesUnrankedCount > 0 && monthlySeenSeries.length >= 2;
 
   useEffect(() => {
     if (genreFromUrl) {
@@ -308,12 +409,12 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 pt-0.5">
             <Button
               className="h-9 sm:h-10 px-2.5 sm:px-3.5 rounded-xl font-bold text-xs sm:text-sm text-white shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98] border border-fuchsia-500/30 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 flex items-center justify-center cursor-pointer"
-              aria-label="Mon ADN Cinématographique"
-              title="Mon ADN Cinématographique"
+              aria-label={type === 'tv' ? "Mon ADN Séries" : "Mon ADN Cinématographique"}
+              title={type === 'tv' ? "Mon ADN Séries" : "Mon ADN Cinématographique"}
               onClick={() => setIsDnaModalOpen(true)}
             >
               <Dna className="h-4 w-4 text-fuchsia-200 sm:mr-1.5 flex-shrink-0 animate-pulse" />
-              <span className="hidden sm:inline font-bold">ADN Ciné</span>
+              <span className="hidden sm:inline font-bold">{type === 'tv' ? 'ADN Séries' : 'ADN Ciné'}</span>
             </Button>
             <TfarrejStatsDialog
               trigger={
@@ -396,15 +497,36 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
             />
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2 sm:gap-2.5 w-full">
+          <div className="grid grid-cols-3 gap-2 sm:gap-2.5 w-full">
+            <Button
+              variant={hasUnrankedSeries ? "default" : "outline"}
+              className={`h-10 px-2 sm:px-4 font-black rounded-xl justify-center transition-all duration-200 active:scale-[0.98] ${
+                hasUnrankedSeries
+                  ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white border border-white/20 shadow-[0_4px_16px_rgba(168,85,247,0.35)] hover:shadow-[0_6px_22px_rgba(168,85,247,0.5)] animate-pulse'
+                  : 'border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-yellow-500/10 hover:from-amber-500/25 hover:to-yellow-500/20 text-amber-600 dark:text-amber-300 shadow-sm hover:shadow hover:border-amber-500/60'
+              }`}
+              onClick={() => setIsDuelOpen(true)}
+              title="Mon classement des séries vues"
+            >
+              <Swords className="mr-1.5 h-4 w-4 flex-shrink-0 text-amber-400 drop-shadow" />
+              <span className="truncate">
+                {existingSeriesRanking ? (hasUnrankedSeries ? "Nouveaux Duels" : "Classement") : "Classement"}
+              </span>
+              {hasUnrankedSeries && (
+                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-amber-400 text-black text-[10px] font-black leading-none shadow-sm">
+                  {seriesUnrankedCount}
+                </span>
+              )}
+            </Button>
+
             <MovieListSheet
               trigger={
                 <Button
                   variant="ocean"
-                  className="h-10 px-4 rounded-xl justify-center w-full font-bold shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98] border border-teal-500/30 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white"
+                  className="h-10 px-2 sm:px-4 rounded-xl justify-center w-full font-bold shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98] border border-teal-500/30 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white"
                 >
-                  <ListVideo className="mr-2 h-4 w-4" />
-                  <span className="truncate">Séries à Voir</span>
+                  <ListVideo className="mr-1.5 h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">À Voir</span>
                 </Button>
               }
               title="Mes Séries 'À Voir'"
@@ -417,9 +539,9 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
               trigger={
                 <Button
                   variant="default"
-                  className="h-10 px-4 rounded-xl justify-center w-full font-bold shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98] border border-slate-700/40 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 hover:from-slate-800 hover:to-slate-700 dark:from-slate-800 dark:to-slate-700 text-white"
+                  className="h-10 px-2 sm:px-4 rounded-xl justify-center w-full font-bold shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98] border border-slate-700/40 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 hover:from-slate-800 hover:to-slate-700 dark:from-slate-800 dark:to-slate-700 text-white"
                 >
-                  <Eye className="mr-2 h-4 w-4 text-blue-400 dark:text-blue-300" />
+                  <Eye className="mr-1.5 h-4 w-4 flex-shrink-0 text-blue-400 dark:text-blue-300" />
                   <span className="truncate">Séries Vues</span>
                 </Button>
               }
@@ -495,10 +617,17 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         onOpenChange={setIsDuelOpen}
         monthKey={currentMonthKey}
         monthName={currentMonthName}
-        seenMovies={monthlySeenMovies}
-        existingRanking={existingRanking}
-        onRankingSaved={(saved) => setLocalRanking(saved)}
+        seenMovies={type === 'tv' ? monthlySeenSeries : monthlySeenMovies}
+        existingRanking={type === 'tv' ? existingSeriesRanking : existingRanking}
+        onRankingSaved={(saved) => {
+          if (type === 'tv') {
+            setSeriesLocalRanking(saved);
+          } else {
+            setLocalRanking(saved);
+          }
+        }}
         onOpenDnaModal={() => setIsDnaModalOpen(true)}
+        mediaType={type}
       />
 
       <CinematicDnaModal
@@ -506,6 +635,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         onOpenChange={setIsDnaModalOpen}
         currentMonthKey={currentMonthKey}
         onOpenDuel={() => setIsDuelOpen(true)}
+        initialMediaType={type}
       />
     </div>
   );

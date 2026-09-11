@@ -34,6 +34,7 @@ export interface CinematicDnaResult {
   eclecticismIndex: number; // 0 to 100%
   hasRankings: boolean;
   periodLabel: string;
+  mediaType: 'movie' | 'tv';
 }
 
 // Matrice créative d'archétypes cinéphiles par duo de genres dominants
@@ -287,35 +288,227 @@ const SINGLE_GENRE_ARCHETYPES: Record<MovieCategory, { title: string; badge: str
   },
 };
 
+// Matrice d'archétypes pour les Séries
+const TV_ARCHETYPE_RULES: Array<{
+  match: (c1: MovieCategory, c2?: MovieCategory) => boolean;
+  archetype: (c1: MovieCategory, c2?: MovieCategory) => CinephileArchetype;
+}> = [
+  {
+    match: (c1, c2) => (c1 === 'Sci-Fi' && c2 === 'Mind blowing') || (c1 === 'Mind blowing' && c2 === 'Sci-Fi'),
+    archetype: (c1, c2) => ({
+      id: 'maitre-boucles-temporelles',
+      title: "Le Maître des Boucles Temporelles",
+      badge: "📺🚀 Sci-Fi & Mind blowing",
+      tagline: "Spécialiste des séries à mystères, des paradoxes et des théories poussées.",
+      description: "De Dark à Severance en passant par Black Mirror, vous disséquez chaque épisode avec passion. Vous adorez les séries qui exigent toute votre attention et récompensent votre esprit analytique.",
+      gradient: "from-cyan-500 via-indigo-700 to-purple-900",
+      primaryCategory: c1,
+      secondaryCategory: c2,
+    }),
+  },
+  {
+    match: (c1, c2) => (c1 === 'Sci-Fi' && c2 === 'Fantaisie') || (c1 === 'Fantaisie' && c2 === 'Sci-Fi'),
+    archetype: (c1, c2) => ({
+      id: 'chroniqueur-mondes',
+      title: "Le Chroniqueur des Mondes",
+      badge: "🧙‍♂️🚀 Fantaisie & Sci-Fi",
+      tagline: "Explorateur insatiable d'univers sériels mythologiques et épiques.",
+      description: "Vous aimez plonger saison après saison dans des sagas riches au world-building colossal, des royaumes ancestraux aux galaxies lointaines. Plus l'immersion est profonde, plus vous êtes conquis.",
+      gradient: "from-fuchsia-600 via-purple-600 to-cyan-500",
+      primaryCategory: c1,
+      secondaryCategory: c2,
+    }),
+  },
+  {
+    match: (c1, c2) => (c1 === 'Drame' && c2 === 'Crime/Policier') || (c1 === 'Crime/Policier' && c2 === 'Drame'),
+    archetype: (c1, c2) => ({
+      id: 'analyste-intrigues',
+      title: "L'Analyste des Intrigues",
+      badge: "🎭🕵️‍♂️ Drame & Polar",
+      tagline: "Passionné par les fresques criminelles, les anti-héros et les autopsies morales.",
+      description: "De Breaking Bad à Succession ou True Detective, vous vous régalez des intrigues complexes où la frontière entre le bien et le mal s'estompe au fil des épisodes.",
+      gradient: "from-blue-700 via-slate-800 to-amber-700",
+      primaryCategory: c1,
+      secondaryCategory: c2,
+    }),
+  },
+  {
+    match: (c1, c2) => (c1 === 'Action' && c2 === 'Crime/Policier') || (c1 === 'Crime/Policier' && c2 === 'Action'),
+    archetype: (c1, c2) => ({
+      id: 'traqueur-cliffhangers',
+      title: "Le Traqueur de Cliffhangers",
+      badge: "💥🕵️‍♂️ Action & Polar",
+      tagline: "Dévoreur d'épisodes sous haute tension où le bouton 'Épisode suivant' est automatique.",
+      description: "Le suspense haletant et les retournements de situation imprévus dictent vos soirées. Vous ne lâchez jamais une saison avant son dénouement explosif.",
+      gradient: "from-red-600 via-orange-600 to-slate-900",
+      primaryCategory: c1,
+      secondaryCategory: c2,
+    }),
+  },
+  {
+    match: (c1, c2) => (c1 === 'Comédie' && c2 === 'Animation') || (c1 === 'Animation' && c2 === 'Comédie'),
+    archetype: (c1, c2) => ({
+      id: 'ambianceur-salons',
+      title: "L'Ambianceur des Salons",
+      badge: "😂🎨 Comédie & Animation",
+      tagline: "Fidèle des sitcoms cultes, des séries animées réconfortantes et des punchlines inoubliables.",
+      description: "Vos séries préférées sont votre refuge et votre source de bonne humeur quotidienne. Vous connaissez les répliques par cœur et aimez retrouver vos personnages comme de vieux amis.",
+      gradient: "from-amber-400 via-orange-500 to-sky-500",
+      primaryCategory: c1,
+      secondaryCategory: c2,
+    }),
+  },
+  {
+    match: (c1, c2) => (c1 === 'Horreur/Thriller psy' && c2 === 'Suspense & Thriller') || (c1 === 'Suspense & Thriller' && c2 === 'Horreur/Thriller psy'),
+    archetype: (c1, c2) => ({
+      id: 'veilleur-nocturne',
+      title: "Le Veilleur Nocturne",
+      badge: "👻🔍 Frissons & Tension",
+      tagline: "Amateur de mystères anxiogènes et de marathons à huis clos dans le noir.",
+      description: "Vous aimez que les séries vous fassent douter de tout et frissonner d'épisode en épisode. Les atmosphères pesantes et les secrets enfouis sont votre péché mignon.",
+      gradient: "from-violet-800 via-purple-900 to-black",
+      primaryCategory: c1,
+      secondaryCategory: c2,
+    }),
+  },
+];
+
+// Archétypes de base (un seul genre dominant) pour Séries
+const SINGLE_GENRE_TV_ARCHETYPES: Record<MovieCategory, {
+  title: string;
+  badge: string;
+  tagline: string;
+  description: string;
+  gradient: string;
+}> = {
+  'Sci-Fi': {
+    title: "Le Navigateur des Galaxies",
+    badge: "🚀 Spécialiste Séries Sci-Fi",
+    tagline: "Captivé par les épopées spatiales et les technologies de demain sur plusieurs saisons.",
+    description: "Les univers d'anticipation et les uchronies bien pensées sont votre domaine de prédilection.",
+    gradient: "from-cyan-500 via-blue-700 to-indigo-950",
+  },
+  'Fantaisie': {
+    title: "Le Seigneur des Royaumes",
+    badge: "🧙‍♂️ Spécialiste Séries Fantaisie",
+    tagline: "Passionné par les dynasties magiques, les créatures et les guerres d'empires.",
+    description: "Vous adorez suivre l'ascension et la chute des souverains dans des mondes empreints de mystère et d'enchantement.",
+    gradient: "from-fuchsia-600 via-purple-700 to-slate-900",
+  },
+  'Action': {
+    title: "Le Binge-Watcher d'Adrénaline",
+    badge: "💥 Spécialiste Séries Action",
+    tagline: "Vibrations garanties avec des cascades percutantes et un rythme implacable.",
+    description: "Pour vous, une bonne série doit démarrer sur les chapeaux de roue et maintenir la pression jusqu'au générique final.",
+    gradient: "from-red-500 via-rose-600 to-slate-900",
+  },
+  'Comédie': {
+    title: "Le Maître des Sitcoms",
+    badge: "😂 Spécialiste Séries Comédie",
+    tagline: "Incollable sur les situations cocasses, les formats 20 minutes et les amitiés de bande.",
+    description: "Le rire est votre moteur sériel. Vous appréciez la finesse d'écriture des dialogues et le timing comique parfait.",
+    gradient: "from-yellow-400 via-amber-500 to-orange-600",
+  },
+  'Drame': {
+    title: "Le Dramaturge Sériel",
+    badge: "🎭 Spécialiste Séries Drame",
+    tagline: "Amoureux des arcs narratifs profonds et de la psychologie des personnages sur le long terme.",
+    description: "Voir évoluer un personnage au fil des saisons, avec ses failles et ses contradictions, est ce qui vous émeut le plus à l'écran.",
+    gradient: "from-indigo-500 via-purple-700 to-slate-900",
+  },
+  'Mind blowing': {
+    title: "Le Stratège des Mystères",
+    badge: "🤯 Spécialiste Séries Mind-Blow",
+    tagline: "Chasseur de théories et d'arborescences scénaristiques surprenantes.",
+    description: "Vous aimez anticiper les twists finaux et débattre des indices semés au fil des épisodes.",
+    gradient: "from-violet-500 via-purple-800 to-indigo-950",
+  },
+  'Suspense & Thriller': {
+    title: "L'Inspecteur du Binge",
+    badge: "🔍 Spécialiste Séries Thriller",
+    tagline: "En quête constante de la vérité au fil d'enquêtes palpitantes.",
+    description: "Chaque fin d'épisode est pour vous un appel irrésistible à lancer le suivant sans attendre.",
+    gradient: "from-amber-600 via-stone-700 to-zinc-900",
+  },
+  'Crime/Policier': {
+    title: "Le Lieutenant des Saisons",
+    badge: "🕵️‍♂️ Spécialiste Séries Policières",
+    tagline: "Expert des salles d'interrogatoire, des cartels et des brigades spéciales.",
+    description: "Les affaires criminelles au long cours et le réalisme des enquêtes vous fascinent.",
+    gradient: "from-blue-600 via-slate-800 to-indigo-950",
+  },
+  'Horreur/Thriller psy': {
+    title: "L'Explorateur de l'Épouvante",
+    badge: "👻 Spécialiste Séries Horreur",
+    tagline: "Fasciné par les maisons hantées, les malédictions et l'angoisse psychologique.",
+    description: "Vous plongez avec délice dans les séries d'horreur anthologiques ou sérialisées.",
+    gradient: "from-purple-700 via-violet-950 to-black",
+  },
+  'Animation': {
+    title: "L'Otaku des Grands Récits",
+    badge: "🎨 Spécialiste Séries Animation",
+    tagline: "Fan d'animes légendaires, de créativité visuelle et d'arcs narratifs grandioses.",
+    description: "L'animation sérialisée représente pour vous le sommet de la narration visuelle moderne.",
+    gradient: "from-sky-400 via-blue-600 to-indigo-800",
+  },
+  'Histoire/Guerre': {
+    title: "Le Chroniqueur d'Époques",
+    badge: "⚔️ Spécialiste Séries Historiques",
+    tagline: "Témoin des grandes dynasties et des batailles d'anthologie sur le petit écran.",
+    description: "Vous admirez les productions ambitieuses qui reconstituent le passé avec faste et précision.",
+    gradient: "from-orange-500 via-amber-700 to-stone-900",
+  },
+  'Autobiographie/Histoire réelle': {
+    title: "L'Observateur du Réel",
+    badge: "📖 Spécialiste Séries Documentaires",
+    tagline: "Captivé par les docu-séries, les grandes affaires et les portraits véridiques.",
+    description: "La réalité dépasse souvent la fiction, et vous aimez en découvrir toutes les nuances.",
+    gradient: "from-emerald-500 via-teal-700 to-slate-900",
+  },
+  'Romance': {
+    title: "Le Cœur Battant des Saisons",
+    badge: "💖 Spécialiste Séries Romance",
+    tagline: "Ému par les histoires d'amour passionnées et les liens indestructibles.",
+    description: "Vous vibrez pour les rapprochements lents, les dilemmes amoureux et les dénouements heureux.",
+    gradient: "from-pink-500 via-rose-600 to-red-700",
+  },
+};
+
 /**
- * Détermine l'archétype cinéphile en fonction du gène dominant et secondaire.
+ * Détermine l'archétype cinéphile ou sériel en fonction du gène dominant et secondaire.
  */
 export function getCinephileArchetype(
   dominant?: MovieCategory,
-  secondary?: MovieCategory
+  secondary?: MovieCategory,
+  mediaType: 'movie' | 'tv' = 'movie'
 ): CinephileArchetype {
   if (!dominant) {
     return {
-      id: 'cinephile-mysterieux',
-      title: "Le Cinéphile Émergent",
-      badge: "🎬 Découverte",
-      tagline: "Votre génome cinématographique est en pleine formation.",
-      description: "Réalisez vos premiers duels pour révéler votre véritable identité cinéphile et voir s'épanouir vos gènes dominants !",
+      id: mediaType === 'tv' ? 'serievore-mysterieux' : 'cinephile-mysterieux',
+      title: mediaType === 'tv' ? "Le Sérivore Émergent" : "Le Cinéphile Émergent",
+      badge: mediaType === 'tv' ? "📺 Découverte" : "🎬 Découverte",
+      tagline: mediaType === 'tv' ? "Votre génome sériel est en pleine formation." : "Votre génome cinématographique est en pleine formation.",
+      description: mediaType === 'tv'
+        ? "Réalisez vos premiers duels de séries pour révéler votre véritable profil sérivore et voir s'épanouir vos gènes dominants !"
+        : "Réalisez vos premiers duels pour révéler votre véritable identité cinéphile et voir s'épanouir vos gènes dominants !",
       gradient: "from-slate-700 via-slate-800 to-slate-900",
       primaryCategory: 'Drame',
     };
   }
 
+  const rules = mediaType === 'tv' ? TV_ARCHETYPE_RULES : ARCHETYPE_RULES;
+  const singleRules = mediaType === 'tv' ? SINGLE_GENRE_TV_ARCHETYPES : SINGLE_GENRE_ARCHETYPES;
+
   // Vérifier les règles de duo
   if (secondary && dominant !== secondary) {
-    const matched = ARCHETYPE_RULES.find(r => r.match(dominant, secondary));
+    const matched = rules.find(r => r.match(dominant, secondary));
     if (matched) {
       return matched.archetype(dominant, secondary);
     }
   }
 
   // Fallback sur le genre dominant seul
-  const single = SINGLE_GENRE_ARCHETYPES[dominant] || SINGLE_GENRE_ARCHETYPES['Drame'];
+  const single = singleRules[dominant] || singleRules['Drame'];
   return {
     id: `specialiste-${dominant.toLowerCase()}`,
     title: single.title,
@@ -351,14 +544,15 @@ export function calculateEclecticismIndex(scores: CategoryDnaScore[]): number {
 }
 
 /**
- * Calcule l'ADN Cinématographique complet de l'utilisateur.
- * Prend en compte le classement général de chaque mois (userProfile.movieRankings).
- * Chaque film classé reçoit un poids quadratique selon son rang dans le duel.
+ * Calcule l'ADN Cinématographique ou Séries complet de l'utilisateur.
+ * Prend en compte le classement général de chaque mois (userProfile.movieRankings ou userProfile.seriesRankings).
+ * Chaque œuvre classée reçoit un poids quadratique selon son rang dans le duel.
  */
 export function calculateCinematicDna(
   userProfile: UserProfile | null | undefined,
-  options?: { monthKey?: string }
+  options?: { monthKey?: string; mediaType?: 'movie' | 'tv' }
 ): CinematicDnaResult {
+  const mediaType = options?.mediaType || 'movie';
   const periodLabel = options?.monthKey ? `Mois : ${options.monthKey}` : "Tous les temps";
 
   // Initialisation de la map de scores par catégorie
@@ -373,7 +567,9 @@ export function calculateCinematicDna(
 
   // Map de métadonnées pour résoudre rapidement affiches et années
   const metadataMap = new Map<string, { posterUrl?: string; year?: number; category?: MovieCategory; genres?: string[] }>();
-  (userProfile?.seenMoviesData || []).forEach(m => {
+  const seenDataSource = mediaType === 'tv' ? (userProfile?.seenSeriesData || []) : (userProfile?.seenMoviesData || []);
+
+  seenDataSource.forEach(m => {
     if (m?.title) {
       const norm = m.title.toLowerCase().trim();
       metadataMap.set(norm, {
@@ -385,14 +581,17 @@ export function calculateCinematicDna(
     }
   });
 
-  // Déterminer la catégorie d'un film
+  // Déterminer la catégorie d'une œuvre
   const resolveCategory = (title: string): MovieCategory => {
     const norm = title.toLowerCase().trim();
     const meta = metadataMap.get(norm);
     if (meta?.category && (MOVIE_CATEGORIES as readonly string[]).includes(meta.category)) {
       return meta.category;
     }
-    const manualCat = (userProfile?.movieCategories || {})[norm];
+    const categoriesSource = mediaType === 'tv'
+      ? { ...(userProfile?.seriesCategories || {}), ...(userProfile?.movieCategories || {}) }
+      : (userProfile?.movieCategories || {});
+    const manualCat = categoriesSource[norm];
     if (manualCat && (MOVIE_CATEGORIES as readonly string[]).includes(manualCat)) {
       return manualCat;
     }
@@ -402,10 +601,11 @@ export function calculateCinematicDna(
   let totalRankedMoviesCount = 0;
   let hasValidRankings = false;
 
-  // 1. Parcourir les classements mensuels (movieRankings)
+  // 1. Parcourir les classements mensuels (movieRankings ou seriesRankings)
+  const rankingsSource = mediaType === 'tv' ? userProfile?.seriesRankings : userProfile?.movieRankings;
   const rankingsEntries: [string, MonthlyMovieRanking][] = options?.monthKey
-    ? (userProfile?.movieRankings?.[options.monthKey] ? [[options.monthKey, userProfile.movieRankings[options.monthKey]]] : [])
-    : Object.entries(userProfile?.movieRankings || {});
+    ? (rankingsSource?.[options.monthKey] ? [[options.monthKey, rankingsSource[options.monthKey]]] : [])
+    : Object.entries(rankingsSource || {});
 
   rankingsEntries.forEach(([_, ranking]) => {
     if (!ranking || !Array.isArray(ranking.rankedTitles)) return;
@@ -426,7 +626,7 @@ export function calculateCinematicDna(
       pointsMap[cat] = (pointsMap[cat] || 0) + weight;
       countMap[cat] = (countMap[cat] || 0) + 1;
 
-      // Suivre le champion (film classé le plus haut dans sa catégorie)
+      // Suivre le champion (œuvre classée le plus haut dans sa catégorie)
       const norm = title.toLowerCase().trim();
       const meta = metadataMap.get(norm);
       const currentTop = topMovieMap[cat];
@@ -442,10 +642,10 @@ export function calculateCinematicDna(
     });
   });
 
-  // 2. Si l'utilisateur n'a pas encore fait de duels (ou pour compléter les films vus sans duel)
-  // On attribue un socle de points neutre aux films vus répertoriés
+  // 2. Si l'utilisateur n'a pas encore fait de duels (ou pour compléter les œuvres vues sans duel)
   if (!hasValidRankings) {
-    const seenTitles = (userProfile?.seenMovieTitles || []).filter(t => t && !isTestMovieTitle(t));
+    const seenTitlesSource = mediaType === 'tv' ? (userProfile?.seenSeriesTitles || []) : (userProfile?.seenMovieTitles || []);
+    const seenTitles = seenTitlesSource.filter(t => t && !isTestMovieTitle(t));
     seenTitles.forEach(title => {
       const cat = resolveCategory(title);
       pointsMap[cat] = (pointsMap[cat] || 0) + 10;
@@ -511,7 +711,7 @@ export function calculateCinematicDna(
   const tertiaryGene = finalScores[2]?.points > 0 ? finalScores[2] : null;
 
   // Calcul de l'archétype
-  const archetype = getCinephileArchetype(dominantGene?.category, secondaryGene?.category);
+  const archetype = getCinephileArchetype(dominantGene?.category, secondaryGene?.category, mediaType);
 
   // Calcul de l'éclectisme
   const eclecticismIndex = calculateEclecticismIndex(finalScores);
@@ -527,5 +727,6 @@ export function calculateCinematicDna(
     eclecticismIndex,
     hasRankings: hasValidRankings,
     periodLabel,
+    mediaType,
   };
 }
