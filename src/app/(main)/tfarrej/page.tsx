@@ -152,11 +152,13 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
   // Liste des films vus par l'utilisateur pour le classement et les duels
   const monthlySeenMovies: DuelMovieItem[] = useMemo(() => {
     const watchlistTitles = new Set((userProfile?.moviesToWatch || []).map(t => (t || '').toLowerCase().trim()));
+    const rejectedTitles = new Set((userProfile?.rejectedMovieTitles || []).map(t => (t || '').toLowerCase().trim()));
     const isExcluded = (t: string) => {
       if (!t || typeof t !== 'string' || !t.trim()) return true;
       const norm = t.toLowerCase().trim();
       if (isTestMovieTitle(norm)) return true;
       if (watchlistTitles.has(norm)) return true;
+      if (rejectedTitles.has(norm)) return true;
       return false;
     };
 
@@ -204,7 +206,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
     });
 
     // 3. Enrichir avec les visites Cinéma
-    const cinemaVisits = (userProfile?.visits || []).filter(v => v.category === 'Cinéma');
+    const cinemaVisits = (userProfile?.visits || []).filter(v => v.category === 'Cinéma' && v.orderedItem && !rejectedTitles.has(v.orderedItem.toLowerCase().trim()));
     cinemaVisits.forEach(v => {
       if (v.orderedItem) {
         const key = v.orderedItem.toLowerCase().trim();

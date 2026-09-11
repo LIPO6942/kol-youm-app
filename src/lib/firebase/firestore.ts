@@ -464,8 +464,83 @@ export async function removeMovieFromList(uid: string, listName: 'moviesToWatch'
                 });
                 updatedProfile.movieRankings = updatedRankings;
             }
-        } else if (listName === 'seenSeriesTitles' && updatedProfile.seenSeriesData) {
-            updatedProfile.seenSeriesData = updatedProfile.seenSeriesData.filter((m: any) => m.title?.toLowerCase()?.trim() !== norm);
+            // Clean from visits if logged as a cinema visit
+            if (Array.isArray(updatedProfile.visits)) {
+                updatedProfile.visits = updatedProfile.visits.map((v: any) => {
+                    if (v && v.category === 'Cinéma' && v.orderedItem && v.orderedItem.toLowerCase().trim() === norm) {
+                        const copy = { ...v };
+                        delete copy.orderedItem;
+                        return copy;
+                    }
+                    return v;
+                });
+            }
+            // Add to rejectedMovieTitles so it is strictly excluded from duels and recommendations
+            const rejected = Array.isArray(updatedProfile.rejectedMovieTitles) ? updatedProfile.rejectedMovieTitles : [];
+            if (!rejected.some((t: string) => t.toLowerCase().trim() === norm)) {
+                updatedProfile.rejectedMovieTitles = [...rejected, movieTitle];
+            }
+            // Clean localStorage cached rankings
+            if (typeof window !== 'undefined' && window.localStorage) {
+                try {
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const k = localStorage.key(i);
+                        if (k && k.startsWith('kolyoum_movie_ranking_')) {
+                            const item = localStorage.getItem(k);
+                            if (item) {
+                                const parsed = JSON.parse(item);
+                                if (parsed && Array.isArray(parsed.rankedTitles)) {
+                                    parsed.rankedTitles = parsed.rankedTitles.filter((t: string) => t.toLowerCase().trim() !== norm);
+                                    parsed.newlyAddedTitles = (parsed.newlyAddedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
+                                    localStorage.setItem(k, JSON.stringify(parsed));
+                                }
+                            }
+                        }
+                    }
+                } catch {}
+            }
+        } else if (listName === 'seenSeriesTitles') {
+            if (updatedProfile.seenSeriesData) {
+                updatedProfile.seenSeriesData = updatedProfile.seenSeriesData.filter((m: any) => m.title?.toLowerCase()?.trim() !== norm);
+            }
+            // Clean from any active seriesRankings
+            if (updatedProfile.seriesRankings) {
+                const updatedRankings = { ...updatedProfile.seriesRankings };
+                Object.keys(updatedRankings).forEach(key => {
+                    const r = updatedRankings[key];
+                    if (r && Array.isArray(r.rankedTitles)) {
+                        r.rankedTitles = r.rankedTitles.filter((t: string) => t.toLowerCase().trim() !== norm);
+                    }
+                    if (r && Array.isArray(r.newlyAddedTitles)) {
+                        r.newlyAddedTitles = r.newlyAddedTitles.filter((t: string) => t.toLowerCase().trim() !== norm);
+                    }
+                });
+                updatedProfile.seriesRankings = updatedRankings;
+            }
+            // Add to rejectedSeriesTitles so it is strictly excluded from duels and recommendations
+            const rejectedSeries = Array.isArray(updatedProfile.rejectedSeriesTitles) ? updatedProfile.rejectedSeriesTitles : [];
+            if (!rejectedSeries.some((t: string) => t.toLowerCase().trim() === norm)) {
+                updatedProfile.rejectedSeriesTitles = [...rejectedSeries, movieTitle];
+            }
+            // Clean localStorage cached series rankings
+            if (typeof window !== 'undefined' && window.localStorage) {
+                try {
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const k = localStorage.key(i);
+                        if (k && k.startsWith('kolyoum_series_ranking_')) {
+                            const item = localStorage.getItem(k);
+                            if (item) {
+                                const parsed = JSON.parse(item);
+                                if (parsed && Array.isArray(parsed.rankedTitles)) {
+                                    parsed.rankedTitles = parsed.rankedTitles.filter((t: string) => t.toLowerCase().trim() !== norm);
+                                    parsed.newlyAddedTitles = (parsed.newlyAddedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
+                                    localStorage.setItem(k, JSON.stringify(parsed));
+                                }
+                            }
+                        }
+                    }
+                } catch {}
+            }
         }
 
         await storeUserInDb(uid || 'guest', updatedProfile);
@@ -479,12 +554,25 @@ export async function removeMovieFromList(uid: string, listName: 'moviesToWatch'
                 if (listName === 'seenMovieTitles') {
                     syncPayload.seenMoviesData = updatedProfile.seenMoviesData || [];
                     if (updatedProfile.movieRankings) syncPayload.movieRankings = updatedProfile.movieRankings;
+                    if (updatedProfile.rejectedMovieTitles) syncPayload.rejectedMovieTitles = updatedProfile.rejectedMovieTitles;
+                    if (updatedProfile.visits) syncPayload.visits = updatedProfile.visits;
                 } else if (listName === 'seenSeriesTitles') {
                     syncPayload.seenSeriesData = updatedProfile.seenSeriesData || [];
+                    if (updatedProfile.seriesRankings) syncPayload.seriesRankings = updatedProfile.seriesRankings;
+                    if (updatedProfile.rejectedSeriesTitles) syncPayload.rejectedSeriesTitles = updatedProfile.rejectedSeriesTitles;
                 }
                 await setDoc(userRef, syncPayload, { merge: true });
             } catch (err) {
                 console.warn('Firestore sync failed in removeMovieFromList:', err);
+            }
+        }
+
+        if (typeof window !== 'undefined') {
+            if (listName === 'seenMovieTitles') {
+                window.dispatchEvent(new CustomEvent('kolyoum_ranking_updated', { detail: { mediaType: 'movie' } }));
+            } else if (listName === 'seenSeriesTitles') {
+                window.dispatchEvent(new CustomEvent('kolyoum_series_ranking_updated', { detail: { mediaType: 'tv' } }));
+                window.dispatchEvent(new CustomEvent('kolyoum_ranking_updated', { detail: { mediaType: 'tv' } }));
             }
         }
     }

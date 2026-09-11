@@ -482,6 +482,7 @@ function MovieListContent({
   const [editingCategoryMovie, setEditingCategoryMovie] = useState<{ title: string; category?: MovieCategory } | null>(null);
   const [selectedSaga, setSelectedSaga] = useState<{ id: string; name: string; isCustom?: boolean; posterUrl?: string } | null>(null);
   const [manageSagaMovie, setManageSagaMovie] = useState<{ title: string; posterUrl?: string } | null>(null);
+  const [movieToDelete, setMovieToDelete] = useState<string | null>(null);
 
   // State for editing viewing date
   const [editingDateMovie, setEditingDateMovie] = useState<{
@@ -610,22 +611,24 @@ function MovieListContent({
     const rawTitles = (Array.isArray(raw) ? raw : []).filter((t: any) => typeof t === 'string' && !isTestMovieTitle(t));
     if (listType === 'seenMovieTitles') {
       const watchlistSet = new Set((userProfile?.moviesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
+      const rejectedSet = new Set((userProfile?.rejectedMovieTitles || []).map((t: string) => (t || '').toLowerCase().trim()));
       const fromData = (Array.isArray(userProfile?.seenMoviesData) ? userProfile.seenMoviesData : [])
         .map(m => m?.title)
-        .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t));
+        .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim()));
       const cinemaVisits = (Array.isArray(userProfile?.visits) ? userProfile.visits : [])
-        .filter(v => v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string' && !isTestMovieTitle(v.orderedItem))
+        .filter(v => v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string' && !isTestMovieTitle(v.orderedItem) && !rejectedSet.has(v.orderedItem.toLowerCase().trim()))
         .map(v => v.orderedItem as string);
       return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits]))
-        .filter(t => !watchlistSet.has(t.toLowerCase().trim()));
+        .filter(t => !watchlistSet.has(t.toLowerCase().trim()) && !rejectedSet.has(t.toLowerCase().trim()));
     }
     if (listType === 'seenSeriesTitles') {
       const watchlistSet = new Set((userProfile?.seriesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
+      const rejectedSet = new Set((userProfile?.rejectedSeriesTitles || []).map((t: string) => (t || '').toLowerCase().trim()));
       const fromData = (Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : [])
         .map(s => s?.title)
-        .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t));
+        .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim()));
       return Array.from(new Set([...rawTitles, ...fromData]))
-        .filter(t => !watchlistSet.has(t.toLowerCase().trim()));
+        .filter(t => !watchlistSet.has(t.toLowerCase().trim()) && !rejectedSet.has(t.toLowerCase().trim()));
     }
     return rawTitles;
   }, [userProfile, listType]);
@@ -706,11 +709,13 @@ function MovieListContent({
 
     if (isSeries) {
       const watchlistTitles = new Set((userProfile?.seriesToWatch || []).map(t => (t || '').toLowerCase().trim()));
+      const rejectedTitles = new Set((userProfile?.rejectedSeriesTitles || []).map(t => (t || '').toLowerCase().trim()));
       const isExcluded = (t: string) => {
         if (!t || typeof t !== 'string' || !t.trim()) return true;
         const norm = t.toLowerCase().trim();
         if (isTestMovieTitle(norm)) return true;
         if (watchlistTitles.has(norm)) return true;
+        if (rejectedTitles.has(norm)) return true;
         return false;
       };
 
@@ -759,11 +764,13 @@ function MovieListContent({
 
     // Films
     const watchlistTitles = new Set((userProfile?.moviesToWatch || []).map(t => (t || '').toLowerCase().trim()));
+    const rejectedTitles = new Set((userProfile?.rejectedMovieTitles || []).map(t => (t || '').toLowerCase().trim()));
     const isExcluded = (t: string) => {
       if (!t || typeof t !== 'string' || !t.trim()) return true;
       const norm = t.toLowerCase().trim();
       if (isTestMovieTitle(norm)) return true;
       if (watchlistTitles.has(norm)) return true;
+      if (rejectedTitles.has(norm)) return true;
       return false;
     };
 
@@ -807,7 +814,7 @@ function MovieListContent({
       }
     });
 
-    const cinemaVisits = (userProfile?.visits || []).filter(v => v.category === 'Cinéma');
+    const cinemaVisits = (userProfile?.visits || []).filter(v => v.category === 'Cinéma' && v.orderedItem && !rejectedTitles.has(v.orderedItem.toLowerCase().trim()));
     cinemaVisits.forEach(v => {
       if (v.orderedItem) {
         const key = v.orderedItem.toLowerCase().trim();
@@ -1213,28 +1220,6 @@ function MovieListContent({
                 </TooltipContent>
               </Tooltip>
             )}
-            {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-emerald-400"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openDateModal(movieTitle, viewedAt, seenData?.watchedInCinema);
-                    }}
-                    title="Modifier la date de visionnage"
-                  >
-                    <Calendar className="h-3.5 w-3.5" />
-                    <span className="sr-only">Modifier date</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Modifier la date de visionnage</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
             {type === 'movie' && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1262,9 +1247,13 @@ function MovieListContent({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
-                  onClick={() => onRemove(movieTitle)}
+                  className="h-7 w-7 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg cursor-pointer transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMovieToDelete(movieTitle);
+                  }}
                   disabled={isUpdating}
+                  title="Supprimer"
                 >
                   <Trash2 className="h-4 w-4" />
                   <span className="sr-only">Supprimer</span>
@@ -1399,67 +1388,19 @@ function MovieListContent({
               <Eye className="h-3 w-3" />
             </Button>
           )}
-          {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
-            <Button
-              variant="secondary"
-              size="icon"
-              className="h-5 w-5 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-emerald-300 hover:text-emerald-200"
-              onClick={(e) => {
-                e.stopPropagation();
-                openDateModal(movieTitle, viewedAt, seenData?.watchedInCinema);
-              }}
-              title="Modifier la date de visionnage"
-            >
-              <Calendar className="h-3 w-3" />
-            </Button>
-          )}
-          {type === 'movie' && (
-            <Button
-              variant="secondary"
-              size="icon"
-              className="h-5 w-5 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-indigo-300 hover:text-indigo-200"
-              onClick={(e) => {
-                e.stopPropagation();
-                setManageSagaMovie({ title: movieTitle, posterUrl: details?.posterUrl || posterUrl });
-              }}
-              title="Lier à une saga"
-            >
-              <Layers className="h-3 w-3" />
-            </Button>
-          )}
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="destructive"
-                size="icon"
-                className="h-5 w-5 bg-red-500/80 hover:bg-red-600 backdrop-blur-sm"
-                onClick={(e) => e.stopPropagation()} // Prevent card click
-                disabled={isUpdating}
-              >
-                <Trash2 className="h-2.5 w-2.5" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Supprimer "{movieTitle}" ?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Cette action est irréversible. Voulez-vous vraiment retirer ce titre de votre liste ?
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Annuler</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-red-600 hover:bg-red-700"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemove(movieTitle);
-                  }}
-                >
-                  Supprimer
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <Button
+            variant="destructive"
+            size="icon"
+            className="h-5 w-5 bg-red-500/80 hover:bg-red-600 backdrop-blur-sm cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMovieToDelete(movieTitle);
+            }}
+            disabled={isUpdating}
+            title="Supprimer"
+          >
+            <Trash2 className="h-2.5 w-2.5" />
+          </Button>
         </div>
       </div>
     );
@@ -1822,6 +1763,51 @@ function MovieListContent({
           targetMovieTitle={manageSagaMovie.title}
           targetMoviePosterUrl={manageSagaMovie.posterUrl}
         />
+      )}
+
+      {movieToDelete && (
+        <AlertDialog open={Boolean(movieToDelete)} onOpenChange={(open) => { if (!open) setMovieToDelete(null); }}>
+          <AlertDialogContent className="sm:max-w-md rounded-2xl bg-card border border-border text-card-foreground shadow-2xl p-5">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-base font-bold text-destructive">
+                <Trash2 className="h-5 w-5 text-red-500" />
+                Supprimer {type === 'movie' ? 'ce film' : 'cette série'} ?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-sm text-muted-foreground leading-relaxed pt-1.5 space-y-2">
+                <div>
+                  Êtes-vous sûr de vouloir supprimer <strong className="text-foreground">« {movieToDelete} »</strong> {listType === 'seenMovieTitles' || listType === 'seenSeriesTitles' ? 'de vos visionnages' : 'de votre liste'} ?
+                </div>
+                {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
+                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400 font-medium leading-relaxed">
+                    ⚠️ Cette œuvre sera définitivement retirée de vos visionnages et <strong>n&apos;apparaîtra plus dans vos duels de classement</strong>.
+                  </div>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="gap-2 sm:gap-2 pt-3 flex flex-row items-center justify-end">
+              <AlertDialogCancel
+                onClick={() => setMovieToDelete(null)}
+                disabled={isUpdating}
+                className="h-9 px-4 border-border bg-background hover:bg-muted text-foreground font-semibold cursor-pointer"
+              >
+                Annuler
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={async () => {
+                  if (movieToDelete) {
+                    const title = movieToDelete;
+                    setMovieToDelete(null);
+                    await onRemove(title);
+                  }
+                }}
+                disabled={isUpdating}
+                className="h-9 px-4 bg-red-600 hover:bg-red-700 text-white font-bold cursor-pointer shadow-md"
+              >
+                Supprimer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
 
       {editingDateMovie && (() => {
