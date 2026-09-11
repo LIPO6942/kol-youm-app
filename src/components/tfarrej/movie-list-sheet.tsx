@@ -851,20 +851,72 @@ function MovieListContent({
 
   const hasUnrankedMovies = unrankedCount > 0 && duelSeenMovies.length >= 2;
 
-  // Preserve movie positioning in the user's list (do not reorder when viewing date is edited)
+  // Helper to extract the most accurate viewing timestamp for a movie or series
+  const getMovieViewTimestamp = useCallback((movieTitle: string): number => {
+    const norm = movieTitle.toLowerCase().trim();
+    // 1. Check local date if just edited in dialog
+    const localDate = localViewedDates[norm];
+    if (localDate !== undefined) {
+      return localDate || 0;
+    }
+    // 2. Check metadata in seenMoviesData / seenSeriesData
+    const seenData = seenMoviesData?.find((m: any) => m?.title?.toLowerCase()?.trim() === norm);
+    if (seenData?.viewedAt) {
+      return seenData.viewedAt;
+    }
+    // 3. Check movieDetails
+    const details = movieDetails[movieTitle] || Object.entries(movieDetails).find(([k]) => k.toLowerCase().trim() === norm)?.[1];
+    if (details?.viewedAt) {
+      return details.viewedAt;
+    }
+    // 4. Check cinema visits
+    const cinemaVisit = userProfile?.visits?.find(v => v.category === 'Cinéma' && v.orderedItem?.toLowerCase()?.trim() === norm);
+    if (cinemaVisit?.date) {
+      const visitTs = new Date(cinemaVisit.date).getTime();
+      if (!isNaN(visitTs)) return visitTs;
+    }
+    // 5. Fallback to addedAt if marked seen without explicit viewing date
+    if (seenData?.addedAt) {
+      return seenData.addedAt;
+    }
+    return 0;
+  }, [localViewedDates, seenMoviesData, movieDetails, userProfile?.visits]);
+
+  // Sort movies: for seen movies/series, sort strictly by viewing date descending (most recently viewed always on top)
   const sortedMovieTitles = useMemo(() => {
     if (!movieTitles) return [];
+    const isSeenList = listType === 'seenMovieTitles' || listType === 'seenSeriesTitles';
+
+    if (isSeenList) {
+      const indexMap = new Map<string, number>();
+      movieTitles.forEach((t, i) => indexMap.set(t, i));
+
+      return [...movieTitles].sort((a, b) => {
+        const dateA = getMovieViewTimestamp(a);
+        const dateB = getMovieViewTimestamp(b);
+
+        if (dateA !== dateB) {
+          return dateB - dateA; // Newest / most recently viewed first
+        }
+
+        const idxA = indexMap.get(a) ?? 0;
+        const idxB = indexMap.get(b) ?? 0;
+        if (idxA !== idxB) {
+          return idxA - idxB;
+        }
+        return a.localeCompare(b, 'fr', { sensitivity: 'base' });
+      });
+    }
+
     return [...movieTitles];
-  }, [movieTitles]);
+  }, [movieTitles, listType, getMovieViewTimestamp]);
 
   // Helper function to check if a movie is older than 2 years
   const isOlderThanTwoYears = useCallback((movieTitle: string) => {
-    const norm = movieTitle.toLowerCase().trim();
-    const seenData = seenMoviesData?.find((m: any) => m?.title?.toLowerCase()?.trim() === norm);
-    const viewedAt = seenData?.viewedAt;
-    if (!viewedAt) return false;
-    return Date.now() - viewedAt > TWO_YEARS_MS;
-  }, [seenMoviesData, TWO_YEARS_MS]);
+    const ts = getMovieViewTimestamp(movieTitle);
+    if (!ts) return false;
+    return Date.now() - ts > TWO_YEARS_MS;
+  }, [getMovieViewTimestamp, TWO_YEARS_MS]);
 
   // Extract available years for filtering
   const availableYears = useMemo(() => {
