@@ -6,11 +6,12 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import MovieSwiper from '@/components/tfarrej/movie-swiper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo, Settings, Loader2, Swords, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo, Settings, Loader2, Swords, BarChart3, Wand2, Dna } from 'lucide-react';
 import { MovieListSheet } from '@/components/tfarrej/movie-list-sheet';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TfarrejStatsDialog } from '@/components/tfarrej/tfarrej-stats-dialog';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
+import { CinematicDnaModal } from '@/components/tfarrej/CinematicDnaModal';
 import { useAuth } from '@/hooks/use-auth';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
 import { getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters } from '@/lib/firebase/firestore';
@@ -22,6 +23,7 @@ const genres = [
   { name: 'Suspense & Thriller', iconName: 'Search', description: 'Pour se ronger les ongles.' },
   { name: 'Mind-Blow', iconName: 'Lightbulb', description: 'Pour retourner le cerveau.' },
   { name: 'Science-Fiction', iconName: 'Rocket', description: 'Pour voyager dans le futur.' },
+  { name: 'Fantaisie', iconName: 'Wand2', description: 'Magie, mythes et mondes imaginaires.' },
   { name: 'Découverte', iconName: 'Sparkles', description: 'Pour une surprise totale.' },
 ];
 
@@ -33,6 +35,7 @@ const GenreIcon = ({ iconName, className }: { iconName: string, className?: stri
     case 'Search': return <Search className={className} />;
     case 'Lightbulb': return <Lightbulb className={className} />;
     case 'Rocket': return <Rocket className={className} />;
+    case 'Wand2': return <Wand2 className={className} />;
     case 'Sparkles': return <Sparkles className={className} />;
     default: return null;
   }
@@ -50,6 +53,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
 
   const { userProfile } = useAuth();
   const [isDuelOpen, setIsDuelOpen] = useState(false);
+  const [isDnaModalOpen, setIsDnaModalOpen] = useState(false);
   const [postersCache, setPostersCache] = useState<Record<string, { posterUrl?: string; year?: number; rating?: number }>>({});
 
   // Mois courant pour le classement
@@ -302,6 +306,15 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
             </p>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 pt-0.5">
+            <Button
+              className="h-9 sm:h-10 px-2.5 sm:px-3.5 rounded-xl font-bold text-xs sm:text-sm text-white shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98] border border-fuchsia-500/30 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-indigo-600 hover:from-fuchsia-500 hover:to-indigo-500 flex items-center justify-center cursor-pointer"
+              aria-label="Mon ADN Cinématographique"
+              title="Mon ADN Cinématographique"
+              onClick={() => setIsDnaModalOpen(true)}
+            >
+              <Dna className="h-4 w-4 text-fuchsia-200 sm:mr-1.5 flex-shrink-0 animate-pulse" />
+              <span className="hidden sm:inline font-bold">ADN Ciné</span>
+            </Button>
             <TfarrejStatsDialog
               trigger={
                 <Button
@@ -485,6 +498,14 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         seenMovies={monthlySeenMovies}
         existingRanking={existingRanking}
         onRankingSaved={(saved) => setLocalRanking(saved)}
+        onOpenDnaModal={() => setIsDnaModalOpen(true)}
+      />
+
+      <CinematicDnaModal
+        isOpen={isDnaModalOpen}
+        onOpenChange={setIsDnaModalOpen}
+        currentMonthKey={currentMonthKey}
+        onOpenDuel={() => setIsDuelOpen(true)}
       />
     </div>
   );

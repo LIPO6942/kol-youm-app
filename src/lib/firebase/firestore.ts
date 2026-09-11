@@ -68,7 +68,9 @@ export const MOVIE_CATEGORIES = [
   'Horreur/Thriller psy',
   'Animation',
   'Crime/Policier',
+  'Fantaisie',
 ] as const;
+
 
 export type MovieCategory = typeof MOVIE_CATEGORIES[number];
 
@@ -192,7 +194,18 @@ export const MOVIE_CATEGORY_CONFIG: Record<MovieCategory, {
     glow: 'shadow-[0_0_12px_rgba(59,130,246,0.25)]',
     gradient: 'from-blue-500/20 to-indigo-600/10',
   },
+  'Fantaisie': {
+    label: 'Fantaisie',
+    shortLabel: 'Fantaisie',
+    emoji: '🧙‍♂️',
+    color: 'text-fuchsia-400',
+    badgeBg: 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30',
+    border: 'border-fuchsia-500/40',
+    glow: 'shadow-[0_0_12px_rgba(217,70,239,0.25)]',
+    gradient: 'from-fuchsia-500/20 to-purple-600/10',
+  },
 };
+
 
 export type MonthlyMovieRanking = {
     monthKey: string;             // e.g. "2026-09"

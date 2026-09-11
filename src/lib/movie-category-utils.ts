@@ -52,8 +52,42 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Animation';
   }
 
-  // 3. Sci-Fi
+  // 3. Fantaisie (Fantasy, fantastique, magie, sorciers, dragons, mythologie...)
   if (
+    text.includes('fantaisie') ||
+    text.includes('fantasy') ||
+    text.includes('fantastique') ||
+    text.includes('magie') ||
+    text.includes('magique') ||
+    text.includes('magic') ||
+    text.includes('sorcier') ||
+    text.includes('sorcière') ||
+    text.includes('sorcellerie') ||
+    text.includes('wizard') ||
+    text.includes('witch') ||
+    text.includes('dragon') ||
+    text.includes('elfe') ||
+    text.includes('elf') ||
+    text.includes('seigneur des anneaux') ||
+    text.includes('harry potter') ||
+    text.includes('hobbit') ||
+    text.includes('narnia') ||
+    text.includes('percy jackson') ||
+    text.includes('mythologie') ||
+    text.includes('mythologique') ||
+    text.includes('fée') ||
+    text.includes('fairy') ||
+    text.includes('royaume magique') ||
+    text.includes('enchanté') ||
+    text.includes('enchantee') ||
+    text.includes('créature magique')
+  ) {
+    return 'Fantaisie';
+  }
+
+  // 4. Sci-Fi
+  if (
+
     text.includes('science-fiction') ||
     text.includes('science fiction') ||
     text.includes('sci-fi') ||

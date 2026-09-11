@@ -15,6 +15,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters, MovieCategory, updateMovieCategory, MovieCollectionInfo } from '@/lib/firebase/firestore';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
+import { CinematicDnaModal } from '@/components/tfarrej/CinematicDnaModal';
 import { MovieCategoryPicker, CategoryBadge, CategorySelectModal } from '@/components/tfarrej/movie-category-picker';
 import { SagaDetailModal } from '@/components/tfarrej/SagaDetailModal';
 import { ManageSagaDialog } from '@/components/tfarrej/ManageSagaDialog';
@@ -475,6 +476,7 @@ function MovieListContent({
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [showOldMovies, setShowOldMovies] = useState(false);
   const [isDuelModalOpen, setIsDuelModalOpen] = useState(false);
+  const [isDnaModalOpen, setIsDnaModalOpen] = useState(false);
   const [editingCategoryMovie, setEditingCategoryMovie] = useState<{ title: string; category?: MovieCategory } | null>(null);
   const [selectedSaga, setSelectedSaga] = useState<{ id: string; name: string; isCustom?: boolean; posterUrl?: string } | null>(null);
   const [manageSagaMovie, setManageSagaMovie] = useState<{ title: string; posterUrl?: string } | null>(null);
@@ -1516,14 +1518,23 @@ function MovieListContent({
       )}
 
       {listType === 'seenMovieTitles' && (
-        <MovieDuelModal
-          isOpen={isDuelModalOpen}
-          onOpenChange={setIsDuelModalOpen}
-          monthKey={currentMonthKey}
-          seenMovies={duelSeenMovies}
-          existingRanking={existingRanking}
-          onRankingSaved={(saved) => setLocalRanking(saved)}
-        />
+        <>
+          <MovieDuelModal
+            isOpen={isDuelModalOpen}
+            onOpenChange={setIsDuelModalOpen}
+            monthKey={currentMonthKey}
+            seenMovies={duelSeenMovies}
+            existingRanking={existingRanking}
+            onRankingSaved={(saved) => setLocalRanking(saved)}
+            onOpenDnaModal={() => setIsDnaModalOpen(true)}
+          />
+          <CinematicDnaModal
+            isOpen={isDnaModalOpen}
+            onOpenChange={setIsDnaModalOpen}
+            currentMonthKey={currentMonthKey}
+            onOpenDuel={() => setIsDuelModalOpen(true)}
+          />
+        </>
       )}
 
       {editingCategoryMovie && (

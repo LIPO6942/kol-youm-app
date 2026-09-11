@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Swords, Trophy, ArrowUp, ArrowDown, Minus, Undo2, Check, Sparkles,
-  Film, Clapperboard, Star, ChevronRight, RotateCcw, X, Rocket, EyeOff
+  Film, Clapperboard, Star, ChevronRight, RotateCcw, X, Rocket, EyeOff, Dna
 } from 'lucide-react';
 import {
   DuelMovieItem,
@@ -51,6 +51,7 @@ interface MovieDuelModalProps {
   existingRanking?: MonthlyMovieRanking | null;
   onRankingSaved?: (ranking: MonthlyMovieRanking) => void;
   initialCategory?: MovieCategory | 'all';
+  onOpenDnaModal?: () => void;
 }
 
 export function MovieDuelModal({
@@ -62,6 +63,7 @@ export function MovieDuelModal({
   existingRanking,
   onRankingSaved,
   initialCategory = 'all',
+  onOpenDnaModal,
 }: MovieDuelModalProps) {
   const { user, userProfile } = useAuth();
   const { toast } = useToast();
@@ -70,6 +72,7 @@ export function MovieDuelModal({
   const [isSaving, setIsSaving] = useState(false);
   const [selectedWinnerSide, setSelectedWinnerSide] = useState<'A' | 'B' | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<MovieCategory | 'all'>(initialCategory || 'all');
+  const [reclassifyingCategory, setReclassifyingCategory] = useState<MovieCategory | null>(null);
 
   // Sync category if initialCategory changes
   useEffect(() => {
@@ -384,6 +387,109 @@ export function MovieDuelModal({
     }
   }, [user, userProfile, effectiveExistingRanking, monthKey, onRankingSaved, onOpenChange, toast]);
 
+  // Terminer et réintégrer le duel d'une catégorie dans le classement général
+  const handleFinishCategoryDuel = useCallback((finishedCatSession: DuelSessionState, category: MovieCategory) => {
+    const currentGlobalRanked = (effectiveExistingRanking?.rankedTitles || []).filter(t => !isTestMovieTitle(t));
+    const catOrderedTitles = finishedCatSession.sortedTitles;
+    let newGlobalRanked: string[];
+
+    if (currentGlobalRanked.length > 0) {
+      const catTitlesSet = new Set(catOrderedTitles);
+      let catIdx = 0;
+      newGlobalRanked = currentGlobalRanked.map(title => {
+        if (catTitlesSet.has(title)) {
+          const replacement = catOrderedTitles[catIdx];
+          catIdx++;
+          return replacement;
+        }
+        return title;
+      });
+
+      // Si certains films de la catégorie n'étaient pas encore dans le classement général
+      while (catIdx < catOrderedTitles.length) {
+        newGlobalRanked.push(catOrderedTitles[catIdx]);
+        catIdx++;
+      }
+    } else {
+      newGlobalRanked = catOrderedTitles;
+    }
+
+    const fullCatalog: Record<string, DuelMovieItem> = {};
+    validSeenMovies.forEach(m => { fullCatalog[m.title] = m; });
+    (effectiveExistingRanking?.rankedTitles || []).forEach(t => {
+      if (!fullCatalog[t]) fullCatalog[t] = { title: t };
+    });
+
+    const mergedSession: DuelSessionState = {
+      ...finishedCatSession,
+      sortedTitles: newGlobalRanked,
+      isFinished: true,
+      movieCatalog: fullCatalog,
+      initialRankedTitles: currentGlobalRanked.length > 0 ? currentGlobalRanked : newGlobalRanked,
+    };
+
+    setSession(mergedSession);
+    setReclassifyingCategory(null);
+    executeSaveRanking(mergedSession, { notifyToast: true, closeModal: false });
+
+    toast({
+      title: `🏆 Catégorie ${category} reclassée !`,
+      description: `La nouvelle hiérarchie des films « ${category} » a été intégrée à ton classement général.`,
+    });
+  }, [effectiveExistingRanking, validSeenMovies, executeSaveRanking, toast]);
+
+  // Lancer un duel ciblé UNIQUEMENT sur les films d'une catégorie
+  const handleStartCategoryDuel = useCallback((category: MovieCategory) => {
+    const categoryMovies = validSeenMovies.filter(m => m.category === category);
+    if (categoryMovies.length < 2) {
+      toast({
+        title: "Pas assez de films",
+        description: `Il faut au moins 2 films dans la catégorie « ${category} » pour lancer un duel.`,
+      });
+      return;
+    }
+
+    setReclassifyingCategory(category);
+    const initial = createInitialDuelSession(categoryMovies);
+    const resolved = autoResolveSagaDuels(initial, userProfile?.sagaRankings);
+
+    if (resolved.isFinished) {
+      handleFinishCategoryDuel(resolved, category);
+    } else {
+      setSession(resolved);
+    }
+  }, [validSeenMovies, userProfile?.sagaRankings, handleFinishCategoryDuel, toast]);
+
+  // Abandonner le reclassement de catégorie et restaurer l'état précédent
+  const handleCancelCategoryDuel = useCallback(() => {
+    setReclassifyingCategory(null);
+    const existingCatalog: Record<string, DuelMovieItem> = {};
+    validSeenMovies.forEach(m => { existingCatalog[m.title] = m; });
+    (effectiveExistingRanking?.rankedTitles || []).filter(t => !isTestMovieTitle(t)).forEach(title => {
+      if (!existingCatalog[title]) {
+        existingCatalog[title] = { title };
+      }
+    });
+
+    setSession({
+      mode: 'incremental',
+      sortedTitles: (effectiveExistingRanking?.rankedTitles || []).filter(t => !isTestMovieTitle(t)),
+      pendingItems: [],
+      currentCandidate: null,
+      low: 0,
+      high: 0,
+      mid: 0,
+      activeDuel: null,
+      history: [],
+      stepNumber: 0,
+      estimatedTotalSteps: 0,
+      isFinished: true,
+      initialRankedTitles: (effectiveExistingRanking?.initialRankedTitles || effectiveExistingRanking?.rankedTitles || []).filter(t => !isTestMovieTitle(t)),
+      newlyAddedTitles: (effectiveExistingRanking?.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t)),
+      movieCatalog: existingCatalog,
+    });
+  }, [validSeenMovies, effectiveExistingRanking]);
+
   // Choix utilisateur (Winner: movieA = candidate, movieB = reference)
   const handleChoice = useCallback((side: 'A' | 'B') => {
     if (!session || session.isFinished) return;
@@ -399,13 +505,19 @@ export function MovieDuelModal({
         const next = processDuelDecision(prev, winner);
         const resolvedNext = autoResolveSagaDuels(next, userProfile?.sagaRankings);
         if (resolvedNext.isFinished) {
-          // Sauvegarde automatique et immédiate dès la fin du duel !
-          executeSaveRanking(resolvedNext, { notifyToast: false, closeModal: false });
+          if (reclassifyingCategory) {
+            setTimeout(() => {
+              handleFinishCategoryDuel(resolvedNext, reclassifyingCategory);
+            }, 0);
+          } else {
+            // Sauvegarde automatique et immédiate dès la fin du duel !
+            executeSaveRanking(resolvedNext, { notifyToast: false, closeModal: false });
+          }
         }
         return resolvedNext;
       });
     }, 180);
-  }, [session, executeSaveRanking]);
+  }, [session, reclassifyingCategory, handleFinishCategoryDuel, userProfile?.sagaRankings, executeSaveRanking]);
 
   // Annuler le dernier duel
   const handleUndo = useCallback(() => {
@@ -429,7 +541,11 @@ export function MovieDuelModal({
     setSession(resolvedNext);
 
     if (resolvedNext.isFinished) {
-      executeSaveRanking(resolvedNext, { notifyToast: false, closeModal: false });
+      if (reclassifyingCategory) {
+        handleFinishCategoryDuel(resolvedNext, reclassifyingCategory);
+      } else {
+        executeSaveRanking(resolvedNext, { notifyToast: false, closeModal: false });
+      }
     }
 
     const effectiveUid = user?.uid || userProfile?.uid || 'guest';
@@ -443,7 +559,7 @@ export function MovieDuelModal({
       title: `"${title}" retiré`,
       description: "Ce film a été retiré du duel et de votre liste de films vus.",
     });
-  }, [session, user?.uid, userProfile?.uid, executeSaveRanking, toast]);
+  }, [session, reclassifyingCategory, user?.uid, userProfile?.uid, handleFinishCategoryDuel, executeSaveRanking, toast]);
 
   // Raccourcis clavier (Flèche gauche = Film A, Flèche droite = Film B)
   useEffect(() => {
@@ -498,21 +614,38 @@ export function MovieDuelModal({
         {/* Header néon cinématographique */}
         <div className="relative px-6 py-4 border-b border-white/10 bg-gradient-to-r from-blue-950/40 via-purple-950/40 to-slate-900/40 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-blue-500/20 border border-blue-400/30 text-blue-400 shadow-sm">
+            <div className={`p-2 rounded-xl border shadow-sm ${
+              reclassifyingCategory
+                ? 'bg-purple-500/20 border-purple-400/40 text-purple-300'
+                : 'bg-blue-500/20 border-blue-400/30 text-blue-400'
+            }`}>
               <Swords className="w-5 h-5" />
             </div>
             <div>
               <DialogTitle className="text-lg font-black tracking-tight text-white flex items-center gap-2">
-                {session.isFinished ? "🏆 Classement Finalisé" : "⚔️ Duel Ciné : Le Grand Choix"}
-                {session.mode === 'incremental' && !session.isFinished && (
+                {session.isFinished ? (
+                  "🏆 Classement Finalisé"
+                ) : reclassifyingCategory ? (
+                  `⚔️ Duel Exclusif : ${reclassifyingCategory}`
+                ) : (
+                  "⚔️ Duel Ciné : Le Grand Choix"
+                )}
+                {session.mode === 'incremental' && !session.isFinished && !reclassifyingCategory && (
                   <Badge variant="outline" className="bg-amber-500/20 border-amber-400/40 text-amber-300 text-[10px] font-bold">
                     Reclassement des Nouveaux
+                  </Badge>
+                )}
+                {reclassifyingCategory && !session.isFinished && (
+                  <Badge variant="outline" className="bg-purple-500/20 border-purple-400/40 text-purple-300 text-[10px] font-bold animate-pulse">
+                    Catégorie Isolée
                   </Badge>
                 )}
               </DialogTitle>
               <DialogDescription className="text-xs text-white/60">
                 {session.isFinished
                   ? `Classement des films vus • ${monthName || monthKey}`
+                  : reclassifyingCategory
+                  ? `Seuls les films de la catégorie ${reclassifyingCategory} s'affrontent ici`
                   : `Vote pour ton film préféré pour affiner la hiérarchie`}
               </DialogDescription>
             </div>
@@ -522,8 +655,12 @@ export function MovieDuelModal({
         {/* Barre de navigation Général & Catégories */}
         <div className="px-4 py-2 bg-white/[0.03] border-b border-white/10 flex items-center justify-start overflow-x-auto no-scrollbar">
           <CategoryTabs
-            selectedCategory={selectedCategory}
-            onSelectCategory={(cat) => setSelectedCategory(cat)}
+            selectedCategory={reclassifyingCategory || selectedCategory}
+            onSelectCategory={(cat) => {
+              if (!reclassifyingCategory) {
+                setSelectedCategory(cat);
+              }
+            }}
             categoryCounts={categoryCounts}
             totalCount={validSeenMovies.length}
             availableCategoriesOnly={session.isFinished}
@@ -547,32 +684,51 @@ export function MovieDuelModal({
                 className="w-full flex flex-col items-center my-auto"
               >
                 {/* Info bulle sur le cycle des duels */}
-                <div className={`w-full max-w-[560px] mb-3 px-3 py-2 rounded-xl text-[11px] leading-relaxed flex items-center justify-between gap-2 border ${
-                  session.mode === 'incremental'
-                    ? 'bg-amber-500/10 border-amber-400/30 text-amber-200'
-                    : 'bg-blue-500/10 border-blue-400/30 text-blue-200'
-                }`}>
-                  <div className="flex items-center gap-2">
-                    <Sparkles className={`w-3.5 h-3.5 flex-shrink-0 ${session.mode === 'incremental' ? 'text-amber-400' : 'text-blue-400'}`} />
-                    <span>
-                      {session.mode === 'incremental' ? (
-                        <><strong>Reclassement :</strong> Insertion de <span className="font-semibold text-white">« {session.currentCandidate?.title} »</span> {session.pendingItems.length > 0 && <span className="opacity-75">({session.pendingItems.length} en attente)</span>}</>
-                      ) : (
-                        <><strong>Premier duel du mois :</strong> Tous vos films sont comparés cette première fois. Ensuite, seuls vos <strong>futurs ajouts</strong> seront départagés !</>
-                      )}
-                    </span>
-                  </div>
-                  {session.mode === 'incremental' && session.currentCandidate && (
+                {reclassifyingCategory ? (
+                  <div className="w-full max-w-[560px] mb-3 px-3 py-2 rounded-xl text-[11px] leading-relaxed flex items-center justify-between gap-2 border bg-purple-500/10 border-purple-400/30 text-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.15)]">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-3.5 h-3.5 flex-shrink-0 text-purple-400" />
+                      <span>
+                        <strong>Reclassement ciblé « {reclassifyingCategory} » :</strong> Seuls les films de cette catégorie vous sont proposés en duel !
+                      </span>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => handleMarkNotWatched('A')}
-                      className="text-[10px] text-amber-300/80 hover:text-amber-200 underline whitespace-nowrap shrink-0 ml-2"
-                      title="Ignorer ce film et passer au suivant s'il n'a pas été vu"
+                      onClick={handleCancelCategoryDuel}
+                      className="text-[10px] text-purple-300 hover:text-white underline whitespace-nowrap shrink-0 ml-2"
+                      title="Annuler ce reclassement et revenir au classement existant"
                     >
-                      Passer
+                      Abandonner
                     </button>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className={`w-full max-w-[560px] mb-3 px-3 py-2 rounded-xl text-[11px] leading-relaxed flex items-center justify-between gap-2 border ${
+                    session.mode === 'incremental'
+                      ? 'bg-amber-500/10 border-amber-400/30 text-amber-200'
+                      : 'bg-blue-500/10 border-blue-400/30 text-blue-200'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <Sparkles className={`w-3.5 h-3.5 flex-shrink-0 ${session.mode === 'incremental' ? 'text-amber-400' : 'text-blue-400'}`} />
+                      <span>
+                        {session.mode === 'incremental' ? (
+                          <><strong>Reclassement :</strong> Insertion de <span className="font-semibold text-white">« {session.currentCandidate?.title} »</span> {session.pendingItems.length > 0 && <span className="opacity-75">({session.pendingItems.length} en attente)</span>}</>
+                        ) : (
+                          <><strong>Premier duel du mois :</strong> Tous vos films sont comparés cette première fois. Ensuite, seuls vos <strong>futurs ajouts</strong> seront départagés !</>
+                        )}
+                      </span>
+                    </div>
+                    {session.mode === 'incremental' && session.currentCandidate && (
+                      <button
+                        type="button"
+                        onClick={() => handleMarkNotWatched('A')}
+                        className="text-[10px] text-amber-300/80 hover:text-amber-200 underline whitespace-nowrap shrink-0 ml-2"
+                        title="Ignorer ce film et passer au suivant s'il n'a pas été vu"
+                      >
+                        Passer
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Barre de progression & étape */}
                 <div className="w-full max-w-[560px] mb-3 sm:mb-5 flex flex-col gap-1.5">
@@ -599,7 +755,12 @@ export function MovieDuelModal({
 
                 {/* Indicateur de phase : Catégorie vs Général */}
                 <div className="flex items-center justify-center mb-3 sm:mb-4">
-                  {session.phase === 'category' || (session.activeDuel && session.activeDuel.movieA.category && session.activeDuel.movieA.category === session.activeDuel.movieB.category) ? (
+                  {reclassifyingCategory ? (
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/40 text-purple-200 text-xs font-bold shadow-[0_0_15px_rgba(168,85,247,0.25)]">
+                      <span>⚔️ Duel Exclusif :</span>
+                      <CategoryBadge category={reclassifyingCategory} size="xs" />
+                    </div>
+                  ) : session.phase === 'category' || (session.activeDuel && session.activeDuel.movieA.category && session.activeDuel.movieA.category === session.activeDuel.movieB.category) ? (
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/15 border border-purple-400/30 text-purple-200 text-xs font-bold shadow-[0_0_15px_rgba(168,85,247,0.2)]">
                       <span>⚔️ Duel Intra-Catégorie :</span>
                       <CategoryBadge category={session.currentDuelCategory || session.activeDuel?.movieA.category} size="xs" />
@@ -1018,48 +1179,84 @@ export function MovieDuelModal({
                   })}
                 </motion.div>
 
-                {/* Boutons d'actions : Valider & Recommencer (visibilité maximale & design moderne sans gris sur blanc) */}
-                <div className="sticky bottom-0 bg-[#0B0C10]/95 backdrop-blur-md pt-3 pb-1 border-t border-white/10 w-full max-w-[550px] z-20 mt-auto flex flex-col sm:flex-row gap-3">
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      if (session) {
-                        executeSaveRanking(session, { notifyToast: true, closeModal: true });
-                      } else {
-                        onOpenChange(false);
-                      }
-                    }}
-                    disabled={isSaving}
-                    className="flex-1 h-12 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-sm shadow-[0_8px_25px_rgba(99,102,241,0.4)] hover:shadow-[0_12px_32px_rgba(99,102,241,0.55)] border border-white/15 backdrop-blur-md transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
-                  >
-                    {isSaving ? (
-                      <span className="flex items-center gap-2">
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Enregistrement...
+                {/* Boutons d'actions : Reclasser Catégorie, Valider, ADN Ciné & Recommencer */}
+                <div className="sticky bottom-0 bg-[#0B0C10]/95 backdrop-blur-md pt-3 pb-1 border-t border-white/10 w-full max-w-[550px] z-20 mt-auto flex flex-col gap-2.5">
+                  {/* Option reclassement spécifique à la catégorie sélectionnée */}
+                  {selectedCategory !== 'all' && (
+                    <Button
+                      type="button"
+                      onClick={() => handleStartCategoryDuel(selectedCategory as MovieCategory)}
+                      disabled={(categoryCounts[selectedCategory as MovieCategory] || 0) < 2}
+                      className="w-full h-11 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold text-xs shadow-[0_4px_20px_rgba(168,85,247,0.35)] border border-purple-400/30 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none"
+                    >
+                      <Swords className="w-4 h-4 text-purple-200" />
+                      <span>
+                        ⚔️ Reclasser uniquement « {selectedCategory} » ({categoryCounts[selectedCategory as MovieCategory] || 0} film{(categoryCounts[selectedCategory as MovieCategory] || 0) > 1 ? 's' : ''})
                       </span>
-                    ) : (
-                      <>
-                        <Check className="w-4 h-4 text-emerald-300 stroke-[3]" />
-                        <span>{effectiveExistingRanking ? "Valider et Fermer" : "Publier pour le Wrap-Up"}</span>
-                      </>
+                    </Button>
+                  )}
+
+                  <div className="flex items-center gap-2 w-full">
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        if (session) {
+                          executeSaveRanking(session, { notifyToast: true, closeModal: true });
+                        } else {
+                          onOpenChange(false);
+                        }
+                      }}
+                      disabled={isSaving}
+                      className="flex-1 h-11 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-black text-xs sm:text-sm shadow-[0_8px_25px_rgba(99,102,241,0.4)] hover:shadow-[0_12px_32px_rgba(99,102,241,0.55)] border border-white/15 backdrop-blur-md transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                      {isSaving ? (
+                        <span className="flex items-center gap-2">
+                          <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Enregistrement...
+                        </span>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4 text-emerald-300 stroke-[3]" />
+                          <span>{effectiveExistingRanking ? "Valider et Fermer" : "Publier pour le Wrap-Up"}</span>
+                        </>
+                      )}
+                    </Button>
+
+                    {onOpenDnaModal && (
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          onOpenChange(false);
+                          onOpenDnaModal();
+                        }}
+                        className="h-11 px-3 sm:px-4 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-bold text-xs border border-fuchsia-400/30 shadow-[0_4px_18px_rgba(217,70,239,0.35)] flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all"
+                        title="Découvrir mon ADN Cinématographique"
+                      >
+                        <Dna className="w-4 h-4 text-fuchsia-200 animate-pulse" />
+                        <span className="hidden sm:inline">ADN Ciné</span>
+                        <span className="sm:hidden">ADN</span>
+                      </Button>
                     )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      const initial = createInitialDuelSession(validSeenMovies);
-                      const resolved = autoResolveSagaDuels(initial, userProfile?.sagaRankings);
-                      setSession(resolved);
-                      if (resolved.isFinished) {
-                        executeSaveRanking(resolved, { notifyToast: false, closeModal: false });
-                      }
-                    }}
-                    className="h-12 px-6 rounded-2xl bg-slate-800/90 hover:bg-slate-700/90 text-white font-bold border border-white/20 hover:border-white/40 shadow-lg shadow-black/40 backdrop-blur-md transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2 group"
-                  >
-                    <RotateCcw className="w-4 h-4 text-rose-400 group-hover:-rotate-90 transition-transform duration-300" />
-                    <span className="text-white font-bold">Recommencer</span>
-                  </Button>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        const initial = createInitialDuelSession(validSeenMovies);
+                        const resolved = autoResolveSagaDuels(initial, userProfile?.sagaRankings);
+                        setSession(resolved);
+                        if (resolved.isFinished) {
+                          executeSaveRanking(resolved, { notifyToast: false, closeModal: false });
+                        }
+                      }}
+                      className="h-11 px-3 sm:px-4 rounded-2xl bg-slate-800/90 hover:bg-slate-700/90 text-white font-bold text-xs border border-white/20 hover:border-white/40 shadow-lg shadow-black/40 backdrop-blur-md transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-1.5 group"
+                      title="Recommencer tous les duels depuis le début"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-rose-400 group-hover:-rotate-90 transition-transform duration-300" />
+                      <span className="hidden sm:inline">Tout reset</span>
+                      <span className="sm:hidden">Reset</span>
+                    </Button>
+                  </div>
                 </div>
               </motion.div>
             )}

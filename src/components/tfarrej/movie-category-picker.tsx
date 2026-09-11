@@ -22,7 +22,9 @@ export const CATEGORY_HEX_COLORS: Record<MovieCategory, string> = {
   'Horreur/Thriller psy': '#a78bfa',
   'Animation': '#38bdf8',
   'Crime/Policier': '#60a5fa',
+  'Fantaisie': '#e879f9',
 };
+
 
 interface MovieCategoryPickerProps {
   selectedCategory?: MovieCategory | null;
