@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirestore, collection, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getDocs } from 'firebase/firestore';
 // Configuration Firebase
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -559,12 +558,108 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    if (action === 'deleteZone') {
+      if (!zone) {
+        return NextResponse.json({ success: false, error: 'Le nom de la zone est requis' }, { status: 400 });
+      }
+
+      const zoneId = zone
+        .replace(/\//g, '-')
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '_')
+        .toLowerCase();
+
+      const zoneRef = doc(db, 'zones', zoneId);
+      const zoneDoc = await getDoc(zoneRef);
+
+      if (zoneDoc.exists()) {
+        await deleteDoc(zoneRef);
+        console.log(`Zone supprimée avec succès par ID: ${zoneId}`);
+      } else {
+        const zonesCollection = collection(db, 'zones');
+        const zonesSnapshot = await getDocs(zonesCollection);
+        const matched = zonesSnapshot.docs.find(d =>
+          (d.data().zone && d.data().zone.trim().toLowerCase() === zone.trim().toLowerCase()) ||
+          d.id.toLowerCase() === zoneId.toLowerCase()
+        );
+
+        if (matched) {
+          await deleteDoc(doc(db, 'zones', matched.id));
+          console.log(`Zone supprimée par correspondance: ${matched.id}`);
+        } else {
+          return NextResponse.json({ success: false, error: `Zone "${zone}" non trouvée` }, { status: 404 });
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `La zone "${zone}" et tous ses lieux ont été définitivement supprimés`
+      });
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error updating zone in Firestore:', error);
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Failed to update places database'
+    }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const url = new URL(request.url);
+    const zoneFromQuery = url.searchParams.get('zone');
+    let zone = zoneFromQuery;
+    if (!zone) {
+      try {
+        const body = await request.json();
+        zone = body?.zone;
+      } catch {}
+    }
+
+    if (!zone) {
+      return NextResponse.json({ success: false, error: 'Le paramètre zone est requis' }, { status: 400 });
+    }
+
+    const zoneId = zone
+      .replace(/\//g, '-')
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '_')
+      .toLowerCase();
+
+    const zoneRef = doc(db, 'zones', zoneId);
+    const zoneDoc = await getDoc(zoneRef);
+
+    if (zoneDoc.exists()) {
+      await deleteDoc(zoneRef);
+      console.log(`Zone supprimée avec succès par ID (DELETE): ${zoneId}`);
+    } else {
+      const zonesCollection = collection(db, 'zones');
+      const zonesSnapshot = await getDocs(zonesCollection);
+      const matched = zonesSnapshot.docs.find(d =>
+        (d.data().zone && d.data().zone.trim().toLowerCase() === zone.trim().toLowerCase()) ||
+        d.id.toLowerCase() === zoneId.toLowerCase()
+      );
+
+      if (matched) {
+        await deleteDoc(doc(db, 'zones', matched.id));
+        console.log(`Zone supprimée par correspondance (DELETE): ${matched.id}`);
+      } else {
+        return NextResponse.json({ success: false, error: `Zone "${zone}" non trouvée` }, { status: 404 });
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `La zone "${zone}" et tous ses lieux ont été définitivement supprimés`
+    });
+  } catch (error) {
+    console.error('Error deleting zone in Firestore:', error);
+    return NextResponse.json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete zone'
     }, { status: 500 });
   }
 }

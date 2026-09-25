@@ -267,6 +267,8 @@ export default function SettingsPage() {
   const [replacementSpecialties, setReplacementSpecialties] = useState('');
   const [replacementReason, setReplacementReason] = useState('');
   const [isSubmittingReplacement, setIsSubmittingReplacement] = useState(false);
+  const [zoneToDelete, setZoneToDelete] = useState<string | null>(null);
+  const [isDeletingZone, setIsDeletingZone] = useState<boolean>(false);
 
   const CUISINE_OPTIONS = [
     'Tunisien', 'Oriental', 'Italien', 'Américain', 'Français',
@@ -547,6 +549,50 @@ export default function SettingsPage() {
       }
     } catch (e) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Erreur lors de la suppression' });
+    }
+  };
+
+  // Handler pour la suppression complète d'une zone
+  const handleDeleteZone = async () => {
+    if (!zoneToDelete) return;
+    setIsDeletingZone(true);
+    try {
+      const response = await fetch('/api/places-database-firestore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'deleteZone',
+          zone: zoneToDelete
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast({
+          title: 'Zone supprimée ✓',
+          description: `La zone "${zoneToDelete}" et tous ses lieux ont été définitivement supprimés.`
+        });
+        const deletedZoneName = zoneToDelete;
+        setZoneToDelete(null);
+        if (selectedZone === deletedZoneName) {
+          setSelectedZone('');
+        }
+        loadPlacesDatabase();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Erreur',
+          description: data.error || 'Impossible de supprimer la zone'
+        });
+      }
+    } catch (e) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: 'Erreur réseau lors de la suppression de la zone'
+      });
+    } finally {
+      setIsDeletingZone(false);
     }
   };
 
@@ -1282,17 +1328,31 @@ export default function SettingsPage() {
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <Label className="text-sm font-medium">Zone</Label>
-                            {!isAddingZone && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-2 text-xs text-primary bg-primary/10 hover:bg-primary/20"
-                                onClick={() => setIsAddingZone(true)}
-                              >
-                                <Plus className="h-3 w-3 mr-1" />
-                                Ajouter
-                              </Button>
-                            )}
+                            <div className="flex items-center gap-1.5">
+                              {selectedZone && !isAddingZone && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                                  title={`Supprimer la zone ${selectedZone} et tous ses lieux`}
+                                  onClick={() => setZoneToDelete(selectedZone)}
+                                >
+                                  <Trash2 className="h-3 w-3 mr-1" />
+                                  Supprimer la zone
+                                </Button>
+                              )}
+                              {!isAddingZone && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 text-xs text-primary bg-primary/10 hover:bg-primary/20"
+                                  onClick={() => setIsAddingZone(true)}
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Ajouter
+                                </Button>
+                              )}
+                            </div>
                           </div>
 
                           {isAddingZone ? (
@@ -2055,6 +2115,91 @@ export default function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de confirmation de suppression de zone */}
+      <Dialog open={!!zoneToDelete} onOpenChange={(open) => !open && !isDeletingZone && setZoneToDelete(null)}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-950/50 flex items-center justify-center shrink-0">
+                <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-red-600 dark:text-red-400">
+                  Supprimer la zone « {zoneToDelete} » ?
+                </DialogTitle>
+                <DialogDescription className="text-xs mt-0.5">
+                  Cette action est irréversible et supprimera la zone ainsi que tous ses établissements.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {(() => {
+            const targetZoneData = placesDatabase?.zones.find((z: ZoneData) => z.zone === zoneToDelete);
+            let totalPlacesCount = 0;
+            if (targetZoneData) {
+              Object.values(targetZoneData.categories).forEach((arr: any) => {
+                if (Array.isArray(arr)) totalPlacesCount += arr.length;
+              });
+            }
+            const closedCount = Object.keys(targetZoneData?.closedPlaces || {}).length;
+
+            return (
+              <div className="py-3 space-y-3">
+                <div className="p-3.5 rounded-lg bg-red-50/70 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 text-xs text-red-900 dark:text-red-200 space-y-1.5">
+                  <p className="font-semibold flex items-center gap-1.5">
+                    ⚠️ Avertissement important :
+                  </p>
+                  <p>
+                    Vous êtes sur le point de supprimer définitivement la zone <strong className="font-bold">« {zoneToDelete} »</strong>.
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-[11px] pt-1 text-red-800 dark:text-red-300">
+                    <li><strong className="font-bold">{totalPlacesCount}</strong> lieu(x) actif(s) seront supprimés</li>
+                    {closedCount > 0 && (
+                      <li><strong className="font-bold">{closedCount}</strong> archive(s) de lieu(x) fermé(s) seront effacée(s)</li>
+                    )}
+                    <li>Tous les plats et spécialités associés à cette zone seront détruits</li>
+                    <li>Le Décisionnaire Khrouj ne proposera plus cette zone</li>
+                  </ul>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Voulez-vous vraiment continuer et supprimer cette zone ?
+                </p>
+              </div>
+            );
+          })()}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setZoneToDelete(null)}
+              disabled={isDeletingZone}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteZone}
+              disabled={isDeletingZone}
+              className="bg-red-600 hover:bg-red-700 text-white gap-1.5"
+            >
+              {isDeletingZone ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Suppression...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" />
+                  Supprimer définitivement la zone
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
