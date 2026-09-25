@@ -13,6 +13,7 @@ import { TfarrejStatsDialog } from '@/components/tfarrej/tfarrej-stats-dialog';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
 import { CinematicDnaModal } from '@/components/tfarrej/CinematicDnaModal';
 import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
 import { getStoredMovieRanking, getStoredSeriesRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters } from '@/lib/firebase/firestore';
 import { guessMovieCategory } from '@/lib/movie-category-utils';
@@ -50,13 +51,34 @@ const seriesBg = '/images/tfarrej/series.png';
 function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 'movie' | 'tv') => void }) {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { toast } = useToast();
   const genreFromUrl = searchParams.get('genre');
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
 
   const { userProfile } = useAuth();
   const [isDuelOpen, setIsDuelOpen] = useState(false);
   const [isDnaModalOpen, setIsDnaModalOpen] = useState(false);
+  const [isWatchlistOpen, setIsWatchlistOpen] = useState(false);
   const [postersCache, setPostersCache] = useState<Record<string, { posterUrl?: string; year?: number; rating?: number }>>({});
+
+  // Détection du paramètre de notification du dimanche pour ouvrir la liste et surligner le film
+  useEffect(() => {
+    const highlight = searchParams.get('highlight');
+    const fromSunday = searchParams.get('from') === 'sundayNotification';
+    const typeParam = searchParams.get('type');
+
+    if (typeParam === 'tv' || typeParam === 'movie') {
+      setType(typeParam);
+    }
+
+    if (highlight && fromSunday) {
+      toast({
+        title: `🍿 Ton choix du dimanche : ${highlight}`,
+        description: `Retrouve-le dans ta liste "À Voir" pour passer une bonne soirée !`,
+      });
+      setIsWatchlistOpen(true);
+    }
+  }, [searchParams, setType, toast]);
 
   // Mois courant pour le classement
   const now = useMemo(() => new Date(), []);
@@ -482,6 +504,8 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
               description="Les films mis de côté."
               listType="moviesToWatch"
               type={type}
+              open={type === 'movie' ? isWatchlistOpen : undefined}
+              onOpenChange={type === 'movie' ? setIsWatchlistOpen : undefined}
             />
 
             <MovieListSheet
@@ -537,6 +561,8 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
               description="Les séries mises de côté."
               listType="seriesToWatch"
               type={type}
+              open={type === 'tv' ? isWatchlistOpen : undefined}
+              onOpenChange={type === 'tv' ? setIsWatchlistOpen : undefined}
             />
 
             <MovieListSheet

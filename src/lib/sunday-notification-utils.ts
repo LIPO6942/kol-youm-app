@@ -86,54 +86,77 @@ export function getRandom5amemMessage(): SundayNotificationPayload {
 
 /**
  * Interroge l'API TMDb avec timeout sécurisé pour récupérer
- * l'affiche HD et les détails d'un film.
+ * l'affiche HD et les détails d'un film ou d'une série.
  */
-export async function fetchTmdbMovieForNotification(title: string): Promise<TmdbMovieInfo | null> {
+export async function fetchTmdbMovieForNotification(
+  title: string,
+  mediaType: 'movie' | 'tv' = 'movie'
+): Promise<TmdbMovieInfo | null> {
   const apiKey = process.env.TMDB_API_KEY;
-  const bearer = process.env.TMDB_READ_ACCESS_TOKEN;
+  const bearer = process.env.TMDB_BEARER || process.env.TMDB_READ_ACCESS_TOKEN;
+
+  const rawTitle = title.trim();
+  if (!rawTitle) return null;
 
   if (!apiKey && !bearer) {
-    return { title };
+    return { title: rawTitle };
   }
 
-  const cleanTitle = title.trim();
-  if (!cleanTitle) return null;
+  // Nettoyer le titre pour maximiser les chances de correspondance TMDb :
+  // Enlever par ex. "(2024)", "[VF]", "(VF)", etc.
+  const cleanTitle = rawTitle
+    .replace(/\s*[\(\[]\s*\d{4}\s*[\)\]]\s*$/, '')
+    .replace(/\s*[\(\[].*?[\)\]]\s*$/, '')
+    .trim() || rawTitle;
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+  if (bearer) {
+    headers['Authorization'] = `Bearer ${bearer}`;
+  }
+
+  const searchEndpoint = async (endpoint: 'movie' | 'tv' | 'multi', query: string) => {
+    try {
+      const url = new URL(`https://api.themoviedb.org/3/search/${endpoint}`);
+      url.searchParams.set('query', query);
+      url.searchParams.set('language', 'fr-FR');
+      url.searchParams.set('include_adult', 'false');
+      if (apiKey) url.searchParams.set('api_key', apiKey);
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3500);
+
+      const res = await fetch(url.toString(), {
+        headers,
+        signal: controller.signal,
+        cache: 'no-store',
+      });
+      clearTimeout(timer);
+
+      if (!res.ok) return null;
+      const data = await res.json();
+      return Array.isArray(data?.results) ? data.results : null;
+    } catch {
+      return null;
+    }
+  };
 
   try {
-    const url = new URL('https://api.themoviedb.org/3/search/movie');
-    url.searchParams.set('query', cleanTitle);
-    url.searchParams.set('language', 'fr-FR');
-    url.searchParams.set('include_adult', 'false');
-    if (apiKey) url.searchParams.set('api_key', apiKey);
+    const primaryEndpoint = mediaType === 'tv' ? 'tv' : 'movie';
+    let results = await searchEndpoint(primaryEndpoint, cleanTitle);
 
-    const headers: Record<string, string> = {
-      Accept: 'application/json',
-    };
-    if (bearer) {
-      headers['Authorization'] = `Bearer ${bearer}`;
+    if (!results || results.length === 0) {
+      results = await searchEndpoint('multi', cleanTitle);
     }
 
-    // Timeout de 3.5s max pour ne pas bloquer le cron
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3500);
-
-    const res = await fetch(url.toString(), {
-      headers,
-      signal: controller.signal,
-      cache: 'no-store',
-    });
-    clearTimeout(timer);
-
-    if (!res.ok) {
-      console.warn(`[Sunday Notification] TMDb search returned ${res.status} for "${cleanTitle}"`);
-      return { title: cleanTitle };
+    if ((!results || results.length === 0) && cleanTitle !== rawTitle) {
+      results = await searchEndpoint('multi', rawTitle);
     }
 
-    const data = await res.json();
-    const first = data.results?.[0];
-
+    const first = results?.[0];
     if (!first) {
-      return { title: cleanTitle };
+      return { title: rawTitle };
     }
 
     const posterUrl = first.poster_path
@@ -141,8 +164,9 @@ export async function fetchTmdbMovieForNotification(title: string): Promise<Tmdb
       : undefined;
 
     let year: number | undefined;
-    if (first.release_date) {
-      const parsedYear = parseInt(first.release_date.substring(0, 4), 10);
+    const dateStr = first.release_date || first.first_air_date;
+    if (dateStr && typeof dateStr === 'string') {
+      const parsedYear = parseInt(dateStr.substring(0, 4), 10);
       if (!isNaN(parsedYear)) year = parsedYear;
     }
 
@@ -150,30 +174,35 @@ export async function fetchTmdbMovieForNotification(title: string): Promise<Tmdb
       ? Math.round(first.vote_average * 10) / 10
       : undefined;
 
+    const displayTitle = first.title || first.name || rawTitle;
+
     return {
-      title: cleanTitle,
-      originalTitle: first.original_title,
+      title: displayTitle,
+      originalTitle: first.original_title || first.original_name,
       posterUrl,
       rating,
       year,
       overview: first.overview,
     };
   } catch (error) {
-    console.error(`[Sunday Notification] Erreur fetch TMDb pour "${cleanTitle}":`, error);
-    return { title: cleanTitle };
+    console.error(`[Sunday Notification] Erreur fetch TMDb pour "${rawTitle}":`, error);
+    return { title: rawTitle };
   }
 }
 
 /**
- * Génère un message engageant, chaleureux et séduisant pour un film
+ * Génère un message engageant, chaleureux et séduisant pour un film ou une série
  * issu de la liste "À voir" de l'utilisateur.
  */
-export function generateSundayMovieMessage(movie: TmdbMovieInfo): SundayNotificationPayload {
+export function generateSundayMovieMessage(
+  movie: TmdbMovieInfo,
+  mediaType: 'movie' | 'tv' = 'movie'
+): SundayNotificationPayload {
   const title = movie.title;
   const ratingStr = movie.rating && movie.rating >= 6.5 ? `⭐ ${movie.rating}/10` : '';
+  const isSeries = mediaType === 'tv';
 
-  // Bibliothèque de templates variés et séduisants spécial dimanche soir
-  const templates = [
+  const movieTemplates = [
     {
       title: `🍿 Ce soir : Popcorn devant ${title} ?`,
       body: `Tu l'avais mis de côté dans ta liste... C'est le moment idéal pour enfin le regarder ! Installe-toi bien. ${ratingStr ? `(${ratingStr})` : ''}`.trim(),
@@ -196,11 +225,31 @@ export function generateSundayMovieMessage(movie: TmdbMovieInfo): SundayNotifica
     },
   ];
 
-  // Si le film est particulièrement bien noté, on ajoute un template élogieux
+  const seriesTemplates = [
+    {
+      title: `📺 Ce soir : Un épisode de ${title} ?`,
+      body: `Tu l'avais ajoutée à ta liste... C'est le moment parfait pour lancer un épisode ce dimanche soir ! ${ratingStr ? `(${ratingStr})` : ''}`.trim(),
+    },
+    {
+      title: `✨ Ta série du dimanche : ${title}`,
+      body: `Avant la reprise lundi, détends-toi devant un bon épisode de ${title} !`,
+    },
+    {
+      title: `🛋️ Dimanche cosy devant ${title}`,
+      body: `Plaid, canapé et ${title} au programme pour terminer le week-end en beauté !`,
+    },
+    {
+      title: `🔥 Alerte série dans ta liste à voir !`,
+      body: `${title} t'attend dans tes séries à voir. Prêt pour ta séance de ce soir ?`,
+    },
+  ];
+
+  const templates = isSeries ? seriesTemplates : movieTemplates;
+
   if (movie.rating && movie.rating >= 7.2) {
     templates.push({
       title: `🌟 Coup de cœur de ta liste : ${title} (${ratingStr})`,
-      body: `Ce chef-d'œuvre t'attend dans tes films à voir. Ce dimanche soir est l'occasion parfaite pour le savourer !`,
+      body: `Ce chef-d'œuvre t'attend dans tes ${isSeries ? 'séries' : 'films'} à voir. Ce dimanche soir est l'occasion parfaite pour le savourer !`,
     });
   }
 
@@ -209,60 +258,81 @@ export function generateSundayMovieMessage(movie: TmdbMovieInfo): SundayNotifica
   return {
     title: chosen.title,
     body: chosen.body,
-    link: `/tfarrej?highlight=${encodeURIComponent(title)}&from=sundayNotification`,
+    link: `/tfarrej?highlight=${encodeURIComponent(title)}&from=sundayNotification&type=${mediaType}`,
     imageUrl: movie.posterUrl,
     type: 'movie',
     suggestedMovieTitle: title,
   };
 }
 
-/**
- * Décide intelligemment de la notification à envoyer à un utilisateur :
- * - Alterne ou équilibre entre suggestion de Film (watchlist + TMDb) et Quiz 5amem
- * - Si la liste "À voir" est vide : 100% 5amem
- * - Si la liste contient des films : tire un film non récemment suggéré et récupère son affiche TMDb
- */
-export async function buildSundayNotificationForUser(userData: {
-  moviesToWatch?: string[];
+export interface SundayNotificationUserData {
+  moviesToWatch?: any[];
+  seriesToWatch?: any[];
   lastSuggestedMovie?: string;
   lastNotificationType?: 'movie' | '5amem';
-}): Promise<SundayNotificationPayload> {
-  const rawWatchlist = Array.isArray(userData.moviesToWatch) ? userData.moviesToWatch : [];
-  const validMovies = rawWatchlist
-    .map(t => (typeof t === 'string' ? t.trim() : ''))
-    .filter(t => t.length > 0 && !t.toLowerCase().startsWith('test'));
+  forceMovie?: boolean;
+}
 
-  // 1. Si aucun film à voir : toujours envoyer un quiz / trivia 5amem
-  if (validMovies.length === 0) {
+/**
+ * Décide intelligemment de la notification à envoyer à un utilisateur :
+ * - PRIORITÉ ABSOLUE aux films et séries de la liste "À voir" : si l'utilisateur en a,
+ *   on lui suggère systématiquement une œuvre pour son dimanche soir !
+ * - Si et seulement si la liste "À voir" est vide : repli sur les anecdotes / quiz 5amem
+ * - Évite de répéter le dernier film/série suggéré s'il y en a plusieurs
+ * - Récupère l'affiche HD via TMDb et formate un message séduisant
+ */
+export async function buildSundayNotificationForUser(
+  userData: SundayNotificationUserData
+): Promise<SundayNotificationPayload> {
+  const normalizeList = (raw: any): { title: string; mediaType: 'movie' | 'tv' }[] => {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map(item => {
+        let title = '';
+        if (typeof item === 'string') {
+          title = item.trim();
+        } else if (item && typeof item === 'object') {
+          title = typeof item.title === 'string' ? item.title.trim() : (typeof item.name === 'string' ? item.name.trim() : '');
+        }
+        return title;
+      })
+      .filter(t => t.length > 0 && !t.toLowerCase().startsWith('test') && !t.toLowerCase().includes('titre de test'))
+      .map(t => ({ title: t, mediaType: 'movie' as const }));
+  };
+
+  const movies = normalizeList(userData.moviesToWatch).map(m => ({ ...m, mediaType: 'movie' as const }));
+  const series = normalizeList(userData.seriesToWatch).map(s => ({ ...s, mediaType: 'tv' as const }));
+
+  // Priorité aux films si présents, sinon séries
+  const availableItems: { title: string; mediaType: 'movie' | 'tv' }[] = movies.length > 0 ? movies : series;
+
+  // 1. Si aucun film ni série à voir : repli vers le quiz / trivia 5amem
+  if (availableItems.length === 0) {
+    console.log('[Sunday Notification] Aucun film/série dans la liste à voir -> Envoi Quiz/Culture 5amem');
     return getRandom5amemMessage();
   }
 
-  // 2. Alternance intelligente :
-  // Si le dernier type envoyé était un film, on peut privilégier 5amem pour varier,
-  // ou faire un tirage aléatoire 50/50 pour que le contenu reste vivant et varié.
-  const prefer5amem = userData.lastNotificationType === 'movie';
-  const shouldSend5amem = prefer5amem ? Math.random() < 0.65 : Math.random() < 0.35;
-
-  if (shouldSend5amem) {
-    return getRandom5amemMessage();
-  }
-
-  // 3. Choix d'un film dans la watchlist (en évitant le dernier suggéré si possible)
-  let eligibleMovies = validMovies;
-  if (validMovies.length > 1 && userData.lastSuggestedMovie) {
-    const withoutLast = validMovies.filter(
-      t => t.toLowerCase() !== userData.lastSuggestedMovie?.toLowerCase()
+  // 2. L'utilisateur a des films ou séries à voir :
+  // On lui envoie TOUJOURS une recommandation de sa liste pour son dimanche soir
+  let eligibleItems: { title: string; mediaType: 'movie' | 'tv' }[] = availableItems;
+  if (availableItems.length > 1 && userData.lastSuggestedMovie) {
+    const withoutLast = availableItems.filter(
+      item => item.title.toLowerCase() !== userData.lastSuggestedMovie?.toLowerCase()
     );
     if (withoutLast.length > 0) {
-      eligibleMovies = withoutLast;
+      eligibleItems = withoutLast;
     }
   }
 
-  const chosenTitle = eligibleMovies[Math.floor(Math.random() * eligibleMovies.length)];
+  const chosen = eligibleItems[Math.floor(Math.random() * eligibleItems.length)];
+  console.log(`[Sunday Notification] Suggestion sélectionnée: "${chosen.title}" (${chosen.mediaType}) sur ${availableItems.length} élément(s)`);
 
-  // 4. Récupérer les métadonnées TMDb (affiche HD + note)
-  const tmdbInfo = await fetchTmdbMovieForNotification(chosenTitle);
+  // 3. Récupérer les métadonnées TMDb (affiche HD, note, année)
+  const tmdbInfo = await fetchTmdbMovieForNotification(chosen.title, chosen.mediaType);
 
-  // 5. Générer le message séduisant
-  return generateSundayMovieMessage(tmdbInfo || { title: chosenTitle });
+  // 4. Générer le message séduisant avec l'affiche
+  return generateSundayMovieMessage(
+    tmdbInfo || { title: chosen.title },
+    chosen.mediaType
+  );
 }

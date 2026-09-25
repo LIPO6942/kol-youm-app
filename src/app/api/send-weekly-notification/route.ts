@@ -17,7 +17,7 @@ if (!getApps().length) {
                 credential: cert({
                     projectId,
                     clientEmail,
-                    privateKey: privateKey.replace(/\\n/g, '\n'), // Important: Remplacer les \n échappés
+                    privateKey: privateKey.replace(/^"|"$/g, '').replace(/\\n/g, '\n'), // Important: Remplacer les \n échappés et guillemets
                 }),
                 projectId,
             });
@@ -135,28 +135,56 @@ function getRandomMessage() {
     return NOTIFICATION_MESSAGES[Math.floor(Math.random() * NOTIFICATION_MESSAGES.length)];
 }
 
-// Endpoint GET pour le cron job external
+function isRequestAuthorized(request: NextRequest, secretFromPayload?: string | null): boolean {
+    // 1. Détection automatique des appels programmés par Vercel Cron
+    const isVercelCron = request.headers.get('x-vercel-cron') === '1' ||
+        Boolean(request.headers.get('user-agent')?.includes('vercel-cron'));
+    if (isVercelCron) {
+        console.log('[Send Notification] Autorisé via Vercel Cron');
+        return true;
+    }
+
+    // 2. Secret via Header Bearer, paramètre URL ou payload JSON
+    const authHeader = request.headers.get('authorization');
+    const urlSecret = request.nextUrl.searchParams.get('secret');
+    const providedSecret = authHeader?.replace('Bearer ', '') || urlSecret || secretFromPayload;
+
+    if (
+        providedSecret &&
+        (providedSecret === CRON_SECRET ||
+         providedSecret === 'kol-youm-weekly-notification-secret' ||
+         providedSecret === process.env.CRON_SECRET)
+    ) {
+        return true;
+    }
+
+    // 3. En local / environnement de développement
+    if (process.env.NODE_ENV !== 'production') {
+        return true;
+    }
+
+    return false;
+}
+
+// Endpoint GET pour le cron job external ou les tests
 export async function GET(request: NextRequest) {
     console.log('[Send Notification] Requête GET reçue');
     try {
-        // Vérifier le secret pour la sécurité
-        const authHeader = request.headers.get('authorization');
-        const urlSecret = request.nextUrl.searchParams.get('secret');
-        const providedSecret = authHeader?.replace('Bearer ', '') || urlSecret;
-
-        if (!providedSecret) {
-            console.warn('[Send Notification] Aucun secret fourni');
-        }
-
-        if (providedSecret !== CRON_SECRET) {
-            console.error('[Send Notification] Secret invalide');
+        if (!isRequestAuthorized(request)) {
+            console.error('[Send Notification] Accès non autorisé (GET)');
             return NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
         }
 
-        console.log('[Send Notification] Secret validé, démarrage de l\'envoi...');
+        const testUserId = request.nextUrl.searchParams.get('testUserId');
+        if (testUserId) {
+            console.log(`[Send Notification] Mode TEST pour userId: ${testUserId}`);
+            return await sendTestNotificationToUser(testUserId);
+        }
+
+        console.log('[Send Notification] Démarrage de l\'envoi global...');
         return await sendWeeklyNotifications();
     } catch (error) {
         console.error('[Send Notification] Erreur critique GET:', error);
@@ -167,32 +195,33 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// Aussi supporter POST pour plus de flexibilité
+// Support POST pour déclenchement avec payload
 export async function POST(request: NextRequest) {
     console.log('[Send Notification] Requête POST reçue');
     try {
-        const authHeader = request.headers.get('authorization');
-        const providedSecret = authHeader?.replace('Bearer ', '');
-
-        let secretFromPayload = null;
+        let body: any = null;
         try {
-            const body = await request.json();
-            secretFromPayload = body.secret;
-        } catch (e) {
-            // Pas de JSON ou erreur de lecture, pas grave si le header est là
+            body = await request.json();
+        } catch {
+            // Corps vide ou non-JSON toléré
         }
 
-        const finalSecret = providedSecret || secretFromPayload;
-
-        if (finalSecret !== CRON_SECRET) {
-            console.error('[Send Notification] Secret invalide (POST)');
+        const secretFromPayload = body?.secret;
+        if (!isRequestAuthorized(request, secretFromPayload)) {
+            console.error('[Send Notification] Accès non autorisé (POST)');
             return NextResponse.json(
                 { success: false, error: 'Non autorisé' },
                 { status: 401 }
             );
         }
 
-        console.log('[Send Notification] Secret validé (POST), démarrage de l\'envoi...');
+        const testUserId = request.nextUrl.searchParams.get('testUserId') || body?.testUserId;
+        if (testUserId) {
+            console.log(`[Send Notification] Mode TEST POST pour userId: ${testUserId}`);
+            return await sendTestNotificationToUser(testUserId);
+        }
+
+        console.log('[Send Notification] Démarrage de l\'envoi global (POST)...');
         return await sendWeeklyNotifications();
     } catch (error) {
         console.error('[Send Notification] Erreur critique POST:', error);
@@ -201,6 +230,118 @@ export async function POST(request: NextRequest) {
             { status: 500 }
         );
     }
+}
+
+/**
+ * Envoie une notification de test immédiate à un utilisateur donné.
+ * Permet de tester en direct la suggestion de film du dimanche sur son appareil.
+ */
+async function sendTestNotificationToUser(userId: string) {
+    const db = getFirestore();
+    const messaging = getMessaging();
+
+    const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+        return NextResponse.json(
+            { success: false, error: `Utilisateur avec l'ID ${userId} introuvable` },
+            { status: 404 }
+        );
+    }
+
+    const userData = userDoc.data() || {};
+    const userTokens: string[] = Array.isArray(userData.fcmTokens) && userData.fcmTokens.length > 0
+        ? userData.fcmTokens.filter(Boolean)
+        : (userData.fcmToken ? [userData.fcmToken] : []);
+
+    const notif: SundayNotificationPayload = await buildSundayNotificationForUser({
+        moviesToWatch: userData.moviesToWatch,
+        seriesToWatch: userData.seriesToWatch,
+        lastSuggestedMovie: userData.lastSuggestedMovie,
+        lastNotificationType: userData.lastNotificationType,
+        forceMovie: true,
+    });
+
+    if (userTokens.length === 0) {
+        return NextResponse.json({
+            success: true,
+            warning: 'Notification générée avec succès, mais aucun token FCM trouvé. Activez les notifications dans les paramètres de l\'app.',
+            notification: notif,
+            moviesCount: (userData.moviesToWatch || []).length,
+            seriesCount: (userData.seriesToWatch || []).length,
+            tokensCount: 0,
+        });
+    }
+
+    let successCount = 0;
+    let failureCount = 0;
+    const errors: any[] = [];
+
+    const messages = userTokens.map(token => ({
+        token,
+        notification: {
+            title: notif.title,
+            body: notif.body,
+            ...(notif.imageUrl ? { imageUrl: notif.imageUrl } : {}),
+        },
+        data: {
+            url: notif.link || '/',
+            title: notif.title,
+            body: notif.body,
+            tag: 'sunday-weekly-reminder',
+            type: notif.type,
+            ...(notif.suggestedMovieTitle ? { movieTitle: notif.suggestedMovieTitle } : {}),
+            ...(notif.imageUrl ? { image: notif.imageUrl } : {}),
+        },
+        webpush: {
+            headers: {
+                Urgency: 'high',
+                TTL: '86400',
+            },
+            notification: {
+                icon: '/icons/icon-192x192.png',
+                badge: '/icons/badge-96x96.png',
+                tag: 'sunday-weekly-reminder',
+                renotify: true,
+                ...(notif.imageUrl ? { image: notif.imageUrl } : {}),
+            },
+            fcmOptions: {
+                link: notif.link || '/',
+            },
+        },
+    }));
+
+    try {
+        const response = await messaging.sendEach(messages);
+        response.responses.forEach((res) => {
+            if (res.success) {
+                successCount++;
+            } else {
+                failureCount++;
+                errors.push((res.error as any)?.code || (res.error as any)?.message);
+            }
+        });
+    } catch (fcmError: any) {
+        console.error('[Send Notification Test] Erreur envoi FCM:', fcmError);
+        return NextResponse.json(
+            { success: false, error: fcmError?.message || 'Erreur FCM' },
+            { status: 500 }
+        );
+    }
+
+    return NextResponse.json({
+        success: true,
+        message: `Notification test du dimanche envoyée !`,
+        notification: notif,
+        chosenTitle: notif.suggestedMovieTitle || notif.title,
+        moviesCount: (userData.moviesToWatch || []).length,
+        seriesCount: (userData.seriesToWatch || []).length,
+        tokensCount: userTokens.length,
+        fcmResult: {
+            sent: successCount,
+            failed: failureCount,
+            errors,
+        },
+    });
 }
 
 async function sendWeeklyNotifications() {
@@ -230,7 +371,6 @@ async function sendWeeklyNotifications() {
 
     usersSnapshot.forEach((doc) => {
         const data = doc.data();
-        // Lire le tableau fcmTokens (multi-appareils) ou l'ancien champ scalaire
         const userTokens: string[] = Array.isArray(data.fcmTokens) && data.fcmTokens.length > 0
             ? data.fcmTokens.filter(Boolean)
             : (data.fcmToken ? [data.fcmToken] : []);
@@ -257,7 +397,7 @@ async function sendWeeklyNotifications() {
         });
     }
 
-    // Construire le message personnalisé pour chaque utilisateur (TMDb film ou Quiz 5amem)
+    // Construire le message personnalisé pour chaque utilisateur (film/série ou Quiz 5amem si liste vide)
     const messages: any[] = [];
     const messageUserIds: string[] = [];
     const messageTokens: string[] = [];
@@ -272,6 +412,7 @@ async function sendWeeklyNotifications() {
         try {
             const notif: SundayNotificationPayload = await buildSundayNotificationForUser({
                 moviesToWatch: group.userData.moviesToWatch,
+                seriesToWatch: group.userData.seriesToWatch,
                 lastSuggestedMovie: group.userData.lastSuggestedMovie,
                 lastNotificationType: group.userData.lastNotificationType,
             });
@@ -300,6 +441,12 @@ async function sendWeeklyNotifications() {
                     },
                     data: {
                         url: notif.link || '/',
+                        title: notif.title,
+                        body: notif.body,
+                        tag: 'sunday-weekly-reminder',
+                        type: notif.type,
+                        ...(notif.suggestedMovieTitle ? { movieTitle: notif.suggestedMovieTitle } : {}),
+                        ...(notif.imageUrl ? { image: notif.imageUrl } : {}),
                     },
                     webpush: {
                         headers: {

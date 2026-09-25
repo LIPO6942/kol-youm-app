@@ -66,6 +66,8 @@ interface MovieListSheetProps {
   description: string;
   listType: 'moviesToWatch' | 'seenMovieTitles' | 'seriesToWatch' | 'seenSeriesTitles';
   type?: 'movie' | 'tv';
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 // Add Movie Dialog Component
@@ -2029,7 +2031,7 @@ function MovieListContent({
   );
 }
 
-export function MovieListSheet({ trigger, title, description, listType, type = 'movie' }: MovieListSheetProps) {
+export function MovieListSheet({ trigger, title, description, listType, type = 'movie', open, onOpenChange }: MovieListSheetProps) {
   const { user, userProfile } = useAuth();
   const { toast } = useToast();
   const [isClearing, setIsClearing] = useState(false);
@@ -2273,7 +2275,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
 
   return (
     <>
-      <Sheet>
+      <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetTrigger asChild>{trigger}</SheetTrigger>
         <SheetContent className="flex flex-col w-[95%] sm:max-w-[90%] [&>button]:!w-8 [&>button]:!h-8 [&>button>svg]:!w-5 [&>button>svg]:!h-5">
           <SheetHeader>

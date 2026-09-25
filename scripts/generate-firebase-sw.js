@@ -73,7 +73,11 @@ self.addEventListener('notificationclick', (event) => {
   console.log('[firebase-messaging-sw.js] Notification cliquée');
   event.notification.close();
 
-  const urlToOpen = event.notification.data?.url || '/';
+  const urlToOpen = event.notification.data?.url
+    || event.notification.data?.FCM_MSG?.data?.url
+    || event.notification.data?.FCM_MSG?.notification?.click_action
+    || event.notification.data?.link
+    || '/';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {

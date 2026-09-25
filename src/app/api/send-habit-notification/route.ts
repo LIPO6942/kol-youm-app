@@ -53,7 +53,13 @@ function getVisitFrequencies(visits: any[] = []): CategoryFrequency[] {
     visits.forEach(v => {
         if (!v.category) return;
         const cat = v.category;
-        // On veut exclure Café si besoin ? Non, si l'app veut, ok pour les Café
+        
+        // Exclure expressément Kharjet (et Balade) des rappels de fréquence
+        const lowerCat = cat.toLowerCase();
+        if (lowerCat === 'kharjet' || lowerCat.includes('kharj') || lowerCat === 'balade') {
+            return;
+        }
+
         if (!visitsByCategory[cat]) {
             visitsByCategory[cat] = [];
         }
@@ -67,7 +73,6 @@ function getVisitFrequencies(visits: any[] = []): CategoryFrequency[] {
             const lastVisit = sortedDates[count - 1];
 
             if (count < 2) {
-                // For 1 visit, average is days since then, but we don't use it for stable trigger
                 const totalDays = (Date.now() - sortedDates[0]) / (1000 * 60 * 60 * 24);
                 return { category, averageDays: Math.round(totalDays), stableAverageDays: 0, count, lastVisit };
             }
@@ -90,8 +95,6 @@ const CATEGORY_ICONS: Record<string, string> = {
     'Fast Food': '🍔',
     'Restaurant': '🍕',
     'Brunch': '🍳',
-    'Kharjet': '✨',
-    'Balade': '✨',
     'Shopping': '🛍️',
     'Cinéma': '🍿',
     'Bar': '🍻',
@@ -111,6 +114,11 @@ async function handleRequest(request: NextRequest) {
     console.log(`[Send Habit Notification] Requête ${request.method} reçue`);
     try {
         const type = request.nextUrl.searchParams.get('type') || 'all';
+
+        // Détection automatique Vercel Cron
+        const isVercelCron = request.headers.get('x-vercel-cron') === '1' ||
+            Boolean(request.headers.get('user-agent')?.includes('vercel-cron'));
+
         const authHeader = request.headers.get('authorization');
         const urlSecret = request.nextUrl.searchParams.get('secret');
         const providedSecret = authHeader?.replace('Bearer ', '') || urlSecret;
@@ -120,16 +128,20 @@ async function handleRequest(request: NextRequest) {
              try {
                 const body = await request.clone().json();
                 secretFromPayload = body.secret;
-             } catch (e) {}
+             } catch {}
         }
         const finalSecret = providedSecret || secretFromPayload;
 
-        if (finalSecret !== CRON_SECRET) {
+        const isAuthorized = isVercelCron ||
+            (finalSecret && (finalSecret === CRON_SECRET || finalSecret === 'kol-youm-weekly-notification-secret')) ||
+            process.env.NODE_ENV !== 'production';
+
+        if (!isAuthorized) {
             console.error('[Send Habit Notification] Secret invalide');
             return NextResponse.json({ success: false, error: 'Non autorisé' }, { status: 401 });
         }
 
-        console.log(`[Send Habit Notification] Secret validé, démarrage... (type: ${type})`);
+        console.log(`[Send Habit Notification] Requête validée, démarrage... (type: ${type})`);
         return await sendHabitNotifications(type);
     } catch (error) {
         console.error('[Send Habit Notification] Erreur critique:', error);
@@ -163,6 +175,10 @@ async function sendHabitNotifications(type: string) {
          let notificationToSent = null;
 
          for (const f of frequencies) {
+             // Exclure formellement Kharjet de tout envoi de notification
+             const catLower = f.category.toLowerCase();
+             if (catLower === 'kharjet' || catLower.includes('kharj') || catLower === 'balade') continue;
+
              // Brunch at morning, everything else at evening (or all if not specified)
              if (type === 'morning' && f.category !== 'Brunch') continue;
              if (type === 'evening' && f.category === 'Brunch') continue;
