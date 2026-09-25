@@ -38,6 +38,9 @@ export type VisitLog = {
     possibleCategories?: string[];
     momentyUrl?: string;
     momentyImageUrl?: string;
+    dishName?: string;
+    description?: string;
+    instantId?: string;
 };
 
 export type BrainAttempt = {

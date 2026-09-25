@@ -22,7 +22,7 @@ const db = getFirestore(app);
 function corsHeaders() {
     return {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, X-API-Key, Authorization',
     };
 }
@@ -31,7 +31,19 @@ export async function OPTIONS() {
     return NextResponse.json({}, { headers: corsHeaders() });
 }
 
+export async function PUT(request: NextRequest) {
+    return handleVisitRequest(request);
+}
+
+export async function PATCH(request: NextRequest) {
+    return handleVisitRequest(request);
+}
+
 export async function POST(request: NextRequest) {
+    return handleVisitRequest(request);
+}
+
+async function handleVisitRequest(request: NextRequest) {
     try {
         // 1. Vérifier la clé API
         const apiKey = request.headers.get('X-API-Key');
@@ -45,16 +57,64 @@ export async function POST(request: NextRequest) {
 
         // 2. Parser le body
         const body = await request.json();
-        const { userEmail, placeName, category, cityName, dishName, date, postUrl, momentyImageUrl, description, caption, note } = body;
-        const incomingDesc = (description || caption || note || dishName || '').trim();
+        const {
+            userEmail,
+            placeName,
+            category,
+            cityName,
+            dishName,
+            dish,
+            date,
+            postUrl,
+            momentyImageUrl,
+            imageUrl,
+            photoUrl,
+            description,
+            dishDescription,
+            caption,
+            note,
+            instantId,
+            id,
+            postId,
+            instant_id,
+            visitId: bodyVisitId,
+            oldDishName,
+            action
+        } = body;
 
-        // 3. Valider les données
-        if (!userEmail || !placeName || !category || !date) {
+        // Normalisation des descriptions et plats
+        const resolvedDishName = (dishName || dish || '').trim();
+        const resolvedDescription = (description || dishDescription || caption || note || '').trim();
+        const incomingDesc = resolvedDescription || resolvedDishName;
+        const resolvedImageUrl = momentyImageUrl || imageUrl || photoUrl || '';
+
+        // 3. Valider l'email de l'utilisateur
+        if (!userEmail) {
             return NextResponse.json({
                 success: false,
-                error: 'Données invalides. Les champs userEmail, placeName, category et date sont obligatoires.'
+                error: 'Le champ userEmail est obligatoire.'
             }, { status: 400, headers: corsHeaders() });
         }
+
+        // Helper pour extraire l'ID d'un instant Momenty (support query param ET path param)
+        const extractInstantId = (url?: string) => {
+            if (!url) return null;
+            const qMatch = url.match(/[?&](?:instant|id|postId)=([^&#]+)/);
+            if (qMatch) return qMatch[1];
+            const pMatch = url.match(/\/(?:plats|instant|timeline|post|moments)\/([^\/?#]+)/);
+            if (pMatch) return pMatch[1];
+            return null;
+        };
+
+        const incomingInstantId = (
+            instantId ||
+            id ||
+            postId ||
+            instant_id ||
+            bodyVisitId ||
+            extractInstantId(postUrl) ||
+            ''
+        ).toString();
 
         // 4. Rechercher l'utilisateur par email dans Firestore
         const usersRef = collection(db, 'users');
@@ -71,10 +131,72 @@ export async function POST(request: NextRequest) {
 
         const userDoc = querySnapshot.docs[0];
         const userId = userDoc.id;
+        const userRef = doc(db, 'users', userId);
+        const userData = userDoc.data();
+        const existingVisits = (userData.visits || []) as Record<string, any>[];
 
-        // 4.5. CORRECTION AUTOMATIQUE DE LA CATÉGORIE
+        // Helper fuzzy match
+        const fuzzyMatch = (dbName: string, searchName: string): boolean => {
+            if (!dbName || !searchName) return false;
+            if (dbName === searchName) return true;
+            const shorter = dbName.length < searchName.length ? dbName : searchName;
+            const longer = dbName.length < searchName.length ? searchName : dbName;
+            return shorter.length >= 4 && longer.includes(shorter);
+        };
 
-        // Normalisation préventive de la catégorie entrante (Fallback)
+        // Helper pour comparer des dates (même jour)
+        const isSameDay = (d1: any, d2: any): boolean => {
+            if (!d1 || !d2) return false;
+            try {
+                const t1 = typeof d1 === 'number' ? d1 : new Date(d1).getTime();
+                const t2 = typeof d2 === 'number' ? d2 : new Date(d2).getTime();
+                if (isNaN(t1) || isNaN(t2)) return false;
+                return Math.abs(t1 - t2) < 24 * 60 * 60 * 1000;
+            } catch {
+                return false;
+            }
+        };
+
+        // 5. Chercher si la visite existe déjà (Mise à jour d'un plat ou instant Momenty)
+        let existingIndex = -1;
+
+        if (incomingInstantId) {
+            existingIndex = existingVisits.findIndex(v => {
+                if (v.id === incomingInstantId) return true;
+                if (v.instantId === incomingInstantId) return true;
+                if (v.momentyUrl && extractInstantId(v.momentyUrl) === incomingInstantId) return true;
+                return false;
+            });
+        }
+
+        if (existingIndex === -1 && postUrl) {
+            const cleanPostUrl = postUrl.split('#')[0];
+            existingIndex = existingVisits.findIndex(v => {
+                if (!v.momentyUrl) return false;
+                return v.momentyUrl.split('#')[0] === cleanPostUrl;
+            });
+        }
+
+        if (existingIndex === -1 && placeName && date) {
+            const normalizedPlace = placeName.trim().toLowerCase();
+            existingIndex = existingVisits.findIndex(v => {
+                if (v.source !== 'momenty') return false;
+                const vPlace = (v.placeName || '').trim().toLowerCase();
+                return fuzzyMatch(vPlace, normalizedPlace) && isSameDay(v.date, date);
+            });
+        }
+
+        const isExplicitUpdate = action === 'update' || action === 'updateDish' || action === 'edit';
+
+        // Si la visite n'existe pas et qu'on n'a pas les infos minimales de création
+        if (existingIndex === -1 && (!placeName || !category || !date)) {
+            return NextResponse.json({
+                success: false,
+                error: 'Pour une nouvelle visite, les champs userEmail, placeName, category et date sont obligatoires.'
+            }, { status: 400, headers: corsHeaders() });
+        }
+
+        // Normalisation de la catégorie
         const normalizeCategoryInput = (cat: string) => {
             if (!cat) return 'Autre';
             const lower = cat.toLowerCase().trim();
@@ -85,251 +207,223 @@ export async function POST(request: NextRequest) {
             if (lower === 'kharjet' || lower === 'kharja' || lower === 'balade' || lower === 'sortie' || lower === 'sorties') return 'Kharjet';
             if (lower === 'cinema' || lower === 'cinéma' || lower === 'cinemas' || lower === 'cinémas') return 'Cinéma';
             if (lower === 'shopping') return 'Shopping';
-            // Garder la valeur originale si pas de match évident, en mettant la première lettre en majuscule
             return cat.charAt(0).toUpperCase() + cat.slice(1);
         };
 
-        // 4.5. DÉTECTION MULTI-CATÉGORIES avec FUZZY MATCHING
-        const normalizedInputCategory = normalizeCategoryInput(category);
+        const incomingCategory = category ? normalizeCategoryInput(category) : undefined;
 
-        // Fuzzy match helper: permet de détecter que "Del Capo Restaurant" correspond à "Del Capo" dans la DB
-        const fuzzyMatch = (dbName: string, searchName: string): boolean => {
-            if (dbName === searchName) return true;
-            // Le plus court doit faire au moins 4 caractères pour éviter les faux positifs
-            const shorter = dbName.length < searchName.length ? dbName : searchName;
-            const longer = dbName.length < searchName.length ? searchName : dbName;
-            return shorter.length >= 4 && longer.includes(shorter);
-        };
-
-        const matchesInList = (list: string[] | undefined, searchName: string): boolean => {
-            if (!list) return false;
-            return list.some(p => fuzzyMatch(p.toLowerCase(), searchName));
-        };
-
-        // Détecter les catégories DB pour ce lieu
+        // Détection catégories Firestore
         let dbCategories: string[] = [];
+        const checkPlaceName = (existingIndex !== -1 ? existingVisits[existingIndex].placeName : placeName) || '';
         try {
             const zonesSnap = await getDocs(collection(db, 'zones'));
-            const normalizedPlace = placeName.trim().toLowerCase();
+            const normalizedCheckPlace = checkPlaceName.trim().toLowerCase();
 
             for (const zoneDoc of zonesSnap.docs) {
                 const data = zoneDoc.data();
-                if (matchesInList(data.restaurants, normalizedPlace)) dbCategories.push('Restaurant');
-                if (matchesInList(data.cafes, normalizedPlace)) dbCategories.push('Café');
-                if (matchesInList(data.fastFoods, normalizedPlace)) dbCategories.push('Fast Food');
-                if (matchesInList(data.brunch, normalizedPlace)) dbCategories.push('Brunch');
-                if (matchesInList(data.kharjet || data.balade, normalizedPlace)) dbCategories.push('Kharjet');
-                if (matchesInList(data.cinemas, normalizedPlace)) dbCategories.push('Cinéma');
-                if (matchesInList(data.shopping, normalizedPlace)) dbCategories.push('Shopping');
+                const matchesInList = (list: string[] | undefined): boolean => {
+                    if (!list) return false;
+                    return list.some(p => fuzzyMatch(p.toLowerCase(), normalizedCheckPlace));
+                };
+
+                if (matchesInList(data.restaurants)) dbCategories.push('Restaurant');
+                if (matchesInList(data.cafes)) dbCategories.push('Café');
+                if (matchesInList(data.fastFoods)) dbCategories.push('Fast Food');
+                if (matchesInList(data.brunch)) dbCategories.push('Brunch');
+                if (matchesInList(data.kharjet || data.balade)) dbCategories.push('Kharjet');
+                if (matchesInList(data.cinemas)) dbCategories.push('Cinéma');
+                if (matchesInList(data.shopping)) dbCategories.push('Shopping');
             }
-            // Dédupliquer (un lieu pourrait être dans la même catégorie dans plusieurs zones)
             dbCategories = [...new Set(dbCategories)];
         } catch (catError) {
             console.error('[External Visit API] Error checking categories:', catError);
         }
 
-        // LOGIQUE DE RÉSOLUTION :
-        // - 0 ou 1 catégorie DB → Pas ambigu → Utiliser la catégorie Momenty directement
-        // - 2+ catégories DB → Ambigu → Sauvegarder en "pending" pour que le client demande à l'utilisateur
         const isAmbiguous = dbCategories.length > 1;
-        const finalCategory = normalizedInputCategory; // Toujours le choix Momenty comme défaut
+        const finalCategory = incomingCategory || (existingIndex !== -1 ? existingVisits[existingIndex].category : 'Restaurant');
 
         let possibleCategories: string[] = [];
         if (isAmbiguous) {
             possibleCategories = [...dbCategories];
-            // Ajouter la catégorie Momenty si elle n'est pas déjà dans les catégories DB
-            if (!possibleCategories.includes(normalizedInputCategory)) {
-                possibleCategories.push(normalizedInputCategory);
+            if (finalCategory && !possibleCategories.includes(finalCategory)) {
+                possibleCategories.push(finalCategory);
             }
         }
 
-        console.log(`[External Visit API] Category resolution: input="${category}" → normalized="${normalizedInputCategory}" | DB categories: [${dbCategories.join(', ')}] | isAmbiguous: ${isAmbiguous}`);
-
-        // 5. Préparer l'objet visite — IMPORTANT: NE PAS inclure de valeurs `undefined`
-        // car Firestore rejette les objets contenant des champs `undefined`, ce qui fait
-        // échouer silencieusement le `updateDoc`.
-        // 5. Préparer l'objet visite — IMPORTANT: NE PAS inclure de valeurs `undefined`
-        // car Firestore rejette les objets contenant des champs `undefined`, ce qui fait
-        // échouer silencieusement le `updateDoc`.
-        const visitId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const cleanCityName = cityName?.trim() || 'La Marsa';
-        const newVisit: Record<string, any> = {
-            id: visitId,
-            placeName: placeName,
-            category: finalCategory,
-            date: date,
-            source: 'momenty',
-            isPending: isAmbiguous,
-            zone: cleanCityName,
-            cityName: cleanCityName,
-        };
-
-        if (postUrl) newVisit.momentyUrl = postUrl;
-        if (momentyImageUrl) newVisit.momentyImageUrl = momentyImageUrl;
-
-        // Ajouter orderedItem et note si description / dishName fourni
-        if (incomingDesc) {
-            newVisit.orderedItem = incomingDesc;
-            newVisit.note = incomingDesc;
-            newVisit.description = incomingDesc;
-        }
-
-        // N'ajouter possibleCategories QUE si ambigu
-        if (isAmbiguous) {
-            newVisit.possibleCategories = possibleCategories;
-        }
-
-        console.log(`[External Visit API] Saving visit object:`, JSON.stringify(newVisit));
-
-        // 6. Ajouter ou mettre à jour la visite dans le tableau 'visits' de l'utilisateur
-        const userRef = doc(db, 'users', userId);
-        const userData = userDoc.data();
-        const existingVisits = (userData.visits || []) as Record<string, any>[];
-
-        const extractInstantId = (url?: string) => {
-            if (!url) return null;
-            const match = url.match(/[?&](?:instant|id)=([^&]+)/);
-            return match ? match[1] : null;
-        };
-
-        const incomingInstantId = extractInstantId(postUrl);
-        let wasUpdated = false;
         const finalVisitsArray = [...existingVisits];
+        let wasUpdated = false;
+        let resultingVisitId = '';
+        let oldDishToReplace: string | null = oldDishName || null;
+        const cleanCityName = cityName?.trim() || (existingIndex !== -1 ? existingVisits[existingIndex].zone : 'La Marsa');
 
-        if (incomingInstantId) {
-            const existingIndex = existingVisits.findIndex(v => {
-                if (v.momentyUrl && extractInstantId(v.momentyUrl) === incomingInstantId) return true;
-                if (v.id === incomingInstantId) return true;
-                return false;
-            });
+        if (existingIndex !== -1) {
+            // ==========================================
+            // MISE À JOUR DE LA VISITE / DU PLAT MOMENTY
+            // ==========================================
+            const existing = existingVisits[existingIndex];
+            resultingVisitId = existing.id;
+            oldDishToReplace = oldDishToReplace || existing.dishName || existing.orderedItem || null;
 
-            if (existingIndex !== -1) {
-                // Mettre à jour la visite existante (ex: modification de date, lieu, zone, etc.)
-                const existing = existingVisits[existingIndex];
-                const updatedVisit: Record<string, any> = {
-                    ...existing,
-                    placeName: placeName,
-                    category: finalCategory,
-                    date: date,
-                    zone: cleanCityName,
-                    cityName: cleanCityName,
-                };
-                if (postUrl) updatedVisit.momentyUrl = postUrl;
-                if (momentyImageUrl) updatedVisit.momentyImageUrl = momentyImageUrl;
-                if (incomingDesc) {
-                    updatedVisit.orderedItem = incomingDesc;
-                    updatedVisit.note = incomingDesc;
-                    updatedVisit.description = incomingDesc;
-                }
+            const updatedVisit: Record<string, any> = {
+                ...existing,
+            };
 
-                finalVisitsArray[existingIndex] = updatedVisit;
-                wasUpdated = true;
-                console.log(`[External Visit API] Updated existing visit for instant ${incomingInstantId}:`, JSON.stringify(updatedVisit));
+            if (placeName) updatedVisit.placeName = placeName;
+            if (incomingCategory) updatedVisit.category = finalCategory;
+            if (date) updatedVisit.date = date;
+            if (cleanCityName) {
+                updatedVisit.zone = cleanCityName;
+                updatedVisit.cityName = cleanCityName;
             }
-        }
+            if (postUrl) updatedVisit.momentyUrl = postUrl;
+            if (incomingInstantId) updatedVisit.instantId = incomingInstantId;
+            if (resolvedImageUrl) updatedVisit.momentyImageUrl = resolvedImageUrl;
 
-        if (wasUpdated) {
+            // Synchroniser la description et le plat modifié
+            if (resolvedDishName) {
+                updatedVisit.dishName = resolvedDishName;
+                updatedVisit.orderedItem = resolvedDishName;
+            }
+            if (resolvedDescription) {
+                updatedVisit.description = resolvedDescription;
+                updatedVisit.note = resolvedDescription;
+                if (!resolvedDishName) {
+                    updatedVisit.orderedItem = resolvedDescription;
+                }
+            } else if (resolvedDishName) {
+                updatedVisit.description = resolvedDishName;
+                updatedVisit.note = resolvedDishName;
+            }
+
+            finalVisitsArray[existingIndex] = updatedVisit;
+            wasUpdated = true;
+
             await updateDoc(userRef, {
                 visits: finalVisitsArray
             });
-            console.log(`[External Visit API] Successfully UPDATED visit for ${userEmail} at ${placeName} | date: ${date} | zone: ${cleanCityName}`);
+
+            console.log(`[External Visit API] Successfully UPDATED visit description/dish for ${userEmail}:`, {
+                placeName: updatedVisit.placeName,
+                dishName: updatedVisit.dishName,
+                orderedItem: updatedVisit.orderedItem,
+                description: updatedVisit.description
+            });
         } else {
+            // ==========================================
+            // CRÉATION D'UNE NOUVELLE VISITE
+            // ==========================================
+            const visitId = incomingInstantId || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            resultingVisitId = visitId;
+
+            const newVisit: Record<string, any> = {
+                id: visitId,
+                placeName: placeName,
+                category: finalCategory,
+                date: date,
+                source: 'momenty',
+                isPending: isAmbiguous,
+                zone: cleanCityName,
+                cityName: cleanCityName,
+            };
+
+            if (incomingInstantId) newVisit.instantId = incomingInstantId;
+            if (postUrl) newVisit.momentyUrl = postUrl;
+            if (resolvedImageUrl) newVisit.momentyImageUrl = resolvedImageUrl;
+
+            if (resolvedDishName) {
+                newVisit.dishName = resolvedDishName;
+                newVisit.orderedItem = resolvedDishName;
+            }
+            if (resolvedDescription) {
+                newVisit.description = resolvedDescription;
+                newVisit.note = resolvedDescription;
+                if (!resolvedDishName) {
+                    newVisit.orderedItem = resolvedDescription;
+                }
+            } else if (resolvedDishName) {
+                newVisit.description = resolvedDishName;
+                newVisit.note = resolvedDishName;
+            }
+
+            if (isAmbiguous) {
+                newVisit.possibleCategories = possibleCategories;
+            }
+
             await updateDoc(userRef, {
                 visits: arrayUnion(newVisit)
             });
-            console.log(`[External Visit API] Successfully ADDED new visit for ${userEmail} at ${placeName} | zone: ${cleanCityName} | category: ${finalCategory}`);
+
+            console.log(`[External Visit API] Successfully ADDED new visit for ${userEmail} at ${placeName}`);
         }
 
-        // 7. Synchroniser le lieu / plat dans la base globale des zones
+        // ==============================================================
+        // 7. Synchroniser le plat / spécialité dans la base globale zones
+        // ==============================================================
         try {
-            const zonesSnap = await getDocs(collection(db, 'zones'));
-            const normalizedPlace = placeName.trim().toLowerCase();
-            let targetZoneDoc = null;
-            let currentSpecialties: Record<string, string[]> = {};
+            const currentEffectivePlace = (wasUpdated ? finalVisitsArray[existingIndex]?.placeName : placeName) || placeName;
+            const newDishCandidate = resolvedDishName || incomingDesc;
 
-            // Chercher si le lieu existe déjà dans une zone
-            for (const zoneDoc of zonesSnap.docs) {
-                const data = zoneDoc.data();
-                const allPlacesInZone = [
-                    ...(data.cafes || []),
-                    ...(data.restaurants || []),
-                    ...(data.fastFoods || []),
-                    ...(data.brunch || []),
-                    ...(data.kharjet || data.balade || []),
-                    ...(data.shopping || [])
-                ];
+            if (currentEffectivePlace && newDishCandidate) {
+                const zonesSnap = await getDocs(collection(db, 'zones'));
+                const normalizedPlace = currentEffectivePlace.trim().toLowerCase();
+                let targetZoneDoc = null;
+                let currentSpecialties: Record<string, string[]> = {};
 
-                const matchedPlace = allPlacesInZone.find(p => fuzzyMatch(p.toLowerCase(), normalizedPlace));
-                if (matchedPlace) {
-                    targetZoneDoc = zoneDoc;
-                    currentSpecialties = data.specialties || {};
-                    break;
-                }
-            }
+                for (const zoneDoc of zonesSnap.docs) {
+                    const data = zoneDoc.data();
+                    const allPlacesInZone = [
+                        ...(data.cafes || []),
+                        ...(data.restaurants || []),
+                        ...(data.fastFoods || []),
+                        ...(data.brunch || []),
+                        ...(data.kharjet || data.balade || []),
+                        ...(data.shopping || [])
+                    ];
 
-            // Si le lieu n'existe pas encore et que c'est un Kharjet, l'ajouter à la zone cible (cleanCityName)
-            if (!targetZoneDoc && cleanCityName) {
-                const existingZoneDoc = zonesSnap.docs.find(d => 
-                    d.id.toLowerCase() === cleanCityName.toLowerCase() || 
-                    (d.data().zone && d.data().zone.toLowerCase() === cleanCityName.toLowerCase())
-                );
-
-                if (existingZoneDoc) {
-                    targetZoneDoc = existingZoneDoc;
-                    const existingData = existingZoneDoc.data();
-                    const existingKharjet = existingData.kharjet || existingData.balade || [];
-                    if (!existingKharjet.some((p: string) => p.toLowerCase() === normalizedPlace)) {
-                        await updateDoc(doc(db, 'zones', existingZoneDoc.id), {
-                            kharjet: arrayUnion(placeName.trim()),
-                            ...(dishName ? {
-                                specialties: {
-                                    ...(existingData.specialties || {}),
-                                    [placeName.trim()]: [dishName.trim()]
-                                }
-                            } : {})
-                        });
-                        console.log(`[External Visit API] Added new Kharjet place "${placeName}" to existing zone "${existingZoneDoc.id}"`);
+                    const matchedPlace = allPlacesInZone.find(p => fuzzyMatch(p.toLowerCase(), normalizedPlace));
+                    if (matchedPlace) {
+                        targetZoneDoc = zoneDoc;
+                        currentSpecialties = data.specialties || {};
+                        break;
                     }
-                } else {
-                    // Créer la nouvelle zone directement dans Firestore
-                    await setDoc(doc(db, 'zones', cleanCityName), {
-                        zone: cleanCityName,
-                        kharjet: [placeName.trim()],
-                        cafes: [],
-                        restaurants: [],
-                        fastFoods: [],
-                        brunch: [],
-                        specialties: dishName ? { [placeName.trim()]: [dishName.trim()] } : {}
-                    });
-                    console.log(`[External Visit API] Created new zone document "${cleanCityName}" with Kharjet place "${placeName}"`);
                 }
-            } else if (targetZoneDoc && dishName) {
-                const placeKey = Object.keys(currentSpecialties).find(k => k.toLowerCase() === normalizedPlace) || placeName;
-                const existingDishList = currentSpecialties[placeKey] || [];
 
-                if (!existingDishList.some(d => d.toLowerCase() === dishName.trim().toLowerCase())) {
+                if (targetZoneDoc) {
+                    const placeKey = Object.keys(currentSpecialties).find(k => k.toLowerCase() === normalizedPlace) || currentEffectivePlace.trim();
+                    let existingDishList = currentSpecialties[placeKey] || [];
+
+                    // Si on modifie un plat existant, on remplace l'ancienne valeur par la nouvelle
+                    if (oldDishToReplace && existingDishList.some(d => d.toLowerCase() === oldDishToReplace.toLowerCase())) {
+                        existingDishList = existingDishList.map(d =>
+                            d.toLowerCase() === oldDishToReplace.toLowerCase() ? newDishCandidate : d
+                        );
+                    } else if (!existingDishList.some(d => d.toLowerCase() === newDishCandidate.toLowerCase())) {
+                        existingDishList = [...existingDishList, newDishCandidate];
+                    }
+
                     const updatedSpecialties = {
                         ...currentSpecialties,
-                        [placeKey]: [...existingDishList, dishName.trim()]
+                        [placeKey]: existingDishList
                     };
 
                     await updateDoc(doc(db, 'zones', targetZoneDoc.id), {
                         specialties: updatedSpecialties
                     });
-                    console.log(`[External Visit API] Specialty added for ${placeName}: ${dishName}`);
+                    console.log(`[External Visit API] Synchronized dish in global specialties for ${currentEffectivePlace}: ${newDishCandidate}`);
                 }
             }
-        } catch (pError) {
-            console.error('[External Visit API] Failed to sync global place/specialty:', pError);
+        } catch (syncError) {
+            console.error('[External Visit API] Failed to sync specialty with zones:', syncError);
         }
 
         return NextResponse.json({
             success: true,
-            message: "Visite ajoutée au tableau visits",
-            visitId: visitId,
-            finalCategory: finalCategory,
-            orderedItem: newVisit.orderedItem || null,
-            inputCategory: category
+            updated: wasUpdated,
+            message: wasUpdated ? "Description du plat mise à jour avec succès" : "Visite ajoutée avec succès",
+            visitId: resultingVisitId,
+            orderedItem: resolvedDishName || incomingDesc || null,
+            description: resolvedDescription || null,
+            finalCategory: finalCategory
         }, { headers: corsHeaders() });
 
     } catch (error) {

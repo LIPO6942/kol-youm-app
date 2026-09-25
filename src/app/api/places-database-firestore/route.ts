@@ -43,10 +43,18 @@ interface CategoryPlaces {
   cinemas?: string[];
 }
 
+export interface ClosedPlaceInfo {
+  replacedBy?: string;
+  category?: string;
+  closedAt?: string;
+  reason?: string;
+}
+
 interface ZoneData {
   zone: string;
   categories: CategoryPlaces;
   specialties?: Record<string, string[]>;
+  closedPlaces?: Record<string, ClosedPlaceInfo>;
 }
 
 interface PlacesDatabase {
@@ -89,7 +97,8 @@ export async function GET() {
           shopping: data.shopping || [],
           cinemas: data.cinemas || []
         },
-        specialties: data.specialties || {}
+        specialties: data.specialties || {},
+        closedPlaces: data.closedPlaces || {}
       } as ZoneData;
     });
 
@@ -113,7 +122,18 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { action, zone, places, category, placeName: bodyPlaceName, specialties, initFromLocal } = await request.json();
+    const {
+      action,
+      zone,
+      places,
+      category,
+      placeName: bodyPlaceName,
+      specialties,
+      initFromLocal,
+      closedPlaceName,
+      newPlaceName,
+      reason
+    } = await request.json();
 
     console.log('Firestore API Request:', { action, zone, places: places?.length, category, hasSpecialties: !!specialties, initFromLocal });
 
@@ -394,6 +414,149 @@ export async function POST(request: NextRequest) {
       await setDoc(doc(db, 'zones', zoneId), zoneData);
 
       console.log('Zone updated successfully:', zoneId);
+    }
+
+    if (action === 'closeAndReplacePlace') {
+      const targetClosed = (closedPlaceName || bodyPlaceName || '').split('[')[0].trim();
+      const targetNew = (newPlaceName || '').split('[')[0].trim();
+
+      if (!zone || !targetClosed) {
+        return NextResponse.json({ success: false, error: 'Zone et closedPlaceName sont requis' }, { status: 400 });
+      }
+
+      const zoneId = zone
+        .replace(/\//g, '-')
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '_')
+        .toLowerCase();
+
+      const zoneDoc = await getDoc(doc(db, 'zones', zoneId));
+      let zoneData: any = {
+        zone: zone,
+        cafes: [],
+        restaurants: [],
+        fastFoods: [],
+        brunch: [],
+        kharjet: [],
+        shopping: [],
+        cinemas: [],
+        closedPlaces: {},
+        specialties: {}
+      };
+
+      if (zoneDoc.exists()) {
+        zoneData = zoneDoc.data();
+      }
+
+      if (!zoneData.closedPlaces) zoneData.closedPlaces = {};
+      if (!zoneData.specialties) zoneData.specialties = {};
+
+      const categoryKey = normalizeCatKey(category || 'restaurants');
+
+      // 1. Enregistrer dans closedPlaces
+      zoneData.closedPlaces[targetClosed] = {
+        replacedBy: targetNew || undefined,
+        category: categoryKey,
+        closedAt: new Date().toISOString(),
+        reason: reason || (targetNew ? `Remplacé par ${targetNew}` : 'Fermé définitivement')
+      };
+
+      // 2. Retirer l'ancien lieu des catégories actives
+      const catKeys = ['cafes', 'restaurants', 'fastFoods', 'brunch', 'kharjet', 'balade', 'shopping', 'cinemas'];
+      catKeys.forEach(ck => {
+        if (Array.isArray(zoneData[ck])) {
+          zoneData[ck] = zoneData[ck].filter((p: string) => p.split('[')[0].trim().toLowerCase() !== targetClosed.toLowerCase());
+        }
+      });
+
+      // 3. Ajouter le nouveau lieu s'il est spécifié
+      if (targetNew) {
+        if (!zoneData[categoryKey]) zoneData[categoryKey] = [];
+        const exists = zoneData[categoryKey].some((p: string) => p.split('[')[0].trim().toLowerCase() === targetNew.toLowerCase());
+        if (!exists) {
+          zoneData[categoryKey].push(targetNew);
+        }
+
+        if (specialties && Array.isArray(specialties) && specialties.length > 0) {
+          zoneData.specialties[targetNew] = specialties;
+        }
+      }
+
+      await setDoc(doc(db, 'zones', zoneId), zoneData);
+      console.log(`Lieu fermé et remplacé: ${targetClosed} -> ${targetNew || 'aucun'} (Zone: ${zoneId})`);
+
+      return NextResponse.json({
+        success: true,
+        message: `${targetClosed} marqué comme fermé et remplacé par ${targetNew || 'aucun'}`,
+        closedPlace: targetClosed,
+        replacedBy: targetNew
+      });
+    }
+
+    if (action === 'reopenPlace') {
+      const targetReopen = (closedPlaceName || bodyPlaceName || '').split('[')[0].trim();
+      if (!zone || !targetReopen) {
+        return NextResponse.json({ success: false, error: 'Zone et placeName sont requis' }, { status: 400 });
+      }
+
+      const zoneId = zone
+        .replace(/\//g, '-')
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '_')
+        .toLowerCase();
+
+      const zoneDoc = await getDoc(doc(db, 'zones', zoneId));
+      if (!zoneDoc.exists()) {
+        return NextResponse.json({ success: false, error: 'Zone non trouvée' }, { status: 404 });
+      }
+
+      const zoneData = zoneDoc.data();
+      const closedInfo = zoneData.closedPlaces?.[targetReopen];
+      const targetCat = normalizeCatKey(category || closedInfo?.category || 'restaurants');
+
+      if (zoneData.closedPlaces && zoneData.closedPlaces[targetReopen]) {
+        delete zoneData.closedPlaces[targetReopen];
+      }
+
+      if (!zoneData[targetCat]) zoneData[targetCat] = [];
+      if (!zoneData[targetCat].some((p: string) => p.split('[')[0].trim().toLowerCase() === targetReopen.toLowerCase())) {
+        zoneData[targetCat].push(targetReopen);
+      }
+
+      await setDoc(doc(db, 'zones', zoneId), zoneData);
+      console.log(`Lieu réouvert: ${targetReopen} dans ${targetCat} (Zone: ${zoneId})`);
+
+      return NextResponse.json({
+        success: true,
+        message: `${targetReopen} a été réouvert avec succès`
+      });
+    }
+
+    if (action === 'deleteClosedPlace') {
+      const targetDelete = (closedPlaceName || bodyPlaceName || '').split('[')[0].trim();
+      if (!zone || !targetDelete) {
+        return NextResponse.json({ success: false, error: 'Zone et placeName sont requis' }, { status: 400 });
+      }
+
+      const zoneId = zone
+        .replace(/\//g, '-')
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '_')
+        .toLowerCase();
+
+      const zoneDoc = await getDoc(doc(db, 'zones', zoneId));
+      if (zoneDoc.exists()) {
+        const zoneData = zoneDoc.data();
+        if (zoneData.closedPlaces && zoneData.closedPlaces[targetDelete]) {
+          delete zoneData.closedPlaces[targetDelete];
+          await setDoc(doc(db, 'zones', zoneId), zoneData);
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `${targetDelete} a été retiré de l'historique des fermetures`
+      });
     }
 
     return NextResponse.json({ success: true });

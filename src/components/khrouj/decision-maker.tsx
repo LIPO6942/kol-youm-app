@@ -209,6 +209,7 @@ export default function DecisionMaker() {
 
   // Assisted selection data
   const [allPlaces, setAllPlaces] = useState<{ name: string; category: string; zone: string; specialties: string[] }[]>([]);
+  const [closedPlacesMap, setClosedPlacesMap] = useState<Record<string, { replacedBy?: string; category?: string }>>({});
   const [isFetchingPlaces, setIsFetchingPlaces] = useState(false);
 
   useEffect(() => {
@@ -218,8 +219,15 @@ export default function DecisionMaker() {
         const response = await fetch('/api/places-database-firestore');
         const result = await response.json();
         if (result.success && result.data.zones) {
-          const flatPlaces: { name: string; category: string; zone: string; specialties: string[] }[] = [];
+                    const flatPlaces: { name: string; category: string; zone: string; specialties: string[] }[] = [];
+          const allClosedMap: Record<string, { replacedBy?: string; category?: string }> = {};
+
           result.data.zones.forEach((zone: any) => {
+            const zoneClosed = zone.closedPlaces || {};
+            Object.entries(zoneClosed).forEach(([cName, info]: [string, any]) => {
+              allClosedMap[cName.toLowerCase()] = info;
+            });
+
             Object.entries(zone.categories).forEach(([catKey, places]: [string, any]) => {
               // Map Firestore keys to UI labels
               const labelMap: Record<string, string> = {
@@ -236,6 +244,10 @@ export default function DecisionMaker() {
               const specialtiesMap = zone.specialties || {};
               places.forEach((name: string) => {
                 const cleanedName = name.split('[')[0].trim();
+                // Exclure les lieux fermés des suggestions actives
+                if (zoneClosed[cleanedName] || zoneClosed[name] || allClosedMap[cleanedName.toLowerCase()]) {
+                  return;
+                }
                 flatPlaces.push({
                   name: cleanedName,
                   category: categoryLabel,
@@ -246,6 +258,7 @@ export default function DecisionMaker() {
             });
           });
           setAllPlaces(flatPlaces);
+          setClosedPlacesMap(allClosedMap);
 
           // Extract unique zones dynamically
           const dbZones = Array.from(new Set(result.data.zones.map((z: any) => z.zone))) as string[];
@@ -2062,6 +2075,14 @@ export default function DecisionMaker() {
                       <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
                         <p className="font-bold text-sm sm:text-base text-foreground/90 group-hover:text-primary transition-colors leading-tight break-words flex items-center gap-1.5 flex-wrap">
                           <span>{visit.placeName}</span>
+                          {closedPlacesMap[visit.placeName?.trim()?.toLowerCase()] && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-400/30 text-[9px] font-bold text-amber-700 dark:text-amber-300">
+                              <span className="line-through text-muted-foreground/70">Fermé</span>
+                              {closedPlacesMap[visit.placeName.trim().toLowerCase()].replacedBy && (
+                                <>➔ Remplacé par {closedPlacesMap[visit.placeName.trim().toLowerCase()].replacedBy}</>
+                              )}
+                            </span>
+                          )}
                           {isMomenty && (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-pink-500/15 via-rose-500/15 to-purple-500/15 border border-pink-400/30 text-[9px] font-extrabold text-pink-700 dark:text-pink-300">
                               <Sparkles className="h-2.5 w-2.5 text-pink-600 animate-pulse" />

@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat, Clapperboard, Film, History, Mail } from 'lucide-react';
+import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat, Clapperboard, Film, History, Mail, ArrowRightLeft, RotateCcw, AlertCircle } from 'lucide-react';
 import { updateCustomDishRules } from '@/lib/firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 const TypedBadge = Badge as any;
@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { getAge } from '@/lib/age-utils';
@@ -68,10 +69,18 @@ interface CategoryPlaces {
   cinemas?: string[];
 }
 
+export interface ClosedPlaceInfo {
+  replacedBy?: string;
+  category?: string;
+  closedAt?: string;
+  reason?: string;
+}
+
 interface ZoneData {
   zone: string;
   categories: CategoryPlaces;
   specialties?: Record<string, string[]>;
+  closedPlaces?: Record<string, ClosedPlaceInfo>;
 }
 
 interface PlacesDatabase {
@@ -200,6 +209,9 @@ const PhotoUploader = ({
           </div>
         )}
       </div>
+
+      
+
     </div>
   );
 };
@@ -248,6 +260,13 @@ export default function SettingsPage() {
   // Cinema Theaters state
   const [newCinemaName, setNewCinemaName] = useState('');
   const [isSavingCinema, setIsSavingCinema] = useState(false);
+
+  // Closed & Replaced Places state
+  const [replacingPlace, setReplacingPlace] = useState<{ zone: string; category: string; placeName: string } | null>(null);
+  const [replacementNewName, setReplacementNewName] = useState('');
+  const [replacementSpecialties, setReplacementSpecialties] = useState('');
+  const [replacementReason, setReplacementReason] = useState('');
+  const [isSubmittingReplacement, setIsSubmittingReplacement] = useState(false);
 
   const CUISINE_OPTIONS = [
     'Tunisien', 'Oriental', 'Italien', 'Américain', 'Français',
@@ -438,6 +457,96 @@ export default function SettingsPage() {
       toast({ title: 'Règle supprimée' });
     } catch (e) {
       toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer la règle.' });
+    }
+  };
+
+  // Handlers pour les lieux fermés & remplacés
+  const handleCloseAndReplacePlace = async () => {
+    if (!replacingPlace || !replacementNewName.trim()) return;
+    setIsSubmittingReplacement(true);
+    try {
+      const specialtiesArray = replacementSpecialties
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      const response = await fetch('/api/places-database-firestore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'closeAndReplacePlace',
+          zone: replacingPlace.zone,
+          category: normalizeCategoryForAPI(replacingPlace.category),
+          closedPlaceName: replacingPlace.placeName,
+          newPlaceName: replacementNewName.trim(),
+          specialties: specialtiesArray,
+          reason: replacementReason.trim() || undefined
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        toast({
+          title: 'Lieu fermé et remplacé ✓',
+          description: `« ${replacingPlace.placeName} » est fermé et remplacé par « ${replacementNewName.trim()} »`
+        });
+        setReplacingPlace(null);
+        setReplacementNewName('');
+        setReplacementSpecialties('');
+        setReplacementReason('');
+        loadPlacesDatabase();
+      } else {
+        toast({ variant: 'destructive', title: 'Erreur', description: data.error || 'Impossible d\'enregistrer le remplacement' });
+      }
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Erreur lors du remplacement' });
+    } finally {
+      setIsSubmittingReplacement(false);
+    }
+  };
+
+  const handleReopenPlace = async (zone: string, placeName: string, category?: string) => {
+    try {
+      const response = await fetch('/api/places-database-firestore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reopenPlace',
+          zone,
+          placeName,
+          category: category ? normalizeCategoryForAPI(category) : undefined
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast({ title: 'Lieu réouvert ✓', description: `${placeName} a été remis dans la liste active` });
+        loadPlacesDatabase();
+      } else {
+        toast({ variant: 'destructive', title: 'Erreur', description: data.error });
+      }
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de réouvrir le lieu' });
+    }
+  };
+
+  const handleDeleteClosedPlace = async (zone: string, placeName: string) => {
+    try {
+      const response = await fetch('/api/places-database-firestore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'deleteClosedPlace',
+          zone,
+          placeName
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast({ title: 'Archive supprimée' });
+        loadPlacesDatabase();
+      }
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Erreur lors de la suppression' });
     }
   };
 
@@ -1485,6 +1594,21 @@ export default function SettingsPage() {
                                                 <UtensilsCrossed className="h-3.5 w-3.5 mr-2" />
                                                 {isEditingThis ? "Fermer l'édition" : "Modifier Plats"}
                                               </Button>
+                                                                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                title="Lieu fermé et remplacé"
+                                                onClick={() => {
+                                                  setReplacingPlace({ zone: selectedZone, category: selectedCategory, placeName: place });
+                                                  setReplacementNewName('');
+                                                  setReplacementSpecialties('');
+                                                  setReplacementReason('');
+                                                }}
+                                                className="h-8 flex-1 sm:flex-none px-2.5 text-xs text-amber-600 border-amber-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300"
+                                              >
+                                                <ArrowRightLeft className="h-3.5 w-3.5 mr-1" />
+                                                <span className="hidden sm:inline">Remplacer</span>
+                                              </Button>
                                               <Button
                                                 size="sm"
                                                 variant="ghost"
@@ -1592,6 +1716,67 @@ export default function SettingsPage() {
                                       );
                                     })}
                                   </div>
+                                  {/* Section des lieux fermés & remplacés */}
+                                  {(() => {
+                                    const zoneData = placesDatabase?.zones.find((z: ZoneData) => z.zone === selectedZone);
+                                    const closedMap = zoneData?.closedPlaces || {};
+                                    const closedEntries = Object.entries(closedMap);
+                                    if (closedEntries.length === 0) return null;
+
+                                    return (
+                                      <div className="mt-8 pt-6 border-t border-dashed">
+                                        <div className="flex items-center justify-between mb-3">
+                                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                                            Lieux fermés ou remplacés ({closedEntries.length})
+                                          </span>
+                                        </div>
+                                        <div className="space-y-2">
+                                          {closedEntries.map(([closedName, info]: [string, any]) => (
+                                            <div key={closedName} className="flex items-center justify-between p-3 rounded-lg bg-amber-500/5 border border-amber-200/60 dark:border-amber-900/30 text-xs">
+                                              <div className="flex flex-col gap-0.5">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                  <span className="font-semibold line-through text-muted-foreground">{closedName}</span>
+                                                  {info.replacedBy ? (
+                                                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                                                      ➔ Remplacé par <strong className="underline underline-offset-2">{info.replacedBy}</strong>
+                                                    </span>
+                                                  ) : (
+                                                    <span className="text-red-500 italic">(Fermé définitivement)</span>
+                                                  )}
+                                                </div>
+                                                {info.closedAt && (
+                                                  <span className="text-[10px] text-muted-foreground">
+                                                    Fermé le {new Date(info.closedAt).toLocaleDateString('fr-FR')}
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <div className="flex items-center gap-1">
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-7 px-2 text-[11px] text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                  onClick={() => handleReopenPlace(selectedZone, closedName, info.category)}
+                                                >
+                                                  <RotateCcw className="h-3 w-3 mr-1" />
+                                                  Rétablir
+                                                </Button>
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-red-600"
+                                                  onClick={() => handleDeleteClosedPlace(selectedZone, closedName)}
+                                                >
+                                                  <Trash2 className="h-3 w-3" />
+                                                </Button>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+
                                   {getPlacesForZoneAndCategory(selectedZone, selectedCategory).length === 0 && (
                                     <div className="text-center py-4">
                                       <p className="text-sm text-muted-foreground mb-3">
@@ -1789,6 +1974,87 @@ export default function SettingsPage() {
 
         </div>
       )}
+
+      {/* Modal de remplacement de lieu */}
+      <Dialog open={!!replacingPlace} onOpenChange={(open) => !open && setReplacingPlace(null)}>
+        <DialogContent className="sm:max-w-[450px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="h-5 w-5 text-amber-500" />
+              Déclarer fermé & Remplacer
+            </DialogTitle>
+            <DialogDescription>
+              Le lieu <strong className="text-foreground font-semibold">« {replacingPlace?.placeName} »</strong> sera marqué comme fermé et ne sera plus proposé dans le Décisionnaire Khrouj.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="newPlaceName" className="text-xs font-semibold">
+                Nom du nouveau lieu remplaçant <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="newPlaceName"
+                placeholder="Ex: Manga Coffee, Smash Burger..."
+                value={replacementNewName}
+                onChange={(e) => setReplacementNewName(e.target.value)}
+                className="h-9"
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="replacementSpecialties" className="text-xs font-semibold">
+                Plats / Spécialités du nouveau lieu (séparés par des virgules)
+              </Label>
+              <Input
+                id="replacementSpecialties"
+                placeholder="Ex: Bubble tea, Ramen, Cheesecake..."
+                value={replacementSpecialties}
+                onChange={(e) => setReplacementSpecialties(e.target.value)}
+                className="h-9"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="replacementReason" className="text-xs font-semibold text-muted-foreground">
+                Note ou motif (optionnel)
+              </Label>
+              <Input
+                id="replacementReason"
+                placeholder="Ex: Rachat de fonds de commerce en 2026"
+                value={replacementReason}
+                onChange={(e) => setReplacementReason(e.target.value)}
+                className="h-9"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setReplacingPlace(null)}
+              disabled={isSubmittingReplacement}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleCloseAndReplacePlace}
+              disabled={!replacementNewName.trim() || isSubmittingReplacement}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {isSubmittingReplacement ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Enregistrement...
+                </>
+              ) : (
+                'Confirmer le remplacement'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
