@@ -1104,11 +1104,19 @@ function MovieListContent({
 
           {/* Contenu principal */}
           <div className="flex-1 min-w-0">
-            {/* Ligne 1 : Titre + Wikipedia + Bouton d'options ou icônes révélées sur clic */}
+            {/* Ligne 1 : Titre + Code Pays + Wikipedia + Bouton d'options ou icônes révélées sur clic */}
             <div className="flex items-center gap-1.5 min-w-0 w-full">
               <h4 className="text-xs sm:text-sm font-semibold truncate tracking-tight text-foreground shrink min-w-0" title={movieTitle}>
                 {movieTitle}
               </h4>
+              {movieCountry && formatCountryCode(movieCountry) && (
+                <span
+                  className="inline-flex items-center justify-center rounded-full border px-1.5 py-0 text-[10px] h-4 font-bold border-border/80 bg-muted/60 text-foreground shrink-0 uppercase tracking-wide"
+                  title={getCountryFullName(movieCountry)}
+                >
+                  {formatCountryCode(movieCountry)}
+                </span>
+              )}
               {details?.wikipediaUrl && (
                 <a
                   href={details.wikipediaUrl}
@@ -1227,16 +1235,6 @@ function MovieListContent({
                 </span>
               )}
 
-              {/* Pays sous format code 2 lettres (ex: US, FR, TN) pour économiser l'espace et s'adapter aux petits écrans */}
-              {!isOld && movieCountry && formatCountryCode(movieCountry) && (
-                <span
-                  className="inline-flex items-center justify-center rounded-full border px-1.5 py-0 text-[10px] h-4 font-bold border-border/80 bg-muted/50 text-foreground shrink-0 uppercase tracking-wide"
-                  title={getCountryFullName(movieCountry)}
-                >
-                  {formatCountryCode(movieCountry)}
-                </span>
-              )}
-
               {/* Badge Saga */}
               {type === 'movie' && (() => {
                 const saga = getMovieSaga(movieTitle, details, seenData);
@@ -1308,6 +1306,7 @@ function MovieListContent({
     const localDate = localViewedDates[norm];
     const viewedAt = localDate !== undefined ? (localDate || undefined) : (details?.viewedAt || seenData?.viewedAt);
     const posterUrl = details?.posterUrl || seenData?.posterUrl;
+    const movieCountry = details?.country || (seenData as any)?.country;
 
     const isOld = (listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && isOlderThanTwoYears(movieTitle);
     const isGridActive = activeMovieActions === movieTitle;
@@ -1387,7 +1386,14 @@ function MovieListContent({
             ) : (
               <Tv className="h-8 w-8 text-slate-600 mb-2 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-20 transform scale-[3]" />
             )}
-            <p className="text-xs font-semibold text-slate-100 line-clamp-3 leading-tight z-10">{movieTitle}</p>
+            <p className="text-xs font-semibold text-slate-100 line-clamp-3 leading-tight z-10">
+              {movieTitle}
+              {movieCountry && formatCountryCode(movieCountry) && (
+                <span className="ml-1 text-[10px] font-bold text-amber-300">
+                  ({formatCountryCode(movieCountry)})
+                </span>
+              )}
+            </p>
           </div>
         ) : (
           renderPoster(posterUrl, movieTitle, false) // Force isOld to false for grid view to ensure full size
@@ -1397,7 +1403,14 @@ function MovieListContent({
         {(!posterUrl || !posterUrl.startsWith('default:')) && (
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
             <div className="absolute bottom-0 left-0 right-0 p-2">
-              <p className="text-[10px] text-white font-medium line-clamp-2 leading-tight">{movieTitle}</p>
+              <p className="text-[10px] text-white font-medium line-clamp-2 leading-tight">
+                {movieTitle}
+                {movieCountry && formatCountryCode(movieCountry) && (
+                  <span className="ml-1 text-[9px] font-bold text-amber-300">
+                    ({formatCountryCode(movieCountry)})
+                  </span>
+                )}
+              </p>
               {details?.year && (
                 <p className="text-[9px] text-white/70">{details.year}</p>
               )}
