@@ -22,6 +22,7 @@ import { MovieCategoryPicker, CategoryBadge, CategorySelectModal } from '@/compo
 import { SagaDetailModal } from '@/components/tfarrej/SagaDetailModal';
 import { ManageSagaDialog } from '@/components/tfarrej/ManageSagaDialog';
 import { guessMovieCategory } from '@/lib/movie-category-utils';
+import { formatCountryCode, getCountryFullName } from '@/lib/country-code-utils';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +59,7 @@ interface SearchResult {
   year: number | null;
   rating: number;
   posterUrl: string | null;
+  country?: string | null;
 }
 
 interface MovieListSheetProps {
@@ -944,11 +946,15 @@ function MovieListContent({
 
     // Filter by search query (local filter on loaded movies)
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(title =>
-        title.toLowerCase().includes(query) ||
-        movieDetails[title]?.country?.toLowerCase().includes(query)
-      );
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(title => {
+        const titleMatch = title.toLowerCase().includes(query);
+        const country = movieDetails[title]?.country;
+        const code = country ? formatCountryCode(country).toLowerCase() : '';
+        const fullName = country ? getCountryFullName(country).toLowerCase() : '';
+        const countryMatch = country ? country.toLowerCase().includes(query) : false;
+        return titleMatch || countryMatch || code.includes(query) || fullName.includes(query);
+      });
     }
 
     // Filter by year
@@ -1076,6 +1082,7 @@ function MovieListContent({
     const localDate = localViewedDates[norm];
     const viewedAt = localDate !== undefined ? (localDate || undefined) : (details?.viewedAt || seenData?.viewedAt);
     const posterUrl = details?.posterUrl || seenData?.posterUrl;
+    const movieCountry = details?.country || (seenData as any)?.country;
 
     const isOld = (listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && isOlderThanTwoYears(movieTitle);
     const isActionsOpen = activeMovieActions === movieTitle;
@@ -1220,10 +1227,13 @@ function MovieListContent({
                 </span>
               )}
 
-              {/* Pays avec limitation de largeur pour ne jamais déborder */}
-              {!isOld && details?.country && (
-                <span className="inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] h-4 font-medium border-border bg-transparent text-foreground truncate max-w-[70px] sm:max-w-[110px]" title={details.country}>
-                  {details.country}
+              {/* Pays sous format code 2 lettres (ex: US, FR, TN) pour économiser l'espace et s'adapter aux petits écrans */}
+              {!isOld && movieCountry && formatCountryCode(movieCountry) && (
+                <span
+                  className="inline-flex items-center justify-center rounded-full border px-1.5 py-0 text-[10px] h-4 font-bold border-border/80 bg-muted/50 text-foreground shrink-0 uppercase tracking-wide"
+                  title={getCountryFullName(movieCountry)}
+                >
+                  {formatCountryCode(movieCountry)}
                 </span>
               )}
 
@@ -2086,7 +2096,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
       let posterUrl = seenData?.posterUrl || undefined;
       let rating = seenData?.rating || undefined;
       let year = seenData?.year || undefined;
-      let country: string | undefined;
+      let country: string | undefined = (seenData as any)?.country || undefined;
       let wikipediaUrl: string | undefined;
       let collection: MovieCollectionInfo | undefined = seenData?.collection;
 
@@ -2101,7 +2111,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
         if (data.movie) {
           rating = rating || data.movie.rating;
           year = year || data.movie.year;
-          country = data.movie.country;
+          country = data.movie.countryCode || data.movie.country || country;
           wikipediaUrl = data.movie.wikipediaUrl;
           if (!posterUrl && data.movie.posterUrl) {
             posterUrl = data.movie.posterUrl;
@@ -2122,6 +2132,9 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
             posterUrl = match.posterUrl;
             year = year || match.year;
             rating = rating || match.rating;
+            if (match.country) {
+              country = country || match.country;
+            }
           }
         }
       }
@@ -2141,9 +2154,9 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
       }));
 
       // Rétro-remplissage persistant dans Firestore UNIQUEMENT pour les listes de films/séries déjà vus
-      if (posterUrl && (user?.uid || userProfile?.uid) && (listType === 'seenMovieTitles' || listType === 'seenSeriesTitles')) {
+      if ((posterUrl || country) && (user?.uid || userProfile?.uid) && (listType === 'seenMovieTitles' || listType === 'seenSeriesTitles')) {
         backfillMoviePosters(user?.uid || userProfile?.uid || 'guest', {
-          [movieTitle]: { posterUrl, year, rating }
+          [movieTitle]: { posterUrl, year, rating, country }
         }, type);
       }
     } catch (error) {
@@ -2218,6 +2231,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
           year: movie.year || undefined,
           rating: movie.rating || undefined,
           category: category || guessMovieCategory(movie.title),
+          country: movie.country || undefined,
         });
       } else {
         await addSeenSeriesWithDate(user.uid, {
@@ -2226,6 +2240,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
           posterUrl: movie.posterUrl || undefined,
           year: movie.year || undefined,
           rating: movie.rating || undefined,
+          country: movie.country || undefined,
         });
       }
 

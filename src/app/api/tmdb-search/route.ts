@@ -16,6 +16,7 @@ interface TMDBSearchResult {
     first_air_date?: string;
     poster_path?: string;
     vote_average?: number;
+    origin_country?: string[];
 }
 
 interface SearchResult {
@@ -25,6 +26,7 @@ interface SearchResult {
     year: number | null;
     rating: number;
     posterUrl: string | null;
+    country?: string | null;
 }
 
 async function searchTMDB(
@@ -74,6 +76,7 @@ function normalizeResult(r: TMDBSearchResult): SearchResult {
         year: !isNaN(year as number) ? year : null,
         rating: Math.round((r.vote_average || 0) * 10) / 10,
         posterUrl: r.poster_path ? `${TMDB_IMAGE_BASE}/w500${r.poster_path}` : null,
+        country: Array.isArray(r.origin_country) && r.origin_country.length > 0 ? r.origin_country[0] : null,
     };
 }
 

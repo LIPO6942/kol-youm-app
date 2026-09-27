@@ -164,6 +164,7 @@ export default function MovieSwiper({ genre, type = 'movie' }: { genre: string; 
           viewedAt: viewedAtTimestamp,
           category: chosenCategory,
           watchedInCinema: isCinema,
+          country: markingSeenMovie.country || undefined,
         });
       } else {
         await addSeenSeriesWithDate(user.uid, {
@@ -173,6 +174,7 @@ export default function MovieSwiper({ genre, type = 'movie' }: { genre: string; 
           rating: markingSeenMovie.rating || undefined,
           viewedAt: viewedAtTimestamp,
           category: chosenCategory,
+          country: markingSeenMovie.country || undefined,
         });
       }
 

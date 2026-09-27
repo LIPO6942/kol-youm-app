@@ -245,7 +245,7 @@ export type SagaRanking = {
 
 export type SeenMovie = {
     title: string;
-    viewedAt: number; // timestamp of when the movie was watched
+    viewedAt?: number; // timestamp of when the movie was watched
     addedAt: number; // timestamp of when it was added to the list
     posterUrl?: string;
     year?: number;
@@ -255,6 +255,8 @@ export type SeenMovie = {
     genres?: string[];
     category?: MovieCategory;
     collection?: MovieCollectionInfo;
+    country?: string;
+    countryCode?: string;
 };
 
 export type UserProfile = {
@@ -792,6 +794,7 @@ export async function addSeenSeriesWithDate(
         year?: number;
         rating?: number;
         category?: MovieCategory;
+        country?: string;
     }
 ) {
     const userRef = doc(firestoreDb, "users", uid);
@@ -807,6 +810,7 @@ export async function addSeenSeriesWithDate(
     if (series.year !== undefined && series.year !== null) seenSeries.year = series.year;
     if (series.rating !== undefined && series.rating !== null) seenSeries.rating = series.rating;
     if (series.category) seenSeries.category = series.category;
+    if (series.country) seenSeries.country = series.country;
 
     const firestorePayload: Record<string, any> = {
         seriesToWatch: arrayRemove(series.title),
@@ -855,6 +859,7 @@ export async function addSeenMovieWithDate(
         cinemaPlace?: string;
         category?: MovieCategory;
         collection?: MovieCollectionInfo;
+        country?: string;
     }
 ) {
     const userRef = doc(firestoreDb, "users", uid);
@@ -876,6 +881,7 @@ export async function addSeenMovieWithDate(
     if (movie.cinemaPlace) seenMovie.cinemaPlace = movie.cinemaPlace;
     if (movie.category) seenMovie.category = movie.category;
     if (movie.collection) seenMovie.collection = movie.collection;
+    if (movie.country) seenMovie.country = movie.country;
 
     const firestorePayload: Record<string, any> = {
         moviesToWatch: arrayRemove(movie.title),
@@ -2190,7 +2196,7 @@ export async function purgeTestMovieData(
  */
 export async function backfillMoviePosters(
     uid: string,
-    postersMap: Record<string, { posterUrl?: string | null; year?: number | null; rating?: number | null; genres?: string[] }>,
+    postersMap: Record<string, { posterUrl?: string | null; year?: number | null; rating?: number | null; genres?: string[]; country?: string | null }>,
     type: 'movie' | 'tv' = 'movie'
 ): Promise<void> {
     if (!uid || !postersMap || Object.keys(postersMap).length === 0) return;
@@ -2206,7 +2212,7 @@ export async function backfillMoviePosters(
         let hasChanges = false;
 
         Object.entries(postersMap).forEach(([title, meta]) => {
-            if (!meta || !meta.posterUrl) return;
+            if (!meta || (!meta.posterUrl && !meta.country)) return;
             const normalizedTitle = title.trim().toLowerCase();
             const existingIndex = currentList.findIndex(
                 (m: any) => m?.title && m.title.trim().toLowerCase() === normalizedTitle
@@ -2227,6 +2233,10 @@ export async function backfillMoviePosters(
                     item.rating = meta.rating;
                     itemChanged = true;
                 }
+                if (!item.country && meta.country) {
+                    item.country = meta.country;
+                    itemChanged = true;
+                }
                 if (itemChanged) {
                     currentList[existingIndex] = { ...item };
                     hasChanges = true;
@@ -2238,9 +2248,10 @@ export async function backfillMoviePosters(
                 if (isExplicitlySeen) {
                     currentList.push({
                         title,
-                        posterUrl: meta.posterUrl,
+                        posterUrl: meta.posterUrl || undefined,
                         ...(meta.year && { year: meta.year }),
                         ...(meta.rating && { rating: meta.rating }),
+                        ...(meta.country && { country: meta.country }),
                     });
                     hasChanges = true;
                 }

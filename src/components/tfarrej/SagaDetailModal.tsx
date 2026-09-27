@@ -254,6 +254,7 @@ export function SagaDetailModal({
           posterUrl: collectionData?.posterUrl || fallbackPosterUrl,
           isCustom,
         },
+        country: (markingSeenPart as any)?.country || undefined,
       });
 
       // Retirer de la watchlist si le film y figurait
