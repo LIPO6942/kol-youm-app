@@ -257,6 +257,13 @@ export function getVisitFrequencies(visits: VisitLog[] = []): CategoryFrequency[
     const visitsByCategory: Record<string, number[]> = {};
 
     visits.forEach(v => {
+        if (!v.category) return;
+        const lowerCat = v.category.toLowerCase().trim();
+        // Exclure expressément Kharjet et Balade des statistiques de Rythmes & Habitudes
+        if (lowerCat === 'kharjet' || lowerCat.includes('kharj') || lowerCat === 'balade') {
+            return;
+        }
+
         if (!visitsByCategory[v.category]) {
             visitsByCategory[v.category] = [];
         }

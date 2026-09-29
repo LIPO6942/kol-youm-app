@@ -90,7 +90,12 @@ const MONTHS_SHORT = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Août',
 const MONTHS_LONG = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
 export function HabitFrequency({ frequencies, heatmap, monthlyHeatmap, yearlyHeatmap, visits, selectedYear, onYearChange }: HabitFrequencyProps) {
-    if (frequencies.length === 0) return null;
+    const validFrequencies = frequencies.filter(f => {
+        const lower = (f.category || '').toLowerCase().trim();
+        return lower !== 'kharjet' && !lower.includes('kharj') && lower !== 'balade';
+    });
+
+    if (validFrequencies.length === 0) return null;
 
     const now = Date.now();
     const maxVisits = Math.max(...heatmap, 1);
@@ -151,7 +156,7 @@ export function HabitFrequency({ frequencies, heatmap, monthlyHeatmap, yearlyHea
             </CardHeader>
             <CardContent className="p-2 sm:p-3">
                 <div className="grid grid-cols-1 gap-2">
-                    {frequencies.map((f) => {
+                    {validFrequencies.map((f) => {
                         const config = CATEGORY_CONFIG[f.category] || {
                             icon: Clock,
                             color: 'text-slate-600',

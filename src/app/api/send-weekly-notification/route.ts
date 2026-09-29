@@ -4,6 +4,9 @@ import { getMessaging } from 'firebase-admin/messaging';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { buildSundayNotificationForUser, SundayNotificationPayload } from '@/lib/sunday-notification-utils';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
 // Initialiser Firebase Admin SDK
 if (!getApps().length) {
     try {
@@ -179,9 +182,10 @@ export async function GET(request: NextRequest) {
         }
 
         const testUserId = request.nextUrl.searchParams.get('testUserId');
+        const delay = parseInt(request.nextUrl.searchParams.get('delay') || request.nextUrl.searchParams.get('delaySeconds') || '0', 10);
         if (testUserId) {
-            console.log(`[Send Notification] Mode TEST pour userId: ${testUserId}`);
-            return await sendTestNotificationToUser(testUserId);
+            console.log(`[Send Notification] Mode TEST pour userId: ${testUserId}, délai: ${delay}s`);
+            return await sendTestNotificationToUser(testUserId, delay);
         }
 
         console.log('[Send Notification] Démarrage de l\'envoi global...');
@@ -216,9 +220,10 @@ export async function POST(request: NextRequest) {
         }
 
         const testUserId = request.nextUrl.searchParams.get('testUserId') || body?.testUserId;
+        const delay = parseInt(request.nextUrl.searchParams.get('delay') || request.nextUrl.searchParams.get('delaySeconds') || body?.delay || body?.delaySeconds || '0', 10);
         if (testUserId) {
-            console.log(`[Send Notification] Mode TEST POST pour userId: ${testUserId}`);
-            return await sendTestNotificationToUser(testUserId);
+            console.log(`[Send Notification] Mode TEST POST pour userId: ${testUserId}, délai: ${delay}s`);
+            return await sendTestNotificationToUser(testUserId, delay);
         }
 
         console.log('[Send Notification] Démarrage de l\'envoi global (POST)...');
@@ -233,10 +238,11 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Envoie une notification de test immédiate à un utilisateur donné.
- * Permet de tester en direct la suggestion de film du dimanche sur son appareil.
+ * Envoie une notification de test à un utilisateur donné.
+ * Si delaySeconds > 0, attend le délai spécifié sur le serveur avant d'émettre
+ * pour permettre à l'utilisateur de passer l'application en arrière-plan ou de verrouiller son écran.
  */
-async function sendTestNotificationToUser(userId: string) {
+async function sendTestNotificationToUser(userId: string, delaySeconds: number = 0) {
     const db = getFirestore();
     const messaging = getMessaging();
 
@@ -272,9 +278,9 @@ async function sendTestNotificationToUser(userId: string) {
         });
     }
 
-    let successCount = 0;
-    let failureCount = 0;
-    const errors: any[] = [];
+    const targetFullUrl = notif.link?.startsWith('http')
+        ? notif.link
+        : `https://kol-youm.vercel.app${notif.link || '/'}`;
 
     const messages = userTokens.map(token => ({
         token,
@@ -290,7 +296,7 @@ async function sendTestNotificationToUser(userId: string) {
             tag: 'sunday-weekly-reminder',
             type: notif.type,
             ...(notif.suggestedMovieTitle ? { movieTitle: notif.suggestedMovieTitle } : {}),
-            ...(notif.imageUrl ? { image: notif.imageUrl } : {}),
+            ...(notif.imageUrl ? { image: notif.imageUrl, imageUrl: notif.imageUrl } : {}),
         },
         webpush: {
             headers: {
@@ -298,6 +304,8 @@ async function sendTestNotificationToUser(userId: string) {
                 TTL: '86400',
             },
             notification: {
+                title: notif.title,
+                body: notif.body,
                 icon: '/icons/icon-192x192.png',
                 badge: '/icons/badge-96x96.png',
                 tag: 'sunday-weekly-reminder',
@@ -305,10 +313,20 @@ async function sendTestNotificationToUser(userId: string) {
                 ...(notif.imageUrl ? { image: notif.imageUrl } : {}),
             },
             fcmOptions: {
-                link: notif.link || '/',
+                link: targetFullUrl,
             },
         },
     }));
+
+    // Si un délai est demandé (ex: 5s pour tester en arrière-plan)
+    if (delaySeconds > 0 && delaySeconds <= 30) {
+        console.log(`[Send Notification Test] Attente de ${delaySeconds}s pour permettre la réception en arrière-plan...`);
+        await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
+    }
+
+    let successCount = 0;
+    let failureCount = 0;
+    const errors: any[] = [];
 
     try {
         const response = await messaging.sendEach(messages);
@@ -330,12 +348,15 @@ async function sendTestNotificationToUser(userId: string) {
 
     return NextResponse.json({
         success: true,
-        message: `Notification test du dimanche envoyée !`,
+        message: delaySeconds > 0 
+            ? `Notification test du dimanche envoyée après ${delaySeconds}s d'attente en arrière-plan !`
+            : `Notification test du dimanche envoyée !`,
         notification: notif,
         chosenTitle: notif.suggestedMovieTitle || notif.title,
         moviesCount: (userData.moviesToWatch || []).length,
         seriesCount: (userData.seriesToWatch || []).length,
         tokensCount: userTokens.length,
+        delayApplied: delaySeconds,
         fcmResult: {
             sent: successCount,
             failed: failureCount,
@@ -408,70 +429,78 @@ async function sendWeeklyNotifications() {
     }[] = [];
     const notificationsSummary: { userId: string; type: string; title: string }[] = [];
 
-    for (const group of userGroups) {
-        try {
-            const notif: SundayNotificationPayload = await buildSundayNotificationForUser({
-                moviesToWatch: group.userData.moviesToWatch,
-                seriesToWatch: group.userData.seriesToWatch,
-                lastSuggestedMovie: group.userData.lastSuggestedMovie,
-                lastNotificationType: group.userData.lastNotificationType,
-            });
-
-            notificationsSummary.push({
-                userId: group.userId,
-                type: notif.type,
-                title: notif.title,
-            });
-
-            userUpdates.push({
-                userId: group.userId,
-                lastSuggestedMovie: notif.suggestedMovieTitle,
-                lastNotificationType: notif.type,
-            });
-
-            console.log(`[Send Notification] User ${group.userId.substring(0, 6)}... -> [${notif.type.toUpperCase()}] "${notif.title}"`);
-
-            for (const token of group.tokens) {
-                messages.push({
-                    token,
-                    notification: {
-                        title: notif.title,
-                        body: notif.body,
-                        ...(notif.imageUrl ? { imageUrl: notif.imageUrl } : {}),
-                    },
-                    data: {
-                        url: notif.link || '/',
-                        title: notif.title,
-                        body: notif.body,
-                        tag: 'sunday-weekly-reminder',
-                        type: notif.type,
-                        ...(notif.suggestedMovieTitle ? { movieTitle: notif.suggestedMovieTitle } : {}),
-                        ...(notif.imageUrl ? { image: notif.imageUrl } : {}),
-                    },
-                    webpush: {
-                        headers: {
-                            Urgency: 'high',
-                            TTL: '86400',
-                        },
-                        notification: {
-                            icon: '/icons/icon-192x192.png',
-                            badge: '/icons/badge-96x96.png',
-                            tag: 'sunday-weekly-reminder',
-                            renotify: true,
-                            ...(notif.imageUrl ? { image: notif.imageUrl } : {}),
-                        },
-                        fcmOptions: {
-                            link: notif.link || '/',
-                        },
-                    },
+    await Promise.all(
+        userGroups.map(async (group) => {
+            try {
+                const notif: SundayNotificationPayload = await buildSundayNotificationForUser({
+                    moviesToWatch: group.userData.moviesToWatch,
+                    seriesToWatch: group.userData.seriesToWatch,
+                    lastSuggestedMovie: group.userData.lastSuggestedMovie,
+                    lastNotificationType: group.userData.lastNotificationType,
                 });
-                messageUserIds.push(group.userId);
-                messageTokens.push(token);
+
+                notificationsSummary.push({
+                    userId: group.userId,
+                    type: notif.type,
+                    title: notif.title,
+                });
+
+                userUpdates.push({
+                    userId: group.userId,
+                    lastSuggestedMovie: notif.suggestedMovieTitle,
+                    lastNotificationType: notif.type,
+                });
+
+                console.log(`[Send Notification] User ${group.userId.substring(0, 6)}... -> [${notif.type.toUpperCase()}] "${notif.title}" (Affiche: ${notif.imageUrl ? 'OUI' : 'NON'})`);
+
+                const targetFullUrl = notif.link?.startsWith('http')
+                    ? notif.link
+                    : `https://kol-youm.vercel.app${notif.link || '/'}`;
+
+                for (const token of group.tokens) {
+                    messages.push({
+                        token,
+                        notification: {
+                            title: notif.title,
+                            body: notif.body,
+                            ...(notif.imageUrl ? { imageUrl: notif.imageUrl } : {}),
+                        },
+                        data: {
+                            url: notif.link || '/',
+                            title: notif.title,
+                            body: notif.body,
+                            tag: 'sunday-weekly-reminder',
+                            type: notif.type,
+                            ...(notif.suggestedMovieTitle ? { movieTitle: notif.suggestedMovieTitle } : {}),
+                            ...(notif.imageUrl ? { image: notif.imageUrl, imageUrl: notif.imageUrl } : {}),
+                        },
+                        webpush: {
+                            headers: {
+                                Urgency: 'high',
+                                TTL: '86400',
+                            },
+                            notification: {
+                                title: notif.title,
+                                body: notif.body,
+                                icon: '/icons/icon-192x192.png',
+                                badge: '/icons/badge-96x96.png',
+                                tag: 'sunday-weekly-reminder',
+                                renotify: true,
+                                ...(notif.imageUrl ? { image: notif.imageUrl } : {}),
+                            },
+                            fcmOptions: {
+                                link: targetFullUrl,
+                            },
+                        },
+                    });
+                    messageUserIds.push(group.userId);
+                    messageTokens.push(token);
+                }
+            } catch (userError) {
+                console.error(`[Send Notification] Erreur construction message pour user ${group.userId}:`, userError);
             }
-        } catch (userError) {
-            console.error(`[Send Notification] Erreur construction message pour user ${group.userId}:`, userError);
-        }
-    }
+        })
+    );
 
     if (messages.length === 0) {
         return NextResponse.json({

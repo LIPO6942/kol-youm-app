@@ -104,14 +104,9 @@ const zones = [
 ];
 
 const AVAILABLE_SPECIALTIES = [
-  { label: "Baignade/Plage", emoji: "🏖️" },
-  { label: "Soirée", emoji: "🌅" },
-  { label: "Glace/Dessert", emoji: "🍦" },
-  { label: "Nature / Farniente", emoji: "🌿" },
-  { label: "Activité/Loisir", emoji: "🎯" },
-  { label: "Randonnée", emoji: "🥾" },
   { label: "Pizza", emoji: "🍕" },
   { label: "Burger", emoji: "🍔" },
+  { label: "Glace/Dessert", emoji: "🍦" },
   { label: "Tacos", emoji: "🌮" },
   { label: "Ma9loub", emoji: "🥙" },
   { label: "Mlawi", emoji: "🌯" },
@@ -3656,8 +3651,8 @@ export default function DecisionMaker() {
             </CollapsibleContent>
           </Collapsible>
 
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-3">
-            {outingOptions.filter(o => o.id !== 'cinema').map((option: (typeof outingOptions)[0]) => {
+          <div className="grid gap-4 grid-cols-2">
+            {outingOptions.filter(o => o.id !== 'cinema' && o.id !== 'kharjet' && o.id !== 'shopping').map((option: (typeof outingOptions)[0]) => {
               const Icon = option.icon;
               
               // Map categories to high-end frosted glass variants of their respective accent colors
@@ -3680,15 +3675,6 @@ export default function DecisionMaker() {
                 case 'restaurant':
                   glassBg = "bg-red-500/10 hover:bg-red-500/20 border-red-500/20 hover:border-red-500/30";
                   textColor = "text-red-600 dark:text-red-400";
-                  break;
-                case 'kharjet':
-                case 'balade':
-                  glassBg = "bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/20 hover:border-emerald-500/30";
-                  textColor = "text-emerald-600 dark:text-emerald-400";
-                  break;
-                case 'shopping':
-                  glassBg = "bg-pink-500/10 hover:bg-pink-500/20 border-pink-500/20 hover:border-pink-500/30";
-                  textColor = "text-pink-600 dark:text-pink-400";
                   break;
               }
 

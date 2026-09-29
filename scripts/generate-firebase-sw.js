@@ -33,40 +33,46 @@ const swContent = `// Firebase Messaging Service Worker (auto-généré — ne p
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
 
-firebase.initializeApp({
-  apiKey: "${config.apiKey}",
-  authDomain: "${config.authDomain}",
-  projectId: "${config.projectId}",
-  storageBucket: "${config.storageBucket}",
-  messagingSenderId: "${config.messagingSenderId}",
-  appId: "${config.appId}",
-});
+if (firebase.apps.length === 0) {
+  firebase.initializeApp({
+    apiKey: "${config.apiKey}",
+    authDomain: "${config.authDomain}",
+    projectId: "${config.projectId}",
+    storageBucket: "${config.storageBucket}",
+    messagingSenderId: "${config.messagingSenderId}",
+    appId: "${config.appId}",
+  });
+}
 
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Message reçu en arrière-plan:', payload);
 
-  // Si le message contient déjà une notification (objet payload.notification),
-  // le SDK Firebase l'affiche automatiquement. On s'arrête là pour éviter les doublons.
-  if (payload.notification) {
+  const title = payload.notification?.title || payload.data?.title || '🔔 kol youm';
+  const body = payload.notification?.body || payload.data?.body || "N'oublie pas de marquer ton passage !";
+  const imageUrl = payload.data?.image || payload.data?.imageUrl || payload.notification?.image || payload.notification?.imageUrl;
+  const targetUrl = payload.data?.url || payload.fcmOptions?.link || payload.notification?.click_action || '/';
+
+  // Si le message contient déjà une notification automatique SANS image/poster spécifique à afficher
+  if (payload.notification && !imageUrl) {
     return;
   }
 
-  // Cas des messages "data-only" : on affiche manuellement la notification
-  const notificationTitle = payload.data?.title || '🔔 kol youm';
+  // Affichage de la notification avec le poster / hero image si présent (ex: film du dimanche)
   const notificationOptions = {
-    body: payload.data?.body || "N'oublie pas de marquer ton passage !",
+    body,
     icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-192x192.png',
-    tag: payload.data?.tag || 'habit-reminder',
+    badge: '/icons/badge-96x96.png',
+    tag: payload.data?.tag || payload.notification?.tag || 'sunday-weekly-reminder',
     renotify: true,
+    ...(imageUrl ? { image: imageUrl } : {}),
     data: {
-      url: payload.data?.url || '/',
+      url: targetUrl,
     },
   };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  self.registration.showNotification(title, notificationOptions);
 });
 
 self.addEventListener('notificationclick', (event) => {
