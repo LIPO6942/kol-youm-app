@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 // Initialiser Firebase Admin SDK
 if (!getApps().length) {
@@ -191,11 +191,17 @@ async function sendWrapUpNotifications() {
          return NextResponse.json({ success: false, error: 'Erreur d\'envoi' }, { status: 500 });
      }
 
-     // Nettoyage des tokens invalides
-     for (const { userId } of invalidTokens) {
+     // Nettoyage des tokens invalides (ne désactive PAS notificationsEnabled du profil utilisateur)
+     for (const { userId, token } of invalidTokens) {
          try {
-             await db.collection('users').doc(userId).update({ fcmToken: null, notificationsEnabled: false });
-         } catch(e) {}
+             await db.collection('users').doc(userId).update({
+                 fcmTokens: FieldValue.arrayRemove(token),
+                 fcmToken: null,
+             });
+             console.log(`[Send Wrap-Up Notification] Token invalide nettoyé pour user ${userId}`);
+         } catch(e) {
+             console.error(`[Send Wrap-Up Notification] Erreur nettoyage token:`, e);
+         }
      }
 
      return NextResponse.json({
