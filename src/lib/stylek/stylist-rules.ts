@@ -301,6 +301,7 @@ export function buildStylistRecommendation(params: {
   // Rain and wind adaptations
   let accessoires = selectedTemplate.accessoires;
   let haut = selectedTemplate.haut;
+  let bas = selectedTemplate.bas;
   let chaussures = selectedTemplate.chaussures;
 
   if (hasRain) {
@@ -351,7 +352,7 @@ export function buildStylistRecommendation(params: {
   return {
     outfit: {
       haut,
-      bas: selectedTemplate.bas,
+      bas,
       chaussures,
       accessoires,
       suggestionText,
