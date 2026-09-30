@@ -14,6 +14,11 @@ export const GeneratedOutfitImage = ({ description, gender }: { description: str
   const [error, setError] = useState(false);
   const { toast } = useToast();
 
+  const getCacheKey = useCallback((desc: string, g?: string) => {
+    const clean = desc.slice(0, 45).replace(/[^a-zA-Z0-9]/g, '_');
+    return `kolyoum_outfit_img_${g || 'all'}_${clean}`;
+  }, []);
+
   const handleAiError = useCallback((error: any) => {
     const errorMessage = String(error.message || '');
     if (errorMessage.includes('429') || errorMessage.includes('quota')) {
@@ -38,24 +43,52 @@ export const GeneratedOutfitImage = ({ description, gender }: { description: str
     console.error(`Failed to generate outfit image`, error);
   }, [toast]);
 
-  const generate = useCallback(async () => {
+  const generate = useCallback(async (forceRefresh = false) => {
     if (!description) return;
+
+    const cacheKey = getCacheKey(description, gender);
+
+    // Vérifier le cache local pour réutilisation immédiate
+    if (!forceRefresh && typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          setImageUrl(cached);
+          setIsLoading(false);
+          setError(false);
+          return;
+        }
+      } catch (e) {
+        console.warn('Erreur lecture cache image:', e);
+      }
+    }
+
     setIsLoading(true);
     setError(false);
     setImageUrl(null);
+
     try {
       const result = await generateOutfitImage({ itemDescription: description, gender });
       setImageUrl(result.imageDataUri);
+
+      // Sauvegarder dans le cache local
+      if (typeof window !== 'undefined' && result.imageDataUri) {
+        try {
+          localStorage.setItem(cacheKey, result.imageDataUri);
+        } catch (e) {
+          console.warn('Erreur sauvegarde cache image:', e);
+        }
+      }
     } catch (e: any) {
       setError(true);
       handleAiError(e);
     } finally {
       setIsLoading(false);
     }
-  }, [description, gender, handleAiError]);
+  }, [description, gender, getCacheKey, handleAiError]);
 
   useEffect(() => {
-    generate();
+    generate(false);
   }, [generate]);
 
   if (isLoading) {

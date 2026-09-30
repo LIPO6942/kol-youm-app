@@ -6,8 +6,11 @@ export default function StylekPage() {
     <div className="space-y-4">
       <div className="flex items-baseline justify-between pb-1">
         <h1 className="text-xl sm:text-2xl font-bold font-headline tracking-tight text-foreground">
-          Stylek <span className="text-xs font-normal text-muted-foreground ml-2 font-body hidden sm:inline">Votre garde-robe connectée à la météo</span>
+          Le Vestiaire Météo
         </h1>
+        <span className="text-xs text-muted-foreground font-body hidden sm:inline">
+          Votre silhouette quotidienne accordée au climat
+        </span>
       </div>
       <ApiKeyAlert />
       <OutfitSuggester />
