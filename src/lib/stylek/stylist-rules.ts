@@ -358,13 +358,13 @@ export function buildStylistRecommendation(params: {
   // Lifestyle Reflexes
   const needsUmbrella = hasRain || params.weather.precipitationProbMax >= 30;
   const umbrellaText = needsUmbrella
-    ? `Parapluie recommandé (Risque pluie ${params.weather.precipitationProbMax}%)`
-    : `Pas de parapluie nécessaire (${params.weather.precipitationProbMax}% pluie)`;
+    ? `Parapluie conseillé (${params.weather.precipitationProbMax}% pluie)`
+    : `Non nécessaire (${params.weather.precipitationProbMax}% pluie)`;
 
   const tempDiff = params.weather.tempMax - params.weather.tempMin;
   let layering = '';
   if (tempDiff >= 5) {
-    layering = `Veste amovible (Matin ${params.weather.tempMin}°C ➔ Après-midi ${params.weather.tempMax}°C)`;
+    layering = `Veste modulable (Matin ${params.weather.tempMin}°C ➔ Après-midi ${params.weather.tempMax}°C)`;
   } else if (params.weather.tempMax < 13) {
     layering = `Manteau chaud toute la journée (${params.weather.tempMax}°C max)`;
   } else {
@@ -372,12 +372,12 @@ export function buildStylistRecommendation(params: {
   }
 
   const shoesAlert = hasRain
-    ? 'Sol humide : Cuir lisse, éviter daim et toile'
-    : 'Sol sec : Baskets blanches ou mocassins bienvenus';
+    ? 'Sol humide : Cuir lisse (éviter daim/toile)'
+    : 'Sol sec : Baskets ou mocassins adaptés';
 
   const fragranceNotes = (thermalBracket === 'Froid' || thermalBracket === 'Frais')
-    ? 'Notes boisées, ambrées, cèdre ou vanille épicée'
-    : 'Notes hespéridées, agrumes frais, thé vert ou marines';
+    ? 'Notes boisées, ambrées ou vanille épicée'
+    : 'Notes hespéridées, agrumes ou thé vert';
 
   const lifestyleReflexes: LifestyleReflexes = {
     umbrella: { needed: needsUmbrella, text: umbrellaText },

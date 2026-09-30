@@ -19,7 +19,7 @@ export default function StylekPage() {
               Votre Styliste Météo
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground font-normal max-w-xl leading-relaxed">
-              L'art de s'habiller avec justesse selon le ciel du jour, votre rythme et votre garde-robe.
+              L'art de s'habiller selon la météo et votre rythme.
             </p>
           </div>
 

@@ -206,63 +206,29 @@ export function WeatherHeroCard({
       <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
 
-      {/* Top Header: Location, Date & Day Switcher */}
+      {/* Top Bar (Single Line): Location, Temp & Weather Condition, Pace Badge & Day Switcher */}
       <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-border/50">
-        <div className="flex items-center space-x-2">
-          <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
-            <MapPin className="h-4 w-4" />
-          </div>
-          <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 min-w-0">
+          {/* Location & Date */}
+          <div className="flex items-center space-x-1.5 text-xs text-muted-foreground font-medium shrink-0">
+            <div className="p-1 rounded-md bg-primary/10 text-primary">
+              <MapPin className="h-3.5 w-3.5" />
+            </div>
             <span className="text-sm font-semibold tracking-tight text-foreground">
-              {activeDayWeather.cityName}, Tunisie
+              {activeDayWeather.cityName}
             </span>
-            <span className="text-xs text-muted-foreground font-normal">·</span>
-            <span className="text-xs text-muted-foreground font-normal">
+            <span className="text-xs text-muted-foreground">·</span>
+            <span className="text-xs text-muted-foreground">
               {activeDayWeather.formattedDate}
             </span>
           </div>
-        </div>
 
-        {/* Day Switcher Toggle */}
-        <div className="flex items-center self-start sm:self-auto bg-muted/60 p-1 rounded-xl border border-border/40">
-          <button
-            type="button"
-            onClick={() => setSelectedDay('today')}
-            className={cn(
-              'px-3 py-1 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5',
-              selectedDay === 'today'
-                ? 'bg-background text-foreground shadow-xs font-semibold'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <Calendar className="h-3.5 w-3.5" />
-            <span>Aujourd'hui {forecast?.today.tempMax ? `(${forecast.today.tempMax}°)` : ''}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedDay('tomorrow')}
-            className={cn(
-              'px-3 py-1 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5',
-              selectedDay === 'tomorrow'
-                ? 'bg-primary text-primary-foreground shadow-xs font-semibold'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Demain {forecast?.tomorrow.tempMax ? `(${forecast.tomorrow.tempMax}°)` : ''} ✨</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Weather Strip: Temp, Description, Ressenti & Pace Badge */}
-      <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-secondary/50 border border-border/40">
-        <div className="flex items-center space-x-2.5">
-          <div className="p-1.5 rounded-lg bg-background border border-border/50 shadow-2xs flex items-center justify-center">
-            {renderWeatherIcon(activeDayWeather.weatherIconType, 'h-5 w-5')}
-          </div>
-          <div className="flex items-baseline space-x-2">
-            <span className="text-lg sm:text-xl font-extrabold tracking-tight font-headline text-foreground">
+          {/* Unified Weather Data */}
+          <div className="flex items-center space-x-2 pl-2 border-l border-border/50 shrink-0">
+            <div className="p-1 rounded-md bg-background border border-border/50 shadow-2xs flex items-center justify-center">
+              {renderWeatherIcon(activeDayWeather.weatherIconType, 'h-4 w-4')}
+            </div>
+            <span className="text-base sm:text-lg font-extrabold tracking-tight font-headline text-foreground">
               {activeDayWeather.tempMax}°C
             </span>
             <span className="text-xs font-semibold text-foreground capitalize">
@@ -272,20 +238,52 @@ export function WeatherHeroCard({
               · Ressenti {activeDayWeather.tempApparentMax}°C (min {activeDayWeather.tempMin}°C)
             </span>
           </div>
+
+          {/* Pace Badge */}
+          <Badge 
+            variant="outline" 
+            className="bg-primary/10 text-primary border-primary/25 font-semibold text-[10.5px] px-2 py-0.5 rounded-full shrink-0"
+          >
+            {currentRecommendation.dayPace === 'Semaine' ? '📅 Semaine : Posé Chic' : '🌴 Weekend : Décontracté & Sport'}
+          </Badge>
         </div>
 
-        <Badge 
-          variant="outline" 
-          className="bg-primary/10 text-primary border-primary/25 font-semibold text-[11px] px-2.5 py-0.5 rounded-full"
-        >
-          {currentRecommendation.dayPace === 'Semaine' ? '📅 Semaine : Posé Chic' : '🌴 Weekend : Décontracté & Sport'}
-        </Badge>
+        {/* Day Switcher Toggle: Clean, no duplicate temp */}
+        <div className="flex items-center self-start sm:self-auto bg-muted/60 p-0.5 rounded-xl border border-border/40 shrink-0">
+          <button
+            type="button"
+            onClick={() => setSelectedDay('today')}
+            className={cn(
+              'px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5',
+              selectedDay === 'today'
+                ? 'bg-background text-foreground shadow-xs font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Calendar className="h-3.5 w-3.5" />
+            <span>Aujourd'hui</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedDay('tomorrow')}
+            className={cn(
+              'px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5',
+              selectedDay === 'tomorrow'
+                ? 'bg-primary text-primary-foreground shadow-xs font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>Demain ✨</span>
+          </button>
+        </div>
       </div>
 
       {/* CORE SHOWCASE: Miniature du Look (Gauche) + Bloc « Réflexes Météo & Sillage » (Droite, Côte-à-Côte) */}
       <div className="relative z-10 flex flex-row items-stretch gap-3 sm:gap-4 pt-1">
         {/* 1. VISUAL MINIATURE OF THE OUTFIT */}
-        <div className="relative w-28 sm:w-36 md:w-40 aspect-[3/4] shrink-0 rounded-2xl overflow-hidden border border-border/70 shadow-xs bg-secondary/60 flex items-center justify-center group">
+        <div className="relative w-24 sm:w-32 md:w-36 aspect-[3/4] shrink-0 rounded-2xl overflow-hidden border border-border/70 shadow-xs bg-secondary/60 flex items-center justify-center group">
           <GeneratedOutfitImage 
             description={currentRecommendation.outfit.suggestionText} 
             gender={gender} 
@@ -312,14 +310,14 @@ export function WeatherHeroCard({
           {reflexes && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs flex-1">
               {/* Parapluie */}
-              <div className="p-2 rounded-xl bg-background/70 border border-border/50 flex items-center space-x-2 shadow-2xs">
-                <span className="text-base shrink-0">
+              <div className="p-2 rounded-xl bg-background/70 border border-border/50 flex items-start space-x-2 shadow-2xs">
+                <span className="text-base shrink-0 mt-0.5">
                   {reflexes.umbrella.needed ? '🌂' : '☀️'}
                 </span>
                 <div className="min-w-0 flex-1">
                   <span className="text-[10px] uppercase font-bold text-muted-foreground block leading-none mb-0.5">Parapluie</span>
                   <span className={cn(
-                    'font-medium text-xs leading-tight line-clamp-2',
+                    'font-medium text-[11px] sm:text-xs leading-snug break-words block',
                     reflexes.umbrella.needed ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-foreground/90'
                   )}>
                     {reflexes.umbrella.text}
@@ -328,33 +326,33 @@ export function WeatherHeroCard({
               </div>
 
               {/* Superposition */}
-              <div className="p-2 rounded-xl bg-background/70 border border-border/50 flex items-center space-x-2 shadow-2xs">
-                <span className="text-base shrink-0">🧥</span>
+              <div className="p-2 rounded-xl bg-background/70 border border-border/50 flex items-start space-x-2 shadow-2xs">
+                <span className="text-base shrink-0 mt-0.5">🧥</span>
                 <div className="min-w-0 flex-1">
                   <span className="text-[10px] uppercase font-bold text-muted-foreground block leading-none mb-0.5">Veste & Couches</span>
-                  <span className="font-medium text-xs text-foreground/90 leading-tight line-clamp-2">
+                  <span className="font-medium text-[11px] sm:text-xs text-foreground/90 leading-snug break-words block">
                     {reflexes.layering}
                   </span>
                 </div>
               </div>
 
               {/* Chaussures */}
-              <div className="p-2 rounded-xl bg-background/70 border border-border/50 flex items-center space-x-2 shadow-2xs">
-                <span className="text-base shrink-0">👞</span>
+              <div className="p-2 rounded-xl bg-background/70 border border-border/50 flex items-start space-x-2 shadow-2xs">
+                <span className="text-base shrink-0 mt-0.5">👞</span>
                 <div className="min-w-0 flex-1">
                   <span className="text-[10px] uppercase font-bold text-muted-foreground block leading-none mb-0.5">Chaussures</span>
-                  <span className="font-medium text-xs text-foreground/90 leading-tight line-clamp-2">
+                  <span className="font-medium text-[11px] sm:text-xs text-foreground/90 leading-snug break-words block">
                     {reflexes.shoesAlert}
                   </span>
                 </div>
               </div>
 
               {/* Sillage de parfum en petits caractères */}
-              <div className="p-2 rounded-xl bg-background/70 border border-border/50 flex items-center space-x-2 shadow-2xs">
-                <span className="text-base shrink-0">✨</span>
+              <div className="p-2 rounded-xl bg-background/70 border border-border/50 flex items-start space-x-2 shadow-2xs">
+                <span className="text-base shrink-0 mt-0.5">✨</span>
                 <div className="min-w-0 flex-1">
                   <span className="text-[10px] uppercase font-bold tracking-wider text-primary block leading-none mb-0.5">Sillage & Parfum</span>
-                  <span className="text-[10.5px] italic text-muted-foreground leading-tight line-clamp-2">
+                  <span className="text-[10.5px] sm:text-[11px] italic text-muted-foreground leading-snug break-words block">
                     {reflexes.fragranceNotes}
                   </span>
                 </div>
