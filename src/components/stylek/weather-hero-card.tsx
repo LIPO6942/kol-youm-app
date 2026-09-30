@@ -14,7 +14,10 @@ import {
   Calendar, 
   SlidersHorizontal,
   Shirt,
-  Loader2
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  Lightbulb
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -50,6 +53,7 @@ export function WeatherHeroCard({
   const [currentRecommendation, setCurrentRecommendation] = useState<StylistRecommendationResult | null>(null);
   const [variationIndex, setVariationIndex] = useState(0);
   const [isGeneratingVariation, setIsGeneratingVariation] = useState(false);
+  const [showAllTips, setShowAllTips] = useState(false);
 
   // Fetch weather forecast on mount
   useEffect(() => {
@@ -90,7 +94,7 @@ export function WeatherHeroCard({
     const targetDate = activeDayWeather.date;
     const cached = getCachedDailyOutfit(targetDate, gender);
 
-    if (cached && cached.recommendation?.lifestyleReflexes) {
+    if (cached && cached.recommendation?.lifestyleReflexes && cached.recommendation?.stylistTips) {
       setCurrentRecommendation(cached.recommendation);
       setVariationIndex(cached.variationIndex || 0);
       onApplyOutfit(cached.recommendation.outfit, {
@@ -293,12 +297,12 @@ export function WeatherHeroCard({
           </div>
         </div>
 
-        {/* 2. LE BLOC « RÉFLEXES MÉTÉO & SILLAGE » DIRECTEMENT À CÔTÉ DE LA MINIATURE */}
+        {/* 2. LE BLOC « RÉFLEXES MÉTÉO & CONSEILS » DIRECTEMENT À CÔTÉ DE LA MINIATURE */}
         <div className="flex-1 flex flex-col justify-between min-w-0 space-y-2">
           <div className="flex items-center justify-between pb-1 border-b border-border/40">
             <span className="text-xs font-bold tracking-tight text-foreground flex items-center gap-1.5">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
-              Réflexes Météo & Sillage
+              Réflexes Météo & Conseils
             </span>
             {activeDayWeather.precipitationProbMax > 0 && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold border border-blue-500/20">
@@ -347,11 +351,11 @@ export function WeatherHeroCard({
                 </div>
               </div>
 
-              {/* Sillage de parfum en petits caractères */}
+              {/* Parfum */}
               <div className="p-2 rounded-xl bg-background/70 border border-border/50 flex items-start space-x-2 shadow-2xs">
                 <span className="text-base shrink-0 mt-0.5">✨</span>
                 <div className="min-w-0 flex-1">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-primary block leading-none mb-0.5">Sillage & Parfum</span>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-primary block leading-none mb-0.5">Parfum</span>
                   <span className="text-[10.5px] sm:text-[11px] italic text-muted-foreground leading-snug break-words block">
                     {reflexes.fragranceNotes}
                   </span>
@@ -362,10 +366,57 @@ export function WeatherHeroCard({
         </div>
       </div>
 
-      {/* 3. Stylist Advice Quote */}
-      <div className="relative z-10 rounded-xl bg-background/80 border border-border/60 p-2.5 sm:p-3 text-xs text-foreground/90 italic leading-snug shadow-2xs">
-        <span className="font-semibold text-primary not-italic mr-1.5">💡 Conseil Styliste :</span>
-        "{currentRecommendation.stylistAdvice}"
+      {/* 3. Stylist Advice & Ultra-Personalized Tips */}
+      <div className="relative z-10 space-y-2.5">
+        {/* Main dynamic stylist quote */}
+        <div className="rounded-xl bg-background/80 border border-border/60 p-2.5 sm:p-3 text-xs text-foreground/90 italic leading-snug shadow-2xs">
+          <span className="font-semibold text-primary not-italic mr-1.5">💡 Conseil Styliste du Jour :</span>
+          "{currentRecommendation.stylistAdvice}"
+        </div>
+
+        {/* Dynamic personalized tips grid */}
+        {currentRecommendation.stylistTips && currentRecommendation.stylistTips.length > 0 && (
+          <div className="space-y-1.5 pt-0.5">
+            <div className="flex items-center justify-between text-xs font-bold text-foreground px-0.5">
+              <span className="flex items-center gap-1.5">
+                <Lightbulb className="h-3.5 w-3.5 text-primary" />
+                <span>Conseils & Astuces Personnalisés</span>
+              </span>
+              {currentRecommendation.stylistTips.length > 3 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllTips(!showAllTips)}
+                  className="text-[11px] text-primary hover:underline font-semibold flex items-center gap-0.5 transition-all cursor-pointer"
+                >
+                  <span>{showAllTips ? 'Moins d’astuces' : `Voir toutes les astuces (${currentRecommendation.stylistTips.length})`}</span>
+                  {showAllTips ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              {(showAllTips
+                ? currentRecommendation.stylistTips
+                : currentRecommendation.stylistTips.slice(0, 3)
+              ).map((tipItem, idx) => (
+                <div
+                  key={idx}
+                  className="p-2.5 rounded-xl bg-secondary/40 hover:bg-secondary/60 border border-border/50 transition-all space-y-1"
+                >
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-sm shrink-0">{tipItem.icon}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary truncate">
+                      {tipItem.category}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-foreground/85 leading-snug font-medium break-words">
+                    {tipItem.tip}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 4. Action Footer */}

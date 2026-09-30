@@ -13,12 +13,19 @@ export interface LifestyleReflexes {
   fragranceNotes: string;
 }
 
+export interface StylistTipItem {
+  icon: string;
+  category: string;
+  tip: string;
+}
+
 export interface StylistRecommendationResult {
   outfit: SuggestOutfitOutput;
   thermalBracket: ThermalBracket;
   dayPace: DayPace;
   occasion: DefaultOccasion;
   stylistAdvice: string;
+  stylistTips?: StylistTipItem[];
   weatherSummary: string;
   hasRain: boolean;
   hasWind: boolean;
@@ -339,45 +346,262 @@ export function buildStylistRecommendation(params: {
     }
   }
 
-  // Generate dynamic stylistic advice
-  let stylistAdvice = '';
-  if (thermalBracket === 'Froid') {
-    stylistAdvice = `Avec ${params.weather.tempMin}°C le matin et un max de ${params.weather.tempMax}°C, couvrez-vous bien ! Privilégiez les matières chaudes (laine, mérinos) et des chaussures isolantes.`;
-  } else if (thermalBracket === 'Frais') {
-    stylistAdvice = `Prévoyez ${params.weather.tempMax}°C avec une fraîcheur matinale à ${params.weather.tempMin}°C : la règle d'or est le layering (superposition) pour retirer votre veste en journée si la température grimpe.`;
-  } else if (thermalBracket === 'Doux') {
-    stylistAdvice = `Météo clémente et agréable à ${params.weather.tempMax}°C. Optez pour des pièces respirantes en coton ou lin léger, avec une petite veste d'appoint pour le soir.`;
-  } else {
-    stylistAdvice = `Chaleur estivale annoncée avec ${params.weather.tempMax}°C. Misez sur la fraîcheur, les couleurs claires et les matières légères.`;
-  }
-
-  if (hasRain) {
-    stylistAdvice += ' ⚠️ Risque de pluie détecté : n’oubliez pas votre parapluie !';
-  }
-
-  // Lifestyle Reflexes
-  const needsUmbrella = hasRain || params.weather.precipitationProbMax >= 30;
-  const umbrellaText = needsUmbrella
-    ? `Parapluie conseillé (${params.weather.precipitationProbMax}% pluie)`
-    : `Non nécessaire (${params.weather.precipitationProbMax}% pluie)`;
-
+  // -------------------------------------------------------------
+  // ULTRA-PERSONALIZED STYLIST ENGINE
+  // Dynamic factors: Temps, thermal amplitude, rain, wind, sky,
+  // day of week, gender, wardrobe and variation index
+  // -------------------------------------------------------------
   const tempDiff = params.weather.tempMax - params.weather.tempMin;
-  let layering = '';
-  if (tempDiff >= 5) {
-    layering = `Veste modulable (Matin ${params.weather.tempMin}°C ➔ Après-midi ${params.weather.tempMax}°C)`;
-  } else if (params.weather.tempMax < 13) {
-    layering = `Manteau chaud toute la journée (${params.weather.tempMax}°C max)`;
+  const isHighAmplitude = tempDiff >= 7;
+  const isSunny = params.weather.weatherIconType === 'sun';
+  const isOvercast = params.weather.weatherIconType === 'cloud' || params.weather.weatherIconType === 'cloud-sun';
+  const hasRainRisk = params.weather.precipitationProbMax >= 30 || params.weather.weatherCode >= 50;
+  const isVeryWindy = params.weather.windSpeedMax >= 30;
+  const isHot = params.weather.tempMax >= 26;
+  const isCold = params.weather.tempMax < 13 || params.weather.tempMin < 9;
+  const vIdx = Math.abs(params.variationIndex || 0);
+  const isWoman = params.gender === 'Femme';
+
+  // 1. Dynamic, multi-angle stylistAdvice paragraph
+  let stylistAdvice = '';
+  if (isHighAmplitude) {
+    stylistAdvice = `Grande amplitude thermique aujourd'hui (${tempDiff}°C d'écart entre ${params.weather.tempMin}°C ce matin et ${params.weather.tempMax}°C cet après-midi). Misez impérativement sur la superposition : une veste ou un gilet facile à retirer dès que le soleil s'installe.`;
+  } else if (hasRainRisk) {
+    stylistAdvice = `Météo humide avec un risque de pluie à ${params.weather.precipitationProbMax}%. Privilégiez des matières déperlantes et une palette sobre rehaussée d'une touche lumineuse pour braver le ciel maussade avec panache.`;
+  } else if (isVeryWindy) {
+    stylistAdvice = `Vent soutenu annoncé à ${params.weather.windSpeedMax} km/h. Choisissez des coupes bien structurées et fermées, et évitez les tissus trop volants pour rester impeccable en extérieur.`;
+  } else if (isHot) {
+    stylistAdvice = `Chaleur marquée (${params.weather.tempMax}°C, ressenti ${params.weather.tempApparentMax}°C). La règle d'or : matières 100% naturelles (lin, coton respirant) et coupes légèrement amples pour laisser l'air circuler sans coller.`;
+  } else if (isCold) {
+    stylistAdvice = `Températures fraîches (${params.weather.tempMin}°C au lever, ${params.weather.tempMax}°C au plus doux). Protégez les extrémités et misez sur des fibres isolantes (laine fine, mérinos) pour garder une silhouette élégante sans grelotter.`;
   } else {
-    layering = `Couvrance légère et respirante (${params.weather.tempMax}°C)`;
+    stylistAdvice = `Conditions particulièrement agréables à ${params.weather.tempMax}°C (${(params.weather.weatherLabel || '').toLowerCase()}). C'est le moment idéal pour mixer textures légères et pièces intemporelles avec une allure soignée.`;
   }
 
-  const shoesAlert = hasRain
-    ? 'Sol humide : Cuir lisse (éviter daim/toile)'
-    : 'Sol sec : Baskets ou mocassins adaptés';
+  // Complementary styling note (alternates with variationIndex, gender and day pace)
+  const additionalNotes = isWoman
+    ? [
+        dayPace === 'Semaine'
+          ? " En milieu professionnel, la fluidité des coupes alliée à une belle structure de veste donne une présence assurée."
+          : " Pour vos sorties détente, l'équilibre entre confort souple et finitions soignées garantit une allure naturelle sans effort.",
+        " Jouez sur les proportions : équilibrez un haut décontracté avec un bas plus fuselé pour allonger la silhouette.",
+        " Une touche lumineuse sur les accessoires ou les bijoux réveille instantanément la carnation sous cette luminosité.",
+      ]
+    : [
+        dayPace === 'Semaine'
+          ? " Pour la journée active, l'accord des matières et une pièce maîtresse bien ajustée posent immédiatement l'élégance."
+          : " Le weekend, la liberté de mouvement reste prioritaire : privilégiez des cotons texturés et des coupes confortables.",
+        " Soignez les transitions : laissez dépasser un col ou un t-shirt clair pour structurer le port de tête.",
+        " Rappelez la teinte de votre ceinture ou de votre montre avec vos souliers pour signer un look maîtrisé.",
+      ];
+  stylistAdvice += additionalNotes[vIdx % additionalNotes.length];
 
-  const fragranceNotes = (thermalBracket === 'Froid' || thermalBracket === 'Frais')
-    ? 'Notes boisées, ambrées ou vanille épicée'
-    : 'Notes hespéridées, agrumes ou thé vert';
+  // 2. Structured, rich Stylist Tips (multiples conseils personnalisés)
+  const stylistTips: StylistTipItem[] = [];
+
+  // Tip 1: Régulation thermique précise
+  if (isHighAmplitude) {
+    stylistTips.push({
+      icon: '🌡️',
+      category: 'Régulation Thermique',
+      tip: `Écart de ${tempDiff}°C : portez une pièce légère dessous pour être à l'aise quand il fera ${params.weather.tempMax}°C.`,
+    });
+  } else if (isCold) {
+    stylistTips.push({
+      icon: '🌡️',
+      category: 'Régulation Thermique',
+      tip: `Fraîcheur à ${params.weather.tempMin}°C : privilégiez un tricot mérinos ou cachemire, chaud sans faire transpirer.`,
+    });
+  } else if (isHot) {
+    stylistTips.push({
+      icon: '🌡️',
+      category: 'Régulation Thermique',
+      tip: `${params.weather.tempMax}°C annoncés : fuyez les synthétiques, le lin et le coton fin préservent votre fraîcheur.`,
+    });
+  } else {
+    stylistTips.push({
+      icon: '🌡️',
+      category: 'Régulation Thermique',
+      tip: `Température stable (${params.weather.tempMax}°C) : une surchemise ou veste légère suffit toute la journée.`,
+    });
+  }
+
+  // Tip 2: Palette & Couleurs selon le ciel
+  if (isSunny) {
+    stylistTips.push({
+      icon: '🎨',
+      category: 'Palette du Ciel',
+      tip: `Soleil éclatant : les nuances écru, sable, denim clair et pastel ressortent avec un éclat naturel superbe.`,
+    });
+  } else if (hasRainRisk || isOvercast) {
+    stylistTips.push({
+      icon: '🎨',
+      category: 'Palette du Ciel',
+      tip: `Ciel gris ou brumeux : dynamisez votre tenue avec un contraste chaleureux (camel, bleu roi ou terracotta).`,
+    });
+  } else {
+    stylistTips.push({
+      icon: '🎨',
+      category: 'Palette du Ciel',
+      tip: `Harmonie monochrome : décliner deux tons voisins (ex: marine et ardoise, ou beige et écru) crée un effet très chic.`,
+    });
+  }
+
+  // Tip 3: Silhouette & Proportions adaptées Homme / Femme
+  if (isWoman) {
+    const womanAllureTips = [
+      `Règle des volumes : compensez un haut fluide par un bas plus structuré pour équilibrer la démarche.`,
+      `Marquez légèrement la taille (taille haute ou ceinture souple) pour dynamiser immédiatement la silhouette.`,
+      `Retroussez les manches d'un geste décontracté pour révéler les poignets et affiner le haut du corps.`,
+    ];
+    stylistTips.push({
+      icon: '✨',
+      category: 'Allure & Coupe',
+      tip: womanAllureTips[vIdx % womanAllureTips.length],
+    });
+  } else {
+    const manAllureTips = [
+      `Structure du buste : un col soigné et des épaules bien définies renforcent immédiatement la carrure.`,
+      `Ourlet net : le bas du pantalon doit effleurer la chaussure avec une légère cassure sans plisser à l'excès.`,
+      `Contraste des textures : mariez la douceur d'une maille avec la tenue d'un chino ou d'un denim brut.`,
+    ];
+    stylistTips.push({
+      icon: '✨',
+      category: 'Allure & Coupe',
+      tip: manAllureTips[vIdx % manAllureTips.length],
+    });
+  }
+
+  // Tip 4: Choix des Matières
+  if (hasRainRisk) {
+    stylistTips.push({
+      icon: '🧵',
+      category: 'Matière Protectrice',
+      tip: `Risque d'averses : mettez de côté le daim et la soie, préférez le cuir lisse, le coton ciré ou les toiles techniques.`,
+    });
+  } else if (isVeryWindy) {
+    stylistTips.push({
+      icon: '💨',
+      category: 'Face au Vent',
+      tip: `Vent à ${params.weather.windSpeedMax} km/h : privilégiez des toiles denses (gabardine, denim épais) qui ne s'envolent pas.`,
+    });
+  } else if (isHot) {
+    stylistTips.push({
+      icon: '🌿',
+      category: 'Tissu Respirant',
+      tip: `Chaleur estivale : popeline de coton légère ou lin aéré pour un tombé fluide et anti-adhérent.`,
+    });
+  } else {
+    stylistTips.push({
+      icon: '🧵',
+      category: 'Matière du Jour',
+      tip: `Mixez une matière mate (coton, flanelle) avec une touche texturée pour donner de la consistance au look.`,
+    });
+  }
+
+  // Tip 5: Souliers & Démarche
+  if (hasRainRisk) {
+    stylistTips.push({
+      icon: '👟',
+      category: 'Souliers & Sol',
+      tip: `Semelles crantées ou cuir imperméabilisé pour marcher d'un pas assuré sans craindre l'asphalte mouillé.`,
+    });
+  } else if (dayPace === 'Weekend') {
+    stylistTips.push({
+      icon: '👟',
+      category: 'Souliers & Sol',
+      tip: `Baskets lifestyle ou mocassins souples : confort optimal pour bouger et flâner sans aucune contrainte.`,
+    });
+  } else {
+    stylistTips.push({
+      icon: '👞',
+      category: 'Souliers & Sol',
+      tip: `Sneakers en cuir blanc minimalistes ou derbies : le passe-partout élégant du matin au soir.`,
+    });
+  }
+
+  // Tip 6: Le Détail Styliste (Signature)
+  if (isSunny) {
+    stylistTips.push({
+      icon: '🕶️',
+      category: 'Détail Signature',
+      tip: `Une paire de solaires adaptées à votre visage signe immédiatement l'attitude et l'élégance du jour.`,
+    });
+  } else if (isVeryWindy) {
+    stylistTips.push({
+      icon: '🧣',
+      category: 'Détail Signature',
+      tip: `Un foulard léger ou tour de cou en coton doux protège sans étouffer et habille discrètement le port de tête.`,
+    });
+  } else {
+    stylistTips.push({
+      icon: '💡',
+      category: 'Détail Signature',
+      tip: `Accessoirisation maîtrisée : une montre sobre et une ceinture assortie aux chaussures apportent la touche finale.`,
+    });
+  }
+
+  // 3. Lifestyle Reflexes (Granular & Ultra-Tailored)
+  const needsUmbrella = hasRainRisk;
+  let umbrellaText = '';
+  if (params.weather.precipitationProbMax >= 60) {
+    umbrellaText = `Averses certaines (${params.weather.precipitationProbMax}%) : parapluie indispensable`;
+  } else if (hasRainRisk) {
+    umbrellaText = `Risque d'ondées (${params.weather.precipitationProbMax}%) : parapluie conseillé`;
+  } else if (params.weather.precipitationProbMax >= 15) {
+    umbrellaText = `Ciel variable (${params.weather.precipitationProbMax}% pluie) : parapluie facultatif`;
+  } else {
+    umbrellaText = `Ciel sec (${params.weather.precipitationProbMax}% pluie) : non nécessaire`;
+  }
+
+  let layering = '';
+  if (tempDiff >= 9) {
+    layering = `Grand écart (+${tempDiff}°C) : veste amovible (${params.weather.tempMin}° matin ➔ ${params.weather.tempMax}° aprèm)`;
+  } else if (tempDiff >= 5) {
+    layering = `Veste modulable (Matin ${params.weather.tempMin}°C ➔ Après-midi ${params.weather.tempMax}°C)`;
+  } else if (isCold) {
+    layering = `Manteau chaud toute la journée (${params.weather.tempMax}°C max)`;
+  } else if (isHot) {
+    layering = `Couvrance légère et aérée (${params.weather.tempMax}°C)`;
+  } else {
+    layering = `Couvrance tempérée : veste légère d'appoint (${params.weather.tempMax}°C)`;
+  }
+
+  let shoesAlert = '';
+  if (hasRainRisk) {
+    shoesAlert = 'Sol humide : cuir lisse ou bottines (éviter daim/toile)';
+  } else if (isCold) {
+    shoesAlert = 'Sol froid : semelles isolantes en gomme ou cuir épais';
+  } else if (isHot) {
+    shoesAlert = 'Sol sec & chaud : mocassins respirants ou baskets légères';
+  } else {
+    shoesAlert = 'Sol sec : baskets blanches ou mocassins souples';
+  }
+
+  const fragranceOptionsWarm = [
+    'Notes fraîches : bergamote pétillante et thé vert glacé',
+    'Notes solaires : néroli, fleur d’oranger et agrumes doux',
+    'Notes aromatiques : lavande fraîche, menthe douce et cédrat',
+  ];
+  const fragranceOptionsCold = [
+    'Notes chaudes : cèdre boisé, ambre doux et vanille',
+    'Notes réconfortantes : fève tonka, bois blond et iris',
+    'Notes boisées douces : bois de santal et épices légères',
+  ];
+  const fragranceOptionsMild = [
+    'Notes équilibrées : vétiver clair, agrumes et bois flotté',
+    'Notes lumineuses : thé blanc, figue fraîche et musc aérien',
+    'Notes modernes : cardamome douce et bois de cèdre délicat',
+  ];
+
+  let fragranceNotes = '';
+  if (isCold) {
+    fragranceNotes = fragranceOptionsCold[vIdx % fragranceOptionsCold.length];
+  } else if (isHot) {
+    fragranceNotes = fragranceOptionsWarm[vIdx % fragranceOptionsWarm.length];
+  } else {
+    fragranceNotes = fragranceOptionsMild[vIdx % fragranceOptionsMild.length];
+  }
 
   const lifestyleReflexes: LifestyleReflexes = {
     umbrella: { needed: needsUmbrella, text: umbrellaText },
@@ -400,6 +624,7 @@ export function buildStylistRecommendation(params: {
     dayPace,
     occasion: defaultOccasion,
     stylistAdvice,
+    stylistTips,
     weatherSummary: `${params.weather.tempMax}°C · ${params.weather.weatherLabel}`,
     hasRain,
     hasWind,
