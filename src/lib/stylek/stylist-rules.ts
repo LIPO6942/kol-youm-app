@@ -386,6 +386,8 @@ export function buildStylistRecommendation(params: {
     fragranceNotes,
   };
 
+  const suggestionText = `Look ${defaultOccasion} pensé pour ${(params.weather.dayName || '').toLowerCase()} (${params.weather.tempMax}°C, ${(params.weather.weatherLabel || '').toLowerCase()}) : ${selectedTemplate.pitch}`;
+
   return {
     outfit: {
       haut,
