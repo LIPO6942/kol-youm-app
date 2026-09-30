@@ -494,6 +494,13 @@ export default function DecisionMaker() {
   const hasAutoTriggered = useRef(false);
 
   useEffect(() => {
+    const openParam = searchParams.get('open');
+    if (openParam === 'add-pepite') {
+      setView('stats');
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     if (user && !hasAutoTriggered.current) {
       const categoryParam = searchParams.get('category');
       const queryParam = searchParams.get('query');
@@ -796,7 +803,7 @@ export default function DecisionMaker() {
 
 
   const ManualVisitForm = () => {
-    const [open, setOpen] = useState(false);
+    const [open, setOpen] = useState(() => searchParams.get('open') === 'add-pepite');
     const [selectedPlace, setSelectedPlace] = useState("");
     const [selectedCat, setSelectedCat] = useState("Café");
     const [selectedZoneToAdd, setSelectedZoneToAdd] = useState<string>("La Marsa");
@@ -811,6 +818,23 @@ export default function DecisionMaker() {
     const [showThirdCommand, setShowThirdCommand] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [viewedDate, setViewedDate] = useState(getInitialLocalDateTime());
+
+    useEffect(() => {
+      if (searchParams.get('open') === 'add-pepite') {
+        setOpen(true);
+      }
+    }, [searchParams]);
+
+    const handleOpenChange = (nextOpen: boolean) => {
+      setOpen(nextOpen);
+      if (!nextOpen && searchParams.get('open') === 'add-pepite') {
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('open');
+          window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+        }
+      }
+    };
 
     // For Cinema
     const [movieSearchQuery, setMovieSearchQuery] = useState("");
@@ -1058,7 +1082,7 @@ export default function DecisionMaker() {
     };
 
     return (
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogTrigger asChild>
           <Button
             className="group relative h-12 w-full sm:w-64 overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-indigo-600 p-px font-bold text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-95"

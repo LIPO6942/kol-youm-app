@@ -22,7 +22,7 @@ export function GeneratedOutfitDisplay({ suggestion, gender }: GeneratedOutfitDi
     <CardContent className="p-4 sm:p-6 w-full animate-in fade-in-50 space-y-5">
       <div className="text-center space-y-1">
         <h3 className="text-xl sm:text-2xl font-bold font-headline tracking-tight text-foreground">
-          Votre Silhouette du Jour
+          Votre Allure du Jour
         </h3>
         <p className="text-xs text-muted-foreground font-body">
           Harmonisée selon la météo et votre rythme

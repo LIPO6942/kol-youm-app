@@ -90,7 +90,7 @@ export function WeatherHeroCard({
     const targetDate = activeDayWeather.date;
     const cached = getCachedDailyOutfit(targetDate, gender);
 
-    if (cached) {
+    if (cached && cached.recommendation?.lifestyleReflexes) {
       setCurrentRecommendation(cached.recommendation);
       setVariationIndex(cached.variationIndex || 0);
       onApplyOutfit(cached.recommendation.outfit, {
@@ -192,14 +192,22 @@ export function WeatherHeroCard({
     return null;
   }
 
+  // Guaranteed reflexes (with immediate fallback calculation if recommendation lacks it)
+  const reflexes = currentRecommendation.lifestyleReflexes || (activeDayWeather ? buildStylistRecommendation({
+    weather: activeDayWeather,
+    gender,
+    wardrobe,
+    variationIndex
+  }).lifestyleReflexes : null);
+
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-card via-card/95 to-primary/5 p-4 sm:p-5 shadow-sm backdrop-blur-md transition-all space-y-4">
+    <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-card via-card/95 to-primary/5 p-4 sm:p-5 shadow-sm backdrop-blur-md transition-all space-y-3.5">
       {/* Ambient background glow */}
       <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
 
-      {/* Top Header: Location & Day Switcher */}
-      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/50">
+      {/* Top Header: Location, Date & Day Switcher */}
+      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-border/50">
         <div className="flex items-center space-x-2">
           <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
             <MapPin className="h-4 w-4" />
@@ -247,10 +255,37 @@ export function WeatherHeroCard({
         </div>
       </div>
 
-      {/* Main Section: Visual Miniature of Outfit (Left) + Weather & Stylist Advice (Right) */}
-      <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-stretch gap-4 sm:gap-5 pt-1">
-        {/* VISUAL MINIATURE OF THE OUTFIT */}
-        <div className="relative w-28 sm:w-32 aspect-[3/4] shrink-0 rounded-xl overflow-hidden border border-border/70 shadow-xs bg-secondary/60 flex items-center justify-center">
+      {/* Weather Strip: Temp, Description, Ressenti & Pace Badge */}
+      <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-secondary/50 border border-border/40">
+        <div className="flex items-center space-x-2.5">
+          <div className="p-1.5 rounded-lg bg-background border border-border/50 shadow-2xs flex items-center justify-center">
+            {renderWeatherIcon(activeDayWeather.weatherIconType, 'h-5 w-5')}
+          </div>
+          <div className="flex items-baseline space-x-2">
+            <span className="text-lg sm:text-xl font-extrabold tracking-tight font-headline text-foreground">
+              {activeDayWeather.tempMax}°C
+            </span>
+            <span className="text-xs font-semibold text-foreground capitalize">
+              {activeDayWeather.weatherLabel}
+            </span>
+            <span className="text-[11px] text-muted-foreground hidden sm:inline">
+              · Ressenti {activeDayWeather.tempApparentMax}°C (min {activeDayWeather.tempMin}°C)
+            </span>
+          </div>
+        </div>
+
+        <Badge 
+          variant="outline" 
+          className="bg-primary/10 text-primary border-primary/25 font-semibold text-[11px] px-2.5 py-0.5 rounded-full"
+        >
+          {currentRecommendation.dayPace === 'Semaine' ? '📅 Semaine : Posé Chic' : '🌴 Weekend : Décontracté & Sport'}
+        </Badge>
+      </div>
+
+      {/* CORE SHOWCASE: Miniature du Look (Gauche) + Bloc « Réflexes Météo & Sillage » (Droite, Côte-à-Côte) */}
+      <div className="relative z-10 flex flex-row items-stretch gap-3 sm:gap-4 pt-1">
+        {/* 1. VISUAL MINIATURE OF THE OUTFIT */}
+        <div className="relative w-28 sm:w-36 md:w-40 aspect-[3/4] shrink-0 rounded-2xl overflow-hidden border border-border/70 shadow-xs bg-secondary/60 flex items-center justify-center group">
           <GeneratedOutfitImage 
             description={currentRecommendation.outfit.suggestionText} 
             gender={gender} 
@@ -260,134 +295,111 @@ export function WeatherHeroCard({
           </div>
         </div>
 
-        {/* Weather & Advice Block */}
-        <div className="flex-1 flex flex-col justify-between space-y-2.5 w-full">
-          {/* Weather Header + Pace Badge */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 rounded-xl bg-secondary/80 border border-border/50 shadow-xs flex items-center justify-center">
-                {renderWeatherIcon(activeDayWeather.weatherIconType, 'h-7 w-7')}
-              </div>
-              <div>
-                <div className="flex items-baseline space-x-1.5">
-                  <span className="text-2xl sm:text-3xl font-extrabold tracking-tight font-headline text-foreground">
-                    {activeDayWeather.tempMax}°C
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    min {activeDayWeather.tempMin}°C
-                  </span>
-                </div>
-                <p className="text-xs font-medium text-foreground capitalize">
-                  {activeDayWeather.weatherLabel} · Ressenti {activeDayWeather.tempApparentMax}°C
-                </p>
-              </div>
-            </div>
-
-            {/* Essential Context Badges */}
-            <div className="flex items-center gap-1.5">
-              <Badge 
-                variant="outline" 
-                className="bg-primary/10 text-primary border-primary/25 font-semibold text-[11px] px-2.5 py-0.5 rounded-full"
-              >
-                {currentRecommendation.dayPace === 'Semaine' ? '📅 Semaine : Posé Chic' : '🌴 Weekend : Décontracté & Sport'}
-              </Badge>
-
-              {activeDayWeather.precipitationProbMax > 0 && (
-                <Badge 
-                  variant="outline" 
-                  className={cn(
-                    'text-[11px] px-2 py-0.5 rounded-full',
-                    activeDayWeather.precipitationProbMax >= 40 
-                      ? 'bg-blue-500/10 text-blue-600 border-blue-500/30 dark:text-blue-400 font-medium' 
-                      : 'bg-secondary/60 text-muted-foreground border-border/40'
-                  )}
-                >
-                  💧 {activeDayWeather.precipitationProbMax}%
-                </Badge>
-              )}
-            </div>
+        {/* 2. LE BLOC « RÉFLEXES MÉTÉO & SILLAGE » DIRECTEMENT À CÔTÉ DE LA MINIATURE */}
+        <div className="flex-1 flex flex-col justify-between min-w-0 space-y-2">
+          <div className="flex items-center justify-between pb-1 border-b border-border/40">
+            <span className="text-xs font-bold tracking-tight text-foreground flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              Réflexes Météo & Sillage
+            </span>
+            {activeDayWeather.precipitationProbMax > 0 && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold border border-blue-500/20">
+                💧 Pluie {activeDayWeather.precipitationProbMax}%
+              </span>
+            )}
           </div>
 
-          {/* Lifestyle & Climate Reflexes (Parapluie, Veste, Chaussures, Parfum) */}
-          {currentRecommendation.lifestyleReflexes && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs pt-0.5">
-              <div className="p-2 rounded-xl bg-background/60 border border-border/50 flex items-center space-x-2 shadow-2xs">
-                <span className="text-sm shrink-0">
-                  {currentRecommendation.lifestyleReflexes.umbrella.needed ? '🌂' : '☀️'}
+          {reflexes && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs flex-1">
+              {/* Parapluie */}
+              <div className="p-2 rounded-xl bg-background/70 border border-border/50 flex items-center space-x-2 shadow-2xs">
+                <span className="text-base shrink-0">
+                  {reflexes.umbrella.needed ? '🌂' : '☀️'}
                 </span>
-                <span className={cn(
-                  'font-medium text-xs leading-tight',
-                  currentRecommendation.lifestyleReflexes.umbrella.needed ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-foreground/90'
-                )}>
-                  {currentRecommendation.lifestyleReflexes.umbrella.text}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block leading-none mb-0.5">Parapluie</span>
+                  <span className={cn(
+                    'font-medium text-xs leading-tight line-clamp-2',
+                    reflexes.umbrella.needed ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-foreground/90'
+                  )}>
+                    {reflexes.umbrella.text}
+                  </span>
+                </div>
               </div>
 
-              <div className="p-2 rounded-xl bg-background/60 border border-border/50 flex items-center space-x-2 shadow-2xs">
-                <span className="text-sm shrink-0">🧥</span>
-                <span className="font-medium text-xs text-foreground/90 leading-tight">
-                  {currentRecommendation.lifestyleReflexes.layering}
-                </span>
+              {/* Superposition */}
+              <div className="p-2 rounded-xl bg-background/70 border border-border/50 flex items-center space-x-2 shadow-2xs">
+                <span className="text-base shrink-0">🧥</span>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block leading-none mb-0.5">Veste & Couches</span>
+                  <span className="font-medium text-xs text-foreground/90 leading-tight line-clamp-2">
+                    {reflexes.layering}
+                  </span>
+                </div>
               </div>
 
-              <div className="p-2 rounded-xl bg-background/60 border border-border/50 flex items-center space-x-2 shadow-2xs">
-                <span className="text-sm shrink-0">👞</span>
-                <span className="font-medium text-xs text-foreground/90 leading-tight">
-                  {currentRecommendation.lifestyleReflexes.shoesAlert}
-                </span>
+              {/* Chaussures */}
+              <div className="p-2 rounded-xl bg-background/70 border border-border/50 flex items-center space-x-2 shadow-2xs">
+                <span className="text-base shrink-0">👞</span>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block leading-none mb-0.5">Chaussures</span>
+                  <span className="font-medium text-xs text-foreground/90 leading-tight line-clamp-2">
+                    {reflexes.shoesAlert}
+                  </span>
+                </div>
               </div>
 
               {/* Sillage de parfum en petits caractères */}
-              <div className="p-2 rounded-xl bg-background/60 border border-border/50 flex items-center space-x-2 shadow-2xs">
-                <span className="text-sm shrink-0">✨</span>
-                <div className="leading-tight">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-primary mr-1">Sillage</span>
-                  <span className="text-[10.5px] italic text-muted-foreground">
-                    {currentRecommendation.lifestyleReflexes.fragranceNotes}
+              <div className="p-2 rounded-xl bg-background/70 border border-border/50 flex items-center space-x-2 shadow-2xs">
+                <span className="text-base shrink-0">✨</span>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-primary block leading-none mb-0.5">Sillage & Parfum</span>
+                  <span className="text-[10.5px] italic text-muted-foreground leading-tight line-clamp-2">
+                    {reflexes.fragranceNotes}
                   </span>
                 </div>
               </div>
             </div>
           )}
+        </div>
+      </div>
 
-          {/* Stylist Advice Quote */}
-          <div className="rounded-xl bg-background/70 border border-border/60 p-2.5 text-xs text-foreground/90 italic leading-snug shadow-2xs">
-            <span className="font-semibold text-primary not-italic mr-1.5">💡 Conseil Styliste :</span>
-            "{currentRecommendation.stylistAdvice}"
-          </div>
+      {/* 3. Stylist Advice Quote */}
+      <div className="relative z-10 rounded-xl bg-background/80 border border-border/60 p-2.5 sm:p-3 text-xs text-foreground/90 italic leading-snug shadow-2xs">
+        <span className="font-semibold text-primary not-italic mr-1.5">💡 Conseil Styliste :</span>
+        "{currentRecommendation.stylistAdvice}"
+      </div>
 
-          {/* Action Footer */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/40">
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                onClick={handleRegenerateVariation}
-                disabled={isGeneratingVariation}
-                variant="outline"
-                className="text-xs h-8 border-border/70 hover:bg-secondary/70 transition-all gap-1.5"
-              >
-                <RotateCcw className={cn('h-3.5 w-3.5', isGeneratingVariation && 'animate-spin')} />
-                <span>Autre inspiration</span>
-              </Button>
+      {/* 4. Action Footer */}
+      <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/40">
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={handleRegenerateVariation}
+            disabled={isGeneratingVariation}
+            variant="outline"
+            className="text-xs h-8 border-border/70 hover:bg-secondary/70 transition-all gap-1.5"
+          >
+            <RotateCcw className={cn('h-3.5 w-3.5', isGeneratingVariation && 'animate-spin')} />
+            <span>Autre inspiration</span>
+          </Button>
 
-              {onScrollToForm && (
-                <Button
-                  size="sm"
-                  onClick={onScrollToForm}
-                  variant="ghost"
-                  className="text-xs h-8 text-muted-foreground hover:text-foreground gap-1.5"
-                >
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
-                  <span>Personnaliser l'activité</span>
-                </Button>
-              )}
-            </div>
+          {onScrollToForm && (
+            <Button
+              size="sm"
+              onClick={onScrollToForm}
+              variant="ghost"
+              className="text-xs h-8 text-muted-foreground hover:text-foreground gap-1.5"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <span>Personnaliser l'activité</span>
+            </Button>
+          )}
+        </div>
 
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Shirt className="h-3.5 w-3.5 text-primary" />
-              <span>Profil : <strong className="text-foreground capitalize">{gender}</strong></span>
-            </div>
-          </div>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Shirt className="h-3.5 w-3.5 text-primary" />
+          <span>Profil : <strong className="text-foreground capitalize">{gender}</strong></span>
         </div>
       </div>
     </div>
