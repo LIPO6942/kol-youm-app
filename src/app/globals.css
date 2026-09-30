@@ -141,8 +141,10 @@ body {
     --input: 217 31% 24%;
   }
 
-  /* Khrouj Theme (Modern Chic Gourmet Amber/Coral & Warm Linen) */
-  .theme-khrouj {
+  /* Khrouj Seasonal Themes */
+  /* 1. Automne (Sunset Coral & Lin Chaud - Actuel) */
+  .theme-khrouj,
+  .theme-khrouj-autumn {
     --background: 28 35% 97%;
     --foreground: 24 25% 15%;
     --card: 0 0% 100%;
@@ -157,7 +159,8 @@ body {
     --input: 28 20% 89%;
     --ring: 20 92% 54%;
   }
-  .dark .theme-khrouj {
+  .dark .theme-khrouj,
+  .dark .theme-khrouj-autumn {
     --background: 24 18% 9%; /* Deep Obsidian Charcoal */
     --foreground: 30 20% 96%;
     --card: 24 15% 13%;
@@ -171,6 +174,108 @@ body {
     --border: 24 15% 20%;
     --input: 24 15% 20%;
     --ring: 20 92% 58%;
+  }
+
+  /* 2. Hiver (Saphir Givré & Cachemire) */
+  .theme-khrouj-winter,
+  .theme-khrouj.theme-khrouj-winter {
+    --background: 215 30% 97%;
+    --foreground: 222 35% 16%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 35% 16%;
+    --primary: 218 88% 54%; /* Luminous Alpine Azure */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 25% 93%;
+    --muted: 215 25% 93%;
+    --accent: 38 95% 52%; /* Fireside Amber */
+    --accent-foreground: 0 0% 100%;
+    --border: 215 22% 88%;
+    --input: 215 22% 88%;
+    --ring: 218 88% 54%;
+  }
+  .dark .theme-khrouj-winter,
+  .dark .theme-khrouj.theme-khrouj-winter {
+    --background: 222 35% 8%; /* Midnight Sapphire */
+    --foreground: 215 25% 96%;
+    --card: 222 30% 12%;
+    --card-foreground: 215 25% 96%;
+    --primary: 215 92% 62%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 222 25% 17%;
+    --muted: 222 25% 17%;
+    --accent: 38 92% 56%;
+    --accent-foreground: 0 0% 100%;
+    --border: 222 25% 19%;
+    --input: 222 25% 19%;
+    --ring: 215 92% 62%;
+  }
+
+  /* 3. Printemps (Rose Pivoine & Pêche Poudrée) */
+  .theme-khrouj-spring,
+  .theme-khrouj.theme-khrouj-spring {
+    --background: 345 35% 98%;
+    --foreground: 335 25% 16%;
+    --card: 0 0% 100%;
+    --card-foreground: 335 25% 16%;
+    --primary: 345 84% 56%; /* Vibrant Peony Rose */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 340 30% 94%;
+    --muted: 340 25% 94%;
+    --accent: 280 75% 62%; /* Lilac Amethyst */
+    --accent-foreground: 0 0% 100%;
+    --border: 340 20% 89%;
+    --input: 340 20% 89%;
+    --ring: 345 84% 56%;
+  }
+  .dark .theme-khrouj-spring,
+  .dark .theme-khrouj.theme-khrouj-spring {
+    --background: 335 28% 8%; /* Deep Velvet Plum */
+    --foreground: 340 20% 96%;
+    --card: 335 22% 13%;
+    --card-foreground: 340 20% 96%;
+    --primary: 345 88% 64%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 335 20% 18%;
+    --muted: 335 20% 18%;
+    --accent: 280 70% 68%;
+    --accent-foreground: 0 0% 100%;
+    --border: 335 20% 20%;
+    --input: 335 20% 20%;
+    --ring: 345 88% 64%;
+  }
+
+  /* 4. Été (Soleil Doré & Riviera Méditerranée) */
+  .theme-khrouj-summer,
+  .theme-khrouj.theme-khrouj-summer {
+    --background: 42 42% 97%;
+    --foreground: 32 28% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 32 28% 15%;
+    --primary: 32 96% 49%; /* Sunlit Citrus Gold */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 42 35% 92%;
+    --muted: 42 25% 93%;
+    --accent: 192 88% 46%; /* Riviera Turquoise */
+    --accent-foreground: 0 0% 100%;
+    --border: 42 25% 88%;
+    --input: 42 25% 88%;
+    --ring: 32 96% 49%;
+  }
+  .dark .theme-khrouj-summer,
+  .dark .theme-khrouj.theme-khrouj-summer {
+    --background: 32 22% 8%; /* Twilight Bronze */
+    --foreground: 42 20% 96%;
+    --card: 32 18% 12%;
+    --card-foreground: 42 20% 96%;
+    --primary: 34 95% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 32 16% 17%;
+    --muted: 32 16% 17%;
+    --accent: 192 85% 54%;
+    --accent-foreground: 0 0% 100%;
+    --border: 32 18% 19%;
+    --input: 32 18% 19%;
+    --ring: 34 95% 55%;
   }
   /* == Themes End == */
 }

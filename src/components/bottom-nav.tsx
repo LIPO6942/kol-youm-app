@@ -7,11 +7,26 @@ import { Palette, Film, BrainCircuit, MapPin, MapPinPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect } from 'react';
 
+export function getKhroujCurrentSeason(): 'winter' | 'spring' | 'summer' | 'autumn' {
+  const month = new Date().getMonth();
+  if (month === 11 || month === 0 || month === 1) return 'winter';
+  if (month >= 2 && month <= 4) return 'spring';
+  if (month >= 5 && month <= 7) return 'summer';
+  return 'autumn';
+}
+
+const seasonalKhroujClasses = [
+  'theme-khrouj-winter',
+  'theme-khrouj-spring',
+  'theme-khrouj-summer',
+  'theme-khrouj-autumn'
+];
+
 export default function BottomNav() {
   const pathname = usePathname();
 
   useEffect(() => {
-    const themeClasses = ['theme-stylek', 'theme-tfarrej', 'theme-5amem', 'theme-khrouj'];
+    const themeClasses = ['theme-stylek', 'theme-tfarrej', 'theme-5amem', 'theme-khrouj', ...seasonalKhroujClasses];
     
     // Remove any existing theme classes from the body
     document.body.classList.remove(...themeClasses, 'theme-profil', 'theme-settings', 'theme-wardrobe'); 
@@ -24,7 +39,8 @@ export default function BottomNav() {
     } else if (pathname.startsWith('/5amem')) {
       document.body.classList.add('theme-5amem');
     } else if (pathname.startsWith('/khrouj')) {
-      document.body.classList.add('theme-khrouj');
+      const season = getKhroujCurrentSeason();
+      document.body.classList.add('theme-khrouj', `theme-khrouj-${season}`);
     } else {
       document.body.classList.add('theme-stylek');
     }

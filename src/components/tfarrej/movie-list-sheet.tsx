@@ -1263,14 +1263,14 @@ function MovieListContent({
 
             {/* Ligne 3 : Date de visionnage & badge cinéma */}
             {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
-              <div className="flex flex-wrap items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+              <div className="flex flex-col gap-1 mt-1">
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     openDateModal(movieTitle, viewedAt, seenData?.watchedInCinema);
                   }}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground border border-transparent hover:border-border transition-colors cursor-pointer text-[10.5px]"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground border border-transparent hover:border-border transition-colors cursor-pointer text-[10.5px] w-fit"
                   title="Cliquer pour modifier la date de visionnage"
                 >
                   <Calendar className="h-3 w-3 text-emerald-400" />
@@ -1284,7 +1284,7 @@ function MovieListContent({
                   if (!isCinema) return null;
 
                   return (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950/80 border border-violet-200 dark:border-violet-800 text-[9px] font-bold text-violet-700 dark:text-violet-300">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950/80 border border-violet-200 dark:border-violet-800 text-[9px] font-bold text-violet-700 dark:text-violet-300 w-fit">
                       <Clapperboard className="h-2.5 w-2.5" />
                       Vu au Cinéma{place ? ` · ${place}` : ''}
                     </span>
@@ -2305,7 +2305,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetTrigger asChild>{trigger}</SheetTrigger>
-        <SheetContent className="flex flex-col w-[95%] sm:max-w-[90%] [&>button]:!w-8 [&>button]:!h-8 [&>button>svg]:!w-5 [&>button>svg]:!h-5">
+        <SheetContent size="full" className="flex flex-col p-3 sm:p-4 [&>button]:!w-8 [&>button]:!h-8 [&>button>svg]:!w-5 [&>button>svg]:!h-5">
           <SheetHeader>
             <div className="flex justify-between items-start">
               <div>
