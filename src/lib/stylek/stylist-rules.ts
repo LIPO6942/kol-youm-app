@@ -6,6 +6,13 @@ export type ThermalBracket = 'Froid' | 'Frais' | 'Doux' | 'Chaud';
 export type DayPace = 'Semaine' | 'Weekend';
 export type DefaultOccasion = 'Posé Chic' | 'Décontracté / Sport';
 
+export interface LifestyleReflexes {
+  umbrella: { needed: boolean; text: string };
+  layering: string;
+  shoesAlert: string;
+  fragranceNotes: string;
+}
+
 export interface StylistRecommendationResult {
   outfit: SuggestOutfitOutput;
   thermalBracket: ThermalBracket;
@@ -15,6 +22,7 @@ export interface StylistRecommendationResult {
   weatherSummary: string;
   hasRain: boolean;
   hasWind: boolean;
+  lifestyleReflexes: LifestyleReflexes;
 }
 
 /**
@@ -347,7 +355,36 @@ export function buildStylistRecommendation(params: {
     stylistAdvice += ' ⚠️ Risque de pluie détecté : n’oubliez pas votre parapluie !';
   }
 
-  const suggestionText = `Look ${defaultOccasion} pensé pour ${params.weather.dayName.toLowerCase()} (${params.weather.tempMax}°C, ${params.weather.weatherLabel.toLowerCase()}) : ${selectedTemplate.pitch}`;
+  // Lifestyle Reflexes
+  const needsUmbrella = hasRain || params.weather.precipitationProbMax >= 30;
+  const umbrellaText = needsUmbrella
+    ? `Parapluie recommandé (Risque pluie ${params.weather.precipitationProbMax}%)`
+    : `Pas de parapluie nécessaire (${params.weather.precipitationProbMax}% pluie)`;
+
+  const tempDiff = params.weather.tempMax - params.weather.tempMin;
+  let layering = '';
+  if (tempDiff >= 5) {
+    layering = `Veste amovible (Matin ${params.weather.tempMin}°C ➔ Après-midi ${params.weather.tempMax}°C)`;
+  } else if (params.weather.tempMax < 13) {
+    layering = `Manteau chaud toute la journée (${params.weather.tempMax}°C max)`;
+  } else {
+    layering = `Couvrance légère et respirante (${params.weather.tempMax}°C)`;
+  }
+
+  const shoesAlert = hasRain
+    ? 'Sol humide : Cuir lisse, éviter daim et toile'
+    : 'Sol sec : Baskets blanches ou mocassins bienvenus';
+
+  const fragranceNotes = (thermalBracket === 'Froid' || thermalBracket === 'Frais')
+    ? 'Notes boisées, ambrées, cèdre ou vanille épicée'
+    : 'Notes hespéridées, agrumes frais, thé vert ou marines';
+
+  const lifestyleReflexes: LifestyleReflexes = {
+    umbrella: { needed: needsUmbrella, text: umbrellaText },
+    layering,
+    shoesAlert,
+    fragranceNotes,
+  };
 
   return {
     outfit: {
@@ -364,5 +401,6 @@ export function buildStylistRecommendation(params: {
     weatherSummary: `${params.weather.tempMax}°C · ${params.weather.weatherLabel}`,
     hasRain,
     hasWind,
+    lifestyleReflexes,
   };
 }

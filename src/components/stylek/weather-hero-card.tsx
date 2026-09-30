@@ -308,6 +308,48 @@ export function WeatherHeroCard({
             </div>
           </div>
 
+          {/* Lifestyle & Climate Reflexes (Parapluie, Veste, Chaussures, Parfum) */}
+          {currentRecommendation.lifestyleReflexes && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs pt-0.5">
+              <div className="p-2 rounded-xl bg-background/60 border border-border/50 flex items-center space-x-2 shadow-2xs">
+                <span className="text-sm shrink-0">
+                  {currentRecommendation.lifestyleReflexes.umbrella.needed ? '🌂' : '☀️'}
+                </span>
+                <span className={cn(
+                  'font-medium text-xs leading-tight',
+                  currentRecommendation.lifestyleReflexes.umbrella.needed ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-foreground/90'
+                )}>
+                  {currentRecommendation.lifestyleReflexes.umbrella.text}
+                </span>
+              </div>
+
+              <div className="p-2 rounded-xl bg-background/60 border border-border/50 flex items-center space-x-2 shadow-2xs">
+                <span className="text-sm shrink-0">🧥</span>
+                <span className="font-medium text-xs text-foreground/90 leading-tight">
+                  {currentRecommendation.lifestyleReflexes.layering}
+                </span>
+              </div>
+
+              <div className="p-2 rounded-xl bg-background/60 border border-border/50 flex items-center space-x-2 shadow-2xs">
+                <span className="text-sm shrink-0">👞</span>
+                <span className="font-medium text-xs text-foreground/90 leading-tight">
+                  {currentRecommendation.lifestyleReflexes.shoesAlert}
+                </span>
+              </div>
+
+              {/* Sillage de parfum en petits caractères */}
+              <div className="p-2 rounded-xl bg-background/60 border border-border/50 flex items-center space-x-2 shadow-2xs">
+                <span className="text-sm shrink-0">✨</span>
+                <div className="leading-tight">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-primary mr-1">Sillage</span>
+                  <span className="text-[10.5px] italic text-muted-foreground">
+                    {currentRecommendation.lifestyleReflexes.fragranceNotes}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Stylist Advice Quote */}
           <div className="rounded-xl bg-background/70 border border-border/60 p-2.5 text-xs text-foreground/90 italic leading-snug shadow-2xs">
             <span className="font-semibold text-primary not-italic mr-1.5">💡 Conseil Styliste :</span>
