@@ -141,33 +141,36 @@ body {
     --input: 217 31% 24%;
   }
 
-  /* Khrouj Theme */
+  /* Khrouj Theme (Modern Chic Gourmet Amber/Coral & Warm Linen) */
   .theme-khrouj {
-    --background: 140 70% 97%; /* Mint Green */
-    --foreground: 142 76% 20%;
+    --background: 28 35% 97%;
+    --foreground: 24 25% 15%;
     --card: 0 0% 100%;
-    --card-foreground: 142 76% 20%;
-    --primary: 340 82% 60%; /* Lively Pink */
+    --card-foreground: 24 25% 15%;
+    --primary: 20 92% 54%; /* Radiant Gourmet Coral */
     --primary-foreground: 0 0% 100%;
-    --secondary: 140 70% 92%;
-    --muted: 140 70% 92%;
-    --accent: 142 76% 36%; /* Fresh Green */
+    --secondary: 28 30% 93%;
+    --muted: 28 25% 94%;
+    --accent: 36 92% 50%; /* Warm Amber Gold */
     --accent-foreground: 0 0% 100%;
-    --border: 140 70% 88%;
-    --input: 140 70% 88%;
-    --ring: 340 82% 60%;
+    --border: 28 20% 89%;
+    --input: 28 20% 89%;
+    --ring: 20 92% 54%;
   }
   .dark .theme-khrouj {
-    --background: 142 76% 10%; /* Dark Green */
-    --foreground: 140 70% 98%;
-    --card: 142 76% 14%;
-    --card-foreground: 140 70% 98%;
-    --primary: 340 82% 65%;
-    --secondary: 142 76% 18%;
-    --muted: 142 76% 18%;
-    --accent: 142 76% 46%;
-    --border: 142 76% 22%;
-    --input: 142 76% 22%;
+    --background: 24 18% 9%; /* Deep Obsidian Charcoal */
+    --foreground: 30 20% 96%;
+    --card: 24 15% 13%;
+    --card-foreground: 30 20% 96%;
+    --primary: 20 92% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 24 14% 18%;
+    --muted: 24 14% 18%;
+    --accent: 36 90% 52%;
+    --accent-foreground: 0 0% 100%;
+    --border: 24 15% 20%;
+    --input: 24 15% 20%;
+    --ring: 20 92% 58%;
   }
   /* == Themes End == */
 }

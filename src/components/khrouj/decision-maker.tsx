@@ -91,7 +91,7 @@ const outingOptions: { id: string; label: string; icon: LucideIcon; description:
   { id: 'cafe', label: 'Café', icon: Coffee, description: "Pour se détendre", colorClass: 'text-amber-800', bgClass: 'bg-amber-50', hoverClass: 'hover:bg-amber-100', selectedClass: 'border-amber-600 bg-amber-100', barBgClass: 'bg-amber-700' },
   { id: 'brunch', label: 'Brunch', icon: Sun, description: "Gourmandise du matin", colorClass: 'text-yellow-600', bgClass: 'bg-yellow-50', hoverClass: 'hover:bg-yellow-100', selectedClass: 'border-yellow-500 bg-yellow-100', barBgClass: 'bg-yellow-500' },
   { id: 'restaurant', label: 'Restaurant', icon: Pizza, description: "Un repas mémorable", colorClass: 'text-red-700', bgClass: 'bg-red-50', hoverClass: 'hover:bg-red-100', selectedClass: 'border-red-500 bg-red-100', barBgClass: 'bg-red-600' },
-  { id: 'kharjet', label: 'Kharjet', icon: Compass, description: "Baignades, soirées, glaces & sorties", colorClass: 'text-emerald-700 dark:text-emerald-400', bgClass: 'bg-emerald-50 dark:bg-emerald-950/30', hoverClass: 'hover:bg-emerald-100 dark:hover:bg-emerald-900/40', selectedClass: 'border-emerald-500 bg-emerald-100 dark:bg-emerald-900/50', barBgClass: 'bg-emerald-600' },
+  { id: 'kharjet', label: 'Kharjet', icon: Compass, description: "Baignades, soirées, glaces & sorties", colorClass: 'text-sky-700 dark:text-sky-400', bgClass: 'bg-sky-50 dark:bg-sky-950/30', hoverClass: 'hover:bg-sky-100 dark:hover:bg-sky-900/40', selectedClass: 'border-sky-500 bg-sky-100 dark:bg-sky-900/50', barBgClass: 'bg-sky-600' },
   { id: 'shopping', label: 'Shopping', icon: ShoppingBag, description: "Trouver la perle", colorClass: 'text-pink-700', bgClass: 'bg-pink-50', hoverClass: 'hover:bg-pink-100', selectedClass: 'border-pink-500 bg-pink-100', barBgClass: 'bg-pink-600' },
   { id: 'cinema', label: 'Cinéma', icon: Clapperboard, description: "Soirée 7ème art", colorClass: 'text-violet-700', bgClass: 'bg-violet-50', hoverClass: 'hover:bg-violet-100', selectedClass: 'border-violet-500 bg-violet-100', barBgClass: 'bg-violet-600' },
 ];
@@ -106,6 +106,8 @@ const zones = [
 const AVAILABLE_SPECIALTIES = [
   { label: "Pizza", emoji: "🍕" },
   { label: "Burger", emoji: "🍔" },
+  { label: "Zinger", emoji: "🥪" },
+  { label: "Cordon Bleu", emoji: "🥪" },
   { label: "Glace/Dessert", emoji: "🍦" },
   { label: "Tacos", emoji: "🌮" },
   { label: "Ma9loub", emoji: "🥙" },
@@ -214,7 +216,7 @@ export default function DecisionMaker() {
         const response = await fetch('/api/places-database-firestore');
         const result = await response.json();
         if (result.success && result.data.zones) {
-                    const flatPlaces: { name: string; category: string; zone: string; specialties: string[] }[] = [];
+          const flatPlaces: { name: string; category: string; zone: string; specialties: string[] }[] = [];
           const allClosedMap: Record<string, { replacedBy?: string; category?: string }> = {};
 
           result.data.zones.forEach((zone: any) => {
@@ -330,7 +332,7 @@ export default function DecisionMaker() {
         console.error('Retroactive Kharjet sync failed for', v.placeName, e);
       }
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allPlaces.length, userProfile?.visits]);
 
   // Base general zones (default predefined Tunis zones + any zone from DB that has non-Kharjet categories)
@@ -649,8 +651,10 @@ export default function DecisionMaker() {
       'Ma9loub': { keywords: ['ma9loub', 'makloub'], emoji: '🥙' },
       'Mlawi': { keywords: ['mlawi', 'melaoui'], emoji: '🌯' },
       'Chapati': { keywords: ['chapati', 'croque', 'sandwich rond'], emoji: '🥪' },
+      'Zinger': { keywords: ['zinger', 'zingeur', 'zingueur', 'sandwich escalope', 'escalope panée', 'escalope panee', 'sandwich zinger'], emoji: '🥪' },
+      'Cordon Bleu': { keywords: ['cordon bleu', 'cordon-bleu', 'cordonbleu', 'sandwich cordon bleu', 'sandwich cordon'], emoji: '🥪' },
       'Ciabatta': { keywords: ['ciabatta', 'ciabata'], emoji: '🥪' },
-      'Escalope / Poulet': { keywords: ['escalope', 'escalop', 'scalop', 'pané', 'panée', 'poulet', 'chicken', 'djedj', 'djaj'], emoji: '🍗' },
+      'Escalope / Poulet': { keywords: ['escalope grillée', 'escalope grillee', 'escalope', 'escalop', 'scalop', 'poulet', 'chicken', 'djedj', 'djaj'], emoji: '🍗' },
       'Risotto / Riz': { keywords: ['risotto', 'paella'], emoji: '🥘' },
       'Fruits de Mer / Crevettes': { keywords: ['crevette', 'crevettes', 'shrimp', 'seafood', 'fruit de mer', 'fruits de mer', 'calamar', 'poisson', 'saumon'], emoji: '🦐' },
       'Kaffteji': { keywords: ['kafteji', 'kaffteji'], emoji: '🥘' },
@@ -927,37 +931,37 @@ export default function DecisionMaker() {
 
           // Sync avec Tfarrej si c'est un cinéma
           if (finalOrderedItem) {
-              const movieData: any = {
-                  title: finalOrderedItem,
-                  viewedAt: dateMs,
-                  watchedInCinema: true,
-                  cinemaPlace: cleanedName,
-              };
-              if (selectedMovie) {
-                  if (selectedMovie.posterUrl) movieData.posterUrl = selectedMovie.posterUrl;
-                  if (selectedMovie.year) movieData.year = selectedMovie.year;
-                  if (selectedMovie.rating) movieData.rating = selectedMovie.rating;
-              }
+            const movieData: any = {
+              title: finalOrderedItem,
+              viewedAt: dateMs,
+              watchedInCinema: true,
+              cinemaPlace: cleanedName,
+            };
+            if (selectedMovie) {
+              if (selectedMovie.posterUrl) movieData.posterUrl = selectedMovie.posterUrl;
+              if (selectedMovie.year) movieData.year = selectedMovie.year;
+              if (selectedMovie.rating) movieData.rating = selectedMovie.rating;
+            }
 
-              // Check if the movie was in watchlist ('moviesToWatch')
-              const wasInWatchlist = userProfile?.moviesToWatch?.some(
-                (t: string) => t.toLowerCase() === finalOrderedItem.toLowerCase()
-              );
+            // Check if the movie was in watchlist ('moviesToWatch')
+            const wasInWatchlist = userProfile?.moviesToWatch?.some(
+              (t: string) => t.toLowerCase() === finalOrderedItem.toLowerCase()
+            );
 
-              await addSeenMovieWithDate(user.uid, movieData);
+            await addSeenMovieWithDate(user.uid, movieData);
 
-              if (wasInWatchlist) {
-                toast({
-                  title: "🎬 Film transféré depuis 'À voir' !",
-                  description: `"${finalOrderedItem}" était dans votre liste 'À voir'. Il a été automatiquement retiré de 'À voir' et ajouté à vos 'Films vus' !`,
-                  className: "bg-emerald-600 text-white font-bold border-none shadow-lg",
-                });
-              } else {
-                toast({
-                  title: "🎬 Sortie Cinéma enregistrée",
-                  description: `"${finalOrderedItem}" a été ajouté à vos films vus au cinéma.`,
-                });
-              }
+            if (wasInWatchlist) {
+              toast({
+                title: "🎬 Film transféré depuis 'À voir' !",
+                description: `"${finalOrderedItem}" était dans votre liste 'À voir'. Il a été automatiquement retiré de 'À voir' et ajouté à vos 'Films vus' !`,
+                className: "bg-emerald-600 text-white font-bold border-none shadow-lg",
+              });
+            } else {
+              toast({
+                title: "🎬 Sortie Cinéma enregistrée",
+                description: `"${finalOrderedItem}" a été ajouté à vos films vus au cinéma.`,
+              });
+            }
           }
         } else {
           // For other categories, allow multiple commands / tags in a single visit log (comma separated)
@@ -1164,17 +1168,15 @@ export default function DecisionMaker() {
                   </SelectContent>
                 </Select>
               ) : selectedPlace ? (
-                <div className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
-                  selectedCat === 'Kharjet'
+                <div className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${selectedCat === 'Kharjet'
                     ? 'border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/30'
                     : 'border-primary/30 bg-primary/5'
-                }`}>
+                  }`}>
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      selectedCat === 'Kharjet'
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedCat === 'Kharjet'
                         ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                         : 'bg-primary/20 text-primary'
-                    }`}>
+                      }`}>
                       {selectedCat === 'Kharjet' ? <Compass className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
                     </div>
                     <div className="min-w-0">
@@ -1236,11 +1238,10 @@ export default function DecisionMaker() {
                                     return (
                                       <span
                                         key={sIdx}
-                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                          selectedCat === 'Kharjet'
+                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${selectedCat === 'Kharjet'
                                             ? 'bg-emerald-100/80 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-700/60'
                                             : 'bg-primary/10 text-primary border border-primary/20'
-                                        }`}
+                                          }`}
                                       >
                                         {selectedCat === 'Kharjet' && emoji !== '🍽️' && <span>{emoji}</span>}
                                         {spec}
@@ -1270,7 +1271,7 @@ export default function DecisionMaker() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-6 px-2 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-1 font-medium"
+                      className="h-6 px-2 text-xs text-sky-600 dark:text-sky-400 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-sky-950/40 flex items-center gap-1 font-medium"
                       onClick={() => {
                         setIsCreatingNewZone(!isCreatingNewZone);
                         if (!isCreatingNewZone) {
@@ -1297,10 +1298,10 @@ export default function DecisionMaker() {
                       placeholder="Ex: Ghar El Melh, Zaghouan, Haouaria, Cap Angela..."
                       value={newCustomZone}
                       onChange={(e) => setNewCustomZone(e.target.value)}
-                      className="h-9 text-sm border-emerald-500/40 focus-visible:ring-emerald-500"
+                      className="h-9 text-sm border-sky-500/40 focus-visible:ring-sky-500"
                       autoFocus
                     />
-                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                    <p className="text-[11px] text-sky-600 dark:text-sky-400">
                       ✨ Cette zone sera enregistrée spécifiquement pour la catégorie « Kharjet ».
                     </p>
                   </div>
@@ -1324,7 +1325,7 @@ export default function DecisionMaker() {
                         <SelectItem key={z} value={z}>{z}</SelectItem>
                       ))}
                       {selectedCat === 'Kharjet' && (
-                        <SelectItem value="__new_kharjet_zone__" className="text-emerald-600 dark:text-emerald-400 font-semibold cursor-pointer border-t border-muted mt-1 pt-1">
+                        <SelectItem value="__new_kharjet_zone__" className="text-sky-600 dark:text-sky-400 font-semibold cursor-pointer border-t border-muted mt-1 pt-1">
                           ✨ + Ajouter une nouvelle zone...
                         </SelectItem>
                       )}
@@ -1335,241 +1336,241 @@ export default function DecisionMaker() {
             )}
 
             {selectedCat === 'Cinéma' ? (
-                <div className="space-y-2">
-                  <Label>Quel film avez-vous vu ?</Label>
-                  {!selectedMovie ? (
-                    <div className="relative">
-                      <Input
-                        placeholder="Rechercher un film..."
-                        value={movieSearchQuery}
-                        onChange={(e) => setMovieSearchQuery(e.target.value)}
-                      />
-                      {movieSearchQuery.length >= 2 && movieSearchResults.length > 0 && (
-                        <Card className="absolute z-50 w-full mt-1 max-h-[200px] overflow-y-auto shadow-lg">
-                          {movieSearchResults.map((movie) => (
-                            <div
-                              key={movie.id}
-                              className="flex items-center gap-2 p-2 hover:bg-accent cursor-pointer"
-                              onClick={() => {
-                                setSelectedMovie(movie);
-                                setMovieSearchQuery('');
-                              }}
-                            >
-                              {movie.posterUrl ? (
-                                <img src={movie.posterUrl} alt={movie.title} className="w-8 h-12 object-cover rounded" />
-                              ) : (
-                                <div className="w-8 h-12 bg-muted flex items-center justify-center rounded">
-                                  <Film className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{movie.title}</p>
-                                <p className="text-xs text-muted-foreground">{movie.year}</p>
+              <div className="space-y-2">
+                <Label>Quel film avez-vous vu ?</Label>
+                {!selectedMovie ? (
+                  <div className="relative">
+                    <Input
+                      placeholder="Rechercher un film..."
+                      value={movieSearchQuery}
+                      onChange={(e) => setMovieSearchQuery(e.target.value)}
+                    />
+                    {movieSearchQuery.length >= 2 && movieSearchResults.length > 0 && (
+                      <Card className="absolute z-50 w-full mt-1 max-h-[200px] overflow-y-auto shadow-lg">
+                        {movieSearchResults.map((movie) => (
+                          <div
+                            key={movie.id}
+                            className="flex items-center gap-2 p-2 hover:bg-accent cursor-pointer"
+                            onClick={() => {
+                              setSelectedMovie(movie);
+                              setMovieSearchQuery('');
+                            }}
+                          >
+                            {movie.posterUrl ? (
+                              <img src={movie.posterUrl} alt={movie.title} className="w-8 h-12 object-cover rounded" />
+                            ) : (
+                              <div className="w-8 h-12 bg-muted flex items-center justify-center rounded">
+                                <Film className="h-4 w-4 text-muted-foreground" />
                               </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{movie.title}</p>
+                              <p className="text-xs text-muted-foreground">{movie.year}</p>
                             </div>
-                          ))}
-                        </Card>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
-                      <div className="flex items-center gap-2">
-                        {selectedMovie.posterUrl ? (
-                          <img src={selectedMovie.posterUrl} alt={selectedMovie.title} className="w-8 h-12 object-cover rounded" />
-                        ) : (
-                          <div className="w-8 h-12 bg-muted flex items-center justify-center rounded">
-                            <Film className="h-4 w-4 text-muted-foreground" />
                           </div>
-                        )}
-                        <div>
-                          <p className="text-sm font-medium">{selectedMovie.title}</p>
-                          <p className="text-xs text-muted-foreground">{selectedMovie.year}</p>
+                        ))}
+                      </Card>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
+                    <div className="flex items-center gap-2">
+                      {selectedMovie.posterUrl ? (
+                        <img src={selectedMovie.posterUrl} alt={selectedMovie.title} className="w-8 h-12 object-cover rounded" />
+                      ) : (
+                        <div className="w-8 h-12 bg-muted flex items-center justify-center rounded">
+                          <Film className="h-4 w-4 text-muted-foreground" />
                         </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-medium">{selectedMovie.title}</p>
+                        <p className="text-xs text-muted-foreground">{selectedMovie.year}</p>
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => setSelectedMovie(null)}>
-                        <X className="h-4 w-4" />
-                      </Button>
                     </div>
-                  )}
+                    <Button variant="ghost" size="icon" onClick={() => setSelectedMovie(null)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
 
-                  {/* Note explicative sur le Duel Ciné et le Wrap-Up */}
-                  <div className="p-3 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-300 dark:text-violet-200 flex items-start gap-2.5 mt-2.5">
-                    <Swords className="w-4 h-4 text-violet-400 flex-shrink-0 mt-0.5" />
-                    <div className="text-xs space-y-0.5">
-                      <p className="font-bold text-violet-200 dark:text-violet-100">
-                        ⚔️ Duel Ciné & Wrap-Up Mensuel :
-                      </p>
-                      <p className="text-[11px] leading-relaxed text-muted-foreground dark:text-violet-300/80">
-                        Le <strong>premier duel</strong> classe l'ensemble de tous vos films vus du mois. Une fois ce classement initial établi, vos prochains duels ne compareront <strong>que les nouveaux films ajoutés</strong> pour les insérer directement à leur juste place (dans l'onglet Tfarrej ou dans votre Wrap-Up mensuel) !
-                      </p>
-                    </div>
+                {/* Note explicative sur le Duel Ciné et le Wrap-Up */}
+                <div className="p-3 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-300 dark:text-violet-200 flex items-start gap-2.5 mt-2.5">
+                  <Swords className="w-4 h-4 text-violet-400 flex-shrink-0 mt-0.5" />
+                  <div className="text-xs space-y-0.5">
+                    <p className="font-bold text-violet-200 dark:text-violet-100">
+                      ⚔️ Duel Ciné & Wrap-Up Mensuel :
+                    </p>
+                    <p className="text-[11px] leading-relaxed text-muted-foreground dark:text-violet-300/80">
+                      Le <strong>premier duel</strong> classe l'ensemble de tous vos films vus du mois. Une fois ce classement initial établi, vos prochains duels ne compareront <strong>que les nouveaux films ajoutés</strong> pour les insérer directement à leur juste place (dans l'onglet Tfarrej ou dans votre Wrap-Up mensuel) !
+                    </p>
                   </div>
                 </div>
+              </div>
             ) : (
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label>
-                        {selectedCat === 'Kharjet' ? "Tags & Activités (ex: Baignade, Glace, Soirée...)" : "Qu'avez-vous commandé ? (Optionnel)"}
-                      </Label>
-                      {!showSecondCommand && (
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          className="h-6 px-2 text-xs text-primary hover:text-primary/80 hover:bg-primary/5 flex items-center gap-1"
-                          onClick={() => setShowSecondCommand(true)}
-                        >
-                          <Plus className="h-3.5 w-3.5" /> {selectedCat === 'Kharjet' ? "Tag 2" : "Commande 2"}
-                        </Button>
-                      )}
-                    </div>
-                    <Input
-                      placeholder={selectedCat === 'Kharjet' ? "Ex: Plage, Glace, Soirée coucher de soleil..." : "Ex: Chapati, Café crème, Pizza..."}
-                      value={orderedItem}
-                      onChange={(e) => setOrderedItem(e.target.value)}
-                    />
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>
+                      {selectedCat === 'Kharjet' ? "Tags & Activités (ex: Baignade, Glace, Soirée...)" : "Qu'avez-vous commandé ? (Optionnel)"}
+                    </Label>
+                    {!showSecondCommand && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-6 px-2 text-xs text-primary hover:text-primary/80 hover:bg-primary/5 flex items-center gap-1"
+                        onClick={() => setShowSecondCommand(true)}
+                      >
+                        <Plus className="h-3.5 w-3.5" /> {selectedCat === 'Kharjet' ? "Tag 2" : "Commande 2"}
+                      </Button>
+                    )}
                   </div>
+                  <Input
+                    placeholder={selectedCat === 'Kharjet' ? "Ex: Plage, Glace, Soirée coucher de soleil..." : "Ex: Chapati, Café crème, Pizza..."}
+                    value={orderedItem}
+                    onChange={(e) => setOrderedItem(e.target.value)}
+                  />
+                </div>
 
-                  {/* Badges de tags habituels enregistrés pour ce spot */}
-                  {currentMatchedPlace && currentMatchedPlace.specialties && currentMatchedPlace.specialties.length > 0 && (
-                    <div className="p-2.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/20 space-y-1.5 animate-in fade-in">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                          <Sparkles className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                          {selectedCat === 'Kharjet' ? "Tags associés à ce lieu :" : "Spécialités de ce lieu :"}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">Cliquez pour appliquer</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {currentMatchedPlace.specialties.map((s: string, idx: number) => {
-                          const emoji = selectedCat === 'Kharjet' ? getDishEmoji(s.toLowerCase()) : '🍽️';
-                          return (
-                            <TypedBadge
-                              key={idx}
-                              variant="outline"
-                              className="cursor-pointer hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-500 dark:hover:text-black text-[11px] bg-background border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-100 transition-colors py-0.5 px-2 rounded-md flex items-center gap-1"
-                              onClick={() => {
-                                if (!orderedItem) {
-                                  setOrderedItem(s);
-                                } else if (orderedItem.toLowerCase() === s.toLowerCase()) {
-                                  // already tag 1
-                                } else if (!orderedItem2 || !showSecondCommand) {
-                                  setShowSecondCommand(true);
-                                  setOrderedItem2(s);
-                                } else if (orderedItem2.toLowerCase() === s.toLowerCase()) {
-                                  // already tag 2
-                                } else if (!orderedItem3 || !showThirdCommand) {
-                                  setShowThirdCommand(true);
-                                  setOrderedItem3(s);
-                                } else {
-                                  setOrderedItem(s);
-                                }
-                              }}
-                            >
-                              {selectedCat === 'Kharjet' && (emoji !== '🍽️' ? `${emoji} ` : '✨ ')}{s}
-                            </TypedBadge>
-                          );
-                        })}
-                      </div>
+                {/* Badges de tags habituels enregistrés pour ce spot */}
+                {currentMatchedPlace && currentMatchedPlace.specialties && currentMatchedPlace.specialties.length > 0 && (
+                  <div className="p-2.5 rounded-xl bg-sky-500/10 dark:bg-sky-950/40 border border-sky-500/20 space-y-1.5 animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-sky-800 dark:text-sky-300 flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+                        {selectedCat === 'Kharjet' ? "Tags associés à ce lieu :" : "Spécialités de ce lieu :"}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">Cliquez pour appliquer</span>
                     </div>
-                  )}
-
-                  {/* Suggestions de tags prédéfinis pour Kharjet */}
-                  {selectedCat === 'Kharjet' && (
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-semibold text-muted-foreground block">Suggestions rapides :</span>
-                      <div className="flex flex-wrap gap-1.5 pt-0.5">
-                        {["🏖️ Baignade", "🍦 Glace", "🌅 Soirée", "🌿 Nature / Farniente", "🎯 Activité", "🥾 Randonnée", "🍹 Rooftop"].map((tag, idx) => (
+                    <div className="flex flex-wrap gap-1.5">
+                      {currentMatchedPlace.specialties.map((s: string, idx: number) => {
+                        const emoji = selectedCat === 'Kharjet' ? getDishEmoji(s.toLowerCase()) : '🍽️';
+                        return (
                           <TypedBadge
                             key={idx}
                             variant="outline"
-                            className="cursor-pointer hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/40 text-[11px] bg-background border-emerald-200 dark:border-emerald-800 transition-colors py-0.5"
+                            className="cursor-pointer hover:bg-sky-600 hover:text-white dark:hover:bg-sky-500 dark:hover:text-black text-[11px] bg-background border-sky-300 dark:border-sky-700 text-sky-900 dark:text-sky-100 transition-colors py-0.5 px-2 rounded-md flex items-center gap-1"
                             onClick={() => {
-                              const cleanTag = tag.replace(/^[^\w\s\u0600-\u06FF]+/u, '').trim();
                               if (!orderedItem) {
-                                setOrderedItem(cleanTag);
+                                setOrderedItem(s);
+                              } else if (orderedItem.toLowerCase() === s.toLowerCase()) {
+                                // already tag 1
                               } else if (!orderedItem2 || !showSecondCommand) {
                                 setShowSecondCommand(true);
-                                setOrderedItem2(cleanTag);
+                                setOrderedItem2(s);
+                              } else if (orderedItem2.toLowerCase() === s.toLowerCase()) {
+                                // already tag 2
                               } else if (!orderedItem3 || !showThirdCommand) {
                                 setShowThirdCommand(true);
-                                setOrderedItem3(cleanTag);
+                                setOrderedItem3(s);
                               } else {
-                                setOrderedItem(cleanTag);
+                                setOrderedItem(s);
                               }
                             }}
                           >
-                            {tag}
+                            {selectedCat === 'Kharjet' && (emoji !== '🍽️' ? `${emoji} ` : '✨ ')}{s}
                           </TypedBadge>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {showSecondCommand && (
-                    <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs text-muted-foreground">
-                          {selectedCat === 'Kharjet' ? "Deuxième tag (Optionnel)" : "Deuxième commande (Optionnelle)"}
-                        </Label>
-                        <div className="flex items-center gap-1">
-                          {!showThirdCommand && (
-                            <Button 
-                              type="button" 
-                              variant="ghost" 
-                              className="h-6 px-2 text-xs text-primary hover:text-primary/80 hover:bg-primary/5 flex items-center gap-1"
-                              onClick={() => setShowThirdCommand(true)}
-                            >
-                              <Plus className="h-3.5 w-3.5" /> {selectedCat === 'Kharjet' ? "Tag 3" : "Commande 3"}
-                            </Button>
-                          )}
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            className="h-6 px-1.5 text-xs text-destructive hover:text-destructive/80 hover:bg-destructive/5"
-                            onClick={() => {
-                              setShowSecondCommand(false);
-                              setOrderedItem2("");
-                            }}
+                {/* Suggestions de tags prédéfinis pour Kharjet */}
+                {selectedCat === 'Kharjet' && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-semibold text-muted-foreground block">Suggestions rapides :</span>
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {["🏖️ Baignade", "🍦 Glace", "🌅 Soirée", "🌿 Nature / Farniente", "🎯 Activité", "🥾 Randonnée", "🍹 Rooftop"].map((tag, idx) => (
+                        <TypedBadge
+                          key={idx}
+                          variant="outline"
+                          className="cursor-pointer hover:bg-sky-50 hover:text-sky-700 dark:hover:bg-sky-950/40 text-[11px] bg-background border-sky-200 dark:border-sky-800 transition-colors py-0.5"
+                          onClick={() => {
+                            const cleanTag = tag.replace(/^[^\w\s\u0600-\u06FF]+/u, '').trim();
+                            if (!orderedItem) {
+                              setOrderedItem(cleanTag);
+                            } else if (!orderedItem2 || !showSecondCommand) {
+                              setShowSecondCommand(true);
+                              setOrderedItem2(cleanTag);
+                            } else if (!orderedItem3 || !showThirdCommand) {
+                              setShowThirdCommand(true);
+                              setOrderedItem3(cleanTag);
+                            } else {
+                              setOrderedItem(cleanTag);
+                            }
+                          }}
+                        >
+                          {tag}
+                        </TypedBadge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {showSecondCommand && (
+                  <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">
+                        {selectedCat === 'Kharjet' ? "Deuxième tag (Optionnel)" : "Deuxième commande (Optionnelle)"}
+                      </Label>
+                      <div className="flex items-center gap-1">
+                        {!showThirdCommand && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs text-primary hover:text-primary/80 hover:bg-primary/5 flex items-center gap-1"
+                            onClick={() => setShowThirdCommand(true)}
                           >
-                            <X className="h-3.5 w-3.5" />
+                            <Plus className="h-3.5 w-3.5" /> {selectedCat === 'Kharjet' ? "Tag 3" : "Commande 3"}
                           </Button>
-                        </div>
-                      </div>
-                      <Input
-                        placeholder={selectedCat === 'Kharjet' ? "Ex: Soirée, Glace, Activité..." : "Ex: Thé, Tarte aux pommes..."}
-                        value={orderedItem2}
-                        onChange={(e) => setOrderedItem2(e.target.value)}
-                      />
-                    </div>
-                  )}
-
-                  {showThirdCommand && (
-                    <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs text-muted-foreground">
-                          {selectedCat === 'Kharjet' ? "Troisième tag (Optionnel)" : "Troisième commande (Optionnelle)"}
-                        </Label>
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
                           className="h-6 px-1.5 text-xs text-destructive hover:text-destructive/80 hover:bg-destructive/5"
                           onClick={() => {
-                            setShowThirdCommand(false);
-                            setOrderedItem3("");
+                            setShowSecondCommand(false);
+                            setOrderedItem2("");
                           }}
                         >
                           <X className="h-3.5 w-3.5" />
                         </Button>
                       </div>
-                      <Input
-                        placeholder={selectedCat === 'Kharjet' ? "Ex: Randonnée, Baignade..." : "Ex: Coca-Cola, Frites..."}
-                        value={orderedItem3}
-                        onChange={(e) => setOrderedItem3(e.target.value)}
-                      />
                     </div>
-                  )}
-                </div>
+                    <Input
+                      placeholder={selectedCat === 'Kharjet' ? "Ex: Soirée, Glace, Activité..." : "Ex: Thé, Tarte aux pommes..."}
+                      value={orderedItem2}
+                      onChange={(e) => setOrderedItem2(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {showThirdCommand && (
+                  <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">
+                        {selectedCat === 'Kharjet' ? "Troisième tag (Optionnel)" : "Troisième commande (Optionnelle)"}
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-6 px-1.5 text-xs text-destructive hover:text-destructive/80 hover:bg-destructive/5"
+                        onClick={() => {
+                          setShowThirdCommand(false);
+                          setOrderedItem3("");
+                        }}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                    <Input
+                      placeholder={selectedCat === 'Kharjet' ? "Ex: Randonnée, Baignade..." : "Ex: Coca-Cola, Frites..."}
+                      value={orderedItem3}
+                      onChange={(e) => setOrderedItem3(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Kharjet-only free text note */}
@@ -2141,7 +2142,7 @@ export default function DecisionMaker() {
 
                       {/* Free-text note for Kharjet */}
                       {visit.note && (
-                        <p className="mt-1.5 text-[10px] text-emerald-700 dark:text-emerald-400 italic flex items-start gap-1 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-lg px-2 py-1 border border-emerald-200/60 dark:border-emerald-800/50 leading-relaxed">
+                        <p className="mt-1.5 text-[10px] text-sky-700 dark:text-sky-400 italic flex items-start gap-1 bg-sky-50/70 dark:bg-sky-950/40 rounded-lg px-2 py-1 border border-sky-200/60 dark:border-sky-800/50 leading-relaxed">
                           <span className="flex-shrink-0 mt-px">📝</span>
                           <span>{visit.note}</span>
                         </p>
@@ -2339,7 +2340,7 @@ export default function DecisionMaker() {
                           ]
                         },
                         'Kharjet': {
-                          icon: Compass, color: 'text-emerald-700', bg: 'bg-emerald-50',
+                          icon: Compass, color: 'text-sky-700', bg: 'bg-sky-50',
                           titles: [
                             `Explorateur de Sorties`,
                             `Globe-Trotter Local`,
@@ -2349,7 +2350,7 @@ export default function DecisionMaker() {
                           ]
                         },
                         'Balade': {
-                          icon: Compass, color: 'text-emerald-700', bg: 'bg-emerald-50',
+                          icon: Compass, color: 'text-sky-700', bg: 'bg-sky-50',
                           titles: [
                             `Explorateur de Sorties`,
                             `Globe-Trotter Local`,
@@ -3653,7 +3654,7 @@ export default function DecisionMaker() {
                 </Button>
               )}
             </div>
-            
+
             <CollapsibleContent>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 border rounded-md bg-card/65 backdrop-blur-md">
                 {generalZones.map((zone: string) => (
@@ -3678,11 +3679,11 @@ export default function DecisionMaker() {
           <div className="grid gap-4 grid-cols-2">
             {outingOptions.filter(o => o.id !== 'cinema' && o.id !== 'kharjet' && o.id !== 'shopping').map((option: (typeof outingOptions)[0]) => {
               const Icon = option.icon;
-              
+
               // Map categories to high-end frosted glass variants of their respective accent colors
               let glassBg = "bg-primary/5 hover:bg-primary/10 border-primary/20";
               let textColor = option.colorClass;
-              
+
               switch (option.id) {
                 case 'fast-food':
                   glassBg = "bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/20 hover:border-orange-500/30";

@@ -52,8 +52,11 @@ export function getDishEmoji(text: string): string {
   if (t.includes('risotto') || t.includes('paella')) return '🥘';
   if (t.includes('riz') || t.includes('rice')) return '🍚';
 
-  // Ciabatta / Sandwich / Panini / Baguette / Escalope
+  // Ciabatta / Sandwich / Panini / Baguette / Zinger / Cordon Bleu / Escalope Panée
+  if (t.includes('zinger') || t.includes('zingeur') || t.includes('zingueur')) return '🥪';
+  if (t.includes('cordon bleu') || t.includes('cordon-bleu') || t.includes('cordonbleu') || t.includes('cordon')) return '🥪';
   if (t.includes('ciabatta') || t.includes('ciabata')) return '🥪';
+  if ((t.includes('escalope') || t.includes('poulet')) && (t.includes('sandwich') || t.includes('panini') || t.includes('baguette') || t.includes('ciabatta') || t.includes('pain') || t.includes('toast') || t.includes('pané') || t.includes('panee') || t.includes('panée'))) return '🥪';
   if (t.includes('escalope') || t.includes('escalop') || t.includes('scalop') || t.includes('pané') || t.includes('panee') || t.includes('panée')) return '🍗';
   if (t.includes('sandwich') || t.includes('panini') || t.includes('sub') || t.includes('wrap') || t.includes('club')) return '🥪';
   if (t.includes('baguette')) return '🥖';
@@ -211,8 +214,8 @@ const CUISINE_MAP: Record<string, string[]> = {
     'Japonaise': ['sushi', 'ramen', 'maki', 'sashimi', 'tempura', 'yakitori', 'takoyaki', 'wasabi', 'jap', 'gyoza', 'tonkatsu'],
     'Chinoise': ['chinois', 'chinese', 'nem', 'riz cantonnais', 'wok', 'dim sum', 'canard laque', 'bao', 'spring rolls'],
     'Italien': ['pizza', 'pates', 'pasta', 'lasagne', 'risotto', 'tiramisu', 'spaghetti', 'italien', 'italian', 'ciabatta', 'ciabata', 'tchabatta', 'tchabata', 'tiabatta', 'tiabata', 'panuzzo', 'panuzo', 'pannuzzo', 'pannozo', 'panuozzo', 'panuzio'],
-    'Américain': ['burger', 'cheeseburger', 'fries', 'hot dog', 'wings', 'nuggets', 'milkshake', 'fast food', 'fast-food', 'americain', 'american', 'brunch', 'pancake', 'bagel'],
-    'Français': ['crepe', 'croissant', 'omelette', 'quiche', 'fromage', 'baguette', 'francais', 'french', 'raclette', 'fondue', 'tartiflette', 'bistro', 'steak frites'],
+    'Américain': ['burger', 'cheeseburger', 'fries', 'hot dog', 'wings', 'nuggets', 'milkshake', 'fast food', 'fast-food', 'americain', 'american', 'brunch', 'pancake', 'bagel', 'zinger', 'zingeur', 'zingueur'],
+    'Français': ['crepe', 'croissant', 'omelette', 'quiche', 'fromage', 'baguette', 'francais', 'french', 'raclette', 'fondue', 'tartiflette', 'bistro', 'steak frites', 'cordon bleu', 'cordon-bleu'],
     'Mexicain': ['tacos', 'burrito', 'quesadilla', 'fajita', 'nachos', 'guacamole', 'mexicain', 'mexican', 'chili'],
 };
 
