@@ -15,6 +15,7 @@ import { regeneratePhotoOutfitPart } from '@/ai/flows/regenerate-photo-outfit-pa
 
 import { OutfitForm } from './outfit-form';
 import { OutfitDisplay } from './outfit-display';
+import { WeatherHeroCard } from './weather-hero-card';
 
 // Extended type to include imageDataUri for each part
 export type PhotoSuggestionPart = {
@@ -233,26 +234,52 @@ export default function OutfitSuggester() {
   };
 
 
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-      <Card>
-        <OutfitForm
-          isLoading={isGenerating}
-          onSuggestOutfit={getSuggestion}
-        />
-      </Card>
+  const handleApplyDailyWeatherOutfit = (
+    outfit: SuggestOutfitOutput,
+    _context: { weatherLabel: string; occasion: string }
+  ) => {
+    setSuggestion(outfit);
+    setPhotoSuggestion(null);
+    setBaseItemPhoto(null);
+    setCurrentPhotoConstraints(null);
+  };
 
-      <Card className="min-h-[600px] flex flex-col justify-center items-center sticky top-24">
-        <OutfitDisplay
-          isLoading={isGenerating}
-          suggestion={suggestion}
-          photoSuggestion={photoSuggestion}
-          gender={userProfile?.gender}
-          onRegeneratePart={handleRegeneratePhotoPart}
-          regeneratingPart={regeneratingPart}
-          baseItemPhoto={baseItemPhoto}
-        />
-      </Card>
+  const handleScrollToForm = () => {
+    const formEl = document.getElementById('stylek-manual-form');
+    if (formEl) {
+      formEl.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <WeatherHeroCard
+        gender={userProfile?.gender || 'Homme'}
+        wardrobe={userProfile?.wardrobe || []}
+        onApplyOutfit={handleApplyDailyWeatherOutfit}
+        onScrollToForm={handleScrollToForm}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <Card id="stylek-manual-form" className="scroll-mt-6">
+          <OutfitForm
+            isLoading={isGenerating}
+            onSuggestOutfit={getSuggestion}
+          />
+        </Card>
+
+        <Card className="min-h-[600px] flex flex-col justify-center items-center sticky top-24">
+          <OutfitDisplay
+            isLoading={isGenerating}
+            suggestion={suggestion}
+            photoSuggestion={photoSuggestion}
+            gender={userProfile?.gender}
+            onRegeneratePart={handleRegeneratePhotoPart}
+            regeneratingPart={regeneratingPart}
+            baseItemPhoto={baseItemPhoto}
+          />
+        </Card>
+      </div>
     </div>
   );
 }
