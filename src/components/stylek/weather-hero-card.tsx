@@ -15,8 +15,10 @@ import {
   Check, 
   SlidersHorizontal,
   Shirt,
-  Loader2,
-  Compass
+  Layers,
+  Footprints,
+  Gem,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -50,7 +52,6 @@ export function WeatherHeroCard({
   const [selectedDay, setSelectedDay] = useState<'today' | 'tomorrow'>('tomorrow');
   const [currentRecommendation, setCurrentRecommendation] = useState<StylistRecommendationResult | null>(null);
   const [variationIndex, setVariationIndex] = useState(0);
-  const [isCached, setIsCached] = useState(false);
   const [isGeneratingVariation, setIsGeneratingVariation] = useState(false);
 
   // Fetch weather forecast on mount
@@ -95,14 +96,11 @@ export function WeatherHeroCard({
     if (cached) {
       setCurrentRecommendation(cached.recommendation);
       setVariationIndex(cached.variationIndex || 0);
-      setIsCached(true);
-      // Auto-apply cached outfit
       onApplyOutfit(cached.recommendation.outfit, {
         weatherLabel: `${activeDayWeather.tempMax}°C · ${activeDayWeather.weatherLabel}`,
         occasion: cached.recommendation.occasion,
       });
     } else {
-      // Build fresh recommendation
       const fresh = buildStylistRecommendation({
         weather: activeDayWeather,
         gender,
@@ -111,9 +109,7 @@ export function WeatherHeroCard({
       });
       setCurrentRecommendation(fresh);
       setVariationIndex(0);
-      setIsCached(true);
 
-      // Save in cache
       const payload: CachedDailyOutfit = {
         targetDate,
         dayMode: selectedDay,
@@ -124,7 +120,6 @@ export function WeatherHeroCard({
       };
       saveCachedDailyOutfit(targetDate, gender, payload);
 
-      // Auto-apply initial outfit
       onApplyOutfit(fresh.outfit, {
         weatherLabel: `${activeDayWeather.tempMax}°C · ${activeDayWeather.weatherLabel}`,
         occasion: fresh.occasion,
@@ -147,7 +142,6 @@ export function WeatherHeroCard({
 
     setVariationIndex(nextIndex);
     setCurrentRecommendation(fresh);
-    setIsCached(true);
 
     const payload: CachedDailyOutfit = {
       targetDate: activeDayWeather.date,
@@ -169,7 +163,6 @@ export function WeatherHeroCard({
     }, 250);
   };
 
-  // Weather icon component helper
   const renderWeatherIcon = (iconType: DayWeather['weatherIconType'], className: string) => {
     switch (iconType) {
       case 'sun':
@@ -202,33 +195,26 @@ export function WeatherHeroCard({
     return null;
   }
 
-  const isTomorrow = selectedDay === 'tomorrow';
-
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-card via-card/95 to-primary/5 p-5 sm:p-6 shadow-sm backdrop-blur-md transition-all">
+    <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-card via-card/95 to-primary/5 p-4 sm:p-5 shadow-sm backdrop-blur-md transition-all space-y-4">
       {/* Ambient background glow */}
       <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
 
-      {/* Top Header: City & Day Switcher */}
-      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border/50">
+      {/* Top Header: Location & Day Switcher */}
+      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/50">
         <div className="flex items-center space-x-2">
           <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
             <MapPin className="h-4 w-4" />
           </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="text-sm font-semibold tracking-tight text-foreground">
-                {activeDayWeather.cityName}, Tunisie
-              </span>
-              <span className="text-xs text-muted-foreground font-normal">·</span>
-              <span className="text-xs text-muted-foreground font-normal">
-                {activeDayWeather.formattedDate}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Stylek Météo-Styliste Personnel
-            </p>
+          <div className="flex items-center space-x-2">
+            <span className="text-sm font-semibold tracking-tight text-foreground">
+              {activeDayWeather.cityName}, Tunisie
+            </span>
+            <span className="text-xs text-muted-foreground font-normal">·</span>
+            <span className="text-xs text-muted-foreground font-normal">
+              {activeDayWeather.formattedDate}
+            </span>
           </div>
         </div>
 
@@ -238,7 +224,7 @@ export function WeatherHeroCard({
             type="button"
             onClick={() => setSelectedDay('today')}
             className={cn(
-              'px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5',
+              'px-3 py-1 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5',
               selectedDay === 'today'
                 ? 'bg-background text-foreground shadow-xs font-semibold'
                 : 'text-muted-foreground hover:text-foreground'
@@ -252,7 +238,7 @@ export function WeatherHeroCard({
             type="button"
             onClick={() => setSelectedDay('tomorrow')}
             className={cn(
-              'px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5',
+              'px-3 py-1 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5',
               selectedDay === 'tomorrow'
                 ? 'bg-primary text-primary-foreground shadow-xs font-semibold'
                 : 'text-muted-foreground hover:text-foreground'
@@ -264,87 +250,143 @@ export function WeatherHeroCard({
         </div>
       </div>
 
-      {/* Main Weather & Stylist Section */}
-      <div className="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-5 pt-4 items-center">
-        {/* Left Column: Weather Glance */}
-        <div className="md:col-span-5 flex flex-col justify-center space-y-2">
-          <div className="flex items-center space-x-3.5">
-            <div className="p-3 rounded-2xl bg-secondary/80 border border-border/50 shadow-xs flex items-center justify-center">
-              {renderWeatherIcon(activeDayWeather.weatherIconType, 'h-9 w-9')}
+      {/* Weather Glance & Stylist Advice */}
+      <div className="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+        {/* Weather Block */}
+        <div className="md:col-span-4 flex flex-col space-y-1.5">
+          <div className="flex items-center space-x-3">
+            <div className="p-2.5 rounded-2xl bg-secondary/80 border border-border/50 shadow-xs flex items-center justify-center">
+              {renderWeatherIcon(activeDayWeather.weatherIconType, 'h-8 w-8')}
             </div>
             <div>
-              <div className="flex items-baseline space-x-2">
-                <span className="text-3xl sm:text-4xl font-extrabold tracking-tight font-headline text-foreground">
+              <div className="flex items-baseline space-x-1.5">
+                <span className="text-2xl sm:text-3xl font-extrabold tracking-tight font-headline text-foreground">
                   {activeDayWeather.tempMax}°C
                 </span>
                 <span className="text-xs text-muted-foreground">
                   min {activeDayWeather.tempMin}°C
                 </span>
               </div>
-              <p className="text-sm font-medium text-foreground capitalize">
-                {activeDayWeather.weatherLabel}
+              <p className="text-xs font-medium text-foreground capitalize">
+                {activeDayWeather.weatherLabel} · Ressenti {activeDayWeather.tempApparentMax}°C
               </p>
             </div>
           </div>
 
-          {/* Micro weather indicators */}
-          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground">
-            <span className="bg-secondary/60 px-2 py-0.5 rounded-md border border-border/40">
-              Ressenti {activeDayWeather.tempApparentMax}°C
-            </span>
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
             {activeDayWeather.precipitationProbMax > 0 && (
               <span className={cn(
-                'px-2 py-0.5 rounded-md border',
+                'px-2 py-0.5 rounded-md border text-[11px]',
                 activeDayWeather.precipitationProbMax >= 40 
-                  ? 'bg-blue-500/10 text-blue-600 border-blue-500/30 dark:text-blue-400' 
+                  ? 'bg-blue-500/10 text-blue-600 border-blue-500/30 dark:text-blue-400 font-medium' 
                   : 'bg-secondary/60 border-border/40'
               )}>
                 💧 Pluie {activeDayWeather.precipitationProbMax}%
               </span>
             )}
-            <span className="bg-secondary/60 px-2 py-0.5 rounded-md border border-border/40">
+            <span className="bg-secondary/60 px-2 py-0.5 rounded-md border border-border/40 text-[11px]">
               💨 {activeDayWeather.windSpeedMax} km/h
             </span>
           </div>
         </div>
 
-        {/* Right Column: Stylist Quote & Context Badges */}
-        <div className="md:col-span-7 flex flex-col space-y-3">
-          {/* Dynamic Badges */}
+        {/* Advice and Context Badges */}
+        <div className="md:col-span-8 flex flex-col space-y-2">
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge 
               variant="outline" 
-              className="bg-primary/10 text-primary border-primary/25 font-semibold text-[11px] px-2.5 py-0.5 rounded-full"
+              className="bg-primary/10 text-primary border-primary/25 font-semibold text-[11px] px-2 py-0.5 rounded-full"
             >
               {currentRecommendation.dayPace === 'Semaine' ? '📅 Semaine : Posé Chic' : '🌴 Weekend : Décontracté & Sport'}
             </Badge>
 
             <Badge 
               variant="secondary" 
-              className="text-[11px] px-2.5 py-0.5 rounded-full font-medium"
+              className="text-[11px] px-2 py-0.5 rounded-full font-medium"
             >
               {currentRecommendation.thermalBracket === 'Frais' ? '🧥 15°C Frais · Layering' : `🌡️ ${currentRecommendation.thermalBracket}`}
             </Badge>
 
             <Badge 
               variant="outline" 
-              className="text-[11px] px-2.5 py-0.5 rounded-full text-emerald-600 border-emerald-500/30 bg-emerald-500/10 dark:text-emerald-400 font-medium flex items-center gap-1"
+              className="text-[11px] px-2 py-0.5 rounded-full text-emerald-600 border-emerald-500/30 bg-emerald-500/10 dark:text-emerald-400 font-medium flex items-center gap-1"
             >
               <Check className="h-3 w-3" />
               <span>Tenue du jour prête</span>
             </Badge>
           </div>
 
-          {/* Stylist Advice Quote */}
-          <div className="rounded-xl bg-background/70 border border-border/60 p-3 text-xs sm:text-sm text-foreground/90 italic leading-relaxed shadow-2xs">
+          <div className="rounded-xl bg-background/70 border border-border/60 p-2.5 text-xs text-foreground/90 italic leading-snug shadow-2xs">
             <span className="font-semibold text-primary not-italic mr-1.5">💡 Conseil Styliste :</span>
             "{currentRecommendation.stylistAdvice}"
           </div>
         </div>
       </div>
 
+      {/* MINIATURE DE LA TENUE (Visible immédiatement à l'ouverture) */}
+      <div className="relative z-10 pt-3 border-t border-border/50">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center space-x-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground font-body">
+              Miniature de votre tenue · {currentRecommendation.occasion}
+            </span>
+          </div>
+          <span className="text-[11px] text-muted-foreground font-medium">
+            Pour {activeDayWeather.tempMax}°C ({gender})
+          </span>
+        </div>
+
+        {/* 4 Mini Capsule Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {/* Haut */}
+          <div className="p-2.5 rounded-xl bg-background/85 border border-border/60 hover:border-primary/40 transition-all shadow-2xs">
+            <div className="flex items-center space-x-1 text-primary text-[11px] font-semibold mb-1">
+              <Shirt className="h-3.5 w-3.5 shrink-0" />
+              <span>Haut</span>
+            </div>
+            <p className="text-xs font-medium text-foreground line-clamp-2 leading-tight">
+              {currentRecommendation.outfit.haut}
+            </p>
+          </div>
+
+          {/* Bas */}
+          <div className="p-2.5 rounded-xl bg-background/85 border border-border/60 hover:border-primary/40 transition-all shadow-2xs">
+            <div className="flex items-center space-x-1 text-primary text-[11px] font-semibold mb-1">
+              <Layers className="h-3.5 w-3.5 shrink-0" />
+              <span>Bas</span>
+            </div>
+            <p className="text-xs font-medium text-foreground line-clamp-2 leading-tight">
+              {currentRecommendation.outfit.bas}
+            </p>
+          </div>
+
+          {/* Chaussures */}
+          <div className="p-2.5 rounded-xl bg-background/85 border border-border/60 hover:border-primary/40 transition-all shadow-2xs">
+            <div className="flex items-center space-x-1 text-primary text-[11px] font-semibold mb-1">
+              <Footprints className="h-3.5 w-3.5 shrink-0" />
+              <span>Chaussures</span>
+            </div>
+            <p className="text-xs font-medium text-foreground line-clamp-2 leading-tight">
+              {currentRecommendation.outfit.chaussures}
+            </p>
+          </div>
+
+          {/* Accessoires */}
+          <div className="p-2.5 rounded-xl bg-background/85 border border-border/60 hover:border-primary/40 transition-all shadow-2xs">
+            <div className="flex items-center space-x-1 text-primary text-[11px] font-semibold mb-1">
+              <Gem className="h-3.5 w-3.5 shrink-0" />
+              <span>Accessoires</span>
+            </div>
+            <p className="text-xs font-medium text-foreground line-clamp-2 leading-tight">
+              {currentRecommendation.outfit.accessoires}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Action Footer Bar */}
-      <div className="relative z-10 flex flex-wrap items-center justify-between gap-2.5 pt-4 mt-4 border-t border-border/50">
+      <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/40">
         <div className="flex items-center gap-2">
           <Button
             size="sm"
@@ -370,9 +412,9 @@ export function WeatherHeroCard({
           )}
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Shirt className="h-3.5 w-3.5 text-primary" />
-          <span>Adapté pour : <strong className="text-foreground capitalize">{gender}</strong></span>
+          <span>Profil : <strong className="text-foreground capitalize">{gender}</strong></span>
         </div>
       </div>
     </div>

@@ -67,20 +67,20 @@ export async function generateOutfitFromPhoto(input: GenerateOutfitFromPhotoInpu
     }
 
     if (isBusiness) {
-      adaptedSuggestions.haut = 'Une chemise blanche ou un chemisier fluide';
-      adaptedSuggestions.bas = 'Un pantalon de costume ou une jupe crayon';
-      adaptedSuggestions.chaussures = 'Une paire de chaussures de ville ou escarpins';
-      adaptedSuggestions.accessoires = 'Un attaché-case ou sac structuré';
+      adaptedSuggestions.haut = 'Une chemise bien coupée ou un chemisier fluide';
+      adaptedSuggestions.bas = 'Un pantalon chino soigné ou pantalon tailleur fluide';
+      adaptedSuggestions.chaussures = 'Une paire de sneakers en cuir épurées ou mocassins souples';
+      adaptedSuggestions.accessoires = 'Une montre sobre ou sac structuré';
     } else if (isSport) {
-      adaptedSuggestions.haut = 'Un t-shirt technique respirant';
+      adaptedSuggestions.haut = 'Un t-shirt technique respirant ou hoodie léger';
       adaptedSuggestions.bas = 'Un short de sport ou legging';
       adaptedSuggestions.chaussures = 'Une paire de baskets de running';
-      adaptedSuggestions.accessoires = 'Une gourde sportive';
+      adaptedSuggestions.accessoires = 'Une casquette ou gourde';
     } else if (isEvening) {
-      adaptedSuggestions.haut = 'Une veste de smoking ou top soyeux';
-      adaptedSuggestions.bas = 'Un pantalon ajusté ou N/A (robe)';
-      adaptedSuggestions.chaussures = 'Une paire de chaussures vernies ou talons';
-      adaptedSuggestions.accessoires = 'Une pochette élégante';
+      adaptedSuggestions.haut = 'Une surchemise en velours, veste casual chic ou top soyeux';
+      adaptedSuggestions.bas = 'Un pantalon chino sombre ou jean noir soigné';
+      adaptedSuggestions.chaussures = 'Une paire de bottines chelsea ou baskets en cuir épurées';
+      adaptedSuggestions.accessoires = 'Une montre élégante ou pochette soignée';
     }
 
     // Adapter selon la météo

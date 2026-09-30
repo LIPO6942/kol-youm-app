@@ -16,25 +16,25 @@ const outfitSuggestions = {
     suggestionText: 'Look décontracté et moderne, parfait pour une sortie entre amis ou une balade en ville.'
   },
   business: {
-    haut: 'Une chemise blanche',
-    bas: 'Un pantalon de costume',
-    chaussures: 'Une paire de chaussures de ville',
-    accessoires: 'Un attaché-case',
-    suggestionText: 'Look professionnel et sophistiqué, parfait pour le travail ou les rendez-vous importants.'
+    haut: 'Une chemise bien coupée ou polo habillé',
+    bas: 'Un pantalon chino ajusté ou jean brut soigné',
+    chaussures: 'Une paire de sneakers en cuir blanc ou mocassins souples',
+    accessoires: 'Une montre sobre',
+    suggestionText: 'Look soigné et contemporain pour le bureau et la vie active de tous les jours.'
   },
   sport: {
-    haut: 'Un t-shirt technique',
-    bas: 'Un short de sport',
+    haut: 'Un t-shirt technique respirant ou hoodie léger',
+    bas: 'Un pantalon jogger structuré ou short de sport',
     chaussures: 'Une paire de chaussures de running',
-    accessoires: 'Une gourde',
-    suggestionText: 'Tenue sportive confortable et fonctionnelle, parfaite pour l\'exercice.'
+    accessoires: 'Une gourde ou casquette',
+    suggestionText: 'Tenue sportive confortable et fonctionnelle, parfaite pour bouger.'
   },
   evening: {
-    haut: 'Une robe élégante',
-    bas: 'N/A (robe)',
-    chaussures: 'Une paire d\'escarpins',
-    accessoires: 'Une pochette élégante',
-    suggestionText: 'Tenue de soirée glamour et raffinée, parfaite pour les événements spéciaux.'
+    haut: 'Une surchemise en velours ou veste casual chic',
+    bas: 'Un pantalon chino sombre ou jean noir épuré',
+    chaussures: 'Des bottines chelsea ou baskets en cuir soignées',
+    accessoires: 'Une montre en cuir',
+    suggestionText: 'Tenue élégante et moderne pour sortir le soir en toute décontraction.'
   }
 };
 
@@ -73,13 +73,23 @@ export async function suggestOutfit(input: SuggestOutfitInput): Promise<SuggestO
     // Adapter selon le genre
     if (gender === 'femme') {
       if (outfitType === 'casual') {
-        adaptedSuggestion.bas = 'Jeans skinny ou pantalon chino féminin';
+        adaptedSuggestion.bas = 'Jeans ou pantalon chino féminin';
         adaptedSuggestion.chaussures = 'Baskets ou chaussures plates confortables';
+      } else if (outfitType === 'evening') {
+        adaptedSuggestion.haut = 'Une robe élégante ou blouse satinée';
+        adaptedSuggestion.bas = 'Pantalon tailleur fluide ou jupe plissée';
+        adaptedSuggestion.chaussures = 'Une paire de babies ou bottines élégantes';
+        adaptedSuggestion.accessoires = 'Un sac à main fin';
       }
     } else if (gender === 'homme') {
       if (outfitType === 'casual') {
-        adaptedSuggestion.bas = 'Un jean straight';
-        adaptedSuggestion.chaussures = 'Une paire de baskets';
+        adaptedSuggestion.bas = 'Un jean straight ou pantalon chino';
+        adaptedSuggestion.chaussures = 'Une paire de sneakers modernes';
+      } else if (outfitType === 'evening') {
+        adaptedSuggestion.haut = 'Surchemise soignée ou blazer décontracté sur t-shirt uni';
+        adaptedSuggestion.bas = 'Pantalon chino sombre ou jean brut';
+        adaptedSuggestion.chaussures = 'Sneakers en cuir blanc ou bottines chelsea';
+        adaptedSuggestion.accessoires = 'Montre sobre en cuir';
       }
     }
 

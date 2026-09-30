@@ -135,11 +135,11 @@ const OUTFIT_MATRIX: Record<
     Doux: {
       'Posé Chic': [
         {
-          haut: 'Veste de costume légère déstructurée sur chemise en popeline de coton ou polo en maille fine',
-          bas: 'Pantalon chino léger coupe cropped beige ou bleu ciel',
-          chaussures: 'Mocassins estivaux légers ou tennis en cuir blanc',
-          accessoires: 'Lunettes de soleil et bracelet en cuir discret',
-          pitch: 'Une allure fraîche et respirante qui respire le professionnalisme estival.',
+          haut: 'Surchemise texturée en coton ou veste casual souple sur t-shirt uni de qualité ou polo en maille',
+          bas: 'Pantalon chino léger beige ou jean brut bien coupé',
+          chaussures: 'Tennis épurées en cuir blanc ou mocassins souples en daim',
+          accessoires: 'Montre sobre en cuir et lunettes de soleil',
+          pitch: 'Une allure fraîche, moderne et soignée pour la vie de tous les jours.',
         },
       ],
       'Décontracté / Sport': [
