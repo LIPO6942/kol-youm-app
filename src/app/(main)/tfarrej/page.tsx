@@ -148,28 +148,50 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
   }, [currentMonthKey, userProfile]);
 
   const existingRanking = useMemo(() => {
-    const fromProfile = userProfile?.movieRankings?.[currentMonthKey];
-    const fromStored = getStoredMovieRanking(currentMonthKey, userProfile);
-    const candidates = [localRanking, fromStored, fromProfile].filter(r => r && typeof r === 'object') as MonthlyMovieRanking[];
-    if (candidates.length === 0) return null;
-    return candidates.reduce((best, curr) => {
-      const bestTime = (best && typeof best === 'object') ? (best.updatedAt || best.publishedAt || 0) : 0;
-      const currTime = (curr && typeof curr === 'object') ? (curr.updatedAt || curr.publishedAt || 0) : 0;
-      return currTime >= bestTime ? curr : best;
-    });
-  }, [userProfile?.movieRankings, currentMonthKey, localRanking, userProfile]);
+    const pickBest = (candidates: (MonthlyMovieRanking | null | undefined)[]): MonthlyMovieRanking | null => {
+      const valid = candidates.filter((r): r is MonthlyMovieRanking => !!(r?.rankedTitles?.length));
+      if (valid.length === 0) return null;
+      return valid.reduce((best, curr) => {
+        const bestCount = best.rankedTitles?.length ?? 0;
+        const currCount = curr.rankedTitles?.length ?? 0;
+        if (currCount > bestCount) return curr;
+        if (currCount === bestCount) return (curr.updatedAt || 0) >= (best.updatedAt || 0) ? curr : best;
+        return best;
+      });
+    };
+    const allProfile = Object.values(userProfile?.movieRankings || {});
+    const fromLS: MonthlyMovieRanking[] = [];
+    if (typeof window !== 'undefined') {
+      try {
+        const all = localStorage.getItem('kolyoum_movie_rankings');
+        if (all) Object.values(JSON.parse(all)).forEach((r: any) => { if (r?.rankedTitles?.length) fromLS.push(r); });
+      } catch {}
+    }
+    return pickBest([localRanking, ...allProfile, ...fromLS]);
+  }, [userProfile?.movieRankings, localRanking, userProfile]);
 
   const existingSeriesRanking = useMemo(() => {
-    const fromProfile = userProfile?.seriesRankings?.[currentMonthKey];
-    const fromStored = getStoredSeriesRanking(currentMonthKey, userProfile);
-    const candidates = [seriesLocalRanking, fromStored, fromProfile].filter(r => r && typeof r === 'object') as MonthlyMovieRanking[];
-    if (candidates.length === 0) return null;
-    return candidates.reduce((best, curr) => {
-      const bestTime = (best && typeof best === 'object') ? (best.updatedAt || best.publishedAt || 0) : 0;
-      const currTime = (curr && typeof curr === 'object') ? (curr.updatedAt || curr.publishedAt || 0) : 0;
-      return currTime >= bestTime ? curr : best;
-    });
-  }, [userProfile?.seriesRankings, currentMonthKey, seriesLocalRanking, userProfile]);
+    const pickBest = (candidates: (MonthlyMovieRanking | null | undefined)[]): MonthlyMovieRanking | null => {
+      const valid = candidates.filter((r): r is MonthlyMovieRanking => !!(r?.rankedTitles?.length));
+      if (valid.length === 0) return null;
+      return valid.reduce((best, curr) => {
+        const bestCount = best.rankedTitles?.length ?? 0;
+        const currCount = curr.rankedTitles?.length ?? 0;
+        if (currCount > bestCount) return curr;
+        if (currCount === bestCount) return (curr.updatedAt || 0) >= (best.updatedAt || 0) ? curr : best;
+        return best;
+      });
+    };
+    const allProfile = Object.values(userProfile?.seriesRankings || {});
+    const fromLS: MonthlyMovieRanking[] = [];
+    if (typeof window !== 'undefined') {
+      try {
+        const all = localStorage.getItem('kolyoum_series_rankings');
+        if (all) Object.values(JSON.parse(all)).forEach((r: any) => { if (r?.rankedTitles?.length) fromLS.push(r); });
+      } catch {}
+    }
+    return pickBest([seriesLocalRanking, ...allProfile, ...fromLS]);
+  }, [userProfile?.seriesRankings, seriesLocalRanking, userProfile]);
 
   // Liste des films vus par l'utilisateur pour le classement et les duels
   const monthlySeenMovies: DuelMovieItem[] = useMemo(() => {
@@ -373,16 +395,16 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
 
   const unrankedCount = useMemo(() => {
     if (!existingRanking) return monthlySeenMovies.length;
-    const rankedSet = new Set(existingRanking.rankedTitles);
-    return monthlySeenMovies.filter(m => !rankedSet.has(m.title)).length;
+    const rankedSet = new Set((existingRanking.rankedTitles || []).map(t => t.toLowerCase().trim()));
+    return monthlySeenMovies.filter(m => !rankedSet.has(m.title.toLowerCase().trim())).length;
   }, [monthlySeenMovies, existingRanking]);
 
   const hasUnrankedMovies = unrankedCount > 0 && monthlySeenMovies.length >= 2;
 
   const seriesUnrankedCount = useMemo(() => {
     if (!existingSeriesRanking) return monthlySeenSeries.length;
-    const rankedSet = new Set(existingSeriesRanking.rankedTitles);
-    return monthlySeenSeries.filter(s => !rankedSet.has(s.title)).length;
+    const rankedSet = new Set((existingSeriesRanking.rankedTitles || []).map(t => t.toLowerCase().trim()));
+    return monthlySeenSeries.filter(s => !rankedSet.has(s.title.toLowerCase().trim())).length;
   }, [monthlySeenSeries, existingSeriesRanking]);
 
   const hasUnrankedSeries = seriesUnrankedCount > 0 && monthlySeenSeries.length >= 2;
