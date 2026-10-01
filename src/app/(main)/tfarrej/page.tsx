@@ -497,6 +497,11 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
               ? monthlySeenSeries.map(s => s.title)
               : monthlySeenMovies.map(m => m.title)
           }
+          watchlistTitles={
+            type === 'tv'
+              ? (userProfile?.seriesToWatch || [])
+              : (userProfile?.moviesToWatch || [])
+          }
         />
 
         {/* Ligne 2 : Grille de boutons d'action parfaitement alignés et calibrés */}
