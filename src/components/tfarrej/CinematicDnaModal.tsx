@@ -11,7 +11,15 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
-import { MOVIE_CATEGORY_CONFIG, MovieCategory } from '@/lib/firebase/firestore';
+import {
+  MOVIE_CATEGORY_CONFIG,
+  MovieCategory,
+  addMovieToWatchlist,
+  addSeriesToWatchlist,
+  addSeenMovieWithDate,
+  addSeenSeriesWithDate,
+} from '@/lib/firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 import { calculateCinematicDna, CategoryDnaScore } from '@/lib/cinematic-dna-utils';
 import { CategoryBadge, CATEGORY_HEX_COLORS } from '@/components/tfarrej/movie-category-picker';
 import {
@@ -29,6 +37,11 @@ import {
   Users,
   Loader2,
   Clapperboard,
+  BookmarkPlus,
+  Eye,
+  ExternalLink,
+  CalendarDays,
+  X,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -47,7 +60,8 @@ export function CinematicDnaModal({
   onOpenDuel,
   initialMediaType = 'movie',
 }: CinematicDnaModalProps) {
-  const { userProfile } = useAuth();
+  const { user, userProfile, forceProfileRefresh } = useAuth();
+  const { toast } = useToast();
   const [mediaType, setMediaType] = useState<'movie' | 'tv'>(initialMediaType);
   const [period, setPeriod] = useState<'all' | 'month'>('all');
 
@@ -82,6 +96,11 @@ export function CinematicDnaModal({
     return t.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
   }
 
+  function toDateInputValue(ts: number) {
+    const d = new Date(ts);
+    return d.toISOString().split('T')[0];
+  }
+
   const seenSet = useMemo(() => {
     const titles = mediaType === 'tv'
       ? (userProfile?.seenSeriesTitles || [])
@@ -95,6 +114,86 @@ export function CinematicDnaModal({
       : (userProfile?.moviesToWatch || []);
     return new Set(titles.map(normalizeTitle));
   }, [userProfile, mediaType]);
+
+  // ── ACTIONS SUR FILMOGRAPHIE (comme sur la bande tendances) ──────────────────
+  const [activeFilm, setActiveFilm] = useState<FilmographyItem | null>(null);
+  const [actionLoading, setActionLoading] = useState<'watchlist' | 'seen' | null>(null);
+  const [seenDate, setSeenDate] = useState<string>(() => toDateInputValue(Date.now()));
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const filmActionPanelRef = useRef<HTMLDivElement>(null);
+
+  // Réinitialiser les états actifs quand la modale se ferme
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedPerson(null);
+      setActiveFilm(null);
+      setShowDatePicker(false);
+    }
+  }, [isOpen]);
+
+  const handleAddToWatchlist = async (film: FilmographyItem) => {
+    const effectiveUid = user?.uid || userProfile?.uid || 'guest';
+    setActionLoading('watchlist');
+    try {
+      if (mediaType === 'tv' || film.mediaType === 'tv') {
+        await addSeriesToWatchlist(effectiveUid, film.title);
+      } else {
+        await addMovieToWatchlist(effectiveUid, film.title);
+      }
+      forceProfileRefresh?.();
+      toast({
+        title: `📌 Ajouté à "À Voir"`,
+        description: film.title,
+      });
+      setActiveFilm(null);
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: "Impossible d'ajouter à la liste pour le moment.",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleMarkAsSeen = async (film: FilmographyItem) => {
+    const effectiveUid = user?.uid || userProfile?.uid || 'guest';
+    setActionLoading('seen');
+    const viewedAt = new Date(seenDate).getTime() || Date.now();
+    try {
+      if (mediaType === 'tv' || film.mediaType === 'tv') {
+        await addSeenSeriesWithDate(effectiveUid, {
+          title: film.title,
+          viewedAt,
+          posterUrl: film.posterPath || undefined,
+          year: film.year || undefined,
+        });
+      } else {
+        await addSeenMovieWithDate(effectiveUid, {
+          title: film.title,
+          viewedAt,
+          posterUrl: film.posterPath || undefined,
+          year: film.year || undefined,
+        });
+      }
+      forceProfileRefresh?.();
+      toast({
+        title: `✅ Marqué comme vu`,
+        description: `${film.title} — ${new Date(viewedAt).toLocaleDateString('fr-FR')}`,
+      });
+      setActiveFilm(null);
+      setShowDatePicker(false);
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: "Impossible d'enregistrer le visionnage.",
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   // ── ACTEURS PRÉFÉRÉS ─────────────────────────────────────────────────────────
   interface ActorScore {
@@ -143,6 +242,8 @@ export function CinematicDnaModal({
 
   const handlePersonClick = async (person: ActorScore) => {
     setSelectedPerson({ ...person, bioLoading: true });
+    setActiveFilm(null);
+    setShowDatePicker(false);
     // Scroll vers le panneau bio après le prochain rendu
     setTimeout(() => {
       personPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -505,7 +606,11 @@ export function CinematicDnaModal({
                   <div ref={personPanelRef} className="relative rounded-2xl bg-gradient-to-br from-slate-900 to-indigo-950/60 border border-indigo-400/30 p-4 space-y-3 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
                     <button
                       type="button"
-                      onClick={() => setSelectedPerson(null)}
+                      onClick={() => {
+                        setSelectedPerson(null);
+                        setActiveFilm(null);
+                        setShowDatePicker(false);
+                      }}
                       className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/60 hover:text-white transition-all text-xs"
                     >✕</button>
 
@@ -565,27 +670,51 @@ export function CinematicDnaModal({
 
                     {/* Filmographie scrollable */}
                     {selectedPerson.bio?.filmography && selectedPerson.bio.filmography.length > 0 && (
-                      <div>
-                        <p className="text-[9px] font-extrabold text-white/40 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                          🎬 Filmographie notable
-                        </p>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[9px] font-extrabold text-white/40 uppercase tracking-wider flex items-center gap-1">
+                            🎬 Filmographie notable
+                          </p>
+                          <span className="text-[9px] text-white/30 italic">
+                            Touchez une œuvre pour agir
+                          </span>
+                        </div>
                         <div
-                          className="flex gap-1.5 overflow-x-auto pb-1"
+                          className="flex gap-2 overflow-x-auto pb-1 pt-0.5 px-0.5"
                           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                         >
                           {selectedPerson.bio.filmography.map((film) => {
-                            const alreadySeen = seenSet.has(normalizeTitle(film.title));
-                            const inWatchlist = watchSet.has(normalizeTitle(film.title));
+                            const normTitle = normalizeTitle(film.title);
+                            const alreadySeen = seenSet.has(normTitle);
+                            const inWatchlist = watchSet.has(normTitle);
+                            const isActive = activeFilm?.id === film.id;
+
                             return (
-                              <div
+                              <button
+                                type="button"
                                 key={film.id}
-                                title={`${film.title}${film.year ? ` (${film.year})` : ''}${film.character ? ` — ${film.character}` : film.job ? ` — ${film.job}` : ''}${alreadySeen ? ' — ✓ Déjà vu' : inWatchlist ? ' — 📌 Dans À Voir' : ''}`}
-                                className={`relative flex-shrink-0 w-12 h-[68px] rounded-lg overflow-hidden border transition-all duration-200 cursor-pointer hover:scale-105 group/film ${
-                                  alreadySeen
-                                    ? 'border-emerald-400/50 hover:border-emerald-400/80'
+                                onClick={() => {
+                                  if (isActive) {
+                                    setActiveFilm(null);
+                                    setShowDatePicker(false);
+                                  } else {
+                                    setActiveFilm(film);
+                                    setSeenDate(toDateInputValue(Date.now()));
+                                    setShowDatePicker(false);
+                                    setTimeout(() => {
+                                      filmActionPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                    }, 80);
+                                  }
+                                }}
+                                title={`${film.title}${film.year ? ` (${film.year})` : ''}${film.character ? ` — ${film.character}` : film.job ? ` — ${film.job}` : ''}${alreadySeen ? ' — ✓ Déjà vu' : inWatchlist ? ' — 📌 Dans À Voir' : ''} (Cliquez pour agir)`}
+                                className={`relative flex-shrink-0 w-12 h-[68px] rounded-lg overflow-hidden border transition-all duration-200 cursor-pointer text-left ${
+                                  isActive
+                                    ? 'ring-2 ring-indigo-400 border-indigo-400 scale-105 shadow-[0_0_15px_rgba(99,102,241,0.6)] z-10'
+                                    : alreadySeen
+                                    ? 'border-emerald-400/50 hover:border-emerald-400/80 hover:scale-105'
                                     : inWatchlist
-                                    ? 'border-blue-400/50 hover:border-blue-400/80'
-                                    : 'border-white/10 hover:border-indigo-400/50'
+                                    ? 'border-blue-400/50 hover:border-blue-400/80 hover:scale-105'
+                                    : 'border-white/10 hover:border-indigo-400/50 hover:scale-105'
                                 }`}
                               >
                                 {film.posterPath ? (
@@ -628,10 +757,169 @@ export function CinematicDnaModal({
                                     Vu ✓
                                   </div>
                                 )}
-                              </div>
+                              </button>
                             );
                           })}
                         </div>
+
+                        {/* Panneau d'action pour le film sélectionné dans la filmographie */}
+                        {activeFilm && (
+                          <div
+                            ref={filmActionPanelRef}
+                            className="rounded-xl border border-indigo-400/30 bg-[#0c101c]/95 backdrop-blur-xl p-3 shadow-2xl space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-150"
+                          >
+                            {/* Header de l'œuvre active */}
+                            <div className="flex items-center gap-2.5 pb-2 border-b border-white/10">
+                              {activeFilm.posterPath ? (
+                                <img
+                                  src={`/api/image-proxy?url=${encodeURIComponent(activeFilm.posterPath)}`}
+                                  alt={activeFilm.title}
+                                  className="w-9 h-13 rounded-md object-cover flex-shrink-0 shadow-md border border-white/10"
+                                />
+                              ) : (
+                                <div className="w-9 h-13 rounded-md bg-white/10 flex items-center justify-center text-xs">🎬</div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs sm:text-sm font-black text-white truncate leading-tight">{activeFilm.title}</p>
+                                <div className="flex flex-wrap items-center gap-2 mt-1 text-[10px] text-white/60">
+                                  {activeFilm.year && <span>{activeFilm.year}</span>}
+                                  {activeFilm.voteAverage && activeFilm.voteAverage > 0 && (
+                                    <span className="font-bold text-amber-400">★ {activeFilm.voteAverage}</span>
+                                  )}
+                                  <span className="capitalize">{activeFilm.mediaType === 'tv' ? 'Série' : 'Film'}</span>
+                                  {activeFilm.character && (
+                                    <span className="text-indigo-300/90 truncate max-w-[140px]" title={`Rôle : ${activeFilm.character}`}>
+                                      · {activeFilm.character}
+                                    </span>
+                                  )}
+                                  {activeFilm.job && (
+                                    <span className="text-purple-300/90 truncate max-w-[140px]">
+                                      · {activeFilm.job}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => { setActiveFilm(null); setShowDatePicker(false); }}
+                                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/15 text-white/60 hover:text-white transition-colors flex-shrink-0 cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            {/* Actions : Ajouter à À Voir / Marquer comme vu / Voir fiche */}
+                            <div className="space-y-1.5 pt-0.5">
+                              {/* 1. Ajouter à À Voir */}
+                              {!seenSet.has(normalizeTitle(activeFilm.title)) && !watchSet.has(normalizeTitle(activeFilm.title)) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddToWatchlist(activeFilm)}
+                                  disabled={actionLoading !== null}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 active:bg-blue-500/25 border border-blue-400/20 transition-all text-left disabled:opacity-50 group cursor-pointer"
+                                >
+                                  {actionLoading === 'watchlist' ? (
+                                    <Loader2 className="w-4 h-4 text-blue-400 animate-spin flex-shrink-0" />
+                                  ) : (
+                                    <BookmarkPlus className="w-4 h-4 text-blue-400 flex-shrink-0 group-hover:scale-110 transition-transform" />
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-bold text-white">Ajouter à "À Voir"</p>
+                                    <p className="text-[10px] text-white/50">Mettre de côté pour plus tard</p>
+                                  </div>
+                                </button>
+                              )}
+
+                              {/* Déjà dans À Voir */}
+                              {watchSet.has(normalizeTitle(activeFilm.title)) && !seenSet.has(normalizeTitle(activeFilm.title)) && (
+                                <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-400/20 text-blue-300 text-xs font-semibold">
+                                  <BookmarkPlus className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                                  <span>Déjà dans votre liste "À Voir"</span>
+                                </div>
+                              )}
+
+                              {/* 2. Marquer comme vu */}
+                              {!seenSet.has(normalizeTitle(activeFilm.title)) && (
+                                <>
+                                  {!showDatePicker ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowDatePicker(true)}
+                                      disabled={actionLoading !== null}
+                                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 active:bg-emerald-500/25 border border-emerald-400/20 transition-all text-left disabled:opacity-50 group cursor-pointer"
+                                    >
+                                      <Eye className="w-4 h-4 text-emerald-400 flex-shrink-0 group-hover:scale-110 transition-transform" />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-bold text-white">Marquer comme vu</p>
+                                        <p className="text-[10px] text-white/50">Choisir une date de visionnage</p>
+                                      </div>
+                                    </button>
+                                  ) : (
+                                    <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-400/25 space-y-2">
+                                      <div className="flex items-center gap-2">
+                                        <CalendarDays className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                                        <p className="text-xs font-bold text-white">Date de visionnage</p>
+                                      </div>
+                                      <input
+                                        type="date"
+                                        value={seenDate}
+                                        max={toDateInputValue(Date.now())}
+                                        onChange={e => setSeenDate(e.target.value)}
+                                        className="w-full rounded-lg bg-black/60 border border-white/20 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                                      />
+                                      <div className="flex gap-2 pt-0.5">
+                                        <button
+                                          type="button"
+                                          onClick={() => setShowDatePicker(false)}
+                                          className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold text-white/60 hover:text-white hover:bg-white/10 border border-white/10 transition-colors cursor-pointer"
+                                        >
+                                          Annuler
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleMarkAsSeen(activeFilm)}
+                                          disabled={actionLoading !== null}
+                                          className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-1 shadow-sm cursor-pointer"
+                                        >
+                                          {actionLoading === 'seen' ? (
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                          ) : (
+                                            '✓ Confirmer'
+                                          )}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+
+                              {/* Déjà vu */}
+                              {seenSet.has(normalizeTitle(activeFilm.title)) && (
+                                <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-400/20 text-emerald-300 text-xs font-semibold">
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                                  <span>Déjà vu — dans votre historique</span>
+                                </div>
+                              )}
+
+                              {/* 3. Voir la fiche TMDB */}
+                              <a
+                                href={`https://www.themoviedb.org/${activeFilm.mediaType === 'tv' ? 'tv' : 'movie'}/${activeFilm.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 active:bg-white/15 border border-white/10 transition-all group cursor-pointer"
+                              >
+                                <ExternalLink className="w-4 h-4 text-indigo-300 flex-shrink-0 group-hover:scale-110 transition-transform" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-bold text-white flex items-center gap-1">
+                                    <span>Voir la fiche TMDB</span>
+                                    <span className="text-[10px] text-white/40">↗</span>
+                                  </p>
+                                  <p className="text-[10px] text-white/50">Synopsis, casting complet, bande-annonce</p>
+                                </div>
+                              </a>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
