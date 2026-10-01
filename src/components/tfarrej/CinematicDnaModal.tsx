@@ -261,11 +261,12 @@ export function CinematicDnaModal({
     }
   }, [topRankedTitles, mediaType]);
 
-  // Reset when mediaType changes so it re-fetches
+  // Reset when mediaType or topRankedTitles changes so it re-fetches
+  const topRankedKey = useMemo(() => topRankedTitles.join('|'), [topRankedTitles]);
   useEffect(() => {
     isFetchingRef.current = false;
     setActorData({ actors: [], directors: [], loading: false, fetched: false });
-  }, [mediaType]);
+  }, [mediaType, topRankedKey]);
 
   useEffect(() => {
     if (isOpen && !actorData.fetched && !actorData.loading) {

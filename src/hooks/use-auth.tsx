@@ -56,8 +56,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const handleRankingUpdate = (e: any) => {
       const detail = e.detail;
       if (detail?.ranking && detail?.monthKey) {
+        const isTv = detail.mediaType === 'tv';
         setUserProfile(prev => {
           if (!prev) return prev;
+          if (isTv) {
+            const currentSeries = prev.seriesRankings || {};
+            return {
+              ...prev,
+              seriesRankings: {
+                ...currentSeries,
+                [detail.monthKey]: detail.ranking,
+              },
+            };
+          }
           const currentRankings = prev.movieRankings || {};
           return {
             ...prev,
@@ -71,8 +82,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     window.addEventListener('kolyoum_ranking_updated', handleRankingUpdate);
+    window.addEventListener('kolyoum_series_ranking_updated', handleRankingUpdate);
     return () => {
       window.removeEventListener('kolyoum_ranking_updated', handleRankingUpdate);
+      window.removeEventListener('kolyoum_series_ranking_updated', handleRankingUpdate);
     };
   }, []);
 
