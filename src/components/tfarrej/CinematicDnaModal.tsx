@@ -108,6 +108,7 @@ export function CinematicDnaModal({
   const [selectedPerson, setSelectedPerson] = useState<(ActorScore & { bio?: PersonBio; bioLoading?: boolean }) | null>(null);
 
   const personPanelRef = useRef<HTMLDivElement>(null);
+  const isFetchingRef = useRef(false);
 
   const handlePersonClick = async (person: ActorScore) => {
     setSelectedPerson({ ...person, bioLoading: true });
@@ -142,7 +143,8 @@ export function CinematicDnaModal({
   }, [userProfile?.movieRankings, userProfile?.seriesRankings, isSeries]);
 
   const fetchActors = useCallback(async () => {
-    if (!topRankedTitles.length || actorData.fetched) return;
+    if (!topRankedTitles.length || isFetchingRef.current) return;
+    isFetchingRef.current = true;
     setActorData(prev => ({ ...prev, loading: true }));
     try {
       const res = await fetch('/api/tmdb-cast-batch', {
@@ -213,11 +215,14 @@ export function CinematicDnaModal({
       setActorData({ actors: sortedActors, directors: sortedDirectors, loading: false, fetched: true });
     } catch {
       setActorData(prev => ({ ...prev, loading: false, fetched: true }));
+    } finally {
+      isFetchingRef.current = false;
     }
-  }, [topRankedTitles, mediaType, actorData.fetched]);
+  }, [topRankedTitles, mediaType]);
 
   // Reset when mediaType changes so it re-fetches
   useEffect(() => {
+    isFetchingRef.current = false;
     setActorData({ actors: [], directors: [], loading: false, fetched: false });
   }, [mediaType]);
 
@@ -377,7 +382,20 @@ export function CinematicDnaModal({
             )}
 
             {actorData.fetched && actorData.actors.length === 0 && (
-              <p className="text-xs text-white/40 text-center py-3">Pas assez de données de classement.</p>
+              <div className="flex flex-col items-center gap-2 py-3">
+                <p className="text-xs text-white/40 text-center">Pas assez de données de classement.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    isFetchingRef.current = false;
+                    setActorData({ actors: [], directors: [], loading: false, fetched: false });
+                    setTimeout(() => fetchActors(), 100);
+                  }}
+                  className="text-[10px] font-bold text-indigo-300 hover:text-white bg-white/5 hover:bg-white/10 px-3 py-1 rounded-lg transition-all border border-white/10"
+                >
+                  🔄 Réessayer
+                </button>
+              </div>
             )}
 
             {actorData.actors.length > 0 && (
