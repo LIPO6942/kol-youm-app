@@ -764,16 +764,18 @@ export async function addItemToWatchlist(uid: string, title: string, type: 'movi
     const userRef = doc(firestoreDb, "users", uid);
     const watchlistField = type === 'movie' ? 'moviesToWatch' : 'seriesToWatch';
 
-    await setDoc(userRef, {
-        [watchlistField]: arrayUnion(title)
-    }, { merge: true });
-
+    // ── Optimistic local update first (instant UI feedback) ──────────────────
     const localProfile = await getUserFromDb(uid);
     if (localProfile) {
         const updatedProfile = { ...localProfile } as any;
         updatedProfile[watchlistField] = Array.from(new Set([...(updatedProfile[watchlistField] || []), title]));
         await storeUserInDb(uid, updatedProfile);
     }
+
+    // ── Firestore sync in background (doesn't block UI) ──────────────────────
+    setDoc(userRef, {
+        [watchlistField]: arrayUnion(title)
+    }, { merge: true }).catch(e => console.warn('Firestore addItemToWatchlist:', e));
 }
 
 export async function addMovieToWatchlist(uid: string, movieTitle: string) {
@@ -812,23 +814,7 @@ export async function addSeenSeriesWithDate(
     if (series.category) seenSeries.category = series.category;
     if (series.country) seenSeries.country = series.country;
 
-    const firestorePayload: Record<string, any> = {
-        seriesToWatch: arrayRemove(series.title),
-        seenSeriesTitles: arrayUnion(series.title),
-        seenSeriesData: arrayUnion(seenSeries),
-    };
-    if (series.category) {
-        firestorePayload[`seriesCategories.${norm}`] = series.category;
-    }
-
-    if (uid && uid !== 'guest') {
-        try {
-            await setDoc(userRef, firestorePayload, { merge: true });
-        } catch (e) {
-            console.warn('Erreur Firestore addSeenSeriesWithDate:', e);
-        }
-    }
-
+    // ── Optimistic local update first (instant UI feedback) ──────────────────
     const localProfile = await getUserFromDb(uid);
     if (localProfile) {
         const updatedCategories = {
@@ -843,6 +829,20 @@ export async function addSeenSeriesWithDate(
             seriesCategories: updatedCategories,
         };
         await storeUserInDb(uid, updatedProfile);
+    }
+
+    // ── Firestore sync in background (doesn't block UI) ──────────────────────
+    if (uid && uid !== 'guest') {
+        const firestorePayload: Record<string, any> = {
+            seriesToWatch: arrayRemove(series.title),
+            seenSeriesTitles: arrayUnion(series.title),
+            seenSeriesData: arrayUnion(seenSeries),
+        };
+        if (series.category) {
+            firestorePayload[`seriesCategories.${norm}`] = series.category;
+        }
+        setDoc(userRef, firestorePayload, { merge: true })
+            .catch(e => console.warn('Firestore addSeenSeriesWithDate:', e));
     }
 }
 
@@ -872,8 +872,6 @@ export async function addSeenMovieWithDate(
     if (movie.viewedAt !== undefined && movie.viewedAt !== null) {
         seenMovie.viewedAt = movie.viewedAt;
     }
-
-    // Conditionally add optional fields to avoid 'undefined' values which Firestore rejects
     if (movie.posterUrl) seenMovie.posterUrl = movie.posterUrl;
     if (movie.year !== undefined && movie.year !== null) seenMovie.year = movie.year;
     if (movie.rating !== undefined && movie.rating !== null) seenMovie.rating = movie.rating;
@@ -883,26 +881,7 @@ export async function addSeenMovieWithDate(
     if (movie.collection) seenMovie.collection = movie.collection;
     if (movie.country) seenMovie.country = movie.country;
 
-    const firestorePayload: Record<string, any> = {
-        moviesToWatch: arrayRemove(movie.title),
-        seenMovieTitles: arrayUnion(movie.title),
-        seenMoviesData: arrayUnion(seenMovie),
-    };
-    if (movie.category) {
-        firestorePayload[`movieCategories.${norm}`] = movie.category;
-    }
-    if (movie.collection) {
-        firestorePayload[`movieSagaLinks.${norm}`] = String(movie.collection.id);
-    }
-
-    if (uid && uid !== 'guest') {
-        try {
-            await setDoc(userRef, firestorePayload, { merge: true });
-        } catch (e) {
-            console.warn('Erreur Firestore addSeenMovieWithDate:', e);
-        }
-    }
-
+    // ── Optimistic local update first (instant UI feedback) ──────────────────
     const localProfile = await getUserFromDb(uid);
     if (localProfile) {
         const updatedCategories = {
@@ -922,6 +901,23 @@ export async function addSeenMovieWithDate(
             movieSagaLinks: updatedSagaLinks,
         };
         await storeUserInDb(uid, updatedProfile);
+    }
+
+    // ── Firestore sync in background (doesn't block UI) ──────────────────────
+    if (uid && uid !== 'guest') {
+        const firestorePayload: Record<string, any> = {
+            moviesToWatch: arrayRemove(movie.title),
+            seenMovieTitles: arrayUnion(movie.title),
+            seenMoviesData: arrayUnion(seenMovie),
+        };
+        if (movie.category) {
+            firestorePayload[`movieCategories.${norm}`] = movie.category;
+        }
+        if (movie.collection) {
+            firestorePayload[`movieSagaLinks.${norm}`] = String(movie.collection.id);
+        }
+        setDoc(userRef, firestorePayload, { merge: true })
+            .catch(e => console.warn('Firestore addSeenMovieWithDate:', e));
     }
 }
 
