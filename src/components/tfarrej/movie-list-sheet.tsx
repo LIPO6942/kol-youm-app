@@ -858,8 +858,8 @@ function MovieListContent({
 
   const unrankedCount = useMemo(() => {
     if (!existingRanking) return duelSeenMovies.length;
-    const rankedSet = new Set(existingRanking.rankedTitles);
-    return duelSeenMovies.filter(m => !rankedSet.has(m.title)).length;
+    const rankedSet = new Set((existingRanking.rankedTitles || []).map(t => t.toLowerCase().trim()));
+    return duelSeenMovies.filter(m => !rankedSet.has(m.title.toLowerCase().trim())).length;
   }, [duelSeenMovies, existingRanking]);
 
   const hasUnrankedMovies = unrankedCount > 0 && duelSeenMovies.length >= 2;
@@ -1234,34 +1234,9 @@ function MovieListContent({
                   {details.year}
                 </span>
               )}
-
-              {/* Badge Saga */}
-              {type === 'movie' && (() => {
-                const saga = getMovieSaga(movieTitle, details, seenData);
-                if (!saga) return null;
-                return (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedSaga({
-                        id: String(saga.id),
-                        name: saga.name,
-                        isCustom: saga.isCustom,
-                        posterUrl: saga.posterUrl || details?.posterUrl,
-                      });
-                    }}
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/35 hover:bg-indigo-500/25 hover:border-indigo-400 transition-all cursor-pointer truncate max-w-[140px] shadow-xs"
-                    title={`Voir la saga : ${saga.name}`}
-                  >
-                    <span>🎬</span>
-                    <span className="truncate">{saga.name}</span>
-                  </button>
-                );
-              })()}
             </div>
 
-            {/* Ligne 3 : Date de visionnage & badge cinéma */}
+            {/* Ligne 3 : Date de visionnage, badge cinéma & badge saga */}
             {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
               <div className="flex flex-col gap-1 mt-1">
                 <button
@@ -1282,12 +1257,35 @@ function MovieListContent({
                   const isCinema = seenData?.watchedInCinema || !!cinemaVisit;
                   const place = seenData?.cinemaPlace || cinemaVisit?.placeName;
                   if (!isCinema) return null;
-
                   return (
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950/80 border border-violet-200 dark:border-violet-800 text-[9px] font-bold text-violet-700 dark:text-violet-300 w-fit">
                       <Clapperboard className="h-2.5 w-2.5" />
                       Vu au Cinéma{place ? ` · ${place}` : ''}
                     </span>
+                  );
+                })()}
+                {/* Badge Saga sous la date */}
+                {type === 'movie' && (() => {
+                  const saga = getMovieSaga(movieTitle, details, seenData);
+                  if (!saga) return null;
+                  return (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedSaga({
+                          id: String(saga.id),
+                          name: saga.name,
+                          isCustom: saga.isCustom,
+                          posterUrl: saga.posterUrl || details?.posterUrl,
+                        });
+                      }}
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/35 hover:bg-indigo-500/25 hover:border-indigo-400 transition-all cursor-pointer truncate max-w-[160px] w-fit"
+                      title={`Voir la saga : ${saga.name}`}
+                    >
+                      <span>🎬</span>
+                      <span className="truncate">{saga.name}</span>
+                    </button>
                   );
                 })()}
               </div>

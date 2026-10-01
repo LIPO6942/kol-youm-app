@@ -130,8 +130,9 @@ export function MovieDuelModal({
   const { isIncrementalMode, unrankedMovies, rankedTitles } = useMemo(() => {
     const currentRanked = (effectiveExistingRanking?.rankedTitles || []).filter(t => !isTestMovieTitle(t));
     if (currentRanked.length > 0) {
-      const rankedSet = new Set(currentRanked);
-      const unranked = validSeenMovies.filter(m => !rankedSet.has(m.title));
+      // Use normalized lowercase for comparison to avoid case mismatch causing full re-rank
+      const rankedSet = new Set(currentRanked.map(t => t.toLowerCase().trim()));
+      const unranked = validSeenMovies.filter(m => !rankedSet.has(m.title.toLowerCase().trim()));
       return {
         isIncrementalMode: unranked.length > 0,
         unrankedMovies: unranked,
