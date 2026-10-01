@@ -87,12 +87,38 @@ export function CinematicDnaModal({
     isDirector?: boolean;
   }
 
+  interface PersonBio {
+    id: number;
+    name: string;
+    biography: string;
+    birthday?: string | null;
+    placeOfBirth?: string | null;
+    department?: string | null;
+    profilePath?: string | null;
+    filmsInYourList?: string[];
+  }
+
   const [actorData, setActorData] = useState<{
     actors: ActorScore[];
     directors: ActorScore[];
     loading: boolean;
     fetched: boolean;
   }>({ actors: [], directors: [], loading: false, fetched: false });
+
+  const [selectedPerson, setSelectedPerson] = useState<(ActorScore & { bio?: PersonBio; bioLoading?: boolean }) | null>(null);
+
+  const handlePersonClick = async (person: ActorScore) => {
+    setSelectedPerson({ ...person, bioLoading: true });
+    try {
+      const res = await fetch(`/api/tmdb-person?id=${person.id}`);
+      if (!res.ok) throw new Error();
+      const bio: PersonBio = await res.json();
+      bio.filmsInYourList = person.films;
+      setSelectedPerson(prev => prev ? { ...prev, bio, bioLoading: false } : null);
+    } catch {
+      setSelectedPerson(prev => prev ? { ...prev, bioLoading: false } : null);
+    }
+  };
 
   // Top-ranked titles to analyse (up to 15 best-ranked films)
   const isSeries = mediaType === 'tv';
@@ -173,10 +199,10 @@ export function CinematicDnaModal({
 
       const sortedActors = Array.from(actorMap.values())
         .sort((a, b) => b.score - a.score)
-        .slice(0, 6);
+        .slice(0, 10);
       const sortedDirectors = Array.from(directorMap.values())
         .sort((a, b) => b.score - a.score)
-        .slice(0, 3);
+        .slice(0, 5);
 
       setActorData({ actors: sortedActors, directors: sortedDirectors, loading: false, fetched: true });
     } catch {
@@ -331,7 +357,161 @@ export function CinematicDnaModal({
             </div>
           </motion.div>
 
-          {/* 2. SPECTRE GÉNÉTIQUE VISUEL (HÉLICE / BARRE MULTICOLORE) */}
+          {/* 2. ACTEURS & RÉALISATEURS — juste après l'archétype */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-extrabold text-white/90 uppercase tracking-wider flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-rose-400" />
+                {mediaType === 'tv' ? 'Acteurs & Créateurs' : 'Acteurs & Réalisateurs'}
+              </h4>
+              {!actorData.fetched && !actorData.loading && (
+                <button type="button" onClick={fetchActors}
+                  className="text-[10px] font-bold text-indigo-300 hover:text-white bg-white/5 hover:bg-white/10 px-2 py-1 rounded-lg transition-all border border-white/10">
+                  Analyser
+                </button>
+              )}
+            </div>
+
+            {actorData.loading && (
+              <div className="flex items-center justify-center gap-2 py-4 text-white/50">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-xs">Analyse du casting en cours...</span>
+              </div>
+            )}
+
+            {actorData.fetched && actorData.actors.length === 0 && (
+              <p className="text-xs text-white/40 text-center py-3">Pas assez de données de classement.</p>
+            )}
+
+            {actorData.actors.length > 0 && (
+              <>
+                {/* Grille 5×2 acteurs */}
+                <div className="grid grid-cols-5 gap-2">
+                  {actorData.actors.map((actor, i) => (
+                    <button
+                      key={actor.id}
+                      type="button"
+                      onClick={() => handlePersonClick(actor)}
+                      className="flex flex-col items-center gap-1 p-2 rounded-2xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.09] hover:border-rose-400/40 transition-all text-center group cursor-pointer"
+                      title={`Cliquer pour voir le profil · ${actor.films.slice(0, 2).join(', ')}`}
+                    >
+                      <div className="relative">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden bg-white/10 border-2 border-white/15 group-hover:border-rose-400/60 transition-all">
+                          {actor.profilePath ? (
+                            <img src={`/api/image-proxy?url=${encodeURIComponent(actor.profilePath)}`} alt={actor.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-lg">{i === 0 ? '👑' : '🎭'}</div>
+                          )}
+                        </div>
+                        <span className="absolute -bottom-0.5 -right-0.5 text-[9px] leading-none bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center font-black shadow">{i + 1}</span>
+                      </div>
+                      <p className="text-[9px] sm:text-[10px] font-bold text-white leading-tight line-clamp-2 w-full">{actor.name}</p>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Réalisateurs en ligne */}
+                {actorData.directors.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-extrabold text-white/50 uppercase tracking-wider flex items-center gap-1 mb-1.5">
+                      <Clapperboard className="w-3 h-3" />
+                      {mediaType === 'tv' ? 'Créateurs / Showrunners' : 'Réalisateurs'}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {actorData.directors.map((dir, i) => (
+                        <button
+                          key={dir.id}
+                          type="button"
+                          onClick={() => handlePersonClick(dir)}
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.09] hover:border-amber-400/40 transition-all cursor-pointer"
+                        >
+                          <div className="w-6 h-6 rounded-full overflow-hidden bg-white/10 border border-white/15 shrink-0">
+                            {dir.profilePath ? (
+                              <img src={`/api/image-proxy?url=${encodeURIComponent(dir.profilePath)}`} alt={dir.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xs">🎬</div>
+                            )}
+                          </div>
+                          <div className="text-left">
+                            <p className="text-[10px] font-bold text-white">{dir.name}</p>
+                            <p className="text-[9px] text-white/40">{dir.films.length} film{dir.films.length > 1 ? 's' : ''}</p>
+                          </div>
+                          {i === 0 && <span className="text-[10px]">🏆</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Mini-panneau bio au clic */}
+                {selectedPerson && (
+                  <div className="relative rounded-2xl bg-gradient-to-br from-slate-900 to-indigo-950/60 border border-indigo-400/30 p-4 space-y-3 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPerson(null)}
+                      className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/60 hover:text-white transition-all text-xs"
+                    >✕</button>
+
+                    <div className="flex items-start gap-3">
+                      <div className="w-16 h-20 rounded-xl overflow-hidden bg-white/10 border border-white/15 shrink-0">
+                        {selectedPerson.profilePath ? (
+                          <img src={`/api/image-proxy?url=${encodeURIComponent(selectedPerson.profilePath)}`} alt={selectedPerson.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-3xl">🎭</div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-black text-white text-sm">{selectedPerson.name}</p>
+                        {selectedPerson.bioLoading && (
+                          <div className="flex items-center gap-1.5 mt-2 text-white/40">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span className="text-[10px]">Chargement...</span>
+                          </div>
+                        )}
+                        {selectedPerson.bio && !selectedPerson.bioLoading && (
+                          <div className="space-y-1 mt-1">
+                            {selectedPerson.bio.birthday && (
+                              <p className="text-[10px] text-white/60">
+                                🎂 {new Date(selectedPerson.bio.birthday).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                {' '}· {new Date().getFullYear() - new Date(selectedPerson.bio.birthday).getFullYear()} ans
+                              </p>
+                            )}
+                            {selectedPerson.bio.placeOfBirth && (
+                              <p className="text-[10px] text-white/60">📍 {selectedPerson.bio.placeOfBirth}</p>
+                            )}
+                            {selectedPerson.bio.department && (
+                              <span className="inline-block text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300">
+                                {selectedPerson.bio.department}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {selectedPerson.bio?.biography && (
+                      <p className="text-[10px] text-white/65 leading-relaxed line-clamp-4">
+                        {selectedPerson.bio.biography}
+                      </p>
+                    )}
+
+                    {selectedPerson.films.length > 0 && (
+                      <div>
+                        <p className="text-[9px] font-extrabold text-white/40 uppercase tracking-wider mb-1">Dans vos favoris</p>
+                        <div className="flex flex-wrap gap-1">
+                          {selectedPerson.films.slice(0, 5).map(f => (
+                            <span key={f} className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/[0.07] border border-white/15 text-white/70">{f}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* 3. SPECTRE GÉNÉTIQUE VISUEL */}
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-bold">
               <span className="text-white/80 flex items-center gap-1.5">
@@ -516,117 +696,6 @@ export function CinematicDnaModal({
             </div>
           </div>
 
-          {/* 5. ACTEURS & RÉALISATEURS PRÉFÉRÉS */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-extrabold text-white/90 uppercase tracking-wider flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-rose-400" />
-                {mediaType === 'tv' ? 'Acteurs & Créateurs que vous semblez apprécier' : 'Acteurs & Réalisateurs que vous semblez apprécier'}
-              </h4>
-              {!actorData.fetched && !actorData.loading && (
-                <button
-                  type="button"
-                  onClick={fetchActors}
-                  className="text-[10px] font-bold text-indigo-300 hover:text-white bg-white/5 hover:bg-white/10 px-2 py-1 rounded-lg transition-all border border-white/10"
-                >
-                  Analyser
-                </button>
-              )}
-            </div>
-
-            {actorData.loading && (
-              <div className="flex items-center justify-center gap-2 py-6 text-white/50">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-xs">Analyse du casting en cours...</span>
-              </div>
-            )}
-
-            {actorData.fetched && actorData.actors.length === 0 && (
-              <p className="text-xs text-white/40 text-center py-4">Pas assez de données de classement pour l'analyse.</p>
-            )}
-
-            {actorData.actors.length > 0 && (
-              <>
-                {/* Acteurs */}
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                  {actorData.actors.map((actor, i) => (
-                    <div
-                      key={actor.id}
-                      className="flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] transition-all text-center group"
-                      title={`Apparaît dans : ${actor.films.slice(0, 3).join(', ')}`}
-                    >
-                      {/* Médaille */}
-                      <div className="relative">
-                        <div className="w-12 h-12 rounded-full overflow-hidden bg-white/10 border-2 border-white/20 group-hover:border-rose-400/50 transition-all">
-                          {actor.profilePath ? (
-                            <img
-                              src={`/api/image-proxy?url=${encodeURIComponent(actor.profilePath)}`}
-                              alt={actor.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xl">
-                              {i === 0 ? '👑' : '🎭'}
-                            </div>
-                          )}
-                        </div>
-                        <span className="absolute -bottom-1 -right-1 text-[10px] leading-none bg-rose-500/90 text-white rounded-full w-4 h-4 flex items-center justify-center font-bold shadow">
-                          {i + 1}
-                        </span>
-                      </div>
-                      <p className="text-[10px] font-bold text-white leading-tight line-clamp-2">{actor.name}</p>
-                      <p className="text-[9px] text-white/40 leading-tight line-clamp-1">
-                        {actor.films.slice(0, 2).join(' · ')}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Réalisateurs */}
-                {actorData.directors.length > 0 && (
-                  <div className="mt-2">
-                    <p className="text-[10px] font-extrabold text-white/60 uppercase tracking-wider flex items-center gap-1 mb-2">
-                      <Clapperboard className="w-3 h-3" />
-                      {mediaType === 'tv' ? 'Créateurs / Showrunners' : 'Réalisateurs'}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {actorData.directors.map((dir, i) => (
-                        <div
-                          key={dir.id}
-                          className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] transition-all"
-                          title={`Films : ${dir.films.join(', ')}`}
-                        >
-                          <div className="w-7 h-7 rounded-full overflow-hidden bg-white/10 border border-white/15 shrink-0">
-                            {dir.profilePath ? (
-                              <img
-                                src={`/api/image-proxy?url=${encodeURIComponent(dir.profilePath)}`}
-                                alt={dir.name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-sm">🎬</div>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-bold text-white">{dir.name}</p>
-                            <p className="text-[9px] text-white/40">{dir.films.length} {dir.films.length > 1 ? 'films' : 'film'} bien classé{dir.films.length > 1 ? 's' : ''}</p>
-                          </div>
-                          {i === 0 && <span className="text-[10px] ml-auto">🏆</span>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Bannière explicative acteurs */}
-                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-400/20 text-rose-200 text-[11px] flex items-start gap-2">
-                  <Info className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
-                  <p className="text-white/65 leading-relaxed">
-                    <strong className="text-white">Comment c'est calculé ?</strong> Les {topRankedTitles.length} meilleures œuvres de ton classement sont analysées. Chaque acteur reçoit un score basé sur le rang du film (<strong>#1 = {topRankedTitles.length} pts</strong>, #2 = {topRankedTitles.length - 1} pts…). Les acteurs en tête d'affiche (1er rôle) reçoivent un bonus de <strong>+50%</strong>. Résultat : les acteurs qui reviennent dans tes films favoris remontent naturellement.
-                  </p>
-                </div>
-              </>
-            )}
           </div>
         </div>
 
