@@ -490,7 +490,14 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         </div>
 
         {/* Bande tendances — au-dessus des boutons d'action */}
-        <TrendingStrip type={type} />
+        <TrendingStrip
+          type={type}
+          seenTitles={
+            type === 'tv'
+              ? monthlySeenSeries.map(s => s.title)
+              : monthlySeenMovies.map(m => m.title)
+          }
+        />
 
         {/* Ligne 2 : Grille de boutons d'action parfaitement alignés et calibrés */}
         {type === 'movie' ? (

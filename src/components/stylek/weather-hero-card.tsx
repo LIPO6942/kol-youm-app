@@ -236,8 +236,9 @@ export function WeatherHeroCard({
             <span className="text-xs font-semibold text-foreground capitalize">
               {activeDayWeather.weatherLabel}
             </span>
-            <span className="text-[11px] text-muted-foreground hidden sm:inline">
-              · Ressenti {activeDayWeather.tempApparentMax}°C (min {activeDayWeather.tempMin}°C)
+            <span className="text-[11px] text-muted-foreground">
+              · Ressenti {activeDayWeather.tempApparentMax}°C
+              <span className="hidden sm:inline"> (min {activeDayWeather.tempMin}°C)</span>
             </span>
           </div>
 
@@ -302,7 +303,7 @@ export function WeatherHeroCard({
               <Sparkles className="h-3.5 w-3.5 text-primary" />
               Réflexes Météo & Conseils
             </span>
-            {activeDayWeather.precipitationProbMax > 0 && (
+            {activeDayWeather.precipitationProbMax >= 20 && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold border border-blue-500/20">
                 💧 Pluie {activeDayWeather.precipitationProbMax}%
               </span>

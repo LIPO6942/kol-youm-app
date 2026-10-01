@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Flame } from 'lucide-react';
+import { Flame, CheckCircle2 } from 'lucide-react';
 
 interface TrendingItem {
   id: number;
@@ -14,13 +14,25 @@ interface TrendingItem {
 
 interface TrendingStripProps {
   type: 'movie' | 'tv';
+  seenTitles?: string[]; // titres normalisés déjà vus par l'utilisateur
 }
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 heure
 
-export function TrendingStrip({ type }: TrendingStripProps) {
+// Normalise un titre pour comparaison souple
+function normalizeTitle(t: string) {
+  return t.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+}
+
+export function TrendingStrip({ type, seenTitles = [] }: TrendingStripProps) {
   const [items, setItems] = useState<TrendingItem[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Set normalisé pour lookup O(1)
+  const seenSet = React.useMemo(
+    () => new Set(seenTitles.map(normalizeTitle)),
+    [seenTitles]
+  );
 
   useEffect(() => {
     const cacheKey = `tmdb_trending_${type}`;
@@ -88,45 +100,58 @@ export function TrendingStrip({ type }: TrendingStripProps) {
           className="flex items-center gap-0 flex-1 overflow-x-auto"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {items.map((item, i) => (
-            <div
-              key={item.id}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 border-r border-white/[0.05] flex-shrink-0 cursor-pointer hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors duration-150"
-            >
-              {/* Affiche miniature */}
-              <div className="w-[22px] h-8 rounded-md overflow-hidden bg-white/5 flex-shrink-0 shadow-sm">
-                {item.posterPath ? (
-                  <img
-                    src={`/api/image-proxy?url=${encodeURIComponent(item.posterPath)}`}
-                    alt={item.title}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-white/10" />
-                )}
-              </div>
-
-              {/* Infos */}
-              <div className="flex flex-col min-w-0">
-                {/* Rang + note */}
-                <div className="flex items-center gap-1">
-                  <span className="text-[8px] font-black text-white/25">#{i + 1}</span>
-                  {item.voteAverage && item.voteAverage > 0 && (
-                    <span className="text-[8px] font-bold text-amber-400/80">★{item.voteAverage}</span>
+          {items.map((item, i) => {
+            const alreadySeen = seenSet.has(normalizeTitle(item.title));
+            return (
+              <div
+                key={item.id}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 border-r border-white/[0.05] flex-shrink-0 transition-colors duration-150 relative ${
+                  alreadySeen
+                    ? 'cursor-default opacity-60'
+                    : 'cursor-pointer hover:bg-white/[0.04] active:bg-white/[0.06]'
+                }`}
+              >
+                {/* Affiche miniature */}
+                <div className="relative w-[22px] h-8 rounded-md overflow-hidden bg-white/5 flex-shrink-0 shadow-sm">
+                  {item.posterPath ? (
+                    <img
+                      src={`/api/image-proxy?url=${encodeURIComponent(item.posterPath)}`}
+                      alt={item.title}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-white/10" />
+                  )}
+                  {/* Badge "Vu" */}
+                  {alreadySeen && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                    </div>
                   )}
                 </div>
-                {/* Titre */}
-                <p className="text-[9px] font-semibold text-white/65 whitespace-nowrap max-w-[72px] overflow-hidden text-ellipsis leading-tight">
-                  {item.title}
-                </p>
-                {/* Année */}
-                {item.year && (
-                  <span className="text-[8px] text-white/25 leading-none">{item.year}</span>
-                )}
+
+                {/* Infos */}
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[8px] font-black text-white/25">#{i + 1}</span>
+                    {item.voteAverage && item.voteAverage > 0 && (
+                      <span className="text-[8px] font-bold text-amber-400/80">★{item.voteAverage}</span>
+                    )}
+                    {alreadySeen && (
+                      <span className="text-[8px] font-bold text-emerald-400/80">✓</span>
+                    )}
+                  </div>
+                  <p className="text-[9px] font-semibold text-white/65 whitespace-nowrap max-w-[72px] overflow-hidden text-ellipsis leading-tight">
+                    {item.title}
+                  </p>
+                  {item.year && (
+                    <span className="text-[8px] text-white/25 leading-none">{item.year}</span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
       </div>
