@@ -695,20 +695,46 @@ function MovieListContent({
   }, [currentMonthKey, userProfile, isSeries]);
 
   const existingRanking = useMemo(() => {
-    const fromProfile = isSeries
-      ? userProfile?.seriesRankings?.[currentMonthKey]
-      : userProfile?.movieRankings?.[currentMonthKey];
-    const fromStored = isSeries
-      ? getStoredSeriesRanking(currentMonthKey, userProfile)
-      : getStoredMovieRanking(currentMonthKey, userProfile);
-    const candidates = [localRanking, fromStored, fromProfile].filter(r => r && typeof r === 'object') as MonthlyMovieRanking[];
-    if (candidates.length === 0) return null;
-    return candidates.reduce((best, curr) => {
-      const bestTime = (best && typeof best === 'object') ? (best.updatedAt || best.publishedAt || 0) : 0;
-      const currTime = (curr && typeof curr === 'object') ? (curr.updatedAt || curr.publishedAt || 0) : 0;
-      return currTime >= bestTime ? curr : best;
-    });
-  }, [userProfile?.movieRankings, userProfile?.seriesRankings, currentMonthKey, localRanking, userProfile, isSeries]);
+    // Helper: pick the ranking with the most ranked titles (most complete)
+    const pickBest = (candidates: (MonthlyMovieRanking | null | undefined)[]): MonthlyMovieRanking | null => {
+      const valid = candidates.filter((r): r is MonthlyMovieRanking => !!(r && typeof r === 'object' && (r.rankedTitles?.length ?? 0) > 0));
+      if (valid.length === 0) return null;
+      // Prefer the one with the most ranked titles; break ties by most recent
+      return valid.reduce((best, curr) => {
+        const bestCount = best.rankedTitles?.length ?? 0;
+        const currCount = curr.rankedTitles?.length ?? 0;
+        if (currCount > bestCount) return curr;
+        if (currCount === bestCount) {
+          const bestTime = best.updatedAt || best.publishedAt || 0;
+          const currTime = curr.updatedAt || curr.publishedAt || 0;
+          return currTime >= bestTime ? curr : best;
+        }
+        return best;
+      });
+    };
+
+    // Collect ALL rankings across every month from Firestore profile
+    const allProfileRankings = isSeries
+      ? Object.values(userProfile?.seriesRankings || {})
+      : Object.values(userProfile?.movieRankings || {});
+
+    // Collect ALL rankings from localStorage across every month
+    const localStorageRankings: MonthlyMovieRanking[] = [];
+    if (typeof window !== 'undefined') {
+      try {
+        const all = localStorage.getItem(isSeries ? 'kolyoum_series_rankings' : 'kolyoum_movie_rankings');
+        if (all) {
+          const parsed = JSON.parse(all);
+          Object.values(parsed).forEach((r: any) => {
+            if (r?.rankedTitles?.length) localStorageRankings.push(r as MonthlyMovieRanking);
+          });
+        }
+      } catch {}
+    }
+
+    const bestRanking = pickBest([localRanking, ...allProfileRankings, ...localStorageRankings]);
+    return bestRanking;
+  }, [userProfile?.movieRankings, userProfile?.seriesRankings, localRanking, userProfile, isSeries]);
 
   const duelSeenMovies: DuelMovieItem[] = useMemo(() => {
     if (listType !== 'seenMovieTitles' && listType !== 'seenSeriesTitles') return [];

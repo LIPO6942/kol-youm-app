@@ -95,12 +95,40 @@ export function MovieDuelModal({
     }
   }, [session?.isFinished]);
 
-  // Classement effectif (prop direct ou depuis le stockage local/cloud)
+  // Classement effectif (prop direct ou depuis le stockage local/cloud — tous les mois)
   const effectiveExistingRanking = useMemo(() => {
     if (existingRanking) return existingRanking;
-    return isTv
-      ? getStoredSeriesRanking(monthKey, userProfile)
-      : getStoredMovieRanking(monthKey, userProfile);
+
+    // Search across ALL months in profile + localStorage (not just current monthKey)
+    const allProfileRankings: MonthlyMovieRanking[] = Object.values(
+      isTv ? (userProfile?.seriesRankings || {}) : (userProfile?.movieRankings || {})
+    ).filter((r): r is MonthlyMovieRanking => !!(r?.rankedTitles?.length));
+
+    const localStorageRankings: MonthlyMovieRanking[] = [];
+    if (typeof window !== 'undefined') {
+      try {
+        const key = isTv ? 'kolyoum_series_rankings' : 'kolyoum_movie_rankings';
+        const all = localStorage.getItem(key);
+        if (all) {
+          const parsed = JSON.parse(all);
+          Object.values(parsed).forEach((r: any) => {
+            if (r?.rankedTitles?.length) localStorageRankings.push(r as MonthlyMovieRanking);
+          });
+        }
+      } catch {}
+    }
+
+    const candidates = [...allProfileRankings, ...localStorageRankings];
+    if (candidates.length === 0) return null;
+    return candidates.reduce((best, curr) => {
+      const bestCount = best.rankedTitles?.length ?? 0;
+      const currCount = curr.rankedTitles?.length ?? 0;
+      if (currCount > bestCount) return curr;
+      if (currCount === bestCount) {
+        return (curr.updatedAt || 0) >= (best.updatedAt || 0) ? curr : best;
+      }
+      return best;
+    });
   }, [existingRanking, monthKey, userProfile, isTv]);
 
   // Filtrer les films/séries de test et enrichir avec leur catégorie
