@@ -87,6 +87,17 @@ export function CinematicDnaModal({
     isDirector?: boolean;
   }
 
+  interface FilmographyItem {
+    id: number;
+    title: string;
+    year: number | null;
+    posterPath: string | null;
+    voteAverage: number | null;
+    mediaType: string;
+    character?: string | null;
+    job?: string | null;
+  }
+
   interface PersonBio {
     id: number;
     name: string;
@@ -96,6 +107,7 @@ export function CinematicDnaModal({
     department?: string | null;
     profilePath?: string | null;
     filmsInYourList?: string[];
+    filmography?: FilmographyItem[];
   }
 
   const [actorData, setActorData] = useState<{
@@ -117,10 +129,20 @@ export function CinematicDnaModal({
       personPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }, 50);
     try {
-      const res = await fetch(`/api/tmdb-person?id=${person.id}`);
-      if (!res.ok) throw new Error();
-      const bio: PersonBio = await res.json();
+      // Fetch bio + filmographie en parallèle
+      const [bioRes, creditsRes] = await Promise.all([
+        fetch(`/api/tmdb-person?id=${person.id}`),
+        fetch(`/api/tmdb-person-credits?id=${person.id}&type=${mediaType}`),
+      ]);
+
+      const bio: PersonBio = bioRes.ok ? await bioRes.json() : {} as PersonBio;
       bio.filmsInYourList = person.films;
+
+      if (creditsRes.ok) {
+        const creditsData = await creditsRes.json();
+        bio.filmography = creditsData.credits || [];
+      }
+
       setSelectedPerson(prev => prev ? { ...prev, bio, bioLoading: false } : null);
     } catch {
       setSelectedPerson(prev => prev ? { ...prev, bioLoading: false } : null);
@@ -520,6 +542,46 @@ export function CinematicDnaModal({
                         </div>
                       </div>
                     )}
+
+                    {/* Filmographie scrollable */}
+                    {selectedPerson.bio?.filmography && selectedPerson.bio.filmography.length > 0 && (
+                      <div>
+                        <p className="text-[9px] font-extrabold text-white/40 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                          🎬 Filmographie notable
+                        </p>
+                        <div
+                          className="flex gap-1.5 overflow-x-auto pb-1"
+                          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                        >
+                          {selectedPerson.bio.filmography.map((film) => (
+                            <div
+                              key={film.id}
+                              title={`${film.title}${film.year ? ` (${film.year})` : ''}${film.character ? ` — ${film.character}` : film.job ? ` — ${film.job}` : ''}`}
+                              className="relative flex-shrink-0 w-12 h-[68px] rounded-lg overflow-hidden border border-white/10 hover:border-indigo-400/50 transition-all duration-200 cursor-pointer hover:scale-105 group/film"
+                            >
+                              {film.posterPath ? (
+                                <img
+                                  src={`/api/image-proxy?url=${encodeURIComponent(film.posterPath)}`}
+                                  alt={film.title}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-white/5 flex items-center justify-center text-[7px] text-white/30 text-center px-0.5 leading-tight">
+                                  {film.title}
+                                </div>
+                              )}
+                              {film.voteAverage && film.voteAverage > 0 && (
+                                <div className="absolute bottom-0 inset-x-0 bg-black/75 text-[7px] font-black text-amber-300 text-center leading-none py-0.5">
+                                  ★{film.voteAverage}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 )}
               </>

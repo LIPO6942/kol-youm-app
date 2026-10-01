@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ArrowLeft, Laugh, Theater, Search, Lightbulb, Rocket, Sparkles, Eye, ListVideo, Settings, Loader2, Swords, BarChart3, Wand2, Dna, Compass } from 'lucide-react';
 import { MovieListSheet } from '@/components/tfarrej/movie-list-sheet';
+import { TrendingStrip } from '@/components/tfarrej/TrendingStrip';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TfarrejStatsDialog } from '@/components/tfarrej/tfarrej-stats-dialog';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
@@ -450,8 +451,8 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         <div className="flex justify-between items-start gap-2">
           <div>
             <h2 className="text-2xl font-bold font-headline tracking-tight">Le Tinder du Cinéma</h2>
-            <p className="text-muted-foreground text-sm">
-              "Swipez" pour découvrir votre prochain coup de cœur.
+            <p className="text-muted-foreground text-xs">
+              Swipez et classez vos coups de cœur.
             </p>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 pt-0.5">
@@ -604,6 +605,11 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
             />
           </div>
         )}
+      </div>
+
+      {/* Bandeau tendances discret */}
+      <div className="px-0.5 py-1">
+        <TrendingStrip type={type} />
       </div>
 
       <div className="flex justify-center pb-2">
