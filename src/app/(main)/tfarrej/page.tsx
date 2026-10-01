@@ -489,6 +489,9 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
           </div>
         </div>
 
+        {/* Bande tendances — au-dessus des boutons d'action */}
+        <TrendingStrip type={type} />
+
         {/* Ligne 2 : Grille de boutons d'action parfaitement alignés et calibrés */}
         {type === 'movie' ? (
           <div className="grid grid-cols-3 gap-2 sm:gap-2.5 w-full">
@@ -605,11 +608,6 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
             />
           </div>
         )}
-      </div>
-
-      {/* Bandeau tendances discret */}
-      <div className="px-0.5 py-1">
-        <TrendingStrip type={type} />
       </div>
 
       <div className="flex justify-center pb-2">
