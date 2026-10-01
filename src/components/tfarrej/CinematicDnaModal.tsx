@@ -77,6 +77,25 @@ export function CinematicDnaModal({
     return dna.scores.filter(s => s.percentage > 0 || s.points > 0);
   }, [dna.scores]);
 
+  // ── TITRES VUS & WATCHLIST (pour badges sur la filmographie) ─────────────────
+  function normalizeTitle(t: string) {
+    return t.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+  }
+
+  const seenSet = useMemo(() => {
+    const titles = mediaType === 'tv'
+      ? (userProfile?.seenSeriesTitles || [])
+      : (userProfile?.seenMovieTitles || []);
+    return new Set(titles.map(normalizeTitle));
+  }, [userProfile, mediaType]);
+
+  const watchSet = useMemo(() => {
+    const titles = mediaType === 'tv'
+      ? (userProfile?.seriesToWatch || [])
+      : (userProfile?.moviesToWatch || []);
+    return new Set(titles.map(normalizeTitle));
+  }, [userProfile, mediaType]);
+
   // ── ACTEURS PRÉFÉRÉS ─────────────────────────────────────────────────────────
   interface ActorScore {
     id: number;
@@ -553,31 +572,64 @@ export function CinematicDnaModal({
                           className="flex gap-1.5 overflow-x-auto pb-1"
                           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                         >
-                          {selectedPerson.bio.filmography.map((film) => (
-                            <div
-                              key={film.id}
-                              title={`${film.title}${film.year ? ` (${film.year})` : ''}${film.character ? ` — ${film.character}` : film.job ? ` — ${film.job}` : ''}`}
-                              className="relative flex-shrink-0 w-12 h-[68px] rounded-lg overflow-hidden border border-white/10 hover:border-indigo-400/50 transition-all duration-200 cursor-pointer hover:scale-105 group/film"
-                            >
-                              {film.posterPath ? (
-                                <img
-                                  src={`/api/image-proxy?url=${encodeURIComponent(film.posterPath)}`}
-                                  alt={film.title}
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="w-full h-full bg-white/5 flex items-center justify-center text-[7px] text-white/30 text-center px-0.5 leading-tight">
-                                  {film.title}
-                                </div>
-                              )}
-                              {film.voteAverage && film.voteAverage > 0 && (
-                                <div className="absolute bottom-0 inset-x-0 bg-black/75 text-[7px] font-black text-amber-300 text-center leading-none py-0.5">
-                                  ★{film.voteAverage}
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                          {selectedPerson.bio.filmography.map((film) => {
+                            const alreadySeen = seenSet.has(normalizeTitle(film.title));
+                            const inWatchlist = watchSet.has(normalizeTitle(film.title));
+                            return (
+                              <div
+                                key={film.id}
+                                title={`${film.title}${film.year ? ` (${film.year})` : ''}${film.character ? ` — ${film.character}` : film.job ? ` — ${film.job}` : ''}${alreadySeen ? ' — ✓ Déjà vu' : inWatchlist ? ' — 📌 Dans À Voir' : ''}`}
+                                className={`relative flex-shrink-0 w-12 h-[68px] rounded-lg overflow-hidden border transition-all duration-200 cursor-pointer hover:scale-105 group/film ${
+                                  alreadySeen
+                                    ? 'border-emerald-400/50 hover:border-emerald-400/80'
+                                    : inWatchlist
+                                    ? 'border-blue-400/50 hover:border-blue-400/80'
+                                    : 'border-white/10 hover:border-indigo-400/50'
+                                }`}
+                              >
+                                {film.posterPath ? (
+                                  <img
+                                    src={`/api/image-proxy?url=${encodeURIComponent(film.posterPath)}`}
+                                    alt={film.title}
+                                    className={`w-full h-full object-cover ${alreadySeen ? 'brightness-75' : ''}`}
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-white/5 flex items-center justify-center text-[7px] text-white/30 text-center px-0.5 leading-tight">
+                                    {film.title}
+                                  </div>
+                                )}
+
+                                {/* Overlay vu */}
+                                {alreadySeen && (
+                                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400 drop-shadow-lg" />
+                                  </div>
+                                )}
+
+                                {/* Overlay watchlist */}
+                                {!alreadySeen && inWatchlist && (
+                                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                    <div className="text-blue-400 text-sm">📌</div>
+                                  </div>
+                                )}
+
+                                {/* Note (cachée si overlay vu) */}
+                                {film.voteAverage && film.voteAverage > 0 && !alreadySeen && (
+                                  <div className="absolute bottom-0 inset-x-0 bg-black/75 text-[7px] font-black text-amber-300 text-center leading-none py-0.5">
+                                    ★{film.voteAverage}
+                                  </div>
+                                )}
+
+                                {/* Badge vu (en bas, par-dessus l'overlay) */}
+                                {alreadySeen && (
+                                  <div className="absolute bottom-0 inset-x-0 bg-emerald-900/90 text-[7px] font-black text-emerald-300 text-center leading-none py-0.5">
+                                    Vu ✓
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
