@@ -995,7 +995,6 @@ function MovieListContent({
   }, [sortedMovieTitles, searchQuery, yearFilter, movieDetails]);
 
   // For seen movies: group by viewing year (desc), each year is a collapsible section
-  const currentYear = new Date().getFullYear();
   const moviesByYear = useMemo(() => {
     const isSeenList = listType === 'seenMovieTitles' || listType === 'seenSeriesTitles';
     if (!isSeenList) return null;
