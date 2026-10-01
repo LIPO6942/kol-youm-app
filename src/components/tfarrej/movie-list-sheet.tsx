@@ -994,23 +994,35 @@ function MovieListContent({
     return filtered.filter(t => !isTestMovieTitle(t));
   }, [sortedMovieTitles, searchQuery, yearFilter, movieDetails]);
 
-  // For seen movies: split into recent and old (>2 years)
-  const { recentMovies, oldMovies } = useMemo(() => {
+  // For seen movies: group by viewing year (desc), each year is a collapsible section
+  const currentYear = new Date().getFullYear();
+  const moviesByYear = useMemo(() => {
     const isSeenList = listType === 'seenMovieTitles' || listType === 'seenSeriesTitles';
-    if (!isSeenList) {
-      return { recentMovies: filteredMovies, oldMovies: [] as string[] };
-    }
-    const recent: string[] = [];
-    const old: string[] = [];
+    if (!isSeenList) return null;
+    const groups: Record<number, string[]> = {};
     filteredMovies.forEach((title: string) => {
-      if (isOlderThanTwoYears(title)) {
-        old.push(title);
-      } else {
-        recent.push(title);
-      }
+      const norm = title.toLowerCase().trim();
+      const localDate = localViewedDates[norm];
+      const seenData = seenMoviesData?.find((m: any) => m?.title?.toLowerCase()?.trim() === norm);
+      const ts = localDate !== undefined ? localDate : (seenData?.viewedAt || seenData?.addedAt || undefined);
+      const year = ts ? new Date(ts).getFullYear() : 0;
+      if (!groups[year]) groups[year] = [];
+      groups[year].push(title);
     });
-    return { recentMovies: recent, oldMovies: old };
-  }, [filteredMovies, listType, isOlderThanTwoYears]);
+    return Object.entries(groups)
+      .map(([y, titles]) => ({ year: Number(y), titles }))
+      .sort((a, b) => {
+        if (a.year === 0) return 1;
+        if (b.year === 0) return -1;
+        return b.year - a.year;
+      });
+  }, [filteredMovies, listType, localViewedDates, seenMoviesData]);
+
+  const [collapsedYears, setCollapsedYears] = useState<Record<number, boolean>>({});
+  const toggleYear = (year: number) => setCollapsedYears(prev => ({ ...prev, [year]: !prev[year] }));
+  // Compat stubs for non-seen lists
+  const recentMovies = moviesByYear ? [] : filteredMovies;
+  const oldMovies: string[] = [];
 
   // Debounced search for TMDb API
   const searchTMDb = useCallback(async (query: string) => {
@@ -1649,39 +1661,34 @@ function MovieListContent({
         <ScrollArea className="flex-1 pr-4">
           {viewMode === 'list' ? (
             <div className="py-2 space-y-1">
-              {/* Recent Entries */}
-              {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && recentMovies.length > 0 && (
-                <div className="mb-2">
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-2 px-1">Récemment vu{type === 'tv' ? 'es' : 's'}</h3>
-                  {recentMovies.map((movieTitle: string, index: number) => renderListItem(movieTitle, index))}
-                </div>
-              )}
 
-              {/* Old Entries (> 6 months) */}
-              {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && oldMovies.length > 0 && (
-                <div className="mt-4">
-                  {!showOldMovies ? (
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-between text-muted-foreground"
-                      onClick={() => setShowOldMovies(true)}
+
+              {/* Year-grouped sections for seen movies */}
+              {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && moviesByYear && moviesByYear.map(({ year, titles }) => {
+                const label = year === 0 ? 'Date inconnue' : String(year);
+                const isCurrentYear = year === currentYear;
+                const isCollapsed = collapsedYears[year] !== undefined ? collapsedYears[year] : !isCurrentYear;
+                return (
+                  <div key={year} className="mt-3 first:mt-0">
+                    <button
+                      type="button"
+                      onClick={() => toggleYear(year)}
+                      className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg bg-muted/40 hover:bg-muted/70 transition-colors group mb-1"
                     >
-                      <span>Voir plus ({oldMovies.length} ancien{type === 'tv' ? 'nes' : 's'} {type === 'movie' ? 'films' : 'titres'})</span>
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  ) : (
-                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                      <div className="flex items-center justify-between mb-2 px-1">
-                        <h3 className="text-sm font-semibold text-muted-foreground">Vu{type === 'tv' ? 'es' : 's'} il y a longtemps</h3>
-                        <Button variant="ghost" size="sm" onClick={() => setShowOldMovies(false)} className="h-6 text-xs">
-                          Masquer
-                        </Button>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-foreground tracking-wide">{label}</span>
+                        <span className="text-[10px] font-medium text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{titles.length}</span>
                       </div>
-                      {oldMovies.map((movieTitle: string, index: number) => renderListItem(movieTitle, index))}
-                    </div>
-                  )}
-                </div>
-              )}
+                      <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`} />
+                    </button>
+                    {!isCollapsed && (
+                      <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+                        {titles.map((movieTitle: string, index: number) => renderListItem(movieTitle, index))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
 
               {/* Standard List (Watchlist or Search Results) */}
               {!(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && filteredMovies.length > 0 && (
@@ -1714,41 +1721,33 @@ function MovieListContent({
               {/* Grid View Logic */}
               {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') ? (
                 <>
-                  {recentMovies.length > 0 && (
-                    <div className="mb-4">
-                      <h3 className="text-sm font-semibold text-muted-foreground mb-2 px-1">Récemment vu{type === 'tv' ? 'es' : 's'}</h3>
-                      <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                        {recentMovies.map((movieTitle: string, index: number) => renderGridItem(movieTitle, index))}
-                      </div>
-                    </div>
-                  )}
 
-                  {oldMovies.length > 0 && (
-                    <div className="mt-4">
-                      {!showOldMovies ? (
-                        <Button
-                          variant="ghost"
-                          className="w-full justify-between text-muted-foreground"
-                          onClick={() => setShowOldMovies(true)}
+                  {/* Year-grouped grid sections */}
+                  {moviesByYear && moviesByYear.map(({ year, titles }) => {
+                    const label = year === 0 ? 'Date inconnue' : String(year);
+                    const isCurrentYear = year === currentYear;
+                    const isCollapsed = collapsedYears[year] !== undefined ? collapsedYears[year] : !isCurrentYear;
+                    return (
+                      <div key={year} className="mt-3 first:mt-0">
+                        <button
+                          type="button"
+                          onClick={() => toggleYear(year)}
+                          className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg bg-muted/40 hover:bg-muted/70 transition-colors mb-1"
                         >
-                          <span>Voir plus ({oldMovies.length} ancien{type === 'tv' ? 'nes' : 's'} {type === 'movie' ? 'films' : 'titres'})</span>
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                          <div className="flex items-center justify-between mb-2 px-1">
-                            <h3 className="text-sm font-semibold text-muted-foreground">Vu{type === 'tv' ? 'es' : 's'} il y a longtemps</h3>
-                            <Button variant="ghost" size="sm" onClick={() => setShowOldMovies(false)} className="h-6 text-xs">
-                              Masquer
-                            </Button>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-foreground tracking-wide">{label}</span>
+                            <span className="text-[10px] font-medium text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">{titles.length}</span>
                           </div>
-                          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                            {oldMovies.map((movieTitle: string, index: number) => renderGridItem(movieTitle, index))}
+                          <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${isCollapsed ? '' : 'rotate-180'}`} />
+                        </button>
+                        {!isCollapsed && (
+                          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2 animate-in fade-in duration-200">
+                            {titles.map((movieTitle: string, index: number) => renderGridItem(movieTitle, index))}
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        )}
+                      </div>
+                    );
+                  })}
                 </>
               ) : (
                 <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">

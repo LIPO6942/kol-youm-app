@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import {
   Dialog,
@@ -26,6 +26,9 @@ import {
   Zap,
   Info,
   CheckCircle2,
+  Users,
+  Loader2,
+  Clapperboard,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -73,6 +76,127 @@ export function CinematicDnaModal({
   const activeScores = useMemo(() => {
     return dna.scores.filter(s => s.percentage > 0 || s.points > 0);
   }, [dna.scores]);
+
+  // ── ACTEURS PRÉFÉRÉS ─────────────────────────────────────────────────────────
+  interface ActorScore {
+    id: number;
+    name: string;
+    profilePath?: string;
+    score: number;
+    films: string[]; // top-ranked films this actor appears in
+    isDirector?: boolean;
+  }
+
+  const [actorData, setActorData] = useState<{
+    actors: ActorScore[];
+    directors: ActorScore[];
+    loading: boolean;
+    fetched: boolean;
+  }>({ actors: [], directors: [], loading: false, fetched: false });
+
+  // Top-ranked titles to analyse (up to 15 best-ranked films)
+  const isSeries = mediaType === 'tv';
+  const topRankedTitles = useMemo(() => {
+    const allRankings = isSeries
+      ? Object.values(userProfile?.seriesRankings || {})
+      : Object.values(userProfile?.movieRankings || {});
+    const pickBest = (rankings: any[]) => {
+      const valid = rankings.filter(r => r?.rankedTitles?.length > 0);
+      if (!valid.length) return null;
+      return valid.reduce((b, c) => (c.rankedTitles.length >= b.rankedTitles.length ? c : b));
+    };
+    const best = pickBest(allRankings);
+    return (best?.rankedTitles || []).slice(0, 15) as string[];
+  }, [userProfile?.movieRankings, userProfile?.seriesRankings, isSeries]);
+
+  const fetchActors = useCallback(async () => {
+    if (!topRankedTitles.length || actorData.fetched) return;
+    setActorData(prev => ({ ...prev, loading: true }));
+    try {
+      const res = await fetch('/api/tmdb-cast-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ titles: topRankedTitles, type: mediaType }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+
+      // Score = (N - rank) where N = number of titles analysed
+      // rank 0 (#1 film) → highest score
+      const N = topRankedTitles.length;
+      const actorMap = new Map<number, ActorScore>();
+      const directorMap = new Map<number, ActorScore>();
+
+      topRankedTitles.forEach((title, rankIndex) => {
+        const credit = data.results?.[title];
+        if (!credit) return;
+        const rankScore = N - rankIndex; // #1 = N pts, #N = 1 pt
+
+        // Cast members: top-billed (order 0) get +50% bonus
+        (credit.cast || []).forEach((actor: any) => {
+          const billingBonus = actor.order === 0 ? 1.5 : 1.0;
+          const pts = rankScore * billingBonus;
+          const existing = actorMap.get(actor.id);
+          if (existing) {
+            existing.score += pts;
+            if (!existing.films.includes(title)) existing.films.push(title);
+          } else {
+            actorMap.set(actor.id, {
+              id: actor.id,
+              name: actor.name,
+              profilePath: actor.profilePath,
+              score: pts,
+              films: [title],
+            });
+          }
+        });
+
+        // Director
+        if (credit.director) {
+          const d = credit.director;
+          const existing = directorMap.get(d.id);
+          if (existing) {
+            existing.score += rankScore;
+            if (!existing.films.includes(title)) existing.films.push(title);
+          } else {
+            directorMap.set(d.id, {
+              id: d.id,
+              name: d.name,
+              profilePath: d.profilePath,
+              score: rankScore,
+              films: [title],
+              isDirector: true,
+            });
+          }
+        }
+      });
+
+      const sortedActors = Array.from(actorMap.values())
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 6);
+      const sortedDirectors = Array.from(directorMap.values())
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
+
+      setActorData({ actors: sortedActors, directors: sortedDirectors, loading: false, fetched: true });
+    } catch {
+      setActorData(prev => ({ ...prev, loading: false, fetched: true }));
+    }
+  }, [topRankedTitles, mediaType, actorData.fetched]);
+
+  // Reset when mediaType changes so it re-fetches
+  useEffect(() => {
+    setActorData({ actors: [], directors: [], loading: false, fetched: false });
+  }, [mediaType]);
+
+  useEffect(() => {
+    if (isOpen && !actorData.fetched && !actorData.loading) {
+      fetchActors();
+    }
+  }, [isOpen, fetchActors, actorData.fetched, actorData.loading]);
+  // ─────────────────────────────────────────────────────────────────────────────
+
+
 
   // Helper pour formater l'affiche
   const getPosterUrl = (url?: string) => {
@@ -390,6 +514,119 @@ export function CinematicDnaModal({
                 Contrairement à un simple décompte de {mediaType === 'tv' ? 'séries vues' : 'films vus'}, votre ADN s'appuie sur le <strong>classement de vos duels</strong>. Les {mediaType === 'tv' ? 'séries classées' : 'films classés'} <strong>#1, #2 et #3</strong> reçoivent une pondération exponentielle : vos véritables coups de cœur façonnent vos gènes dominants !
               </p>
             </div>
+          </div>
+
+          {/* 5. ACTEURS & RÉALISATEURS PRÉFÉRÉS */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-extrabold text-white/90 uppercase tracking-wider flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-rose-400" />
+                {mediaType === 'tv' ? 'Acteurs & Créateurs que vous semblez apprécier' : 'Acteurs & Réalisateurs que vous semblez apprécier'}
+              </h4>
+              {!actorData.fetched && !actorData.loading && (
+                <button
+                  type="button"
+                  onClick={fetchActors}
+                  className="text-[10px] font-bold text-indigo-300 hover:text-white bg-white/5 hover:bg-white/10 px-2 py-1 rounded-lg transition-all border border-white/10"
+                >
+                  Analyser
+                </button>
+              )}
+            </div>
+
+            {actorData.loading && (
+              <div className="flex items-center justify-center gap-2 py-6 text-white/50">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-xs">Analyse du casting en cours...</span>
+              </div>
+            )}
+
+            {actorData.fetched && actorData.actors.length === 0 && (
+              <p className="text-xs text-white/40 text-center py-4">Pas assez de données de classement pour l'analyse.</p>
+            )}
+
+            {actorData.actors.length > 0 && (
+              <>
+                {/* Acteurs */}
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {actorData.actors.map((actor, i) => (
+                    <div
+                      key={actor.id}
+                      className="flex flex-col items-center gap-1.5 p-2 rounded-2xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] transition-all text-center group"
+                      title={`Apparaît dans : ${actor.films.slice(0, 3).join(', ')}`}
+                    >
+                      {/* Médaille */}
+                      <div className="relative">
+                        <div className="w-12 h-12 rounded-full overflow-hidden bg-white/10 border-2 border-white/20 group-hover:border-rose-400/50 transition-all">
+                          {actor.profilePath ? (
+                            <img
+                              src={`/api/image-proxy?url=${encodeURIComponent(actor.profilePath)}`}
+                              alt={actor.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xl">
+                              {i === 0 ? '👑' : '🎭'}
+                            </div>
+                          )}
+                        </div>
+                        <span className="absolute -bottom-1 -right-1 text-[10px] leading-none bg-rose-500/90 text-white rounded-full w-4 h-4 flex items-center justify-center font-bold shadow">
+                          {i + 1}
+                        </span>
+                      </div>
+                      <p className="text-[10px] font-bold text-white leading-tight line-clamp-2">{actor.name}</p>
+                      <p className="text-[9px] text-white/40 leading-tight line-clamp-1">
+                        {actor.films.slice(0, 2).join(' · ')}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Réalisateurs */}
+                {actorData.directors.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-[10px] font-extrabold text-white/60 uppercase tracking-wider flex items-center gap-1 mb-2">
+                      <Clapperboard className="w-3 h-3" />
+                      {mediaType === 'tv' ? 'Créateurs / Showrunners' : 'Réalisateurs'}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {actorData.directors.map((dir, i) => (
+                        <div
+                          key={dir.id}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] transition-all"
+                          title={`Films : ${dir.films.join(', ')}`}
+                        >
+                          <div className="w-7 h-7 rounded-full overflow-hidden bg-white/10 border border-white/15 shrink-0">
+                            {dir.profilePath ? (
+                              <img
+                                src={`/api/image-proxy?url=${encodeURIComponent(dir.profilePath)}`}
+                                alt={dir.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-sm">🎬</div>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-white">{dir.name}</p>
+                            <p className="text-[9px] text-white/40">{dir.films.length} {dir.films.length > 1 ? 'films' : 'film'} bien classé{dir.films.length > 1 ? 's' : ''}</p>
+                          </div>
+                          {i === 0 && <span className="text-[10px] ml-auto">🏆</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Bannière explicative acteurs */}
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-400/20 text-rose-200 text-[11px] flex items-start gap-2">
+                  <Info className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                  <p className="text-white/65 leading-relaxed">
+                    <strong className="text-white">Comment c'est calculé ?</strong> Les {topRankedTitles.length} meilleures œuvres de ton classement sont analysées. Chaque acteur reçoit un score basé sur le rang du film (<strong>#1 = {topRankedTitles.length} pts</strong>, #2 = {topRankedTitles.length - 1} pts…). Les acteurs en tête d'affiche (1er rôle) reçoivent un bonus de <strong>+50%</strong>. Résultat : les acteurs qui reviennent dans tes films favoris remontent naturellement.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
