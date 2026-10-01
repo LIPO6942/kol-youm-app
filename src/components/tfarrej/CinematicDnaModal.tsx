@@ -695,8 +695,6 @@ export function CinematicDnaModal({
               </p>
             </div>
           </div>
-
-          </div>
         </div>
 
         {/* Footer */}
