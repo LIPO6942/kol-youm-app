@@ -118,7 +118,9 @@ export function CinematicDnaModal({
   // ── ACTIONS SUR FILMOGRAPHIE (comme sur la bande tendances) ──────────────────
   const [activeFilm, setActiveFilm] = useState<FilmographyItem | null>(null);
   const [actionLoading, setActionLoading] = useState<'watchlist' | 'seen' | null>(null);
+  const [dateMode, setDateMode] = useState<'exact' | 'approx'>('exact');
   const [seenDate, setSeenDate] = useState<string>(() => toDateInputValue(Date.now()));
+  const [approxYear, setApproxYear] = useState<string>('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const filmActionPanelRef = useRef<HTMLDivElement>(null);
 
@@ -160,7 +162,21 @@ export function CinematicDnaModal({
   const handleMarkAsSeen = async (film: FilmographyItem) => {
     const effectiveUid = user?.uid || userProfile?.uid || 'guest';
     setActionLoading('seen');
-    const viewedAt = new Date(seenDate).getTime() || Date.now();
+
+    let viewedAt: number | undefined = undefined;
+    if (dateMode === 'exact') {
+      const d = new Date(seenDate).getTime();
+      viewedAt = !isNaN(d) ? d : Date.now();
+    } else {
+      const y = parseInt(approxYear, 10);
+      if (!isNaN(y) && y >= 1900 && y <= 2100) {
+        // Milieu d'année (1er juillet à midi) pour une date approximative
+        viewedAt = new Date(y, 6, 1, 12, 0, 0).getTime();
+      } else {
+        viewedAt = Date.now();
+      }
+    }
+
     try {
       if (mediaType === 'tv' || film.mediaType === 'tv') {
         await addSeenSeriesWithDate(effectiveUid, {
@@ -178,9 +194,12 @@ export function CinematicDnaModal({
         });
       }
       forceProfileRefresh?.();
+      const dateDesc = dateMode === 'exact'
+        ? `Vu le ${new Date(viewedAt).toLocaleDateString('fr-FR')}`
+        : `Vu vers ${approxYear || new Date(viewedAt).getFullYear()}`;
       toast({
         title: `✅ Marqué comme vu`,
-        description: `${film.title} — ${new Date(viewedAt).toLocaleDateString('fr-FR')}`,
+        description: `${film.title} — ${dateDesc}`,
       });
       setActiveFilm(null);
       setShowDatePicker(false);
@@ -700,6 +719,8 @@ export function CinematicDnaModal({
                                   } else {
                                     setActiveFilm(film);
                                     setSeenDate(toDateInputValue(Date.now()));
+                                    setApproxYear(film.year ? String(film.year) : String(new Date().getFullYear()));
+                                    setDateMode('exact');
                                     setShowDatePicker(false);
                                     setTimeout(() => {
                                       filmActionPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -855,18 +876,83 @@ export function CinematicDnaModal({
                                       </div>
                                     </button>
                                   ) : (
-                                    <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-400/25 space-y-2">
+                                    <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-400/25 space-y-2.5">
                                       <div className="flex items-center gap-2">
                                         <CalendarDays className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
                                         <p className="text-xs font-bold text-white">Date de visionnage</p>
                                       </div>
-                                      <input
-                                        type="date"
-                                        value={seenDate}
-                                        max={toDateInputValue(Date.now())}
-                                        onChange={e => setSeenDate(e.target.value)}
-                                        className="w-full rounded-lg bg-black/60 border border-white/20 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                                      />
+
+                                      {/* Onglets : Date précise vs Année approx */}
+                                      <div className="grid grid-cols-2 gap-1 p-0.5 rounded-lg bg-black/40 border border-white/10">
+                                        <button
+                                          type="button"
+                                          onClick={() => setDateMode('exact')}
+                                          className={`py-1 px-2 rounded-md text-[11px] font-bold transition-all text-center cursor-pointer ${
+                                            dateMode === 'exact'
+                                              ? 'bg-emerald-600 text-white shadow-sm'
+                                              : 'text-white/60 hover:text-white hover:bg-white/5'
+                                          }`}
+                                        >
+                                          📅 Date précise
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setDateMode('approx');
+                                            if (!approxYear && activeFilm.year) {
+                                              setApproxYear(String(activeFilm.year));
+                                            }
+                                          }}
+                                          className={`py-1 px-2 rounded-md text-[11px] font-bold transition-all text-center cursor-pointer ${
+                                            dateMode === 'approx'
+                                              ? 'bg-emerald-600 text-white shadow-sm'
+                                              : 'text-white/60 hover:text-white hover:bg-white/5'
+                                          }`}
+                                        >
+                                          ⏳ Année approx.
+                                        </button>
+                                      </div>
+
+                                      {/* Champ selon le mode */}
+                                      {dateMode === 'exact' ? (
+                                        <div className="space-y-1">
+                                          <input
+                                            type="date"
+                                            value={seenDate}
+                                            max={toDateInputValue(Date.now())}
+                                            onChange={e => setSeenDate(e.target.value)}
+                                            className="w-full rounded-lg bg-black/60 border border-white/20 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer"
+                                          />
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-1.5">
+                                          <div className="flex items-center gap-2">
+                                            <input
+                                              type="number"
+                                              min={1900}
+                                              max={new Date().getFullYear()}
+                                              placeholder={`Ex: ${activeFilm.year || '2020'}`}
+                                              value={approxYear}
+                                              onChange={e => setApproxYear(e.target.value)}
+                                              className="flex-1 rounded-lg bg-black/60 border border-white/20 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-emerald-400 placeholder:text-white/30"
+                                            />
+                                            {activeFilm.year && (
+                                              <button
+                                                type="button"
+                                                onClick={() => setApproxYear(String(activeFilm.year))}
+                                                className="shrink-0 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-[10px] font-semibold text-emerald-300 border border-emerald-400/20 transition-colors cursor-pointer"
+                                                title={`Année de sortie du film : ${activeFilm.year}`}
+                                              >
+                                                Sortie ({activeFilm.year})
+                                              </button>
+                                            )}
+                                          </div>
+                                          <p className="text-[10px] text-white/50 leading-tight">
+                                            💡 Pratique pour les œuvres vues il y a longtemps sans date exacte.
+                                          </p>
+                                        </div>
+                                      )}
+
                                       <div className="flex gap-2 pt-0.5">
                                         <button
                                           type="button"
@@ -878,7 +964,7 @@ export function CinematicDnaModal({
                                         <button
                                           type="button"
                                           onClick={() => handleMarkAsSeen(activeFilm)}
-                                          disabled={actionLoading !== null}
+                                          disabled={actionLoading !== null || (dateMode === 'approx' && (!approxYear || parseInt(approxYear, 10) < 1900))}
                                           className="flex-1 py-1.5 rounded-lg text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-1 shadow-sm cursor-pointer"
                                         >
                                           {actionLoading === 'seen' ? (
