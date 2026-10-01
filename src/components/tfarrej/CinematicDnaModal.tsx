@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import {
   Dialog,
@@ -107,8 +107,14 @@ export function CinematicDnaModal({
 
   const [selectedPerson, setSelectedPerson] = useState<(ActorScore & { bio?: PersonBio; bioLoading?: boolean }) | null>(null);
 
+  const personPanelRef = useRef<HTMLDivElement>(null);
+
   const handlePersonClick = async (person: ActorScore) => {
     setSelectedPerson({ ...person, bioLoading: true });
+    // Scroll vers le panneau bio après le prochain rendu
+    setTimeout(() => {
+      personPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
     try {
       const res = await fetch(`/api/tmdb-person?id=${person.id}`);
       if (!res.ok) throw new Error();
@@ -238,25 +244,16 @@ export function CinematicDnaModal({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[680px] w-[95vw] max-h-[92vh] overflow-hidden p-0 border border-indigo-500/30 bg-[#0B0C14] text-white shadow-[0_25px_80px_rgba(79,70,229,0.35)] flex flex-col !z-[200] [&>button]:text-white [&>button]:opacity-80 [&>button:hover]:opacity-100 [&>button]:bg-white/10 [&>button]:p-1.5 [&>button]:rounded-full [&>button]:transition-all">
         {/* Header néon holographique */}
-        <div className="relative px-6 py-4 border-b border-white/10 bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-950 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 shadow-[0_0_20px_rgba(99,102,241,0.4)]">
-              <Dna className="w-6 h-6 animate-pulse" />
-            </div>
-            <div>
-              <DialogTitle className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2">
-                <span>{mediaType === 'tv' ? "ADN Télévisuel & Séries" : "ADN Cinématographique"}</span>
-                <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-[10px] font-mono font-bold tracking-normal">
-                  Pondéré par vos duels
-                </span>
-              </DialogTitle>
-              <DialogDescription className="text-xs text-white/60">
-                {mediaType === 'tv'
-                  ? "Votre profil sériephile génétique calculé d'après vos classements officiels de séries."
-                  : "Votre profil cinéphile génétique calculé d'après vos classements officiels."}
-              </DialogDescription>
-            </div>
+        <div className="relative px-4 py-3 border-b border-white/10 bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-950 flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 shadow-[0_0_16px_rgba(99,102,241,0.4)] shrink-0">
+            <Dna className="w-5 h-5 animate-pulse" />
           </div>
+          <DialogTitle className="text-base sm:text-lg font-black tracking-tight text-white flex flex-wrap items-center gap-2">
+            <span>{mediaType === 'tv' ? "ADN Télévisuel & Séries" : "ADN Cinématographique"}</span>
+            <span className="px-1.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-[9px] font-mono font-bold tracking-normal">
+              pondéré par vos duels
+            </span>
+          </DialogTitle>
         </div>
 
         {/* Sélecteur de média & de période */}
@@ -445,7 +442,7 @@ export function CinematicDnaModal({
 
                 {/* Mini-panneau bio au clic */}
                 {selectedPerson && (
-                  <div className="relative rounded-2xl bg-gradient-to-br from-slate-900 to-indigo-950/60 border border-indigo-400/30 p-4 space-y-3 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div ref={personPanelRef} className="relative rounded-2xl bg-gradient-to-br from-slate-900 to-indigo-950/60 border border-indigo-400/30 p-4 space-y-3 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
                     <button
                       type="button"
                       onClick={() => setSelectedPerson(null)}
