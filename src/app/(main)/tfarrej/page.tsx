@@ -452,7 +452,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
           <div>
             <h2 className="text-2xl font-bold font-headline tracking-tight">Le Tinder du Cinéma</h2>
             <p className="text-muted-foreground text-xs">
-              Swipez et classez vos coups de cœur.
+              {type === 'tv' ? 'Swipez et classez vos séries.' : 'Swipez et classez vos films.'}
             </p>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 pt-0.5">
