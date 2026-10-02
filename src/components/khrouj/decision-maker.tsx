@@ -169,7 +169,7 @@ export default function DecisionMaker() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [isAddingVisit, setIsAddingVisit] = useState(false);
   const { toast } = useToast();
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, restoreFromFirestore } = useAuth();
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
   const [showAllFrequent, setShowAllFrequent] = useState(false);
   const [pendingVisit, setPendingVisit] = useState<VisitLog | null>(null);
@@ -1782,6 +1782,9 @@ export default function DecisionMaker() {
     const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'name'>('newest');
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
+    const [isRestoring, setIsRestoring] = React.useState(false);
+    const [restoreResult, setRestoreResult] = React.useState<{ visits: number; places: number; movies: number } | null>(null);
+
     if (!userProfile?.visits || userProfile.visits.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-16 text-center gap-3 text-muted-foreground">
@@ -1790,6 +1793,40 @@ export default function DecisionMaker() {
           </div>
           <p className="font-semibold text-foreground/80 text-base">Aucune sortie enregistrée</p>
           <p className="text-xs text-muted-foreground max-w-xs">Enregistrez vos premières sorties manuellement ou importez-les depuis Momenty !</p>
+          {/* Bouton de récupération depuis Firestore */}
+          {restoreResult ? (
+            <div className="mt-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs">
+              ✅ {restoreResult.visits} sortie(s) récupérée(s) depuis Firestore. Rechargez si nécessaire.
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled={isRestoring}
+              onClick={async () => {
+                setIsRestoring(true);
+                try {
+                  const result = await restoreFromFirestore();
+                  if (result) {
+                    setRestoreResult(result);
+                  } else {
+                    toast({ title: "Aucune donnée trouvée", description: "Firestore ne contient pas de sorties enregistrées.", variant: "destructive" });
+                  }
+                } catch (e) {
+                  toast({ title: "Erreur de récupération", description: "Impossible de contacter Firestore.", variant: "destructive" });
+                } finally {
+                  setIsRestoring(false);
+                }
+              }}
+              className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 transition-all cursor-pointer disabled:opacity-50"
+            >
+              {isRestoring ? (
+                <RotateCw className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RotateCw className="h-3.5 w-3.5" />
+              )}
+              Récupérer mes données depuis le cloud
+            </button>
+          )}
         </div>
       );
     }

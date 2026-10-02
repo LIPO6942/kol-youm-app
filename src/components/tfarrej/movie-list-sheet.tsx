@@ -671,6 +671,7 @@ function MovieListContent({
       }
 
       const norm = editingDateMovie.title.toLowerCase().trim();
+      const mediaType: 'movie' | 'tv' = (type === 'tv' || listType === 'seenSeriesTitles' || listType === 'seriesToWatch') ? 'tv' : 'movie';
 
       // 1. Mise à jour instantanée du state React local
       setLocalViewedDates(prev => ({
@@ -685,19 +686,21 @@ function MovieListContent({
             title: editingDateMovie.title,
             viewedAt: finalTimestamp || undefined,
             watchedInCinema: editWatchedInCinema,
-            mediaType: isSeries ? 'tv' : 'movie',
+            mediaType,
           }
         }));
       }
 
-      // 3. Sauvegarde locale dans IndexedDB et tâche de fond Firestore
-      await updateMovieViewingDate(
+      // 3. Sauvegarde locale dans IndexedDB et tâche de fond Firestore (non-bloquant)
+      updateMovieViewingDate(
         effectiveUid,
         editingDateMovie.title,
         finalTimestamp,
-        isSeries ? 'tv' : 'movie',
+        mediaType,
         editWatchedInCinema
-      );
+      ).catch(e => {
+        console.warn('Sauvegarde date en arrière-plan échouée (sera retenté au prochain sync):', e);
+      });
 
       toast({
         title: "Date mise à jour",
@@ -1389,8 +1392,8 @@ function MovieListContent({
                 </a>
               )}
 
-              {/* Boutons d'actions : apparaissent UNIQUEMENT si l'utilisateur a cliqué */}
-              {isActionsOpen ? (
+              {/* Actions panel : Saga + Supprimer + Fermer — apparaît uniquement au clic sur ⋯ */}
+              {isActionsOpen && (
                 <div className="inline-flex items-center gap-1 ml-1 shrink-0 animate-in fade-in zoom-in-95 duration-150">
                   {type === 'movie' && (
                     <button
@@ -1418,21 +1421,6 @@ function MovieListContent({
                     <Trash2 className="h-3.5 w-3.5" />
                     <span>Supprimer</span>
                   </button>
-                  {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onMarkAsWatched(movieTitle);
-                      }}
-                      disabled={isUpdating}
-                      className="h-6 px-1.5 rounded-md inline-flex items-center gap-1 text-[10.5px] font-semibold text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all cursor-pointer shadow-xs"
-                      title="Marquer comme vu"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      <span>Vu</span>
-                    </button>
-                  )}
                   <button
                     type="button"
                     onClick={(e) => {
@@ -1445,24 +1433,25 @@ function MovieListContent({
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
-              ) : (
-                <div className="flex items-center gap-1 shrink-0 ml-auto">
-                  {/* Bouton direct "Vu" pour marquer instantanément depuis la liste à voir */}
-                  {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onMarkAsWatched(movieTitle);
-                      }}
-                      disabled={isUpdating}
-                      className="h-6 px-2 rounded-md inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all cursor-pointer shadow-xs active:scale-95"
-                      title="Marquer comme vu"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      <span>Vu</span>
-                    </button>
-                  )}
+              )}
+              {/* Boutons permanents : Vu (watchlist) + ⋯ (actions) — TOUJOURS visibles */}
+              <div className="flex items-center gap-1 shrink-0 ml-auto">
+                {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMarkAsWatched(movieTitle);
+                    }}
+                    disabled={isUpdating}
+                    className="h-6 px-2 rounded-md inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all cursor-pointer shadow-xs active:scale-95"
+                    title="Marquer comme vu"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>Vu</span>
+                  </button>
+                )}
+                {!isActionsOpen && (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -1475,9 +1464,10 @@ function MovieListContent({
                     <MoreHorizontal className="h-3.5 w-3.5" />
                     <span className="sr-only">Actions</span>
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
+
 
             {/* Ligne 2 : Catégorie EN PREMIER (jamais décalée hors écran), Note, Année, Pays, Saga */}
             <div className="flex flex-wrap items-center gap-1.5 mt-1 text-xs text-muted-foreground">

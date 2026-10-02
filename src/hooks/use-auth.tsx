@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, getDoc } from "firebase/firestore";
 import { auth, db as firestoreDb } from '@/lib/firebase/client';
 import type { UserProfile, WardrobeItem } from '@/lib/firebase/firestore';
 import { getUserFromDb, storeUserInDb } from '@/lib/indexeddb';
@@ -15,6 +15,7 @@ interface AuthContextType {
   loading: boolean;
   forceProfileRefresh: () => void;
   updateUserProfile: (data: Partial<Omit<UserProfile, 'uid' | 'email' | 'createdAt'>>) => Promise<void>;
+  restoreFromFirestore: () => Promise<{ visits: number; places: number; movies: number } | null>;
 }
 
 function mergeRankingsByTimestamp(...rankingMaps: (Record<string, any> | undefined | null)[]): Record<string, any> {
@@ -44,6 +45,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   forceProfileRefresh: () => {},
   updateUserProfile: async () => {},
+  restoreFromFirestore: async () => null,
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -264,6 +266,71 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await updateProfileInFirestore(user.uid, data);
   }, [user]);
 
+  // Récupération forcée depuis Firestore — pour restaurer les données perdues dans IndexedDB
+  const restoreFromFirestore = useCallback(async () => {
+    if (!user?.uid) return null;
+    try {
+      const snapshot = await getDoc(doc(firestoreDb, 'users', user.uid));
+      if (!snapshot.exists()) return null;
+      const firestoreData = snapshot.data() as UserProfile;
+      // Fusionner avec l'état actuel pour ne rien effacer
+      const localProfile = await getUserFromDb(user.uid);
+      const merged: UserProfile = {
+        ...(localProfile || {}),
+        ...firestoreData,
+        uid: user.uid,
+        // Protéger les données critiques : garder le plus grand des deux ensembles
+        visits: (() => {
+          const localV = localProfile?.visits || [];
+          const remoteV = firestoreData?.visits || [];
+          const map = new Map<string, any>();
+          remoteV.forEach(v => { if (v?.id) map.set(v.id, { ...v }); });
+          localV.forEach(v => { if (v?.id) map.set(v.id, { ...v }); });
+          return Array.from(map.values()).sort((a, b) => (b.date || 0) - (a.date || 0));
+        })(),
+        places: (() => {
+          const localP = localProfile?.places || [];
+          const remoteP = firestoreData?.places || [];
+          const map = new Map<string, any>();
+          remoteP.forEach(p => { if (p?.id) map.set(p.id, { ...p }); });
+          localP.forEach(p => { if (p?.id) map.set(p.id, { ...p }); });
+          return Array.from(map.values());
+        })(),
+        movieCategories: {
+          ...(firestoreData?.movieCategories || {}),
+          ...(localProfile?.movieCategories || {}),
+        },
+        seenMoviesData: (() => {
+          const localList = localProfile?.seenMoviesData || [];
+          const remoteList = firestoreData?.seenMoviesData || [];
+          const map = new Map<string, any>();
+          localList.forEach(m => { if (m?.title) map.set(m.title.toLowerCase().trim(), { ...m }); });
+          remoteList.forEach(m => {
+            if (!m?.title) return;
+            const k = m.title.toLowerCase().trim();
+            const existing = map.get(k);
+            if (existing) {
+              map.set(k, { ...m, ...existing, viewedAt: existing.viewedAt || m.viewedAt, category: existing.category || m.category });
+            } else {
+              map.set(k, { ...m });
+            }
+          });
+          return Array.from(map.values());
+        })(),
+      } as UserProfile;
+      await storeUserInDb(user.uid, merged);
+      setUserProfile(merged);
+      return {
+        visits: merged.visits?.length || 0,
+        places: merged.places?.length || 0,
+        movies: merged.seenMoviesData?.length || 0,
+      };
+    } catch (e) {
+      console.error('Erreur restoreFromFirestore:', e);
+      return null;
+    }
+  }, [user]);
+
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setLoading(true);
@@ -442,7 +509,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, forceProfileRefresh, updateUserProfile }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, forceProfileRefresh, updateUserProfile, restoreFromFirestore }}>
       {children}
     </AuthContext.Provider>
   );
