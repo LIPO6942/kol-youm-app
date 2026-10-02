@@ -333,6 +333,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             return Array.from(map.values());
           };
 
+          // Helper to merge visits (Khrouj) by id — local takes precedence, remote adds missing ones
+          const mergeVisits = (localList: any[] = [], remoteList: any[] = []) => {
+            const map = new Map<string, any>();
+            // Remote first (base)
+            remoteList.forEach(v => {
+              if (v?.id) map.set(v.id, { ...v });
+            });
+            // Local overwrites (more recent local edits win)
+            localList.forEach(v => {
+              if (v?.id) map.set(v.id, { ...v });
+              else if (v?.date) {
+                // No id: keep it as-is
+                map.set(`noid_${v.date}_${v.placeName}`, { ...v });
+              }
+            });
+            return Array.from(map.values()).sort((a, b) => (b.date || 0) - (a.date || 0));
+          };
+
           // Merge Firestore data with sensitive local data, categories, dates, and rankings
           finalProfile = {
             ...firestoreData, // Base from Firestore (includes synced wardrobe)
@@ -355,6 +373,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             },
             seenMoviesData: mergeSeenData(localProfile?.seenMoviesData, firestoreData?.seenMoviesData),
             seenSeriesData: mergeSeenData(localProfile?.seenSeriesData, firestoreData?.seenSeriesData),
+            // KHROUJ : protéger les visites et lieux enregistrés
+            visits: mergeVisits(localProfile?.visits, firestoreData?.visits),
+            places: (() => {
+              const localPlaces = localProfile?.places || [];
+              const remotePlaces = firestoreData?.places || [];
+              const map = new Map<string, any>();
+              remotePlaces.forEach((p: any) => { if (p?.id) map.set(p.id, { ...p }); });
+              localPlaces.forEach((p: any) => { if (p?.id) map.set(p.id, { ...p }); });
+              return Array.from(map.values());
+            })(),
+            // Conserver l'historique Khrouj et les suggestions vues
+            seenKhroujSuggestions: Array.from(new Set([
+              ...(localProfile?.seenKhroujSuggestions || []),
+              ...(firestoreData?.seenKhroujSuggestions || []),
+            ])),
             customSagas: {
               ...(firestoreData?.customSagas || {}),
               ...(localProfile?.customSagas || {}),
