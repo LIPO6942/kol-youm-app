@@ -653,7 +653,7 @@ export function calculateCinematicDna(
 
   rankingsEntries.forEach(([_, ranking]) => {
     if (!ranking || !Array.isArray(ranking.rankedTitles)) return;
-    const cleanTitles = ranking.rankedTitles.filter(t => t && typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && seenTitlesSet.has(cleanStr(t)));
+    const cleanTitles = ranking.rankedTitles.filter(t => t && typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)));
     if (cleanTitles.length === 0) return;
 
     hasValidRankings = true;

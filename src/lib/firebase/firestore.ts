@@ -2720,7 +2720,31 @@ export async function sanitizeAndHealMovieData(
 
     // D. Collecte de tous les films classés ou engagés dans des duels (tous mois confondus)
     const rankedTitlesSet = new Set<string>();
+    const prettyTitleByNorm = new Map<string, string>();
     const monthlyRankingDateByTitle = new Map<string, number>();
+
+    // Fusion avec localStorage si disponible pour récupérer tous les classements complets
+    if (typeof window !== 'undefined') {
+        try {
+            const allLS = localStorage.getItem('kolyoum_movie_rankings');
+            if (allLS) {
+                const parsedLS = JSON.parse(allLS);
+                if (parsedLS && typeof parsedLS === 'object') {
+                    if (!updated.movieRankings) updated.movieRankings = {};
+                    Object.entries(parsedLS).forEach(([mKey, rLS]: [string, any]) => {
+                        const rCurrent = updated.movieRankings[mKey];
+                        const lsLen = (rLS?.rankedTitles || []).length;
+                        const currLen = (rCurrent?.rankedTitles || []).length;
+                        if (lsLen > currLen) {
+                            updated.movieRankings[mKey] = rLS;
+                            hasChanges = true;
+                        }
+                    });
+                }
+            }
+        } catch {}
+    }
+
     if (updated.movieRankings && typeof updated.movieRankings === 'object') {
         Object.entries(updated.movieRankings).forEach(([mKey, r]: [string, any]) => {
             if (r) {
@@ -2730,11 +2754,14 @@ export async function sanitizeAndHealMovieData(
                 const estimatedTime = (!isNaN(y) && !isNaN(m)) ? new Date(y, m, 15).getTime() : undefined;
 
                 const registerTitle = (t: string) => {
-                    if (t && typeof t === 'string') {
+                    if (t && typeof t === 'string' && t.trim()) {
                         const norm = t.trim().toLowerCase();
+                        const c = cleanStr(norm);
                         rankedTitlesSet.add(norm);
-                        if (estimatedTime && mKey !== '2026-09' && !monthlyRankingDateByTitle.has(norm)) {
-                            monthlyRankingDateByTitle.set(norm, estimatedTime);
+                        rankedTitlesSet.add(c);
+                        if (!prettyTitleByNorm.has(c)) prettyTitleByNorm.set(c, t.trim());
+                        if (estimatedTime && mKey !== '2026-09' && !monthlyRankingDateByTitle.has(c)) {
+                            monthlyRankingDateByTitle.set(c, estimatedTime);
                         }
                     }
                 };
@@ -2774,6 +2801,7 @@ export async function sanitizeAndHealMovieData(
         if (rejectedTitlesSet.has(c)) return false;
         if (cinemaDateByTitle.has(norm) || cinemaDateByTitle.has(c)) return true;
         if (historyDateByTitle.has(norm) || historyDateByTitle.has(c)) return true;
+        if (rankedTitlesSet.has(norm) || rankedTitlesSet.has(c)) return true;
         if (item?.watchedInCinema) return true;
         if (item?.viewedAt && !isFakeSept4(item.viewedAt)) return true;
         return false;
@@ -2793,7 +2821,7 @@ export async function sanitizeAndHealMovieData(
         }
 
         if (!isTrulySeen(norm, item)) {
-            // Le film n'a aucune visite cinéma, aucun historique authentique :
+            // Le film n'a aucune visite cinéma, aucun historique, aucun classement :
             // Il appartenait à l'origine à la liste 'À voir'
             restoredToWatchlist.add(item.title.trim());
             hasChanges = true;
@@ -2899,6 +2927,21 @@ export async function sanitizeAndHealMovieData(
         }
     });
 
+    // 3b. Ajouter depuis tous les films classés (non rejetés) pour restaurer l'intégralité du palmarès
+    rankedTitlesSet.forEach(norm => {
+        const c = cleanStr(norm);
+        if (isTestMovieTitle(c) || rejectedTitlesSet.has(c)) return;
+        if (!seenMap.has(c)) {
+            const prettyTitle = prettyTitleByNorm.get(c) || prettyTitleByNorm.get(norm) || norm;
+            const rankingDate = monthlyRankingDateByTitle.get(norm) || monthlyRankingDateByTitle.get(c);
+            seenMap.set(c, {
+                title: prettyTitle,
+                ...(rankingDate && { viewedAt: rankingDate, addedAt: rankingDate }),
+            });
+            hasChanges = true;
+        }
+    });
+
     // 4. Construire les nouvelles listes assainies de films vus
     const newSeenMoviesData = Array.from(seenMap.values());
     const newSeenMovieTitles = Array.from(seenMap.values()).map(m => m.title);
@@ -2931,7 +2974,7 @@ export async function sanitizeAndHealMovieData(
         }
     }
 
-    // Scrub des classements mensuels de films
+    // Scrub des classements mensuels de films (uniquement les films rejetés ou de test)
     if (updated.movieRankings && typeof updated.movieRankings === 'object') {
         Object.keys(updated.movieRankings).forEach(k => {
             const r = updated.movieRankings[k];
@@ -2939,20 +2982,20 @@ export async function sanitizeAndHealMovieData(
                 const origLen = (r.rankedTitles || []).length;
                 r.rankedTitles = (r.rankedTitles || []).filter((t: string) => {
                     const c = cleanStr(t);
-                    return !isTestMovieTitle(c) && !rejectedTitlesSet.has(c) && seenNormSet.has(c);
+                    return !isTestMovieTitle(c) && !rejectedTitlesSet.has(c);
                 });
                 r.initialRankedTitles = (r.initialRankedTitles || []).filter((t: string) => {
                     const c = cleanStr(t);
-                    return !isTestMovieTitle(c) && !rejectedTitlesSet.has(c) && seenNormSet.has(c);
+                    return !isTestMovieTitle(c) && !rejectedTitlesSet.has(c);
                 });
                 r.newlyAddedTitles = (r.newlyAddedTitles || []).filter((t: string) => {
                     const c = cleanStr(t);
-                    return !isTestMovieTitle(c) && !rejectedTitlesSet.has(c) && seenNormSet.has(c);
+                    return !isTestMovieTitle(c) && !rejectedTitlesSet.has(c);
                 });
                 if (r.movieCatalog) {
                     Object.keys(r.movieCatalog).forEach(catKey => {
                         const c = cleanStr(catKey);
-                        if (isTestMovieTitle(c) || rejectedTitlesSet.has(c) || !seenNormSet.has(c)) {
+                        if (isTestMovieTitle(c) || rejectedTitlesSet.has(c)) {
                             delete r.movieCatalog[catKey];
                         }
                     });

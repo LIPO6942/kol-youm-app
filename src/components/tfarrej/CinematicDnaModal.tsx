@@ -339,15 +339,23 @@ export function CinematicDnaModal({
     const allRankings = isSeries
       ? Object.values(userProfile?.seriesRankings || {})
       : Object.values(userProfile?.movieRankings || {});
+    const fromLS: any[] = [];
+    if (typeof window !== 'undefined') {
+      try {
+        const key = isSeries ? 'kolyoum_series_rankings' : 'kolyoum_movie_rankings';
+        const all = localStorage.getItem(key);
+        if (all) Object.values(JSON.parse(all)).forEach((r: any) => { if (r?.rankedTitles?.length) fromLS.push(r); });
+      } catch {}
+    }
     const pickBest = (rankings: any[]) => {
       const valid = rankings.filter(r => r?.rankedTitles?.length > 0);
       if (!valid.length) return null;
       return valid.reduce((b, c) => (c.rankedTitles.length >= b.rankedTitles.length ? c : b));
     };
-    const best = pickBest(allRankings);
+    const best = pickBest([...allRankings, ...fromLS]);
     const ranked = (best?.rankedTitles || []).filter((t: string) => {
       const c = cleanStr(t);
-      return !isTestMovieTitle(c) && !rejectedSet.has(c) && seenSet.has(c);
+      return !isTestMovieTitle(c) && !rejectedSet.has(c);
     });
 
     // Compléter avec les autres œuvres vues valides (non supprimées) si moins de 50

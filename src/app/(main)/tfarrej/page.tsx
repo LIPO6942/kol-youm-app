@@ -166,7 +166,6 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         if (isTestMovieTitle(norm)) return false;
         if (rejectedTitles.has(norm)) return false;
         if (watchlistTitles.has(norm)) return false;
-        if (seenTitlesSet.size > 0 && !seenTitlesSet.has(norm)) return false;
         return true;
       };
       return {
@@ -204,10 +203,6 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
     const normalizeTitle = (t?: string) => (t || '').toLowerCase().trim().replace(/['’`]/g, "'");
     const rejectedTitles = new Set((userProfile?.rejectedSeriesTitles || []).map(t => normalizeTitle(t)));
     const watchlistTitles = new Set((userProfile?.seriesToWatch || []).map(t => normalizeTitle(t)));
-    const seenSeriesTitlesSet = new Set([
-      ...(userProfile?.seenSeriesTitles || []),
-      ...(Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData.map((s: any) => s?.title) : []),
-    ].filter((t): t is string => typeof t === 'string' && !!t.trim()).map(t => normalizeTitle(t)));
 
     const sanitize = (r: MonthlyMovieRanking | null): MonthlyMovieRanking | null => {
       if (!r) return null;
@@ -217,7 +212,6 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         if (isTestMovieTitle(norm)) return false;
         if (rejectedTitles.has(norm)) return false;
         if (watchlistTitles.has(norm)) return false;
-        if (seenSeriesTitlesSet.size > 0 && !seenSeriesTitlesSet.has(norm)) return false;
         return true;
       };
       return {
@@ -319,11 +313,13 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
       }
     });
 
-    // 4. Ensemble des vrais titres vus UNIQUEMENT depuis les sources de visionnage (SANS rankedFromExisting qui ressuscitait les supprimés)
+    // 4. Ensemble des œuvres vues (sources de visionnage + films classés non supprimés)
+    const rankedFromExisting = (existingRanking?.rankedTitles || []).filter(t => !isExcluded(t));
     const allUniqueTitles = Array.from(new Set([
       ...seenTitles,
       ...seenDataList.map(m => m.title),
       ...cinemaVisits.map(v => v.orderedItem as string),
+      ...rankedFromExisting,
     ])).filter(t => !isExcluded(t));
 
     // 5. Construction de la liste finale pour le duel
@@ -346,7 +342,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
     });
 
     return results;
-  }, [userProfile?.seenMovieTitles, userProfile?.seenMoviesData, (userProfile as any)?.seenMovieHistory, userProfile?.visits, userProfile?.moviesToWatch, userProfile?.rejectedMovieTitles, postersCache]);
+  }, [userProfile?.seenMovieTitles, userProfile?.seenMoviesData, (userProfile as any)?.seenMovieHistory, userProfile?.visits, userProfile?.moviesToWatch, userProfile?.rejectedMovieTitles, existingRanking, postersCache]);
 
   // Liste des séries vues par l'utilisateur pour le classement et les duels de séries
   const monthlySeenSeries: DuelMovieItem[] = useMemo(() => {
@@ -381,10 +377,12 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
       }
     });
 
-    // Uniquement depuis les titres vus authentiques (SANS rankedFromExisting)
+    // Uniquement depuis les titres vus authentiques et classés (non supprimés)
+    const rankedFromExisting = (existingSeriesRanking?.rankedTitles || []).filter(t => !isExcluded(t));
     const allUniqueTitles = Array.from(new Set([
       ...seenTitles,
       ...seenDataList.map(s => s.title),
+      ...rankedFromExisting,
     ])).filter(t => !isExcluded(t));
 
     const results: DuelMovieItem[] = allUniqueTitles.map(title => {
@@ -404,7 +402,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
     });
 
     return results;
-  }, [userProfile?.seenSeriesTitles, userProfile?.seenSeriesData, userProfile?.seriesToWatch, userProfile?.rejectedSeriesTitles, userProfile?.seriesCategories, postersCache]);
+  }, [userProfile?.seenSeriesTitles, userProfile?.seenSeriesData, userProfile?.seriesToWatch, userProfile?.rejectedSeriesTitles, userProfile?.seriesCategories, existingSeriesRanking, postersCache]);
 
 
   // Détection et résolution automatique des affiches manquantes (films ou séries selon type)

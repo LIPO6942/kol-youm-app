@@ -100,7 +100,6 @@ export function MovieDuelModal({
     const normalizeTitle = (t?: string) => (t || '').toLowerCase().trim().replace(/['’`]/g, "'");
     const rejectedSet = new Set((isTv ? userProfile?.rejectedSeriesTitles : userProfile?.rejectedMovieTitles || []).map(t => normalizeTitle(t)));
     const watchlistSet = new Set((isTv ? userProfile?.seriesToWatch : userProfile?.moviesToWatch || []).map(t => normalizeTitle(t)));
-    const validSeenSet = new Set(seenMovies.map(m => normalizeTitle(m?.title)).filter(Boolean));
 
     const sanitize = (r: MonthlyMovieRanking | null): MonthlyMovieRanking | null => {
       if (!r) return null;
@@ -110,8 +109,6 @@ export function MovieDuelModal({
         if (isTestMovieTitle(norm)) return false;
         if (rejectedSet.has(norm)) return false;
         if (watchlistSet.has(norm)) return false;
-        // Le titre DOIT faire partie des œuvres réellement vues par l'utilisateur
-        if (validSeenSet.size > 0 && !validSeenSet.has(norm)) return false;
         return true;
       };
       return {

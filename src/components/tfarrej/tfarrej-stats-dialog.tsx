@@ -53,19 +53,95 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
     const seriesStats = useMemo(() => aggregateData(userProfile?.seenSeriesData), [userProfile?.seenSeriesData]);
 
     const totalSeenMovies = useMemo(() => {
-        const fromTitles = (Array.isArray(userProfile?.seenMovieTitles) ? userProfile.seenMovieTitles : []).filter(t => typeof t === 'string' && !isTestMovieTitle(t));
-        const fromData = (Array.isArray(userProfile?.seenMoviesData) ? userProfile.seenMoviesData : []).map(m => m?.title).filter((t): t is string => Boolean(t && typeof t === 'string' && !isTestMovieTitle(t)));
+        const cleanStr = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
+        const rejectedSet = new Set((userProfile?.rejectedMovieTitles || []).map((t: string) => cleanStr(t)));
+        const watchlistSet = new Set((userProfile?.moviesToWatch || []).map((t: string) => cleanStr(t)));
+
+        const fromTitles = (Array.isArray(userProfile?.seenMovieTitles) ? userProfile.seenMovieTitles : [])
+            .filter(t => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)));
+        const fromData = (Array.isArray(userProfile?.seenMoviesData) ? userProfile.seenMoviesData : [])
+            .map(m => m?.title)
+            .filter((t): t is string => Boolean(t && typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t))));
         const fromVisits = (Array.isArray(userProfile?.visits) ? userProfile.visits : [])
-            .filter(v => v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string' && !isTestMovieTitle(v.orderedItem))
+            .filter(v => v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string' && !isTestMovieTitle(v.orderedItem) && !rejectedSet.has(cleanStr(v.orderedItem)))
             .map(v => v.orderedItem as string);
-        return Array.from(new Set([...fromTitles, ...fromData, ...fromVisits])).length;
-    }, [userProfile?.seenMovieTitles, userProfile?.seenMoviesData, userProfile?.visits]);
+
+        const fromRankings: string[] = [];
+        if (userProfile?.movieRankings && typeof userProfile.movieRankings === 'object') {
+            Object.values(userProfile.movieRankings).forEach((r: any) => {
+                if (Array.isArray(r?.rankedTitles)) {
+                    r.rankedTitles.forEach((t: any) => {
+                        if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                            fromRankings.push(t.trim());
+                        }
+                    });
+                }
+            });
+        }
+        if (typeof window !== 'undefined') {
+            try {
+                const allLS = localStorage.getItem('kolyoum_movie_rankings');
+                if (allLS) {
+                    Object.values(JSON.parse(allLS)).forEach((r: any) => {
+                        if (Array.isArray(r?.rankedTitles)) {
+                            r.rankedTitles.forEach((t: any) => {
+                                if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                                    fromRankings.push(t.trim());
+                                }
+                            });
+                        }
+                    });
+                }
+            } catch {}
+        }
+
+        return Array.from(new Set([...fromTitles, ...fromData, ...fromVisits, ...fromRankings]))
+            .filter(t => !watchlistSet.has(cleanStr(t)) && !rejectedSet.has(cleanStr(t))).length;
+    }, [userProfile?.seenMovieTitles, userProfile?.seenMoviesData, userProfile?.visits, userProfile?.movieRankings, userProfile?.rejectedMovieTitles, userProfile?.moviesToWatch]);
 
     const totalSeenSeries = useMemo(() => {
-        const fromTitles = (Array.isArray(userProfile?.seenSeriesTitles) ? userProfile.seenSeriesTitles : []).filter(t => typeof t === 'string' && !isTestMovieTitle(t));
-        const fromData = (Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : []).map(m => m?.title).filter((t): t is string => Boolean(t && typeof t === 'string' && !isTestMovieTitle(t)));
-        return Array.from(new Set([...fromTitles, ...fromData])).length;
-    }, [userProfile?.seenSeriesTitles, userProfile?.seenSeriesData]);
+        const cleanStr = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
+        const rejectedSet = new Set((userProfile?.rejectedSeriesTitles || []).map((t: string) => cleanStr(t)));
+        const watchlistSet = new Set((userProfile?.seriesToWatch || []).map((t: string) => cleanStr(t)));
+
+        const fromTitles = (Array.isArray(userProfile?.seenSeriesTitles) ? userProfile.seenSeriesTitles : [])
+            .filter(t => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)));
+        const fromData = (Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : [])
+            .map(m => m?.title)
+            .filter((t): t is string => Boolean(t && typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t))));
+
+        const fromRankings: string[] = [];
+        if (userProfile?.seriesRankings && typeof userProfile.seriesRankings === 'object') {
+            Object.values(userProfile.seriesRankings).forEach((r: any) => {
+                if (Array.isArray(r?.rankedTitles)) {
+                    r.rankedTitles.forEach((t: any) => {
+                        if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                            fromRankings.push(t.trim());
+                        }
+                    });
+                }
+            });
+        }
+        if (typeof window !== 'undefined') {
+            try {
+                const allLS = localStorage.getItem('kolyoum_series_rankings');
+                if (allLS) {
+                    Object.values(JSON.parse(allLS)).forEach((r: any) => {
+                        if (Array.isArray(r?.rankedTitles)) {
+                            r.rankedTitles.forEach((t: any) => {
+                                if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                                    fromRankings.push(t.trim());
+                                }
+                            });
+                        }
+                    });
+                }
+            } catch {}
+        }
+
+        return Array.from(new Set([...fromTitles, ...fromData, ...fromRankings]))
+            .filter(t => !watchlistSet.has(cleanStr(t)) && !rejectedSet.has(cleanStr(t))).length;
+    }, [userProfile?.seenSeriesTitles, userProfile?.seenSeriesData, userProfile?.seriesRankings, userProfile?.rejectedSeriesTitles, userProfile?.seriesToWatch]);
 
     const totalWatched = activeTab === 'movie' ? totalSeenMovies : totalSeenSeries;
 

@@ -633,7 +633,37 @@ function MovieListContent({
       const cinemaVisits = (Array.isArray(userProfile?.visits) ? userProfile.visits : [])
         .filter(v => v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string' && !isTestMovieTitle(v.orderedItem) && !rejectedSet.has(cleanStr(v.orderedItem)))
         .map(v => v.orderedItem as string);
-      return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits]))
+
+      const fromRankings: string[] = [];
+      if (userProfile?.movieRankings && typeof userProfile.movieRankings === 'object') {
+        Object.values(userProfile.movieRankings).forEach((r: any) => {
+          if (Array.isArray(r?.rankedTitles)) {
+            r.rankedTitles.forEach((t: any) => {
+              if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                fromRankings.push(t.trim());
+              }
+            });
+          }
+        });
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          const allLS = localStorage.getItem('kolyoum_movie_rankings');
+          if (allLS) {
+            Object.values(JSON.parse(allLS)).forEach((r: any) => {
+              if (Array.isArray(r?.rankedTitles)) {
+                r.rankedTitles.forEach((t: any) => {
+                  if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                    fromRankings.push(t.trim());
+                  }
+                });
+              }
+            });
+          }
+        } catch {}
+      }
+
+      return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits, ...fromRankings]))
         .filter(t => !watchlistSet.has(cleanStr(t)) && !rejectedSet.has(cleanStr(t)));
     }
     if (listType === 'seenSeriesTitles') {
@@ -641,7 +671,37 @@ function MovieListContent({
       const fromData = (Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : [])
         .map(s => s?.title)
         .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)));
-      return Array.from(new Set([...rawTitles, ...fromData]))
+
+      const fromRankings: string[] = [];
+      if (userProfile?.seriesRankings && typeof userProfile.seriesRankings === 'object') {
+        Object.values(userProfile.seriesRankings).forEach((r: any) => {
+          if (Array.isArray(r?.rankedTitles)) {
+            r.rankedTitles.forEach((t: any) => {
+              if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                fromRankings.push(t.trim());
+              }
+            });
+          }
+        });
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          const allLS = localStorage.getItem('kolyoum_series_rankings');
+          if (allLS) {
+            Object.values(JSON.parse(allLS)).forEach((r: any) => {
+              if (Array.isArray(r?.rankedTitles)) {
+                r.rankedTitles.forEach((t: any) => {
+                  if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                    fromRankings.push(t.trim());
+                  }
+                });
+              }
+            });
+          }
+        } catch {}
+      }
+
+      return Array.from(new Set([...rawTitles, ...fromData, ...fromRankings]))
         .filter(t => !watchlistSet.has(cleanStr(t)) && !rejectedSet.has(cleanStr(t)));
     }
     return rawTitles.filter(t => !rejectedSet.has(cleanStr(t)));
@@ -728,7 +788,6 @@ function MovieListContent({
         if (isTestMovieTitle(norm)) return false;
         if (rejectedTitles.has(norm)) return false;
         if (watchlistTitles.has(norm)) return false;
-        if (seenTitlesSet.size > 0 && !seenTitlesSet.has(norm)) return false;
         return true;
       };
       return {
@@ -908,11 +967,13 @@ function MovieListContent({
       }
     });
 
+    const rankedFromExisting = (existingRanking?.rankedTitles || []).filter(t => !isExcluded(t));
     const allUniqueTitles = Array.from(new Set([
       ...seenTitles,
       ...seenDataList.map(m => m.title),
       ...cinemaVisits.map(v => v.orderedItem as string),
       ...(movieTitles || []),
+      ...rankedFromExisting,
     ])).filter(t => !isExcluded(t));
 
     return allUniqueTitles.map(title => {
@@ -2168,7 +2229,37 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
       const cinemaVisits = (Array.isArray(userProfile?.visits) ? userProfile.visits : [])
         .filter(v => v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string' && !isTestMovieTitle(v.orderedItem) && !rejectedSet.has(cleanStr(v.orderedItem)))
         .map(v => v.orderedItem as string);
-      return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits]))
+
+      const fromRankings: string[] = [];
+      if (userProfile?.movieRankings && typeof userProfile.movieRankings === 'object') {
+        Object.values(userProfile.movieRankings).forEach((r: any) => {
+          if (Array.isArray(r?.rankedTitles)) {
+            r.rankedTitles.forEach((t: any) => {
+              if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                fromRankings.push(t.trim());
+              }
+            });
+          }
+        });
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          const allLS = localStorage.getItem('kolyoum_movie_rankings');
+          if (allLS) {
+            Object.values(JSON.parse(allLS)).forEach((r: any) => {
+              if (Array.isArray(r?.rankedTitles)) {
+                r.rankedTitles.forEach((t: any) => {
+                  if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                    fromRankings.push(t.trim());
+                  }
+                });
+              }
+            });
+          }
+        } catch {}
+      }
+
+      return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits, ...fromRankings]))
         .filter(t => !watchlistSet.has(cleanStr(t)) && !rejectedSet.has(cleanStr(t)));
     }
     if (listType === 'seenSeriesTitles') {
@@ -2176,7 +2267,37 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
       const fromData = (Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : [])
         .map(s => s?.title)
         .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)));
-      return Array.from(new Set([...rawTitles, ...fromData]))
+
+      const fromRankings: string[] = [];
+      if (userProfile?.seriesRankings && typeof userProfile.seriesRankings === 'object') {
+        Object.values(userProfile.seriesRankings).forEach((r: any) => {
+          if (Array.isArray(r?.rankedTitles)) {
+            r.rankedTitles.forEach((t: any) => {
+              if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                fromRankings.push(t.trim());
+              }
+            });
+          }
+        });
+      }
+      if (typeof window !== 'undefined') {
+        try {
+          const allLS = localStorage.getItem('kolyoum_series_rankings');
+          if (allLS) {
+            Object.values(JSON.parse(allLS)).forEach((r: any) => {
+              if (Array.isArray(r?.rankedTitles)) {
+                r.rankedTitles.forEach((t: any) => {
+                  if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                    fromRankings.push(t.trim());
+                  }
+                });
+              }
+            });
+          }
+        } catch {}
+      }
+
+      return Array.from(new Set([...rawTitles, ...fromData, ...fromRankings]))
         .filter(t => !watchlistSet.has(cleanStr(t)) && !rejectedSet.has(cleanStr(t)));
     }
     return rawTitles.filter(t => !rejectedSet.has(cleanStr(t)));
