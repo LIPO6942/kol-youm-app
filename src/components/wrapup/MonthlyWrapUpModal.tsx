@@ -430,13 +430,15 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     };
   }, [isOpen, stats?.monthIndex]);
 
+  // La musique continue de jouer même si l'utilisateur met en pause les diapositives (demande utilisateur).
+  // Elle ne se met en pause que si le duel interactif de films est ouvert.
   useEffect(() => {
-    if (isPaused) {
+    if (isDuelOpen) {
       wrapUpAudio.pause();
-    } else {
+    } else if (isOpen && stats && !isMuted) {
       wrapUpAudio.resume();
     }
-  }, [isPaused]);
+  }, [isDuelOpen, isOpen, stats, isMuted]);
 
   const toggleSound = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -521,8 +523,45 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
     return () => clearInterval(intervalId);
   }, [isOpen, stats, isPaused]);
 
-  const handleNextSlide = () => { if (currentSlide < slides.length - 1) { setCurrentSlide((s) => s + 1); setProgress(0); } };
-  const handlePrevSlide = () => { if (currentSlide > 0) { setCurrentSlide((s) => s - 1); setProgress(0); } };
+  const handleNextSlide = useCallback(() => {
+    setCurrentSlide((s) => {
+      if (s < slidesLengthRef.current - 1) {
+        setProgress(0);
+        return s + 1;
+      }
+      return s;
+    });
+  }, []);
+
+  const handlePrevSlide = useCallback(() => {
+    setCurrentSlide((s) => {
+      if (s > 0) {
+        setProgress(0);
+        return s - 1;
+      }
+      return s;
+    });
+  }, []);
+
+  // Support des touches fléchées du clavier (gauche/droite/espace)
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        handleNextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        handlePrevSlide();
+      } else if (e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault();
+        setIsPaused((p) => !p);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, handleNextSlide, handlePrevSlide]);
 
   const shareStory = async () => {
     if (!storyRef.current) return;
@@ -1807,21 +1846,52 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
               </div>
             )}
 
-            {/* On interactive slides, top corners remain available for story navigation */}
-            {isInteractiveSlide && (
-              <>
-                <div 
-                  className="absolute top-0 left-0 w-24 h-24 z-30 pointer-events-auto cursor-pointer"
-                  onClick={(e: any) => { e.stopPropagation(); handlePrevSlide(); }}
-                  title="Diapositive précédente"
-                />
-                <div 
-                  className="absolute top-0 right-0 w-24 h-24 z-30 pointer-events-auto cursor-pointer"
-                  onClick={(e: any) => { e.stopPropagation(); handleNextSlide(); }}
-                  title="Diapositive suivante"
-                />
-              </>
-            )}
+            {/* ── PETITES FLÈCHES DE NAVIGATION LATÉRALES (Demande utilisateur) ── */}
+            <div className="no-screenshot pointer-events-none">
+              <AnimatePresence>
+                {currentSlide > 0 && (
+                  <motion.button
+                    key="prev-slide-btn"
+                    initial={{ opacity: 0, x: -8, scale: 0.85 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: -8, scale: 0.85 }}
+                    transition={{ duration: 0.18 }}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePrevSlide();
+                    }}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 z-40 w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full bg-black/45 hover:bg-black/85 text-white/85 hover:text-white border border-white/20 hover:border-white/50 backdrop-blur-md shadow-xl transition-all active:scale-90 hover:scale-105 pointer-events-auto cursor-pointer"
+                    title="Diapositive précédente"
+                    aria-label="Diapositive précédente"
+                  >
+                    <ChevronLeft className="w-5 h-5 -ml-0.5" />
+                  </motion.button>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {currentSlide < slides.length - 1 && (
+                  <motion.button
+                    key="next-slide-btn"
+                    initial={{ opacity: 0, x: 8, scale: 0.85 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: 8, scale: 0.85 }}
+                    transition={{ duration: 0.18 }}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNextSlide();
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 z-40 w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full bg-black/45 hover:bg-black/85 text-white/85 hover:text-white border border-white/20 hover:border-white/50 backdrop-blur-md shadow-xl transition-all active:scale-90 hover:scale-105 pointer-events-auto cursor-pointer"
+                    title="Diapositive suivante"
+                    aria-label="Diapositive suivante"
+                  >
+                    <ChevronRight className="w-5 h-5 -mr-0.5" />
+                  </motion.button>
+                )}
+              </AnimatePresence>
+            </div>
 
             {stats?.movies && (
               <MovieDuelModal

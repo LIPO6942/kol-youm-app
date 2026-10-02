@@ -56,8 +56,12 @@ export type DuelHistorySnapshot = {
   incrementalCategoryIndices?: number[];
   incrementalCategoryLow?: number;
   incrementalCategoryHigh?: number;
-  incrementalStage?: 'category' | 'general';
+  incrementalStage?: 'category' | 'general' | 'podium_confirmation';
   isAutoResolved?: boolean;
+  isPodiumDuel?: boolean;
+  podiumBadgeText?: string;
+  podiumTargetRank?: number;
+  podiumCandidateFaced?: string[];
 };
 
 export type DuelSessionState = {
@@ -92,7 +96,11 @@ export type DuelSessionState = {
   incrementalCategoryIndices?: number[];
   incrementalCategoryLow?: number;
   incrementalCategoryHigh?: number;
-  incrementalStage?: 'category' | 'general';
+  incrementalStage?: 'category' | 'general' | 'podium_confirmation';
+  isPodiumDuel?: boolean;
+  podiumBadgeText?: string;
+  podiumTargetRank?: number;
+  podiumCandidateFaced?: string[];
 };
 
 /**
@@ -390,11 +398,23 @@ export function createIncrementalDuelSession(
     };
   }
 
-  // Aucune référence dans cette catégorie : duel dichotomique classique
+  // Aucune référence dans cette catégorie : duel dichotomique classique guidé par la note si connue
   const low = 0;
   const high = sortedTitles.length - 1;
-  const mid = Math.max(0, Math.floor((low + high) / 2));
+  let mid = Math.max(0, Math.floor((low + high) / 2));
+  const candRating = candidate.rating;
+  if (candRating && candRating > 0 && sortedTitles.length >= 4) {
+    if (candRating < 6.0) {
+      // Film moyen / modeste : démarre dans le bas de tableau (70%) pour éviter de surclasser prématurément
+      mid = Math.min(high, Math.floor(sortedTitles.length * 0.7));
+    } else if (candRating >= 8.2) {
+      // Film d'exception : démarre dans le haut de tableau (30%)
+      mid = Math.max(low, Math.floor(sortedTitles.length * 0.3));
+    }
+  }
   const movieB = catalog[sortedTitles[mid]] || { title: sortedTitles[mid] };
+  const isPodium = mid <= 2;
+  const badge = mid === 0 ? '👑 Duel face au n°1' : mid === 1 ? '🥈 Duel face au n°2' : mid === 2 ? '🥉 Duel face au n°3' : undefined;
 
   return {
     mode: 'incremental',
@@ -425,7 +445,97 @@ export function createIncrementalDuelSession(
     generalQueue: [],
     currentGeneralItem: null,
     incrementalStage: 'general',
+    isPodiumDuel: isPodium,
+    podiumBadgeText: badge,
   };
+}
+
+/**
+ * Vérifie si le candidat prétend entrer sur le Podium (Top 3) sans avoir
+ * directement affronté le tenant du titre de la position convoitée.
+ * Si oui, déclenche un duel de confirmation direct (Boss fight).
+ */
+function tryTriggerPodiumConfirmation(
+  state: DuelSessionState,
+  targetIndex: number,
+  candidate: DuelMovieItem,
+  snapshot: DuelHistorySnapshot
+): DuelSessionState | null {
+  // Concerne uniquement les 3 premières places (Top 1, Top 2, Top 3)
+  // et s'il y a déjà au moins un film dans la liste triée
+  if (targetIndex > 2 || state.sortedTitles.length === 0) {
+    return null;
+  }
+
+  // Recenser tous les films que ce candidat a déjà affrontés
+  const facedTitles = new Set<string>();
+  if (state.podiumCandidateFaced) {
+    state.podiumCandidateFaced.forEach(t => facedTitles.add(t.toLowerCase().trim()));
+  }
+  state.history.forEach(h => {
+    if (h.currentCandidate?.title === candidate.title && h.activeDuel?.movieB?.title) {
+      facedTitles.add(h.activeDuel.movieB.title.toLowerCase().trim());
+    }
+  });
+  if (state.activeDuel?.movieB?.title) {
+    facedTitles.add(state.activeDuel.movieB.title.toLowerCase().trim());
+  }
+
+  let confirmationTargetIndex = -1;
+  let badgeText = '';
+
+  if (targetIndex === 0) {
+    // Vise la 1ère place mondiale
+    const titleRank1 = state.sortedTitles[0];
+    if (titleRank1 && !facedTitles.has(titleRank1.toLowerCase().trim())) {
+      confirmationTargetIndex = 0;
+      badgeText = '👑 Duel pour la 1ère Place : Détrôner le n°1';
+    } else if (state.sortedTitles.length > 1) {
+      // A déjà battu le #1, confirmation face au #2
+      const titleRank2 = state.sortedTitles[1];
+      if (titleRank2 && !facedTitles.has(titleRank2.toLowerCase().trim())) {
+        confirmationTargetIndex = 1;
+        badgeText = '👑 Duel Décisif : Confirmation face au n°2';
+      }
+    }
+  } else if (targetIndex === 1) {
+    // Vise la 2ème place mondiale
+    const titleRank2 = state.sortedTitles[1];
+    if (titleRank2 && !facedTitles.has(titleRank2.toLowerCase().trim())) {
+      confirmationTargetIndex = 1;
+      badgeText = '🥈 Duel pour la 2ème Place : Entrée sur le Podium';
+    }
+  } else if (targetIndex === 2) {
+    // Vise la 3ème place mondiale
+    const titleRank3 = state.sortedTitles[2];
+    if (titleRank3 && !facedTitles.has(titleRank3.toLowerCase().trim())) {
+      confirmationTargetIndex = 2;
+      badgeText = '🥉 Duel pour la 3ème Place : Accès au Podium';
+    }
+  }
+
+  if (confirmationTargetIndex >= 0 && confirmationTargetIndex < state.sortedTitles.length) {
+    const targetTitle = state.sortedTitles[confirmationTargetIndex];
+    const movieB = state.movieCatalog[targetTitle] || { title: targetTitle };
+
+    return {
+      ...state,
+      incrementalStage: 'podium_confirmation',
+      podiumTargetRank: targetIndex + 1,
+      podiumCandidateFaced: Array.from(facedTitles),
+      isPodiumDuel: true,
+      podiumBadgeText: badgeText,
+      mid: confirmationTargetIndex,
+      activeDuel: {
+        movieA: candidate,
+        movieB,
+      },
+      history: [...state.history, snapshot],
+      stepNumber: state.stepNumber + 1,
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -466,7 +576,78 @@ export function processDuelDecision(
     incrementalCategoryHigh: state.incrementalCategoryHigh,
     incrementalStage: state.incrementalStage,
     isAutoResolved: options?.isAutoResolved,
+    isPodiumDuel: state.isPodiumDuel,
+    podiumBadgeText: state.podiumBadgeText,
+    podiumTargetRank: state.podiumTargetRank,
+    podiumCandidateFaced: state.podiumCandidateFaced ? [...state.podiumCandidateFaced] : undefined,
   };
+
+  // =========================================================================
+  // 0. GESTION DU DUEL DE CONFIRMATION DE PODIUM
+  // =========================================================================
+  if (state.incrementalStage === 'podium_confirmation') {
+    const targetRank = state.podiumTargetRank || 1;
+    const targetIndex = targetRank - 1;
+    const challengedIndex = state.mid;
+    const candidate = state.currentCandidate || state.currentGeneralItem?.movie;
+    if (!candidate) return state;
+
+    const facedTitles = new Set<string>((state.podiumCandidateFaced || []).map(t => t.toLowerCase().trim()));
+    if (state.activeDuel?.movieB?.title) {
+      facedTitles.add(state.activeDuel.movieB.title.toLowerCase().trim());
+    }
+
+    if (winner === 'candidate') {
+      // Victoire du candidat contre le tenant du titre !
+      // S'il visait le rang 0 (#1) et qu'il n'a défié que le #1, et qu'il y a un #2 qu'il n'a pas affronté :
+      if (targetIndex === 0 && challengedIndex === 0 && state.sortedTitles.length > 1) {
+        const titleRank2 = state.sortedTitles[1];
+        if (titleRank2 && !facedTitles.has(titleRank2.toLowerCase().trim())) {
+          const movieB = state.movieCatalog[titleRank2] || { title: titleRank2 };
+          return {
+            ...state,
+            incrementalStage: 'podium_confirmation',
+            podiumTargetRank: 1,
+            podiumCandidateFaced: Array.from(facedTitles),
+            isPodiumDuel: true,
+            podiumBadgeText: '👑 Duel Décisif : Confirmation face au n°2',
+            mid: 1,
+            activeDuel: {
+              movieA: candidate,
+              movieB,
+            },
+            history: [...state.history, snapshot],
+            stepNumber: state.stepNumber + 1,
+          };
+        }
+      }
+
+      // Confirmation validée : insertion au rang conquis (targetIndex)
+      const finalIndex = targetIndex;
+      const newSorted = [...state.sortedTitles];
+      newSorted.splice(finalIndex, 0, candidate.title);
+
+      if (state.mode === 'incremental') {
+        const updatedNewlyAdded = Array.from(new Set([...state.newlyAddedTitles, candidate.title]));
+        return advanceIncrementalCandidate(state, newSorted, updatedNewlyAdded, snapshot);
+      } else {
+        return advanceGeneralQueue(state, newSorted, finalIndex, snapshot);
+      }
+    } else {
+      // Défaite du candidat contre le tenant du titre :
+      // Il ne surclasse pas ce film et se range juste derrière lui
+      const finalIndex = challengedIndex + 1;
+      const newSorted = [...state.sortedTitles];
+      newSorted.splice(finalIndex, 0, candidate.title);
+
+      if (state.mode === 'incremental') {
+        const updatedNewlyAdded = Array.from(new Set([...state.newlyAddedTitles, candidate.title]));
+        return advanceIncrementalCandidate(state, newSorted, updatedNewlyAdded, snapshot);
+      } else {
+        return advanceGeneralQueue(state, newSorted, finalIndex, snapshot);
+      }
+    }
+  }
 
   // =========================================================================
   // 1. CAS MODE INCRÉMENTAL : Étape Catégorie puis Général
@@ -504,21 +685,28 @@ export function processDuelDecision(
       }
 
       // La position relative dans sa catégorie a été trouvée !
-      // On resserre l'intervalle dans le classement général
+      // On resserre l'intervalle dans le classement général avec précision
       let generalLow = 0;
       let generalHigh = state.sortedTitles.length - 1;
 
+      // Borne basse : s'il a perdu contre un film de sa catégorie, il doit se classer après lui
       if (catLow > 0) {
         const prevCatMovieIndex = state.incrementalCategoryIndices[catLow - 1];
         generalLow = prevCatMovieIndex + 1;
       }
-      if (catHigh >= 0 && catHigh < state.incrementalCategoryIndices.length) {
-        const nextCatMovieIndex = state.incrementalCategoryIndices[catHigh];
+      // Borne haute : s'il a battu un film de sa catégorie, il doit se classer avant lui
+      if (catLow < state.incrementalCategoryIndices.length) {
+        const nextCatMovieIndex = state.incrementalCategoryIndices[catLow];
         generalHigh = nextCatMovieIndex - 1;
       }
 
       // Si l'intervalle est déjà réduit à 0 élément (position immédiate trouvée) :
       if (generalLow > generalHigh) {
+        const confirmationState = tryTriggerPodiumConfirmation(state, generalLow, state.currentCandidate!, snapshot);
+        if (confirmationState) {
+          return confirmationState;
+        }
+
         const newSorted = [...state.sortedTitles];
         newSorted.splice(generalLow, 0, state.currentCandidate!.title);
         const updatedNewlyAdded = Array.from(new Set([...state.newlyAddedTitles, state.currentCandidate!.title]));
@@ -529,6 +717,8 @@ export function processDuelDecision(
       // Passer à l'arbitrage général dans l'intervalle resserré
       const nextMid = Math.floor((generalLow + generalHigh) / 2);
       const movieB = state.movieCatalog[state.sortedTitles[nextMid]] || { title: state.sortedTitles[nextMid] };
+      const isPodium = nextMid <= 2;
+      const badge = nextMid === 0 ? '👑 Duel face au n°1' : nextMid === 1 ? '🥈 Duel face au n°2' : nextMid === 2 ? '🥉 Duel face au n°3' : undefined;
 
       return {
         ...state,
@@ -542,6 +732,8 @@ export function processDuelDecision(
           movieA: state.currentCandidate!,
           movieB,
         },
+        isPodiumDuel: isPodium,
+        podiumBadgeText: badge,
         history: [...state.history, snapshot],
         stepNumber: state.stepNumber + 1,
       };
@@ -561,6 +753,8 @@ export function processDuelDecision(
     if (low <= high) {
       const nextMid = Math.floor((low + high) / 2);
       const movieB = state.movieCatalog[state.sortedTitles[nextMid]] || { title: state.sortedTitles[nextMid] };
+      const isPodium = nextMid <= 2;
+      const badge = nextMid === 0 ? '👑 Duel face au n°1' : nextMid === 1 ? '🥈 Duel face au n°2' : nextMid === 2 ? '🥉 Duel face au n°3' : undefined;
 
       return {
         ...state,
@@ -571,12 +765,19 @@ export function processDuelDecision(
           movieA: state.currentCandidate!,
           movieB,
         },
+        isPodiumDuel: isPodium,
+        podiumBadgeText: badge,
         history: [...state.history, snapshot],
         stepNumber: state.stepNumber + 1,
       };
     }
 
-    // Position trouvée
+    // Position trouvée par dichotomie générale : vérifier confirmation podium
+    const confirmationState = tryTriggerPodiumConfirmation(state, low, state.currentCandidate!, snapshot);
+    if (confirmationState) {
+      return confirmationState;
+    }
+
     const newSorted = [...state.sortedTitles];
     newSorted.splice(low, 0, state.currentCandidate!.title);
     const updatedNewlyAdded = Array.from(new Set([...state.newlyAddedTitles, state.currentCandidate!.title]));
@@ -707,6 +908,8 @@ export function processDuelDecision(
   if (low <= high) {
     const nextMid = Math.floor((low + high) / 2);
     const movieB = state.movieCatalog[state.sortedTitles[nextMid]] || { title: state.sortedTitles[nextMid] };
+    const isPodium = nextMid <= 2;
+    const badge = nextMid === 0 ? '👑 Duel face au n°1' : nextMid === 1 ? '🥈 Duel face au n°2' : nextMid === 2 ? '🥉 Duel face au n°3' : undefined;
 
     return {
       ...state,
@@ -717,6 +920,8 @@ export function processDuelDecision(
         movieA: state.currentGeneralItem!.movie,
         movieB,
       },
+      isPodiumDuel: isPodium,
+      podiumBadgeText: badge,
       history: [...state.history, snapshot],
       stepNumber: state.stepNumber + 1,
     };
@@ -724,6 +929,11 @@ export function processDuelDecision(
 
   // Le film est positionné dans le classement général !
   const insertedIndex = low;
+  const confirmationState = tryTriggerPodiumConfirmation(state, insertedIndex, state.currentGeneralItem!.movie, snapshot);
+  if (confirmationState) {
+    return confirmationState;
+  }
+
   const newSortedTitles = [...state.sortedTitles];
   newSortedTitles.splice(insertedIndex, 0, state.currentGeneralItem!.movie.title);
 
@@ -944,14 +1154,30 @@ function advanceIncrementalCandidate(
         incrementalCategoryLow: catLow,
         incrementalCategoryHigh: catHigh,
         incrementalStage: 'category',
+        isPodiumDuel: false,
+        podiumBadgeText: undefined,
+        podiumTargetRank: undefined,
+        podiumCandidateFaced: [],
       };
     }
 
-    // Sinon duel classique
+    // Sinon duel classique guidé par la note si connue
     const nextLow = 0;
     const nextHigh = newSortedTitles.length - 1;
-    const nextMid = Math.floor((nextLow + nextHigh) / 2);
+    let nextMid = Math.floor((nextLow + nextHigh) / 2);
+    const candRating = nextCandidate.rating;
+    if (candRating && candRating > 0 && newSortedTitles.length >= 4) {
+      if (candRating < 6.0) {
+        // Film moyen / modeste : démarre dans le bas de tableau (70%)
+        nextMid = Math.min(nextHigh, Math.floor(newSortedTitles.length * 0.7));
+      } else if (candRating >= 8.2) {
+        // Film d'exception : démarre dans le haut de tableau (30%)
+        nextMid = Math.max(nextLow, Math.floor(newSortedTitles.length * 0.3));
+      }
+    }
     const movieB = state.movieCatalog[newSortedTitles[nextMid]] || { title: newSortedTitles[nextMid] };
+    const isPodium = nextMid <= 2;
+    const badge = nextMid === 0 ? '👑 Duel face au n°1' : nextMid === 1 ? '🥈 Duel face au n°2' : nextMid === 2 ? '🥉 Duel face au n°3' : undefined;
 
     return {
       ...state,
@@ -971,6 +1197,10 @@ function advanceIncrementalCandidate(
       phase: 'general',
       currentDuelCategory: undefined,
       incrementalStage: 'general',
+      isPodiumDuel: isPodium,
+      podiumBadgeText: badge,
+      podiumTargetRank: undefined,
+      podiumCandidateFaced: [],
     };
   }
 
@@ -983,6 +1213,10 @@ function advanceIncrementalCandidate(
     activeDuel: null,
     isFinished: true,
     newlyAddedTitles: updatedNewlyAdded,
+    isPodiumDuel: false,
+    podiumBadgeText: undefined,
+    podiumTargetRank: undefined,
+    podiumCandidateFaced: [],
     history: [...state.history, snapshot],
   };
 }
@@ -1040,6 +1274,10 @@ function performSingleUndo(state: DuelSessionState): DuelSessionState {
     incrementalCategoryLow: previous.incrementalCategoryLow,
     incrementalCategoryHigh: previous.incrementalCategoryHigh,
     incrementalStage: previous.incrementalStage,
+    isPodiumDuel: previous.isPodiumDuel,
+    podiumBadgeText: previous.podiumBadgeText,
+    podiumTargetRank: previous.podiumTargetRank,
+    podiumCandidateFaced: previous.podiumCandidateFaced ? [...previous.podiumCandidateFaced] : undefined,
   };
 }
 

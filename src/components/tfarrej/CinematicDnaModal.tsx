@@ -361,12 +361,16 @@ export function CinematicDnaModal({
         if (!credit) return;
         const rankScore = N - rankIndex; // #1 = N pts, #N = 1 pt
 
-        // Cast members : pondération selon l'importance du rôle (1er rôle x1.6, 2nd rôle x1.3, etc.)
+        // Cast members : barème sévère et hiérarchique selon l'importance du rôle
+        // 1er rôle (Lead) : x2.0
+        // 2nd rôle principal : x0.80
+        // 3e rôle : x0.40
+        // Rôles secondaires suivants : x0.20
         (credit.cast || []).forEach((actor: any) => {
           const billingBonus = 
-            actor.order === 0 ? 1.6 :
-            actor.order === 1 ? 1.3 :
-            actor.order === 2 ? 1.05 : 0.85;
+            actor.order === 0 ? 2.0 :
+            actor.order === 1 ? 0.80 :
+            actor.order === 2 ? 0.40 : 0.20;
           const pts = rankScore * billingBonus;
 
           const roleDetail: ActorRoleDetail = {
@@ -427,10 +431,65 @@ export function CinematicDnaModal({
         }
       });
 
-      const sortedActors = Array.from(actorMap.values())
-        .sort((a, b) => b.score - a.score)
+      // Application des règles de sévérité et de récurrence sur les acteurs :
+      // 1. Les 2èmes et 3èmes rôles purs (aucun 1er rôle) dans 1 seul film subissent un frein strict
+      // 2. Les acteurs de 2nd/3e rôles présents dans plusieurs films débloquent le multiplicateur de fidélité pour surclasser les 1ers rôles mono-film
+      const processedActors = Array.from(actorMap.values()).map(actor => {
+        const filmsCount = actor.films.length;
+        const hasLeadRole = actor.roles?.some(r => r.order === 0) || actor.bestOrder === 0;
+
+        // Multiplicateur de récurrence (récompense la présence répétée dans vos films préférés)
+        let recurrenceMultiplier = 1.0;
+        if (filmsCount >= 4) {
+          recurrenceMultiplier = 2.30;
+        } else if (filmsCount === 3) {
+          recurrenceMultiplier = 1.80;
+        } else if (filmsCount === 2) {
+          recurrenceMultiplier = 1.40;
+        }
+
+        // Frein mono-film sévère pour les rôles secondaires purs (aucun 1er rôle) :
+        // Un simple 2e ou 3e rôle dans 1 seul film ne doit pas usurper le Top 10
+        let singleSupportingDampener = 1.0;
+        if (!hasLeadRole && filmsCount === 1) {
+          singleSupportingDampener = 0.65;
+        }
+
+        const finalScore = actor.score * recurrenceMultiplier * singleSupportingDampener;
+        return {
+          ...actor,
+          score: Math.round(finalScore * 10) / 10,
+        };
+      });
+
+      // Tri final des acteurs :
+      // Condition d'éligibilité pour les seconds rôles purs :
+      // Pour entrer dans le Top 10, un acteur sans aucun 1er rôle doit impérativement avoir au moins 2 films préférés
+      const sortedActors = processedActors
+        .sort((a, b) => {
+          const aHasLead = a.roles?.some(r => r.order === 0) || a.bestOrder === 0;
+          const bHasLead = b.roles?.some(r => r.order === 0) || b.bestOrder === 0;
+          const aPureSingle = !aHasLead && a.films.length === 1;
+          const bPureSingle = !bHasLead && b.films.length === 1;
+
+          // Si l'un est un second rôle mono-film et l'autre a fait ses preuves (1er rôle ou >= 2 films)
+          if (aPureSingle && !bPureSingle) return 1;
+          if (!aPureSingle && bPureSingle) return -1;
+
+          return b.score - a.score;
+        })
         .slice(0, 10);
+
+      // Réalisateurs avec bonus de fidélité pour ceux présents dans plusieurs œuvres
       const sortedDirectors = Array.from(directorMap.values())
+        .map(dir => {
+          const filmsCount = dir.films.length;
+          const mult = filmsCount >= 3 ? 1.5 : filmsCount === 2 ? 1.25 : 1.0;
+          return {
+            ...dir,
+            score: Math.round(dir.score * mult * 10) / 10,
+          };
+        })
         .sort((a, b) => b.score - a.score)
         .slice(0, 5);
 
@@ -653,9 +712,16 @@ export function CinematicDnaModal({
                           <span className="absolute -bottom-0.5 -right-0.5 text-[9px] leading-none bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center font-black shadow">{i + 1}</span>
                         </div>
                         <p className="text-[9px] sm:text-[10px] font-bold text-white leading-tight line-clamp-1 w-full">{actor.name}</p>
-                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full border leading-none max-w-full truncate ${roleBadge.badgeClass}`}>
-                          {roleBadge.shortLabel}
-                        </span>
+                        <div className="flex flex-wrap items-center justify-center gap-1 mt-0.5">
+                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full border leading-none max-w-full truncate ${roleBadge.badgeClass}`}>
+                            {roleBadge.shortLabel}
+                          </span>
+                          {actor.films.length > 1 && (
+                            <span className="text-[7.5px] font-bold px-1 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 leading-none">
+                              {actor.films.length} {mediaType === 'tv' ? 'séries' : 'films'}
+                            </span>
+                          )}
+                        </div>
                       </button>
                     );
                   })}
@@ -753,11 +819,16 @@ export function CinematicDnaModal({
                     {/* Détail clair des rôles et films dans votre classement */}
                     {selectedPerson.roles && selectedPerson.roles.length > 0 ? (
                       <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <p className="text-[9px] font-extrabold text-white/50 uppercase tracking-wider">
-                            Dans vos favoris ({selectedPerson.roles.length} œuvre{selectedPerson.roles.length > 1 ? 's' : ''})
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[9px] font-extrabold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
+                            <span>Dans vos favoris ({selectedPerson.roles.length} œuvre{selectedPerson.roles.length > 1 ? 's' : ''})</span>
+                            {selectedPerson.films.length > 1 && (
+                              <span className="text-[8px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                                ⭐ Acteur récurrent ({selectedPerson.films.length} œuvres)
+                              </span>
+                            )}
                           </p>
-                          <span className="text-[9px] text-white/40 font-normal">
+                          <span className="text-[9px] text-white/40 font-normal shrink-0">
                             Rang du film & Rôle
                           </span>
                         </div>

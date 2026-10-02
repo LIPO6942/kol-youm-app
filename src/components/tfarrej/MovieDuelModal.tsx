@@ -802,6 +802,11 @@ export function MovieDuelModal({
                       <span>⚔️ Duel Exclusif :</span>
                       <CategoryBadge category={reclassifyingCategory} size="xs" />
                     </div>
+                  ) : session.isPodiumDuel && session.podiumBadgeText ? (
+                    <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-500/25 via-yellow-500/30 to-amber-500/25 border border-amber-400/50 text-amber-200 text-xs font-extrabold shadow-[0_0_20px_rgba(245,158,11,0.35)] animate-pulse">
+                      <Sparkles className="w-3.5 h-3.5 text-yellow-400 shrink-0" />
+                      <span>{session.podiumBadgeText}</span>
+                    </div>
                   ) : session.phase === 'category' || (session.activeDuel && session.activeDuel.movieA.category && session.activeDuel.movieA.category === session.activeDuel.movieB.category) ? (
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/15 border border-purple-400/30 text-purple-200 text-xs font-bold shadow-[0_0_15px_rgba(168,85,247,0.2)]">
                       <span>⚔️ Duel Intra-Catégorie :</span>
@@ -937,10 +942,16 @@ export function MovieDuelModal({
 
                     {/* En-tête de carte */}
                     <div className="w-full flex items-center justify-between mb-1.5 sm:mb-2">
-                      <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-400/30 text-[9px] sm:text-[10px] font-extrabold text-purple-300 uppercase tracking-wider flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-                        {isTv ? "Série 2" : "Film 2"}
-                      </span>
+                      {session.isPodiumDuel && session.mid <= 2 ? (
+                        <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/25 to-yellow-500/25 border border-amber-400/40 text-[9px] sm:text-[10px] font-extrabold text-amber-300 uppercase tracking-wider flex items-center gap-1 shadow-[0_0_12px_rgba(245,158,11,0.3)]">
+                          <span>{session.mid === 0 ? '👑 N°1 Actuel' : session.mid === 1 ? '🥈 N°2 Actuel' : '🥉 N°3 Actuel'}</span>
+                        </span>
+                      ) : (
+                        <span className="px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-400/30 text-[9px] sm:text-[10px] font-extrabold text-purple-300 uppercase tracking-wider flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                          {isTv ? "Série 2" : "Film 2"}
+                        </span>
+                      )}
                       <span className="hidden sm:inline-block text-[10px] text-white/40 font-mono">Droite →</span>
                     </div>
 
