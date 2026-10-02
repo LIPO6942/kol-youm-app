@@ -21,7 +21,8 @@ import {
 } from '@/lib/firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { calculateCinematicDna, CategoryDnaScore } from '@/lib/cinematic-dna-utils';
-import { CategoryBadge, CATEGORY_HEX_COLORS } from '@/components/tfarrej/movie-category-picker';
+import { CategoryBadge, CATEGORY_HEX_COLORS, MovieCategoryPicker } from '@/components/tfarrej/movie-category-picker';
+import { guessMovieCategory } from '@/lib/movie-category-utils';
 import {
   Dna,
   Trophy,
@@ -121,6 +122,8 @@ export function CinematicDnaModal({
   const [dateMode, setDateMode] = useState<'exact' | 'approx'>('exact');
   const [seenDate, setSeenDate] = useState<string>(() => toDateInputValue(Date.now()));
   const [approxYear, setApproxYear] = useState<string>('');
+  const [chosenCategory, setChosenCategory] = useState<MovieCategory>('Drame');
+  const [watchedInCinema, setWatchedInCinema] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const filmActionPanelRef = useRef<HTMLDivElement>(null);
 
@@ -130,6 +133,7 @@ export function CinematicDnaModal({
       setSelectedPerson(null);
       setActiveFilm(null);
       setShowDatePicker(false);
+      setWatchedInCinema(false);
     }
   }, [isOpen]);
 
@@ -184,6 +188,7 @@ export function CinematicDnaModal({
           viewedAt,
           posterUrl: film.posterPath || undefined,
           year: film.year || undefined,
+          category: chosenCategory,
         });
       } else {
         await addSeenMovieWithDate(effectiveUid, {
@@ -191,6 +196,8 @@ export function CinematicDnaModal({
           viewedAt,
           posterUrl: film.posterPath || undefined,
           year: film.year || undefined,
+          category: chosenCategory,
+          watchedInCinema: watchedInCinema ? true : undefined,
         });
       }
       forceProfileRefresh?.();
@@ -198,11 +205,12 @@ export function CinematicDnaModal({
         ? `Vu le ${new Date(viewedAt).toLocaleDateString('fr-FR')}`
         : `Vu vers ${approxYear || new Date(viewedAt).getFullYear()}`;
       toast({
-        title: `✅ Marqué comme vu`,
-        description: `${film.title} — ${dateDesc}`,
+        title: `✅ Marqué comme vu${watchedInCinema ? ' au cinéma 🍿' : ''}`,
+        description: `${film.title} (${chosenCategory}) — ${dateDesc}${watchedInCinema ? ' (Séance cinéma)' : ''}`,
       });
       setActiveFilm(null);
       setShowDatePicker(false);
+      setWatchedInCinema(false);
     } catch {
       toast({
         variant: 'destructive',
@@ -214,14 +222,40 @@ export function CinematicDnaModal({
     }
   };
 
-  // ── ACTEURS PRÉFÉRÉS ─────────────────────────────────────────────────────────
+  // ── ACTEURS PRÉFÉRÉS & RÔLES ──────────────────────────────────────────────────
+  interface ActorRoleDetail {
+    film: string;
+    rankIndex: number; // 0 = 1er film du classement
+    order: number; // 0 = 1er rôle, 1 = 2e rôle, 2 = 3e rôle, etc.
+    character?: string;
+  }
+
   interface ActorScore {
     id: number;
     name: string;
     profilePath?: string;
     score: number;
     films: string[]; // top-ranked films this actor appears in
+    roles?: ActorRoleDetail[];
+    bestOrder?: number; // rôle le plus important (0 = tête d'affiche)
     isDirector?: boolean;
+    directorCount?: number;
+  }
+
+  function getRoleBadge(order?: number) {
+    if (order === undefined || order === null) {
+      return { label: 'Second rôle', shortLabel: 'Second rôle', badgeClass: 'bg-white/10 text-white/70 border-white/20' };
+    }
+    if (order === 0) {
+      return { label: '1er rôle (Principal)', shortLabel: '1er rôle', badgeClass: 'bg-amber-500/25 text-amber-300 border-amber-400/50' };
+    }
+    if (order === 1) {
+      return { label: '2nd rôle principal', shortLabel: '2nd rôle', badgeClass: 'bg-purple-500/25 text-purple-300 border-purple-400/50' };
+    }
+    if (order === 2) {
+      return { label: '3e rôle', shortLabel: '3e rôle', badgeClass: 'bg-blue-500/25 text-blue-300 border-blue-400/50' };
+    }
+    return { label: `${order + 1}e rôle`, shortLabel: 'Second rôle', badgeClass: 'bg-slate-500/25 text-slate-300 border-slate-400/40' };
   }
 
   interface FilmographyItem {
@@ -288,7 +322,7 @@ export function CinematicDnaModal({
     }
   };
 
-  // Top-ranked titles to analyse (up to 15 best-ranked films)
+  // Top-ranked titles to analyse (élargi jusqu'à 50 films/séries classés)
   const isSeries = mediaType === 'tv';
   const topRankedTitles = useMemo(() => {
     const allRankings = isSeries
@@ -300,7 +334,7 @@ export function CinematicDnaModal({
       return valid.reduce((b, c) => (c.rankedTitles.length >= b.rankedTitles.length ? c : b));
     };
     const best = pickBest(allRankings);
-    return (best?.rankedTitles || []).slice(0, 15) as string[];
+    return (best?.rankedTitles || []).slice(0, 50) as string[];
   }, [userProfile?.movieRankings, userProfile?.seriesRankings, isSeries]);
 
   const fetchActors = useCallback(async () => {
@@ -316,7 +350,7 @@ export function CinematicDnaModal({
       if (!res.ok) throw new Error();
       const data = await res.json();
 
-      // Score = (N - rank) where N = number of titles analysed
+      // Score = (N - rankIndex) where N = number of titles analysed (up to 50)
       // rank 0 (#1 film) → highest score
       const N = topRankedTitles.length;
       const actorMap = new Map<number, ActorScore>();
@@ -327,14 +361,29 @@ export function CinematicDnaModal({
         if (!credit) return;
         const rankScore = N - rankIndex; // #1 = N pts, #N = 1 pt
 
-        // Cast members: top-billed (order 0) get +50% bonus
+        // Cast members : pondération selon l'importance du rôle (1er rôle x1.6, 2nd rôle x1.3, etc.)
         (credit.cast || []).forEach((actor: any) => {
-          const billingBonus = actor.order === 0 ? 1.5 : 1.0;
+          const billingBonus = 
+            actor.order === 0 ? 1.6 :
+            actor.order === 1 ? 1.3 :
+            actor.order === 2 ? 1.05 : 0.85;
           const pts = rankScore * billingBonus;
+
+          const roleDetail: ActorRoleDetail = {
+            film: title,
+            rankIndex,
+            order: actor.order ?? 99,
+            character: actor.character,
+          };
+
           const existing = actorMap.get(actor.id);
           if (existing) {
             existing.score += pts;
             if (!existing.films.includes(title)) existing.films.push(title);
+            existing.roles = [...(existing.roles || []), roleDetail];
+            if (existing.bestOrder === undefined || (actor.order !== undefined && actor.order < existing.bestOrder)) {
+              existing.bestOrder = actor.order;
+            }
           } else {
             actorMap.set(actor.id, {
               id: actor.id,
@@ -342,25 +391,37 @@ export function CinematicDnaModal({
               profilePath: actor.profilePath,
               score: pts,
               films: [title],
+              roles: [roleDetail],
+              bestOrder: actor.order ?? 99,
             });
           }
         });
 
-        // Director
+        // Director / Creator
         if (credit.director) {
           const d = credit.director;
+          const roleDetail: ActorRoleDetail = {
+            film: title,
+            rankIndex,
+            order: 0,
+            character: mediaType === 'tv' ? 'Créateur / Showrunner' : 'Réalisateur',
+          };
           const existing = directorMap.get(d.id);
           if (existing) {
-            existing.score += rankScore;
+            existing.score += rankScore * 1.5;
             if (!existing.films.includes(title)) existing.films.push(title);
+            existing.roles = [...(existing.roles || []), roleDetail];
+            existing.directorCount = (existing.directorCount || 1) + 1;
           } else {
             directorMap.set(d.id, {
               id: d.id,
               name: d.name,
               profilePath: d.profilePath,
-              score: rankScore,
+              score: rankScore * 1.5,
               films: [title],
+              roles: [roleDetail],
               isDirector: true,
+              directorCount: 1,
             });
           }
         }
@@ -521,16 +582,23 @@ export function CinematicDnaModal({
             </div>
           </motion.div>
 
-          {/* 2. ACTEURS & RÉALISATEURS — juste après l'archétype */}
+          {/* 2. ACTEURS & RÉALISATEURS — calcul élargi jusqu'aux 50 premières œuvres */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-extrabold text-white/90 uppercase tracking-wider flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <Users className="w-3.5 h-3.5 text-rose-400" />
-                {mediaType === 'tv' ? 'Acteurs & Créateurs' : 'Acteurs & Réalisateurs'}
-              </h4>
+                <h4 className="text-xs font-extrabold text-white/90 uppercase tracking-wider">
+                  {mediaType === 'tv' ? 'Acteurs & Créateurs' : 'Acteurs & Réalisateurs'}
+                </h4>
+                {topRankedTitles.length > 0 && (
+                  <span className="text-[10px] text-white/50 font-normal">
+                    (Top {topRankedTitles.length} {mediaType === 'tv' ? 'séries' : 'films'})
+                  </span>
+                )}
+              </div>
               {!actorData.fetched && !actorData.loading && (
                 <button type="button" onClick={fetchActors}
-                  className="text-[10px] font-bold text-indigo-300 hover:text-white bg-white/5 hover:bg-white/10 px-2 py-1 rounded-lg transition-all border border-white/10">
+                  className="text-[10px] font-bold text-indigo-300 hover:text-white bg-white/5 hover:bg-white/10 px-2 py-1 rounded-lg transition-all border border-white/10 cursor-pointer">
                   Analyser
                 </button>
               )}
@@ -562,29 +630,35 @@ export function CinematicDnaModal({
 
             {actorData.actors.length > 0 && (
               <>
-                {/* Grille 5×2 acteurs */}
+                {/* Grille 5×2 acteurs avec affichage explicite du rôle (1er rôle, 2nd rôle...) */}
                 <div className="grid grid-cols-5 gap-2">
-                  {actorData.actors.map((actor, i) => (
-                    <button
-                      key={actor.id}
-                      type="button"
-                      onClick={() => handlePersonClick(actor)}
-                      className="flex flex-col items-center gap-1 p-2 rounded-2xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.09] hover:border-rose-400/40 transition-all text-center group cursor-pointer"
-                      title={`Cliquer pour voir le profil · ${actor.films.slice(0, 2).join(', ')}`}
-                    >
-                      <div className="relative">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden bg-white/10 border-2 border-white/15 group-hover:border-rose-400/60 transition-all">
-                          {actor.profilePath ? (
-                            <img src={`/api/image-proxy?url=${encodeURIComponent(actor.profilePath)}`} alt={actor.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-lg">{i === 0 ? '👑' : '🎭'}</div>
-                          )}
+                  {actorData.actors.map((actor, i) => {
+                    const roleBadge = getRoleBadge(actor.bestOrder);
+                    return (
+                      <button
+                        key={actor.id}
+                        type="button"
+                        onClick={() => handlePersonClick(actor)}
+                        className="flex flex-col items-center gap-1 p-2 rounded-2xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.09] hover:border-rose-400/40 transition-all text-center group cursor-pointer"
+                        title={`Cliquer pour voir le profil · ${roleBadge.label} · ${actor.films.slice(0, 2).join(', ')}`}
+                      >
+                        <div className="relative">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden bg-white/10 border-2 border-white/15 group-hover:border-rose-400/60 transition-all">
+                            {actor.profilePath ? (
+                              <img src={`/api/image-proxy?url=${encodeURIComponent(actor.profilePath)}`} alt={actor.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-lg">{i === 0 ? '👑' : '🎭'}</div>
+                            )}
+                          </div>
+                          <span className="absolute -bottom-0.5 -right-0.5 text-[9px] leading-none bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center font-black shadow">{i + 1}</span>
                         </div>
-                        <span className="absolute -bottom-0.5 -right-0.5 text-[9px] leading-none bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center font-black shadow">{i + 1}</span>
-                      </div>
-                      <p className="text-[9px] sm:text-[10px] font-bold text-white leading-tight line-clamp-2 w-full">{actor.name}</p>
-                    </button>
-                  ))}
+                        <p className="text-[9px] sm:text-[10px] font-bold text-white leading-tight line-clamp-1 w-full">{actor.name}</p>
+                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full border leading-none max-w-full truncate ${roleBadge.badgeClass}`}>
+                          {roleBadge.shortLabel}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Réalisateurs en ligne */}
@@ -676,7 +750,45 @@ export function CinematicDnaModal({
                       </p>
                     )}
 
-                    {selectedPerson.films.length > 0 && (
+                    {/* Détail clair des rôles et films dans votre classement */}
+                    {selectedPerson.roles && selectedPerson.roles.length > 0 ? (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[9px] font-extrabold text-white/50 uppercase tracking-wider">
+                            Dans vos favoris ({selectedPerson.roles.length} œuvre{selectedPerson.roles.length > 1 ? 's' : ''})
+                          </p>
+                          <span className="text-[9px] text-white/40 font-normal">
+                            Rang du film & Rôle
+                          </span>
+                        </div>
+                        <div className="space-y-1 max-h-[140px] overflow-y-auto pr-1">
+                          {selectedPerson.roles.map((r, rIdx) => {
+                            const badge = getRoleBadge(r.order);
+                            return (
+                              <div
+                                key={rIdx}
+                                className="flex items-center justify-between gap-2 p-1.5 px-2 rounded-xl bg-white/[0.04] border border-white/10 text-xs"
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-white/10 text-white/80 shrink-0">
+                                    #{r.rankIndex + 1}
+                                  </span>
+                                  <span className="font-bold text-white text-[11px] truncate">{r.film}</span>
+                                  {r.character && (
+                                    <span className="text-[10px] text-indigo-300/80 truncate hidden sm:inline">
+                                      ({r.character})
+                                    </span>
+                                  )}
+                                </div>
+                                <span className={`text-[8.5px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${badge.badgeClass}`}>
+                                  {badge.label}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : selectedPerson.films.length > 0 ? (
                       <div>
                         <p className="text-[9px] font-extrabold text-white/40 uppercase tracking-wider mb-1">Dans vos favoris</p>
                         <div className="flex flex-wrap gap-1">
@@ -685,7 +797,17 @@ export function CinematicDnaModal({
                           ))}
                         </div>
                       </div>
-                    )}
+                    ) : null}
+
+                    {/* Explication du classement */}
+                    <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-400/20 text-[10px] text-indigo-200/90 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                      <span>
+                        {selectedPerson.isDirector
+                          ? `Réalisateur/Créateur présent dans ${selectedPerson.films.length} œuvre(s) de votre top ${topRankedTitles.length}.`
+                          : `Classement calculé selon le rang de vos films (top ${topRankedTitles.length}) et l'importance du rôle (1er rôle, 2nd rôle...).`}
+                      </span>
+                    </div>
 
                     {/* Filmographie scrollable */}
                     {selectedPerson.bio?.filmography && selectedPerson.bio.filmography.length > 0 && (
@@ -716,10 +838,13 @@ export function CinematicDnaModal({
                                   if (isActive) {
                                     setActiveFilm(null);
                                     setShowDatePicker(false);
+                                    setWatchedInCinema(false);
                                   } else {
                                     setActiveFilm(film);
                                     setSeenDate(toDateInputValue(Date.now()));
                                     setApproxYear(film.year ? String(film.year) : String(new Date().getFullYear()));
+                                    setChosenCategory(guessMovieCategory(film.title));
+                                    setWatchedInCinema(false);
                                     setDateMode('exact');
                                     setShowDatePicker(false);
                                     setTimeout(() => {
@@ -952,6 +1077,47 @@ export function CinematicDnaModal({
                                           </p>
                                         </div>
                                       )}
+
+                                      {/* Option Vu au cinéma pour les films */}
+                                      {mediaType !== 'tv' && activeFilm.mediaType !== 'tv' && (
+                                        <label className="flex items-center gap-2 p-2 rounded-lg bg-black/50 border border-white/10 hover:border-amber-400/40 cursor-pointer transition-colors group">
+                                          <input
+                                            type="checkbox"
+                                            checked={watchedInCinema}
+                                            onChange={(e) => setWatchedInCinema(e.target.checked)}
+                                            className="w-4 h-4 rounded border-white/30 text-amber-500 focus:ring-amber-400 focus:ring-offset-0 bg-black/60 cursor-pointer"
+                                          />
+                                          <div className="flex items-center gap-1.5 min-w-0">
+                                            <Clapperboard className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                                            <span className="text-[11px] font-semibold text-white/90 group-hover:text-white">
+                                              Vu au cinéma
+                                            </span>
+                                          </div>
+                                          {watchedInCinema && (
+                                            <span className="ml-auto text-[9.5px] font-bold text-amber-300 bg-amber-400/20 px-1.5 py-0.5 rounded-full border border-amber-400/30">
+                                              En salle 🎟️
+                                            </span>
+                                          )}
+                                        </label>
+                                      )}
+
+                                      {/* Sélection de la Catégorie (Genre : Thriller, Comédie, Drame...) */}
+                                      <div className="space-y-1.5 pt-1 border-t border-white/10">
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
+                                            <span>🏷️</span>
+                                            <span>Catégorie du {mediaType === 'tv' ? 'programme' : 'film'} :</span>
+                                          </span>
+                                          <span className="text-[10px] text-white/60 font-semibold">
+                                            {chosenCategory}
+                                          </span>
+                                        </div>
+                                        <MovieCategoryPicker
+                                          selectedCategory={chosenCategory}
+                                          onSelectCategory={(cat) => setChosenCategory(cat)}
+                                          size="sm"
+                                        />
+                                      </div>
 
                                       <div className="flex gap-2 pt-0.5">
                                         <button

@@ -5,7 +5,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform, animate } from '
 import { 
   X, Share2, Camera, Clapperboard, Award, Sparkles, MapPin, Film, Star, 
   Flame, Compass, Volume2, VolumeX, ChevronLeft, ChevronRight, Tv, Car,
-  Swords, Trophy, ArrowUp, ArrowDown, Rocket, Minus, Check
+  Swords, Trophy, ArrowUp, ArrowDown, Rocket, Minus, Check, Play, Pause
 } from 'lucide-react';
 import { useMonthlyWrapUp, WrapUpStats, KharjetOuting, MomentyMoment } from '@/hooks/use-monthly-wrapup';
 import { type UserProfile, type MonthlyMovieRanking, getStoredMovieRanking, isTestMovieTitle, MovieCategory, MOVIE_CATEGORIES, MOVIE_CATEGORY_CONFIG } from '@/lib/firebase/firestore';
@@ -598,8 +598,57 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
               ))}
             </div>
 
-            {/* ── HEADER CONTROLS (MUTE & CLOSE) ── */}
+            {/* ── PAUSE STATUS BADGE ── */}
+            <AnimatePresence>
+              {isPaused && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsPaused(false);
+                  }}
+                  className="absolute top-14 left-1/2 -translate-x-1/2 z-50 bg-black/85 hover:bg-black backdrop-blur-md border border-amber-400/60 text-amber-200 px-3.5 py-1 rounded-full text-xs font-bold shadow-xl flex items-center gap-1.5 cursor-pointer no-screenshot"
+                  title="Cliquez pour reprendre la lecture"
+                >
+                  <Pause className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
+                  <span>En pause · Cliquer pour reprendre</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* ── HEADER CONTROLS (PAUSE/PLAY, MUTE & CLOSE) ── */}
             <div className="absolute top-8 right-4 z-50 flex items-center gap-2 no-screenshot pointer-events-auto">
+              {/* Play / Pause toggle button */}
+              <motion.button
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.15 }}
+                className={`p-2 rounded-full backdrop-blur-md border transition-transform active:scale-90 flex items-center gap-1.5 px-3 shadow-lg ${
+                  isPaused
+                    ? "bg-amber-500/25 hover:bg-amber-500/35 border-amber-400/60 text-amber-300"
+                    : "bg-black/50 hover:bg-black/70 border-white/20 text-white"
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPaused((p) => !p);
+                }}
+                title={isPaused ? "Reprendre la lecture" : "Mettre en pause"}
+              >
+                {isPaused ? (
+                  <>
+                    <Play className="w-4 h-4 fill-amber-300 text-amber-300" />
+                    <span className="text-[11px] font-bold">Reprendre</span>
+                  </>
+                ) : (
+                  <>
+                    <Pause className="w-4 h-4 text-white/80" />
+                    <span className="text-[11px] font-medium text-white/80 hidden sm:inline">Pause</span>
+                  </>
+                )}
+              </motion.button>
               {/* Sound toggle button */}
               <motion.button
                 initial={{ opacity: 0, scale: 0.8 }}
@@ -1731,38 +1780,45 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
               )}
             </AnimatePresence>
 
-            {/* ── NAVIGATION ZONES (Only active on non-interactive slides or outside interactive cards) ── */}
+            {/* ── NAVIGATION ZONES (Zones latérales pour naviguer + Zone centrale pour stopper/reprendre) ── */}
             {!isInteractiveSlide && (
               <div className="absolute top-0 left-0 right-0 bottom-32 z-30 flex no-screenshot">
+                {/* Zone Gauche : Diapositive précédente */}
                 <div
-                  className="flex-1 bg-transparent cursor-pointer pointer-events-auto"
+                  className="w-1/4 bg-transparent cursor-pointer pointer-events-auto"
                   onClick={(e: any) => { e.stopPropagation(); handlePrevSlide(); }}
-                  onPointerDown={() => setIsPaused(true)}
-                  onPointerUp={() => setIsPaused(false)}
-                  onPointerCancel={() => setIsPaused(false)}
-                  onPointerLeave={() => setIsPaused(false)}
+                  title="Diapositive précédente"
                 />
+                {/* Zone Centrale : Clic pour stopper / mettre en pause ou reprendre */}
                 <div
-                  className="flex-1 bg-transparent cursor-pointer pointer-events-auto"
+                  className="w-2/4 bg-transparent cursor-pointer pointer-events-auto flex items-center justify-center"
+                  onClick={(e: any) => {
+                    e.stopPropagation();
+                    setIsPaused((p) => !p);
+                  }}
+                  title={isPaused ? "Reprendre la lecture" : "Cliquer pour mettre en pause"}
+                />
+                {/* Zone Droite : Diapositive suivante */}
+                <div
+                  className="w-1/4 bg-transparent cursor-pointer pointer-events-auto"
                   onClick={(e: any) => { e.stopPropagation(); handleNextSlide(); }}
-                  onPointerDown={() => setIsPaused(true)}
-                  onPointerUp={() => setIsPaused(false)}
-                  onPointerCancel={() => setIsPaused(false)}
-                  onPointerLeave={() => setIsPaused(false)}
+                  title="Diapositive suivante"
                 />
               </div>
             )}
 
-            {/* On interactive slides, top and bottom zones remain available for story navigation */}
+            {/* On interactive slides, top corners remain available for story navigation */}
             {isInteractiveSlide && (
               <>
                 <div 
-                  className="absolute top-0 left-0 right-0 h-24 z-30 pointer-events-auto cursor-pointer"
+                  className="absolute top-0 left-0 w-24 h-24 z-30 pointer-events-auto cursor-pointer"
                   onClick={(e: any) => { e.stopPropagation(); handlePrevSlide(); }}
+                  title="Diapositive précédente"
                 />
                 <div 
-                  className="absolute bottom-0 left-0 right-0 h-24 z-30 pointer-events-auto cursor-pointer"
+                  className="absolute top-0 right-0 w-24 h-24 z-30 pointer-events-auto cursor-pointer"
                   onClick={(e: any) => { e.stopPropagation(); handleNextSlide(); }}
+                  title="Diapositive suivante"
                 />
               </>
             )}

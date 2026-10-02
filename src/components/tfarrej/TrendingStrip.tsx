@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Flame, CheckCircle2, BookmarkPlus, Eye, ExternalLink, X, CalendarDays, Loader2 } from 'lucide-react';
+import { Flame, CheckCircle2, BookmarkPlus, Eye, ExternalLink, X, CalendarDays, Loader2, Clapperboard } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { addMovieToWatchlist, addSeriesToWatchlist, addSeenMovieWithDate, addSeenSeriesWithDate } from '@/lib/firebase/firestore';
+import { addMovieToWatchlist, addSeriesToWatchlist, addSeenMovieWithDate, addSeenSeriesWithDate, MovieCategory } from '@/lib/firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { MovieCategoryPicker } from '@/components/tfarrej/movie-category-picker';
+import { guessMovieCategory } from '@/lib/movie-category-utils';
 
 interface TrendingItem {
   id: number;
@@ -38,7 +40,11 @@ export function TrendingStrip({ type, seenTitles = [], watchlistTitles = [] }: T
   const [loading, setLoading] = useState(false);
   const [activeItem, setActiveItem] = useState<TrendingItem | null>(null);
   const [actionLoading, setActionLoading] = useState<'watchlist' | 'seen' | null>(null);
+  const [dateMode, setDateMode] = useState<'exact' | 'approx'>('exact');
   const [seenDate, setSeenDate] = useState<string>(toDateInputValue(Date.now()));
+  const [approxYear, setApproxYear] = useState<string>('');
+  const [chosenCategory, setChosenCategory] = useState<MovieCategory>('Drame');
+  const [isCinema, setIsCinema] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const { userProfile } = useAuth();
@@ -107,14 +113,28 @@ export function TrendingStrip({ type, seenTitles = [], watchlistTitles = [] }: T
   const handleMarkAsSeen = async () => {
     if (!activeItem || !userProfile?.uid) return;
     setActionLoading('seen');
-    const viewedAt = new Date(seenDate).getTime() || Date.now();
+
+    let viewedAt: number | undefined = undefined;
+    if (dateMode === 'exact') {
+      const d = new Date(seenDate).getTime();
+      viewedAt = !isNaN(d) ? d : Date.now();
+    } else {
+      const y = parseInt(approxYear, 10);
+      if (!isNaN(y) && y >= 1900 && y <= 2100) {
+        viewedAt = new Date(y, 6, 1, 12, 0, 0).getTime();
+      } else {
+        viewedAt = Date.now();
+      }
+    }
+
     try {
-      if (type === 'tv') {
+      if (type === 'tv' || activeItem.mediaType === 'tv') {
         await addSeenSeriesWithDate(userProfile.uid, {
           title: activeItem.title,
           viewedAt,
           posterUrl: activeItem.posterPath || undefined,
           year: activeItem.year || undefined,
+          category: chosenCategory,
         });
       } else {
         await addSeenMovieWithDate(userProfile.uid, {
@@ -122,9 +142,19 @@ export function TrendingStrip({ type, seenTitles = [], watchlistTitles = [] }: T
           viewedAt,
           posterUrl: activeItem.posterPath || undefined,
           year: activeItem.year || undefined,
+          category: chosenCategory,
+          watchedInCinema: isCinema ? true : undefined,
         });
       }
-      toast({ title: `✅ Marqué comme vu`, description: `${activeItem.title} — ${new Date(viewedAt).toLocaleDateString('fr-FR')}` });
+
+      const dateDesc = dateMode === 'exact'
+        ? `Vu le ${new Date(viewedAt).toLocaleDateString('fr-FR')}`
+        : `Vu vers ${approxYear || new Date(viewedAt).getFullYear()}`;
+
+      toast({
+        title: `✅ Marqué comme vu${isCinema ? ' au cinéma 🍿' : ''}`,
+        description: `${activeItem.title} (${chosenCategory}) — ${dateDesc}${isCinema ? ' (Séance cinéma)' : ''}`,
+      });
       setActiveItem(null);
       setShowDatePicker(false);
     } catch {
@@ -182,6 +212,10 @@ export function TrendingStrip({ type, seenTitles = [], watchlistTitles = [] }: T
                     if (isActive) { setActiveItem(null); setShowDatePicker(false); return; }
                     setActiveItem(item);
                     setSeenDate(toDateInputValue(Date.now()));
+                    setApproxYear(item.year ? String(item.year) : String(new Date().getFullYear()));
+                    setDateMode('exact');
+                    setChosenCategory(guessMovieCategory(item.title));
+                    setIsCinema(false);
                     setShowDatePicker(false);
                   }}
                   className={`flex items-center gap-1.5 px-2.5 py-1.5 border-r border-white/[0.05] flex-shrink-0 transition-all duration-150 relative text-left ${
@@ -320,29 +354,135 @@ export function TrendingStrip({ type, seenTitles = [], watchlistTitles = [] }: T
                     </div>
                   </button>
                 ) : (
-                  <div className="px-3 py-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/15 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <CalendarDays className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                      <p className="text-sm font-semibold text-foreground">Date de visionnage</p>
+                  <div className="px-3 py-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CalendarDays className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                        <p className="text-xs font-bold text-foreground">Date de visionnage</p>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground font-medium">
+                        {dateMode === 'exact' ? 'Date exacte' : 'Année approximative'}
+                      </span>
                     </div>
-                    <input
-                      type="date"
-                      value={seenDate}
-                      max={toDateInputValue(Date.now())}
-                      onChange={e => setSeenDate(e.target.value)}
-                      className="w-full rounded-lg bg-background border border-border/60 px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
-                    />
-                    <div className="flex gap-2">
+
+                    {/* Onglets : Date précise vs Année approx */}
+                    <div className="grid grid-cols-2 gap-1 p-0.5 rounded-lg bg-black/40 border border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setDateMode('exact')}
+                        className={`py-1 px-2 rounded-md text-[11px] font-bold transition-all text-center cursor-pointer ${
+                          dateMode === 'exact'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                        }`}
+                      >
+                        📅 Date précise
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDateMode('approx');
+                          if (!approxYear && activeItem.year) {
+                            setApproxYear(String(activeItem.year));
+                          }
+                        }}
+                        className={`py-1 px-2 rounded-md text-[11px] font-bold transition-all text-center cursor-pointer ${
+                          dateMode === 'approx'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                        }`}
+                      >
+                        ⏳ Année approx.
+                      </button>
+                    </div>
+
+                    {/* Champ selon le mode */}
+                    {dateMode === 'exact' ? (
+                      <input
+                        type="date"
+                        value={seenDate}
+                        max={toDateInputValue(Date.now())}
+                        onChange={e => setSeenDate(e.target.value)}
+                        className="w-full rounded-lg bg-background border border-border/60 px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500/50 cursor-pointer"
+                      />
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={1900}
+                            max={new Date().getFullYear()}
+                            placeholder={`Ex: ${activeItem.year || '2020'}`}
+                            value={approxYear}
+                            onChange={e => setApproxYear(e.target.value)}
+                            className="flex-1 rounded-lg bg-background border border-border/60 px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                          />
+                          {activeItem.year && (
+                            <button
+                              type="button"
+                              onClick={() => setApproxYear(String(activeItem.year))}
+                              className="shrink-0 px-2 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20 transition-colors cursor-pointer"
+                              title={`Année de sortie : ${activeItem.year}`}
+                            >
+                              Sortie ({activeItem.year})
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sélection de la Catégorie (Genre : Thriller, Comédie, Drame...) */}
+                    <div className="space-y-1.5 pt-1 border-t border-white/10">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                          <span>🏷️</span>
+                          <span>Catégorie du {type === 'tv' ? 'programme' : 'film'} :</span>
+                        </span>
+                        <span className="text-[10px] text-muted-foreground font-semibold">
+                          {chosenCategory}
+                        </span>
+                      </div>
+                      <MovieCategoryPicker
+                        selectedCategory={chosenCategory}
+                        onSelectCategory={(cat) => setChosenCategory(cat)}
+                        size="sm"
+                      />
+                    </div>
+
+                    {/* Option Vu au cinéma pour les films */}
+                    {type !== 'tv' && activeItem.mediaType !== 'tv' && (
+                      <label className="flex items-center gap-2 p-2 rounded-lg bg-black/40 border border-white/10 hover:border-amber-400/40 cursor-pointer transition-colors group">
+                        <input
+                          type="checkbox"
+                          checked={isCinema}
+                          onChange={(e) => setIsCinema(e.target.checked)}
+                          className="w-4 h-4 rounded border-white/30 text-amber-500 focus:ring-amber-400 focus:ring-offset-0 bg-black/60 cursor-pointer"
+                        />
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Clapperboard className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                          <span className="text-[11px] font-semibold text-foreground group-hover:text-amber-300">
+                            Vu au cinéma
+                          </span>
+                        </div>
+                        {isCinema && (
+                          <span className="ml-auto text-[9.5px] font-bold text-amber-300 bg-amber-400/20 px-1.5 py-0.5 rounded-full border border-amber-400/30">
+                            En salle 🎟️
+                          </span>
+                        )}
+                      </label>
+                    )}
+
+                    <div className="flex gap-2 pt-1">
                       <button
                         onClick={() => setShowDatePicker(false)}
-                        className="flex-1 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-white/5 border border-border/40 transition-colors"
+                        className="flex-1 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-white/5 border border-border/40 transition-colors cursor-pointer"
                       >
                         Annuler
                       </button>
                       <button
                         onClick={handleMarkAsSeen}
-                        disabled={actionLoading !== null}
-                        className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
+                        disabled={actionLoading !== null || (dateMode === 'approx' && (!approxYear || parseInt(approxYear, 10) < 1900))}
+                        className="flex-1 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-1 cursor-pointer shadow-sm"
                       >
                         {actionLoading === 'seen' ? (
                           <Loader2 className="w-3 h-3 animate-spin" />

@@ -39,64 +39,70 @@ export async function POST(req: NextRequest) {
     const endpoint = type === 'tv' ? 'tv' : 'movie';
     const results: Record<string, TitleCredit> = {};
 
-    // Process titles sequentially to respect rate limits
-    await Promise.all(
-      titles.slice(0, 20).map(async (title) => {
-        try {
-          // 1. Search
-          const searchRes = await fetch(
-            `https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(title)}&language=fr-FR`,
-            { headers: { Accept: 'application/json' } }
-          );
-          if (!searchRes.ok) return;
-          const searchData = await searchRes.json();
-          const item = searchData.results?.[0];
-          if (!item) return;
+    // Traiter jusqu'aux 50 premiers films par lots de 10 pour respecter les limites TMDB
+    const targetTitles = titles.slice(0, 50);
+    const CHUNK_SIZE = 10;
 
-          // 2. Fetch credits
-          const creditsRes = await fetch(
-            `https://api.themoviedb.org/3/${endpoint}/${item.id}/credits?api_key=${apiKey}&language=fr-FR`,
-            { headers: { Accept: 'application/json' } }
-          );
-          if (!creditsRes.ok) return;
-          const creditsData = await creditsRes.json();
+    for (let i = 0; i < targetTitles.length; i += CHUNK_SIZE) {
+      const chunk = targetTitles.slice(i, i + CHUNK_SIZE);
+      await Promise.all(
+        chunk.map(async (title) => {
+          try {
+            // 1. Search
+            const searchRes = await fetch(
+              `https://api.themoviedb.org/3/search/${endpoint}?api_key=${apiKey}&query=${encodeURIComponent(title)}&language=fr-FR`,
+              { headers: { Accept: 'application/json' } }
+            );
+            if (!searchRes.ok) return;
+            const searchData = await searchRes.json();
+            const item = searchData.results?.[0];
+            if (!item) return;
 
-          // Top 5 cast members only
-          const cast: CastMember[] = (creditsData.cast || [])
-            .slice(0, 5)
-            .map((m: any) => ({
-              id: m.id,
-              name: m.name,
-              character: m.character,
-              profilePath: m.profile_path
-                ? `https://image.tmdb.org/t/p/w185${m.profile_path}`
+            // 2. Fetch credits
+            const creditsRes = await fetch(
+              `https://api.themoviedb.org/3/${endpoint}/${item.id}/credits?api_key=${apiKey}&language=fr-FR`,
+              { headers: { Accept: 'application/json' } }
+            );
+            if (!creditsRes.ok) return;
+            const creditsData = await creditsRes.json();
+
+            // Cast members (jusqu'aux 6 premiers avec leur position exacte order)
+            const cast: CastMember[] = (creditsData.cast || [])
+              .slice(0, 6)
+              .map((m: any) => ({
+                id: m.id,
+                name: m.name,
+                character: m.character,
+                profilePath: m.profile_path
+                  ? `https://image.tmdb.org/t/p/w185${m.profile_path}`
+                  : undefined,
+                order: m.order ?? 99,
+              }));
+
+            // Director from crew
+            const director = (creditsData.crew || []).find(
+              (c: any) => c.job === 'Director' || c.job === 'Creator'
+            );
+
+            results[title] = {
+              title,
+              cast,
+              director: director
+                ? {
+                    id: director.id,
+                    name: director.name,
+                    profilePath: director.profile_path
+                      ? `https://image.tmdb.org/t/p/w185${director.profile_path}`
+                      : undefined,
+                  }
                 : undefined,
-              order: m.order ?? 99,
-            }));
-
-          // Director from crew
-          const director = (creditsData.crew || []).find(
-            (c: any) => c.job === 'Director' || c.job === 'Creator'
-          );
-
-          results[title] = {
-            title,
-            cast,
-            director: director
-              ? {
-                  id: director.id,
-                  name: director.name,
-                  profilePath: director.profile_path
-                    ? `https://image.tmdb.org/t/p/w185${director.profile_path}`
-                    : undefined,
-                }
-              : undefined,
-          };
-        } catch {
-          // Skip individual title errors silently
-        }
-      })
-    );
+            };
+          } catch {
+            // Skip individual title errors silently
+          }
+        })
+      );
+    }
 
     return NextResponse.json({ results });
   } catch (err) {

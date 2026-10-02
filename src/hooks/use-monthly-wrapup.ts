@@ -205,10 +205,35 @@ export function useMonthlyWrapUp(
     const targetMonth = targetDate.getMonth();
     const targetYear = targetDate.getFullYear();
 
+    const parseDateSafely = (timestamp?: any): Date | null => {
+      if (!timestamp) return null;
+      if (typeof timestamp === 'number') {
+        const d = new Date(timestamp);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      if (typeof timestamp === 'string') {
+        const trimmed = timestamp.trim();
+        if (/^\d+$/.test(trimmed)) {
+          const d = new Date(Number(trimmed));
+          return isNaN(d.getTime()) ? null : d;
+        }
+        const d = new Date(trimmed);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      if (timestamp instanceof Date) {
+        return isNaN(timestamp.getTime()) ? null : timestamp;
+      }
+      return null;
+    };
+
+    const isDateInMonth = (timestamp?: any) => {
+      const d = parseDateSafely(timestamp);
+      return d !== null && d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+    };
+
     // 1. Filter visits for the target month
     const monthlyVisits = (user.visits || []).filter((v: VisitLog) => {
-      const d = new Date(v.date);
-      return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+      return isDateInMonth(v.date);
     });
 
     const totalOutings = monthlyVisits.length;
@@ -392,17 +417,9 @@ export function useMonthlyWrapUp(
       (user as any)?.movieRankings?.[monthKey] || 
       null;
 
-    const isDateInMonth = (timestamp?: any) => {
-      if (!timestamp) return false;
-      const d = new Date(timestamp);
-      return !isNaN(d.getTime()) && d.getMonth() === targetMonth && d.getFullYear() === targetYear;
-    };
-
     const filterByDate = (history: any[], dateField: string) => {
         return (history || []).filter((m: any) => {
-            if (!m[dateField]) return false;
-            const d = new Date(m[dateField]);
-            return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
+            return isDateInMonth(m?.[dateField]);
         });
     };
 
@@ -541,13 +558,17 @@ export function useMonthlyWrapUp(
     });
 
     // Fusion intelligente et déduplication des séances de cinéma (visites IRL + films vus en salle)
+    // STRICTEMENT filtré pour le mois ciblé : aucune séance hors mois ne peut être incluse
     const monthCinemaMovies = [
       ...((user as any)?.seenMoviesData || []).filter((m: any) => 
         m && typeof m === 'object' &&
         (m.watchedInCinema || m.cinemaPlace) && 
         (isDateInMonth(m.viewedAt) || (!m.viewedAt && isDateInMonth(m.addedAt)))
       ),
-      ...duelItems.filter(m => Boolean(m?.watchedInCinema))
+      ...duelItems.filter(m => 
+        Boolean(m?.watchedInCinema) && 
+        (isDateInMonth(m.viewedAt) || (!m.viewedAt && isDateInMonth((m as any).addedAt)))
+      )
     ];
 
     const seenCinemaTitlesMap = new Map<string, any>();
@@ -560,7 +581,7 @@ export function useMonthlyWrapUp(
       }
     });
 
-    // 1. Fusionner avec les séances existantes ou ajouter les films cinéma vus
+    // 1. Fusionner avec les séances existantes ou ajouter les films cinéma vus ce mois
     seenCinemaTitlesMap.forEach((m) => {
       const normTitle = (m.title || '').toLowerCase().trim();
       const normPlace = (m.cinemaPlace || '').toLowerCase().trim();
@@ -575,25 +596,27 @@ export function useMonthlyWrapUp(
         return false;
       });
 
+      const parsedSessionDate = parseDateSafely(m.viewedAt || m.addedAt)?.getTime();
+
       if (matchedIndex !== -1) {
         const s = cinemaSessions[matchedIndex];
         s.title = m.title;
         s.cinemaPlace = s.cinemaPlace || m.cinemaPlace || 'Cinéma';
         s.posterUrl = m.posterUrl || s.posterUrl;
-        s.date = s.date || (typeof m.viewedAt === 'number' ? m.viewedAt : undefined);
+        s.date = s.date || parsedSessionDate;
         (s as any).isPlaceholder = false;
       } else {
         cinemaSessions.push({
           title: m.title,
           cinemaPlace: m.cinemaPlace || 'Cinéma',
-          date: typeof m.viewedAt === 'number' ? m.viewedAt : undefined,
+          date: parsedSessionDate,
           posterUrl: m.posterUrl
         });
       }
     });
 
     // 2. Si après le premier tour il reste des séances placeholder mais qu'on a des films cinéma vus,
-    // remplacer le titre placeholder par le film cinéma correspondant
+    // remplacer le titre placeholder par le film cinéma correspondant de ce mois
     const realCinemaList = Array.from(seenCinemaTitlesMap.values());
     if (realCinemaList.length > 0) {
       cinemaSessions.forEach((s, idx) => {
@@ -609,13 +632,19 @@ export function useMonthlyWrapUp(
       });
     }
 
+    // Filtrer STRICTEMENT les séances de cinéma pour garantir qu'elles appartiennent au mois ciblé
+    const validCinemaSessions = cinemaSessions.filter(s => {
+      if (s.date) return isDateInMonth(s.date);
+      return true;
+    });
+
     // Calculer les comptes par cinéma et le total réel dédupliqué
-    cinemaSessions.forEach(s => {
+    validCinemaSessions.forEach(s => {
       if (s.cinemaPlace) {
         cinemaCounts[s.cinemaPlace] = (cinemaCounts[s.cinemaPlace] || 0) + 1;
       }
     });
-    const totalCinemaOutings = cinemaSessions.length;
+    const totalCinemaOutings = validCinemaSessions.length;
     const topCinemaPlace = getTop(cinemaCounts);
 
     const seriesHistory = [
@@ -668,8 +697,8 @@ export function useMonthlyWrapUp(
     const totalMovies = (movies?.total || duelItems.length) + uniqueSeries.length;
 
     // Consolidate Cinema Stats
-    const allCinemaTitles = Array.from(new Set(cinemaSessions.map(s => s.title).filter(t => t && t !== 'Film au cinéma')));
-    const allCinemaVenues = Array.from(new Set(cinemaSessions.map(s => s.cinemaPlace).filter(Boolean))) as string[];
+    const allCinemaTitles = Array.from(new Set(validCinemaSessions.map(s => s.title).filter(t => t && t !== 'Film au cinéma')));
+    const allCinemaVenues = Array.from(new Set(validCinemaSessions.map(s => s.cinemaPlace).filter(Boolean))) as string[];
 
     // 4. Determine Persona
     const userPersona = getPersona(totalOutings, topCategory?.name || null, totalMovies);
@@ -714,7 +743,7 @@ export function useMonthlyWrapUp(
         topCinema: topCinemaPlace?.name || allCinemaVenues[0] || null,
         movieTitles: allCinemaTitles,
         venues: allCinemaVenues,
-        sessions: cinemaSessions
+        sessions: validCinemaSessions
       } : undefined,
       kharjet: kharjetOutings.length > 0 ? {
         total: kharjetOutings.length,
