@@ -3,6 +3,13 @@ import { doc, setDoc, getDoc, serverTimestamp, arrayUnion, arrayRemove, writeBat
 import { db as firestoreDb } from "./client";
 import { getUserFromDb, storeUserInDb } from "@/lib/indexeddb";
 
+// ── Déclaré ici en premier pour éviter tout problème de TDZ ou de bundling ──
+export const isTestMovieTitle = (title?: any): boolean => {
+    if (!title || typeof title !== 'string') return false;
+    const t = title.trim().toLowerCase();
+    return t === 'test00' || t === 'test000' || t === 'test0' || /^test\s*0+$/i.test(t);
+};
+
 export type WardrobeItem = {
     id: string; // Unique ID, e.g., timestamp + random string
     type: 'haut' | 'bas' | 'chaussures' | 'accessoires';
@@ -1911,11 +1918,7 @@ export async function addCommunityTrivia(trivia: Omit<CommunityTriviaItem, 'id' 
     return newTrivia;
 }
 
-export const isTestMovieTitle = (title?: any): boolean => {
-    if (!title || typeof title !== 'string') return false;
-    const t = title.trim().toLowerCase();
-    return t === 'test00' || t === 'test000' || t === 'test0' || /^test\s*0+$/i.test(t);
-};
+// isTestMovieTitle est défini en haut du fichier (voir début du module)
 
 export function getStoredMovieRanking(
     monthKey: string,

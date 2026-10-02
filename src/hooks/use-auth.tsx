@@ -99,6 +99,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         });
         return;
       }
+      if (detail?.action === 'added' && detail?.title) {
+        const norm = String(detail.title).toLowerCase().trim();
+        setUserProfile(prev => {
+          if (!prev) return prev;
+          // Remove from rejectedMovieTitles
+          const currentRejected = Array.isArray(prev.rejectedMovieTitles) ? prev.rejectedMovieTitles : [];
+          const currentRejectedSeries = Array.isArray(prev.rejectedSeriesTitles) ? prev.rejectedSeriesTitles : [];
+          // Remove from all monthly rankings (treat as new entry)
+          const currentRankings = { ...(prev.movieRankings || {}) };
+          Object.keys(currentRankings).forEach(k => {
+            const r = currentRankings[k];
+            if (r) {
+              currentRankings[k] = {
+                ...r,
+                rankedTitles: (r.rankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm),
+                initialRankedTitles: (r.initialRankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm),
+                newlyAddedTitles: (r.newlyAddedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm),
+                updatedAt: Date.now(),
+              };
+            }
+          });
+          return {
+            ...prev,
+            rejectedMovieTitles: currentRejected.filter((t: string) => t.toLowerCase().trim() !== norm),
+            rejectedSeriesTitles: currentRejectedSeries.filter((t: string) => t.toLowerCase().trim() !== norm),
+            movieRankings: currentRankings,
+          };
+        });
+        return;
+      }
       if (detail?.ranking && detail?.monthKey) {
         const isTv = detail.mediaType === 'tv';
         setUserProfile(prev => {
