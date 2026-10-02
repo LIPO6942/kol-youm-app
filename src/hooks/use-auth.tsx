@@ -133,6 +133,58 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         });
         return;
       }
+      if (e.type === 'kolyoum_category_updated' && detail?.title && detail?.category) {
+        const isTv = detail.mediaType === 'tv';
+        const norm = detail.title.toLowerCase().trim();
+        const catKey = isTv ? 'seriesCategories' : 'movieCategories';
+        const dataKey = isTv ? 'seenSeriesData' : 'seenMoviesData';
+        setUserProfile(prev => {
+          if (!prev) return prev;
+          const currentSeen = [...(prev[dataKey] || [])];
+          const idx = currentSeen.findIndex((m: any) => m?.title && m.title.toLowerCase().trim() === norm);
+          if (idx >= 0) {
+            currentSeen[idx] = { ...currentSeen[idx], category: detail.category };
+          }
+          return {
+            ...prev,
+            [catKey]: {
+              ...(prev[catKey] || {}),
+              [norm]: detail.category,
+            },
+            [dataKey]: currentSeen,
+          };
+        });
+        return;
+      }
+      if (e.type === 'kolyoum_movie_date_updated' && detail?.title) {
+        const isTv = detail.mediaType === 'tv';
+        const norm = detail.title.toLowerCase().trim();
+        const dataKey = isTv ? 'seenSeriesData' : 'seenMoviesData';
+        setUserProfile(prev => {
+          if (!prev) return prev;
+          const currentSeen = [...(prev[dataKey] || [])];
+          const idx = currentSeen.findIndex((m: any) => m?.title && m.title.toLowerCase().trim() === norm);
+          if (idx >= 0) {
+            currentSeen[idx] = {
+              ...currentSeen[idx],
+              viewedAt: detail.viewedAt,
+              watchedInCinema: detail.watchedInCinema,
+            };
+          } else {
+            currentSeen.push({
+              title: detail.title,
+              viewedAt: detail.viewedAt,
+              watchedInCinema: detail.watchedInCinema,
+              addedAt: Date.now(),
+            });
+          }
+          return {
+            ...prev,
+            [dataKey]: currentSeen,
+          };
+        });
+        return;
+      }
       if (detail?.ranking && detail?.monthKey) {
         const isTv = detail.mediaType === 'tv';
         setUserProfile(prev => {
@@ -162,10 +214,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     window.addEventListener('kolyoum_ranking_updated', handleRankingUpdate);
     window.addEventListener('kolyoum_series_ranking_updated', handleRankingUpdate);
     window.addEventListener('kolyoum_movie_deleted', handleRankingUpdate);
+    window.addEventListener('kolyoum_category_updated', handleRankingUpdate);
+    window.addEventListener('kolyoum_movie_date_updated', handleRankingUpdate);
     return () => {
       window.removeEventListener('kolyoum_ranking_updated', handleRankingUpdate);
       window.removeEventListener('kolyoum_series_ranking_updated', handleRankingUpdate);
       window.removeEventListener('kolyoum_movie_deleted', handleRankingUpdate);
+      window.removeEventListener('kolyoum_category_updated', handleRankingUpdate);
+      window.removeEventListener('kolyoum_movie_date_updated', handleRankingUpdate);
     };
   }, []);
 
@@ -251,7 +307,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const firestoreWardrobe = firestoreData.wardrobe || [];
           const uniqueItems = Array.from(new Map(firestoreWardrobe.map((item: WardrobeItem) => [item.id, item])).values());
           
-          // Merge Firestore data with sensitive local data and movie rankings
+          // Helper to merge seen data lists without losing viewedAt or category
+          const mergeSeenData = (localList: any[] = [], remoteList: any[] = []) => {
+            const map = new Map<string, any>();
+            localList.forEach(m => {
+              if (m?.title) map.set(m.title.toLowerCase().trim(), { ...m });
+            });
+            remoteList.forEach(m => {
+              if (!m?.title) return;
+              const k = m.title.toLowerCase().trim();
+              const existing = map.get(k);
+              if (existing) {
+                map.set(k, {
+                  ...m,
+                  ...existing,
+                  viewedAt: existing.viewedAt || m.viewedAt,
+                  category: existing.category || m.category,
+                  watchedInCinema: existing.watchedInCinema ?? m.watchedInCinema,
+                  posterUrl: existing.posterUrl || m.posterUrl,
+                });
+              } else {
+                map.set(k, { ...m });
+              }
+            });
+            return Array.from(map.values());
+          };
+
+          // Merge Firestore data with sensitive local data, categories, dates, and rankings
           finalProfile = {
             ...firestoreData, // Base from Firestore (includes synced wardrobe)
             uid: user.uid, 
@@ -263,6 +345,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               localProfile?.movieRankings,
               firestoreData.movieRankings
             ),
+            movieCategories: {
+              ...(firestoreData?.movieCategories || {}),
+              ...(localProfile?.movieCategories || {}),
+            },
+            seriesCategories: {
+              ...(firestoreData?.seriesCategories || {}),
+              ...(localProfile?.seriesCategories || {}),
+            },
+            seenMoviesData: mergeSeenData(localProfile?.seenMoviesData, firestoreData?.seenMoviesData),
+            seenSeriesData: mergeSeenData(localProfile?.seenSeriesData, firestoreData?.seenSeriesData),
+            customSagas: {
+              ...(firestoreData?.customSagas || {}),
+              ...(localProfile?.customSagas || {}),
+            },
+            movieSagaLinks: {
+              ...(firestoreData?.movieSagaLinks || {}),
+              ...(localProfile?.movieSagaLinks || {}),
+            },
           } as UserProfile;
           
           await storeUserInDb(user.uid, finalProfile);

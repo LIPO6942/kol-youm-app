@@ -1308,15 +1308,13 @@ export async function updateMovieCategory(uid: string, movieTitle: string, categ
     await storeUserInDb(effectiveUid, updatedProfile);
 
     if (uid && uid !== 'guest') {
-        try {
-            const userRef = doc(firestoreDb, 'users', uid);
-            await setDoc(userRef, {
-                [dataKey]: currentSeenData,
-                [`${catKey}.${norm}`]: category,
-            }, { merge: true });
-        } catch (e) {
-            console.warn('Erreur updateMovieCategory Firestore:', e);
-        }
+        const userRef = doc(firestoreDb, 'users', uid);
+        setDoc(userRef, {
+            [dataKey]: currentSeenData,
+            [catKey]: updatedCategories,
+        }, { merge: true }).catch(e => {
+            console.warn('Erreur updateMovieCategory Firestore background sync:', e);
+        });
     }
 }
 
@@ -1372,14 +1370,12 @@ export async function updateMovieViewingDate(
     await storeUserInDb(effectiveUid, updatedProfile);
 
     if (uid && uid !== 'guest') {
-        try {
-            const userRef = doc(firestoreDb, 'users', uid);
-            await setDoc(userRef, {
-                [dataKey]: currentSeenData,
-            }, { merge: true });
-        } catch (e) {
-            console.warn('Erreur updateMovieViewingDate Firestore:', e);
-        }
+        const userRef = doc(firestoreDb, 'users', uid);
+        setDoc(userRef, {
+            [dataKey]: currentSeenData,
+        }, { merge: true }).catch(e => {
+            console.warn('Erreur updateMovieViewingDate Firestore background sync:', e);
+        });
     }
 }
 

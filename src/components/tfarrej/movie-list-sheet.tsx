@@ -629,6 +629,7 @@ function MovieListContent({
   const [editWatchedInCinema, setEditWatchedInCinema] = useState<boolean>(false);
   const [isSavingDate, setIsSavingDate] = useState<boolean>(false);
   const [localViewedDates, setLocalViewedDates] = useState<Record<string, number | null>>({});
+  const [localCategories, setLocalCategories] = useState<Record<string, MovieCategory>>({});
 
   const openDateModal = useCallback((title: string, viewedAt?: number, watchedInCinema?: boolean) => {
     setEditingDateMovie({ title, viewedAt, watchedInCinema });
@@ -652,7 +653,8 @@ function MovieListContent({
   }, []);
 
   const handleSaveViewingDate = async () => {
-    if (!editingDateMovie || !user) return;
+    if (!editingDateMovie) return;
+    const effectiveUid = user?.uid || userProfile?.uid || 'guest';
     setIsSavingDate(true);
     try {
       let finalTimestamp: number | null = null;
@@ -662,46 +664,40 @@ function MovieListContent({
           finalTimestamp = new Date(y, 5, 15).getTime();
         }
       } else if (editDateMode === 'exact') {
-        finalTimestamp = new Date(editExactDate).getTime();
+        const parsed = new Date(editExactDate).getTime();
+        if (!isNaN(parsed)) {
+          finalTimestamp = parsed;
+        }
       }
 
-      await updateMovieViewingDate(
-        user.uid,
-        editingDateMovie.title,
-        finalTimestamp,
-        isSeries ? 'tv' : 'movie',
-        editWatchedInCinema
-      );
-
       const norm = editingDateMovie.title.toLowerCase().trim();
+
+      // 1. Mise à jour instantanée du state React local
       setLocalViewedDates(prev => ({
         ...prev,
         [norm]: finalTimestamp,
       }));
 
-      if (userProfile) {
-        const dataKey = isSeries ? 'seenSeriesData' : 'seenMoviesData';
-        const currentData = [...(userProfile[dataKey] || [])];
-        const idx = currentData.findIndex((m: any) => m?.title && m.title.toLowerCase().trim() === norm);
-        if (idx >= 0) {
-          currentData[idx] = {
-            ...currentData[idx],
-            viewedAt: finalTimestamp || undefined,
-            watchedInCinema: editWatchedInCinema,
-          };
-        } else {
-          currentData.push({
+      // 2. Dispatch de l'événement pour màj immédiate dans use-auth
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('kolyoum_movie_date_updated', {
+          detail: {
             title: editingDateMovie.title,
             viewedAt: finalTimestamp || undefined,
             watchedInCinema: editWatchedInCinema,
-            addedAt: Date.now(),
-          });
-        }
-        await storeUserInDb(user.uid, {
-          ...userProfile,
-          [dataKey]: currentData,
-        });
+            mediaType: isSeries ? 'tv' : 'movie',
+          }
+        }));
       }
+
+      // 3. Sauvegarde locale dans IndexedDB et tâche de fond Firestore
+      await updateMovieViewingDate(
+        effectiveUid,
+        editingDateMovie.title,
+        finalTimestamp,
+        isSeries ? 'tv' : 'movie',
+        editWatchedInCinema
+      );
 
       toast({
         title: "Date mise à jour",
@@ -1069,7 +1065,7 @@ function MovieListContent({
           cinemaPlace: m.cinemaPlace,
           viewedAt: m.viewedAt || m.addedAt,
           genres: m.genres,
-          category: m.category || (userProfile?.movieCategories || {})[norm],
+          category: localCategories[norm] || m.category || (userProfile?.movieCategories || {})[norm],
         });
       }
     });
@@ -1114,7 +1110,7 @@ function MovieListContent({
     return allUniqueTitles.map(title => {
       const norm = title.toLowerCase().trim();
       const meta = metadataMap.get(norm) || {};
-      const cat = meta.category || (userProfile?.movieCategories || {})[norm] || guessMovieCategory(title, meta.genres);
+      const cat = localCategories[norm] || meta.category || (userProfile?.movieCategories || {})[norm] || guessMovieCategory(title, meta.genres);
       return {
         title,
         posterUrl: meta.posterUrl || movieDetails[title]?.posterUrl,
@@ -1127,7 +1123,7 @@ function MovieListContent({
         category: cat,
       };
     });
-  }, [listType, isSeries, userProfile?.seenMovieTitles, userProfile?.seenMoviesData, (userProfile as any)?.seenMovieHistory, userProfile?.visits, userProfile?.moviesToWatch, userProfile?.rejectedMovieTitles, userProfile?.seenSeriesTitles, userProfile?.seenSeriesData, userProfile?.seriesToWatch, userProfile?.movieCategories, userProfile?.seriesCategories, movieTitles, movieDetails, existingRanking]);
+  }, [listType, isSeries, userProfile?.seenMovieTitles, userProfile?.seenMoviesData, (userProfile as any)?.seenMovieHistory, userProfile?.visits, userProfile?.moviesToWatch, userProfile?.rejectedMovieTitles, userProfile?.seenSeriesTitles, userProfile?.seenSeriesData, userProfile?.seriesToWatch, userProfile?.movieCategories, userProfile?.seriesCategories, localCategories, movieTitles, movieDetails, existingRanking]);
 
   const unrankedCount = useMemo(() => {
     if (!existingRanking) return duelSeenMovies.length;
@@ -1450,18 +1446,36 @@ function MovieListContent({
                   </button>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveMovieActions(movieTitle);
-                  }}
-                  className="h-6 w-6 rounded-md inline-flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/80 transition-all cursor-pointer ml-1 shrink-0"
-                  title="Afficher les actions (Saga, Supprimer)"
-                >
-                  <MoreHorizontal className="h-3.5 w-3.5" />
-                  <span className="sr-only">Actions</span>
-                </button>
+                <div className="flex items-center gap-1 shrink-0 ml-auto">
+                  {/* Bouton direct "Vu" pour marquer instantanément depuis la liste à voir */}
+                  {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMarkAsWatched(movieTitle);
+                      }}
+                      disabled={isUpdating}
+                      className="h-6 px-2 rounded-md inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all cursor-pointer shadow-xs active:scale-95"
+                      title="Marquer comme vu"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      <span>Vu</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveMovieActions(movieTitle);
+                    }}
+                    className="h-6 w-6 rounded-md inline-flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted/80 transition-all cursor-pointer"
+                    title="Afficher les actions (Saga, Supprimer)"
+                  >
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                    <span className="sr-only">Actions</span>
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1469,7 +1483,7 @@ function MovieListContent({
             <div className="flex flex-wrap items-center gap-1.5 mt-1 text-xs text-muted-foreground">
               {/* Category Badge EN PREMIER : immédiatement visible sur tous les écrans */}
               {((type === 'movie' && listType === 'seenMovieTitles') || (type === 'tv' && listType === 'seenSeriesTitles')) && (() => {
-                const currentCat = seenData?.category || (type === 'movie' ? (userProfile?.movieCategories || {})[norm] : (userProfile?.seriesCategories || {})[norm]) || guessMovieCategory(movieTitle, details?.genres);
+                const currentCat = localCategories[norm] || seenData?.category || (type === 'movie' ? (userProfile?.movieCategories || {})[norm] : (userProfile?.seriesCategories || {})[norm]) || guessMovieCategory(movieTitle, details?.genres);
                 return (
                   <CategoryBadge
                     category={currentCat}
@@ -1599,7 +1613,7 @@ function MovieListContent({
         })()}
         {/* Category badge in grid view */}
         {((type === 'movie' && listType === 'seenMovieTitles') || (type === 'tv' && listType === 'seenSeriesTitles')) && (() => {
-          const currentCat = seenData?.category || (type === 'movie' ? (userProfile?.movieCategories || {})[norm] : (userProfile?.seriesCategories || {})[norm]) || guessMovieCategory(movieTitle, details?.genres);
+          const currentCat = localCategories[norm] || seenData?.category || (type === 'movie' ? (userProfile?.movieCategories || {})[norm] : (userProfile?.seriesCategories || {})[norm]) || guessMovieCategory(movieTitle, details?.genres);
           return (
             <div className="absolute top-1.5 right-1.5 z-20">
               <CategoryBadge
@@ -1613,6 +1627,24 @@ function MovieListContent({
             </div>
           );
         })()}
+        {/* Watchlist direct "Vu" Eye button in grid view */}
+        {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && (
+          <div className="absolute top-1.5 right-1.5 z-20">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onMarkAsWatched(movieTitle);
+              }}
+              disabled={isUpdating}
+              className="h-6 px-1.5 rounded-md inline-flex items-center gap-1 text-[10px] font-bold text-emerald-300 bg-black/80 hover:bg-emerald-600 hover:text-white border border-emerald-500/50 shadow-md backdrop-blur-xs cursor-pointer active:scale-95 transition-all"
+              title="Marquer comme vu"
+            >
+              <Eye className="h-3 w-3 text-emerald-400" />
+              <span>Vu</span>
+            </button>
+          </div>
+        )}
         {/* Saga badge in grid view */}
         {type === 'movie' && (() => {
           const saga = getMovieSaga(movieTitle, details, seenData);
@@ -2057,7 +2089,30 @@ function MovieListContent({
           currentCategory={editingCategoryMovie.category}
           onSelect={async (newCategory) => {
             const effectiveUid = user?.uid || userProfile?.uid || 'guest';
-            await updateMovieCategory(effectiveUid, editingCategoryMovie.title, newCategory, type);
+            const norm = editingCategoryMovie.title.toLowerCase().trim();
+
+            // 1. Mise à jour instantanée du composant local
+            setLocalCategories(prev => ({
+              ...prev,
+              [norm]: newCategory,
+            }));
+
+            // 2. Dispatch de l'événement global pour use-auth et autres composants
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('kolyoum_category_updated', {
+                detail: {
+                  title: editingCategoryMovie.title,
+                  category: newCategory,
+                  mediaType: type,
+                }
+              }));
+            }
+
+            // 3. Sauvegarde dans IndexedDB et Firestore
+            updateMovieCategory(effectiveUid, editingCategoryMovie.title, newCategory, type).catch(e => {
+              console.warn('Erreur updateMovieCategory:', e);
+            });
+
             toast({
               title: "Catégorie mise à jour !",
               description: `"${editingCategoryMovie.title}" est classé${type === 'tv' ? 'e' : ''} en « ${newCategory} ».`,
