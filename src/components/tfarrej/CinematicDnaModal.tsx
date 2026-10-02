@@ -322,9 +322,13 @@ export function CinematicDnaModal({
     }
   };
 
-  // Top-ranked titles to analyse (élargi jusqu'à 50 films/séries classés)
+  // Top-ranked titles to analyse (élargi jusqu'à 50 films/séries classés et vus, avec exclusion stricte des supprimés)
   const isSeries = mediaType === 'tv';
   const topRankedTitles = useMemo(() => {
+    const rejectedSet = new Set(
+      (isSeries ? userProfile?.rejectedSeriesTitles : userProfile?.rejectedMovieTitles || [])
+        .map((t: string) => (t || '').toLowerCase().trim())
+    );
     const allRankings = isSeries
       ? Object.values(userProfile?.seriesRankings || {})
       : Object.values(userProfile?.movieRankings || {});
@@ -334,8 +338,15 @@ export function CinematicDnaModal({
       return valid.reduce((b, c) => (c.rankedTitles.length >= b.rankedTitles.length ? c : b));
     };
     const best = pickBest(allRankings);
-    return (best?.rankedTitles || []).slice(0, 50) as string[];
-  }, [userProfile?.movieRankings, userProfile?.seriesRankings, isSeries]);
+    const ranked = (best?.rankedTitles || []).filter((t: string) => !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim()));
+
+    // Compléter avec les autres œuvres vues valides (non supprimées) si moins de 50
+    const seenList = (isSeries ? userProfile?.seenSeriesTitles : userProfile?.seenMovieTitles || [])
+      .filter((t: string) => !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim()));
+
+    const combined = Array.from(new Set([...ranked, ...seenList]));
+    return combined.slice(0, 50) as string[];
+  }, [userProfile?.movieRankings, userProfile?.seriesRankings, userProfile?.seenMovieTitles, userProfile?.seenSeriesTitles, userProfile?.rejectedMovieTitles, userProfile?.rejectedSeriesTitles, isSeries]);
 
   const fetchActors = useCallback(async () => {
     if (!topRankedTitles.length || isFetchingRef.current) return;

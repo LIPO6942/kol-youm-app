@@ -458,7 +458,8 @@ function MovieListContent({
   onAddManual,
   movieDetails,
   isLoadingDetails,
-  type = 'movie'
+  type = 'movie',
+  removedTitles,
 }: {
   listType: 'moviesToWatch' | 'seenMovieTitles' | 'seriesToWatch' | 'seenSeriesTitles';
   onMarkAsWatched: (movieTitle: string) => Promise<void>;
@@ -468,6 +469,7 @@ function MovieListContent({
   type?: 'movie' | 'tv';
   movieDetails: Record<string, MovieDetails>;
   isLoadingDetails: boolean;
+  removedTitles?: Set<string>;
 }) {
   const { user, userProfile } = useAuth();
   const { toast } = useToast();
@@ -615,9 +617,15 @@ function MovieListContent({
   const movieTitles = useMemo(() => {
     const raw = userProfile?.[listType];
     const rawTitles = (Array.isArray(raw) ? raw : []).filter((t: any) => typeof t === 'string' && !isTestMovieTitle(t));
+    const rejectedSet = new Set([
+      ...(listType === 'seenSeriesTitles' || listType === 'seriesToWatch'
+        ? (userProfile?.rejectedSeriesTitles || [])
+        : (userProfile?.rejectedMovieTitles || [])),
+      ...Array.from(removedTitles || []),
+    ].map((t: string) => (t || '').toLowerCase().trim()));
+
     if (listType === 'seenMovieTitles') {
       const watchlistSet = new Set((userProfile?.moviesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
-      const rejectedSet = new Set((userProfile?.rejectedMovieTitles || []).map((t: string) => (t || '').toLowerCase().trim()));
       const fromData = (Array.isArray(userProfile?.seenMoviesData) ? userProfile.seenMoviesData : [])
         .map(m => m?.title)
         .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim()));
@@ -629,15 +637,14 @@ function MovieListContent({
     }
     if (listType === 'seenSeriesTitles') {
       const watchlistSet = new Set((userProfile?.seriesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
-      const rejectedSet = new Set((userProfile?.rejectedSeriesTitles || []).map((t: string) => (t || '').toLowerCase().trim()));
       const fromData = (Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : [])
         .map(s => s?.title)
         .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim()));
       return Array.from(new Set([...rawTitles, ...fromData]))
         .filter(t => !watchlistSet.has(t.toLowerCase().trim()) && !rejectedSet.has(t.toLowerCase().trim()));
     }
-    return rawTitles;
-  }, [userProfile, listType]);
+    return rawTitles.filter(t => !rejectedSet.has(t.toLowerCase().trim()));
+  }, [userProfile, listType, removedTitles]);
 
   const seenMoviesData = type === 'movie' ? userProfile?.seenMoviesData : userProfile?.seenSeriesData;
 
@@ -1513,7 +1520,12 @@ function MovieListContent({
 
   return (
     <div className="relative flex-1 flex flex-col gap-3 overflow-hidden h-full">
-      {isUpdating && <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}
+      {isUpdating && (
+        <div className="absolute top-2 right-2 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-background/90 border border-border shadow-sm text-xs text-muted-foreground animate-in fade-in">
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+          <span>Mise à jour...</span>
+        </div>
+      )}
 
       {/* Search and Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-2">
@@ -2086,6 +2098,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
   const [currentDialogMode, setCurrentDialogMode] = useState<'seen' | 'watchlist'>('seen');
   const [movieDetails, setMovieDetails] = useState<Record<string, MovieDetails>>({});
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [removedTitles, setRemovedTitles] = useState<Set<string>>(new Set());
 
   const isSeenList = listType === 'seenMovieTitles' || listType === 'seenSeriesTitles';
   const addMode: 'seen' | 'watchlist' = isSeenList ? 'seen' : 'watchlist';
@@ -2095,6 +2108,13 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
   const movieTitles = useMemo(() => {
     const raw = userProfile?.[listType];
     const rawTitles = (Array.isArray(raw) ? raw : []).filter((t: any) => typeof t === 'string' && !isTestMovieTitle(t));
+    const rejectedSet = new Set([
+      ...(listType === 'seenSeriesTitles' || listType === 'seriesToWatch'
+        ? (userProfile?.rejectedSeriesTitles || [])
+        : (userProfile?.rejectedMovieTitles || [])),
+      ...Array.from(removedTitles),
+    ].map((t: string) => (t || '').toLowerCase().trim()));
+
     if (listType === 'seenMovieTitles') {
       const watchlistSet = new Set((userProfile?.moviesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
       const fromData = (Array.isArray(userProfile?.seenMoviesData) ? userProfile.seenMoviesData : [])
@@ -2104,7 +2124,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
         .filter(v => v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string' && !isTestMovieTitle(v.orderedItem))
         .map(v => v.orderedItem as string);
       return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits]))
-        .filter(t => !watchlistSet.has(t.toLowerCase().trim()));
+        .filter(t => !watchlistSet.has(t.toLowerCase().trim()) && !rejectedSet.has(t.toLowerCase().trim()));
     }
     if (listType === 'seenSeriesTitles') {
       const watchlistSet = new Set((userProfile?.seriesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
@@ -2112,10 +2132,10 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
         .map(s => s?.title)
         .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t));
       return Array.from(new Set([...rawTitles, ...fromData]))
-        .filter(t => !watchlistSet.has(t.toLowerCase().trim()));
+        .filter(t => !watchlistSet.has(t.toLowerCase().trim()) && !rejectedSet.has(t.toLowerCase().trim()));
     }
-    return rawTitles;
-  }, [userProfile, listType]);
+    return rawTitles.filter(t => !rejectedSet.has(t.toLowerCase().trim()));
+  }, [userProfile, listType, removedTitles]);
 
   const allTitlesToFetch = useMemo(() => {
     return movieTitles;
@@ -2221,15 +2241,21 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
 
   const handleRemove = async (movieTitle: string) => {
     if (!user) return;
-    setIsUpdating(true);
+    const norm = movieTitle.toLowerCase().trim();
+    // 1. Suppression optimiste immédiate : disparition instantanée de la vue (0ms)
+    setRemovedTitles(prev => new Set(prev).add(norm));
+    toast({ title: `"${movieTitle}" supprimé de la liste.` });
+
     try {
       await removeMovieFromList(user.uid, listType, movieTitle);
-      toast({ title: `"${movieTitle}" supprimé de la liste.` });
     } catch (error) {
-      console.error(error);
+      console.error('Erreur suppression film:', error);
+      setRemovedTitles(prev => {
+        const next = new Set(prev);
+        next.delete(norm);
+        return next;
+      });
       toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer cet élément.' });
-    } finally {
-      setIsUpdating(false);
     }
   };
 
@@ -2348,7 +2374,9 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
             type={type}
             movieDetails={movieDetails}
             isLoadingDetails={isLoadingDetails}
+            removedTitles={removedTitles}
           />
+
         </SheetContent>
       </Sheet>
 

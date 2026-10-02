@@ -149,6 +149,16 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
   }, [currentMonthKey, userProfile]);
 
   const existingRanking = useMemo(() => {
+    const rejectedTitles = new Set((userProfile?.rejectedMovieTitles || []).map(t => (t || '').toLowerCase().trim()));
+    const sanitize = (r: MonthlyMovieRanking | null): MonthlyMovieRanking | null => {
+      if (!r) return null;
+      return {
+        ...r,
+        rankedTitles: (r.rankedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedTitles.has(t.toLowerCase().trim())),
+        initialRankedTitles: (r.initialRankedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedTitles.has(t.toLowerCase().trim())),
+        newlyAddedTitles: (r.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedTitles.has(t.toLowerCase().trim())),
+      };
+    };
     const pickBest = (candidates: (MonthlyMovieRanking | null | undefined)[]): MonthlyMovieRanking | null => {
       const valid = candidates.filter((r): r is MonthlyMovieRanking => !!(r?.rankedTitles?.length));
       if (valid.length === 0) return null;
@@ -168,10 +178,20 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         if (all) Object.values(JSON.parse(all)).forEach((r: any) => { if (r?.rankedTitles?.length) fromLS.push(r); });
       } catch {}
     }
-    return pickBest([localRanking, ...allProfile, ...fromLS]);
+    return sanitize(pickBest([localRanking, ...allProfile, ...fromLS]));
   }, [userProfile?.movieRankings, localRanking, userProfile]);
 
   const existingSeriesRanking = useMemo(() => {
+    const rejectedTitles = new Set((userProfile?.rejectedSeriesTitles || []).map(t => (t || '').toLowerCase().trim()));
+    const sanitize = (r: MonthlyMovieRanking | null): MonthlyMovieRanking | null => {
+      if (!r) return null;
+      return {
+        ...r,
+        rankedTitles: (r.rankedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedTitles.has(t.toLowerCase().trim())),
+        initialRankedTitles: (r.initialRankedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedTitles.has(t.toLowerCase().trim())),
+        newlyAddedTitles: (r.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedTitles.has(t.toLowerCase().trim())),
+      };
+    };
     const pickBest = (candidates: (MonthlyMovieRanking | null | undefined)[]): MonthlyMovieRanking | null => {
       const valid = candidates.filter((r): r is MonthlyMovieRanking => !!(r?.rankedTitles?.length));
       if (valid.length === 0) return null;
@@ -191,7 +211,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         if (all) Object.values(JSON.parse(all)).forEach((r: any) => { if (r?.rankedTitles?.length) fromLS.push(r); });
       } catch {}
     }
-    return pickBest([seriesLocalRanking, ...allProfile, ...fromLS]);
+    return sanitize(pickBest([seriesLocalRanking, ...allProfile, ...fromLS]));
   }, [userProfile?.seriesRankings, seriesLocalRanking, userProfile]);
 
   // Liste des films vus par l'utilisateur pour le classement et les duels

@@ -607,7 +607,9 @@ export function calculateCinematicDna(
 
   // Map de métadonnées pour résoudre rapidement affiches et années
   const metadataMap = new Map<string, { posterUrl?: string; year?: number; category?: MovieCategory; genres?: string[] }>();
-  const seenDataSource = mediaType === 'tv' ? (userProfile?.seenSeriesData || []) : (userProfile?.seenMoviesData || []);
+  const rejectedSet = new Set((mediaType === 'tv' ? userProfile?.rejectedSeriesTitles : userProfile?.rejectedMovieTitles || []).map(t => (t || '').toLowerCase().trim()));
+  const seenDataSource = (mediaType === 'tv' ? (userProfile?.seenSeriesData || []) : (userProfile?.seenMoviesData || []))
+    .filter(m => m?.title && !rejectedSet.has(m.title.toLowerCase().trim()));
 
   seenDataSource.forEach(m => {
     if (m?.title) {
@@ -649,7 +651,7 @@ export function calculateCinematicDna(
 
   rankingsEntries.forEach(([_, ranking]) => {
     if (!ranking || !Array.isArray(ranking.rankedTitles)) return;
-    const cleanTitles = ranking.rankedTitles.filter(t => t && typeof t === 'string' && !isTestMovieTitle(t));
+    const cleanTitles = ranking.rankedTitles.filter(t => t && typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim()));
     if (cleanTitles.length === 0) return;
 
     hasValidRankings = true;
@@ -685,7 +687,7 @@ export function calculateCinematicDna(
   // 2. Si l'utilisateur n'a pas encore fait de duels (ou pour compléter les œuvres vues sans duel)
   if (!hasValidRankings) {
     const seenTitlesSource = mediaType === 'tv' ? (userProfile?.seenSeriesTitles || []) : (userProfile?.seenMovieTitles || []);
-    const seenTitles = seenTitlesSource.filter(t => t && !isTestMovieTitle(t));
+    const seenTitles = seenTitlesSource.filter(t => t && !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim()));
     seenTitles.forEach(title => {
       const cat = resolveCategory(title);
       pointsMap[cat] = (pointsMap[cat] || 0) + 10;

@@ -51,10 +51,54 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Écoute des mises à jour en temps réel des classements de films (bidirectionnel)
+  // Écoute des mises à jour en temps réel des classements de films (bidirectionnel) et des suppressions
   useEffect(() => {
     const handleRankingUpdate = (e: any) => {
       const detail = e.detail;
+      if (detail?.updatedProfile) {
+        setUserProfile(detail.updatedProfile);
+        return;
+      }
+      if (detail?.deletedTitle) {
+        const norm = String(detail.deletedTitle).toLowerCase().trim();
+        const isTv = detail.mediaType === 'tv';
+        setUserProfile(prev => {
+          if (!prev) return prev;
+          const listKey = isTv ? 'seenSeriesTitles' : 'seenMovieTitles';
+          const dataKey = isTv ? 'seenSeriesData' : 'seenMoviesData';
+          const rankingsKey = isTv ? 'seriesRankings' : 'movieRankings';
+          const rejectedKey = isTv ? 'rejectedSeriesTitles' : 'rejectedMovieTitles';
+
+          const currentList = Array.isArray(prev[listKey]) ? prev[listKey] : [];
+          const currentData = Array.isArray(prev[dataKey]) ? prev[dataKey] : [];
+          const currentRejected = Array.isArray(prev[rejectedKey]) ? prev[rejectedKey] : [];
+          const currentRankings = { ...(prev[rankingsKey] || {}) };
+
+          Object.keys(currentRankings).forEach(k => {
+            const r = currentRankings[k];
+            if (r) {
+              currentRankings[k] = {
+                ...r,
+                rankedTitles: (r.rankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm),
+                initialRankedTitles: (r.initialRankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm),
+                newlyAddedTitles: (r.newlyAddedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm),
+                updatedAt: Date.now(),
+              };
+            }
+          });
+
+          return {
+            ...prev,
+            [listKey]: currentList.filter((t: string) => t.toLowerCase().trim() !== norm),
+            [dataKey]: currentData.filter((m: any) => m?.title?.toLowerCase()?.trim() !== norm),
+            [rejectedKey]: currentRejected.some((t: string) => t.toLowerCase().trim() === norm)
+              ? currentRejected
+              : [...currentRejected, detail.deletedTitle],
+            [rankingsKey]: currentRankings,
+          };
+        });
+        return;
+      }
       if (detail?.ranking && detail?.monthKey) {
         const isTv = detail.mediaType === 'tv';
         setUserProfile(prev => {
@@ -83,9 +127,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     window.addEventListener('kolyoum_ranking_updated', handleRankingUpdate);
     window.addEventListener('kolyoum_series_ranking_updated', handleRankingUpdate);
+    window.addEventListener('kolyoum_movie_deleted', handleRankingUpdate);
     return () => {
       window.removeEventListener('kolyoum_ranking_updated', handleRankingUpdate);
       window.removeEventListener('kolyoum_series_ranking_updated', handleRankingUpdate);
+      window.removeEventListener('kolyoum_movie_deleted', handleRankingUpdate);
     };
   }, []);
 

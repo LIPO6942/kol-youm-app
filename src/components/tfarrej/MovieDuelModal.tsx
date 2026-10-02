@@ -97,7 +97,18 @@ export function MovieDuelModal({
 
   // Classement effectif (prop direct ou depuis le stockage local/cloud — tous les mois)
   const effectiveExistingRanking = useMemo(() => {
-    if (existingRanking) return existingRanking;
+    const rejectedSet = new Set((isTv ? userProfile?.rejectedSeriesTitles : userProfile?.rejectedMovieTitles || []).map(t => (t || '').toLowerCase().trim()));
+    const sanitize = (r: MonthlyMovieRanking | null): MonthlyMovieRanking | null => {
+      if (!r) return null;
+      return {
+        ...r,
+        rankedTitles: (r.rankedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim())),
+        initialRankedTitles: (r.initialRankedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim())),
+        newlyAddedTitles: (r.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim())),
+      };
+    };
+
+    if (existingRanking) return sanitize(existingRanking);
 
     // Search across ALL months in profile + localStorage (not just current monthKey)
     const allProfileRankings: MonthlyMovieRanking[] = Object.values(
@@ -120,22 +131,24 @@ export function MovieDuelModal({
 
     const candidates = [...allProfileRankings, ...localStorageRankings];
     if (candidates.length === 0) return null;
-    return candidates.reduce((best, curr) => {
-      const bestCount = best.rankedTitles?.length ?? 0;
+    const best = candidates.reduce((b, curr) => {
+      const bestCount = b.rankedTitles?.length ?? 0;
       const currCount = curr.rankedTitles?.length ?? 0;
       if (currCount > bestCount) return curr;
       if (currCount === bestCount) {
-        return (curr.updatedAt || 0) >= (best.updatedAt || 0) ? curr : best;
+        return (curr.updatedAt || 0) >= (b.updatedAt || 0) ? curr : b;
       }
-      return best;
+      return b;
     });
+    return sanitize(best);
   }, [existingRanking, monthKey, userProfile, isTv]);
 
   // Filtrer les films/séries de test et enrichir avec leur catégorie
   const validSeenMovies = useMemo(() => {
     const catMap = isTv ? (userProfile?.seriesCategories || {}) : (userProfile?.movieCategories || {});
+    const rejectedSet = new Set((isTv ? userProfile?.rejectedSeriesTitles : userProfile?.rejectedMovieTitles || []).map(t => (t || '').toLowerCase().trim()));
     return seenMovies
-      .filter(m => !isTestMovieTitle(m.title))
+      .filter(m => !isTestMovieTitle(m.title) && !rejectedSet.has(m.title.toLowerCase().trim()))
       .map(m => {
         const norm = m.title.toLowerCase().trim();
         const cat = m.category || catMap[norm] || guessMovieCategory(m.title, m.genres);
