@@ -97,14 +97,28 @@ export function MovieDuelModal({
 
   // Classement effectif (prop direct ou depuis le stockage local/cloud — tous les mois)
   const effectiveExistingRanking = useMemo(() => {
-    const rejectedSet = new Set((isTv ? userProfile?.rejectedSeriesTitles : userProfile?.rejectedMovieTitles || []).map(t => (t || '').toLowerCase().trim()));
+    const normalizeTitle = (t?: string) => (t || '').toLowerCase().trim().replace(/['’`]/g, "'");
+    const rejectedSet = new Set((isTv ? userProfile?.rejectedSeriesTitles : userProfile?.rejectedMovieTitles || []).map(t => normalizeTitle(t)));
+    const watchlistSet = new Set((isTv ? userProfile?.seriesToWatch : userProfile?.moviesToWatch || []).map(t => normalizeTitle(t)));
+    const validSeenSet = new Set(seenMovies.map(m => normalizeTitle(m?.title)).filter(Boolean));
+
     const sanitize = (r: MonthlyMovieRanking | null): MonthlyMovieRanking | null => {
       if (!r) return null;
+      const isValid = (t: string) => {
+        if (!t || typeof t !== 'string' || !t.trim()) return false;
+        const norm = normalizeTitle(t);
+        if (isTestMovieTitle(norm)) return false;
+        if (rejectedSet.has(norm)) return false;
+        if (watchlistSet.has(norm)) return false;
+        // Le titre DOIT faire partie des œuvres réellement vues par l'utilisateur
+        if (validSeenSet.size > 0 && !validSeenSet.has(norm)) return false;
+        return true;
+      };
       return {
         ...r,
-        rankedTitles: (r.rankedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim())),
-        initialRankedTitles: (r.initialRankedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim())),
-        newlyAddedTitles: (r.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim())),
+        rankedTitles: (r.rankedTitles || []).filter(isValid),
+        initialRankedTitles: (r.initialRankedTitles || []).filter(isValid),
+        newlyAddedTitles: (r.newlyAddedTitles || []).filter(isValid),
       };
     };
 
@@ -129,7 +143,10 @@ export function MovieDuelModal({
       } catch {}
     }
 
-    const candidates = [...allProfileRankings, ...localStorageRankings];
+    const candidates = [...allProfileRankings, ...localStorageRankings]
+      .map(r => sanitize(r))
+      .filter((r): r is MonthlyMovieRanking => !!(r?.rankedTitles?.length));
+
     if (candidates.length === 0) return null;
     const best = candidates.reduce((b, curr) => {
       const bestCount = b.rankedTitles?.length ?? 0;
@@ -140,8 +157,8 @@ export function MovieDuelModal({
       }
       return b;
     });
-    return sanitize(best);
-  }, [existingRanking, monthKey, userProfile, isTv]);
+    return best;
+  }, [existingRanking, monthKey, userProfile, isTv, seenMovies]);
 
   // Filtrer les films/séries de test et enrichir avec leur catégorie
   const validSeenMovies = useMemo(() => {
@@ -641,11 +658,15 @@ export function MovieDuelModal({
   const rankMovements: RankMovement[] = useMemo(() => {
     if (!session || !session.isFinished) return [];
 
+    const normalizeTitle = (t?: string) => (t || '').toLowerCase().trim().replace(/['’`]/g, "'");
+    const validSeenSet = new Set(validSeenMovies.map(m => normalizeTitle(m?.title)).filter(Boolean));
+
     const baseList = (effectiveExistingRanking?.initialRankedTitles || session.initialRankedTitles || []).filter(t => !isTestMovieTitle(t));
     const sorted = (session.sortedTitles || []).filter(t => !isTestMovieTitle(t));
     const newlyAdded = (session.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t));
-    return calculateRankMovements(baseList, sorted, newlyAdded, session.movieCatalog, selectedCategory).filter(item => !isTestMovieTitle(item.title));
-  }, [session, effectiveExistingRanking, selectedCategory]);
+    return calculateRankMovements(baseList, sorted, newlyAdded, session.movieCatalog, selectedCategory)
+      .filter(item => !isTestMovieTitle(item.title) && (validSeenSet.size === 0 || validSeenSet.has(normalizeTitle(item.title))));
+  }, [session, effectiveExistingRanking, selectedCategory, validSeenMovies]);
 
   // Helper pour formater l'affiche
   const getPosterUrl = (url?: string) => {
@@ -1321,12 +1342,11 @@ export function MovieDuelModal({
                           executeSaveRanking(resolved, { notifyToast: false, closeModal: false });
                         }
                       }}
-                      className="h-11 px-3 sm:px-4 rounded-2xl bg-slate-800/90 hover:bg-slate-700/90 text-white font-bold text-xs border border-white/20 hover:border-white/40 shadow-lg shadow-black/40 backdrop-blur-md transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-1.5 group"
-                      title="Recommencer tous les duels depuis le début"
+                      className="h-11 w-11 p-0 rounded-2xl bg-slate-800/90 hover:bg-slate-700/90 text-white border border-white/20 hover:border-white/40 shadow-lg shadow-black/40 backdrop-blur-md transition-all duration-200 active:scale-[0.98] flex items-center justify-center group flex-shrink-0"
+                      title="Réinitialiser le classement"
+                      aria-label="Réinitialiser le classement"
                     >
-                      <RotateCcw className="w-3.5 h-3.5 text-rose-400 group-hover:-rotate-90 transition-transform duration-300" />
-                      <span className="hidden sm:inline">Tout reset</span>
-                      <span className="sm:hidden">Reset</span>
+                      <RotateCcw className="w-4 h-4 text-rose-400 group-hover:-rotate-90 transition-transform duration-300" />
                     </Button>
                   </div>
                 </div>

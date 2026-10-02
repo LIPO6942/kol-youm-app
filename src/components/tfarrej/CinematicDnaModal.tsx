@@ -326,9 +326,15 @@ export function CinematicDnaModal({
   // Top-ranked titles to analyse (élargi jusqu'à 50 films/séries classés et vus, avec exclusion stricte des supprimés)
   const isSeries = mediaType === 'tv';
   const topRankedTitles = useMemo(() => {
+    const cleanStr = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
     const rejectedSet = new Set(
       (isSeries ? userProfile?.rejectedSeriesTitles : userProfile?.rejectedMovieTitles || [])
-        .map((t: string) => (t || '').toLowerCase().trim())
+        .map((t: string) => cleanStr(t))
+    );
+    const seenSet = new Set(
+      (isSeries ? userProfile?.seenSeriesTitles : userProfile?.seenMovieTitles || [])
+        .filter((t: string) => !isTestMovieTitle(t))
+        .map((t: string) => cleanStr(t))
     );
     const allRankings = isSeries
       ? Object.values(userProfile?.seriesRankings || {})
@@ -339,11 +345,17 @@ export function CinematicDnaModal({
       return valid.reduce((b, c) => (c.rankedTitles.length >= b.rankedTitles.length ? c : b));
     };
     const best = pickBest(allRankings);
-    const ranked = (best?.rankedTitles || []).filter((t: string) => !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim()));
+    const ranked = (best?.rankedTitles || []).filter((t: string) => {
+      const c = cleanStr(t);
+      return !isTestMovieTitle(c) && !rejectedSet.has(c) && seenSet.has(c);
+    });
 
     // Compléter avec les autres œuvres vues valides (non supprimées) si moins de 50
     const seenList = (isSeries ? userProfile?.seenSeriesTitles : userProfile?.seenMovieTitles || [])
-      .filter((t: string) => !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim()));
+      .filter((t: string) => {
+        const c = cleanStr(t);
+        return !isTestMovieTitle(c) && !rejectedSet.has(c);
+      });
 
     const combined = Array.from(new Set([...ranked, ...seenList]));
     return combined.slice(0, 50) as string[];

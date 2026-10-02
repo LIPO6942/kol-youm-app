@@ -443,7 +443,9 @@ export async function removeMovieFromList(
     listName: 'moviesToWatch' | 'seenMovieTitles' | 'seriesToWatch' | 'seenSeriesTitles' | 'rejectedMovieTitles' | 'rejectedSeriesTitles',
     movieTitle: string
 ) {
-    const norm = movieTitle.toLowerCase().trim();
+    const cleanStr = (s?: string) => (s || '').toLowerCase().trim().replace(/['’`]/g, "'");
+    const norm = cleanStr(movieTitle);
+    const isMatch = (s?: string) => cleanStr(s) === norm;
     const effectiveUid = uid && uid !== 'guest' ? uid : 'guest';
     const isSeenMovies = listName === 'seenMovieTitles';
     const isSeenSeries = listName === 'seenSeriesTitles';
@@ -462,12 +464,12 @@ export async function removeMovieFromList(
                         const r = allRankings[monthKey];
                         if (r) {
                             const origLen = (r.rankedTitles || []).length;
-                            r.rankedTitles = (r.rankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
-                            r.initialRankedTitles = (r.initialRankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
-                            r.newlyAddedTitles = (r.newlyAddedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
+                            r.rankedTitles = (r.rankedTitles || []).filter((t: string) => !isMatch(t));
+                            r.initialRankedTitles = (r.initialRankedTitles || []).filter((t: string) => !isMatch(t));
+                            r.newlyAddedTitles = (r.newlyAddedTitles || []).filter((t: string) => !isMatch(t));
                             if (r.movieCatalog) {
                                 Object.keys(r.movieCatalog).forEach(catKey => {
-                                    if (catKey.toLowerCase().trim() === norm) {
+                                    if (isMatch(catKey)) {
                                         delete r.movieCatalog[catKey];
                                     }
                                 });
@@ -493,12 +495,12 @@ export async function removeMovieFromList(
                                 const parsed = JSON.parse(item);
                                 if (parsed && Array.isArray(parsed.rankedTitles)) {
                                     const origLen = parsed.rankedTitles.length;
-                                    parsed.rankedTitles = parsed.rankedTitles.filter((t: string) => t.toLowerCase().trim() !== norm);
-                                    parsed.initialRankedTitles = (parsed.initialRankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
-                                    parsed.newlyAddedTitles = (parsed.newlyAddedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
+                                    parsed.rankedTitles = parsed.rankedTitles.filter((t: string) => !isMatch(t));
+                                    parsed.initialRankedTitles = (parsed.initialRankedTitles || []).filter((t: string) => !isMatch(t));
+                                    parsed.newlyAddedTitles = (parsed.newlyAddedTitles || []).filter((t: string) => !isMatch(t));
                                     if (parsed.movieCatalog) {
                                         Object.keys(parsed.movieCatalog).forEach(catKey => {
-                                            if (catKey.toLowerCase().trim() === norm) {
+                                            if (isMatch(catKey)) {
                                                 delete parsed.movieCatalog[catKey];
                                             }
                                         });
@@ -522,12 +524,12 @@ export async function removeMovieFromList(
                         const r = allSeries[monthKey];
                         if (r) {
                             const origLen = (r.rankedTitles || []).length;
-                            r.rankedTitles = (r.rankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
-                            r.initialRankedTitles = (r.initialRankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
-                            r.newlyAddedTitles = (r.newlyAddedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
+                            r.rankedTitles = (r.rankedTitles || []).filter((t: string) => !isMatch(t));
+                            r.initialRankedTitles = (r.initialRankedTitles || []).filter((t: string) => !isMatch(t));
+                            r.newlyAddedTitles = (r.newlyAddedTitles || []).filter((t: string) => !isMatch(t));
                             if (r.movieCatalog) {
                                 Object.keys(r.movieCatalog).forEach(catKey => {
-                                    if (catKey.toLowerCase().trim() === norm) {
+                                    if (isMatch(catKey)) {
                                         delete r.movieCatalog[catKey];
                                     }
                                 });
@@ -552,12 +554,12 @@ export async function removeMovieFromList(
                                 const parsed = JSON.parse(item);
                                 if (parsed && Array.isArray(parsed.rankedTitles)) {
                                     const origLen = parsed.rankedTitles.length;
-                                    parsed.rankedTitles = parsed.rankedTitles.filter((t: string) => t.toLowerCase().trim() !== norm);
-                                    parsed.initialRankedTitles = (parsed.initialRankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
-                                    parsed.newlyAddedTitles = (parsed.newlyAddedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
+                                    parsed.rankedTitles = parsed.rankedTitles.filter((t: string) => !isMatch(t));
+                                    parsed.initialRankedTitles = (parsed.initialRankedTitles || []).filter((t: string) => !isMatch(t));
+                                    parsed.newlyAddedTitles = (parsed.newlyAddedTitles || []).filter((t: string) => !isMatch(t));
                                     if (parsed.movieCatalog) {
                                         Object.keys(parsed.movieCatalog).forEach(catKey => {
-                                            if (catKey.toLowerCase().trim() === norm) {
+                                            if (isMatch(catKey)) {
                                                 delete parsed.movieCatalog[catKey];
                                             }
                                         });
@@ -582,26 +584,26 @@ export async function removeMovieFromList(
     if (localProfile) {
         const updatedProfile = { ...localProfile } as any;
         const current: string[] = Array.isArray(updatedProfile[listName]) ? updatedProfile[listName] : [];
-        updatedProfile[listName] = current.filter((t: string) => t.toLowerCase().trim() !== norm);
+        updatedProfile[listName] = current.filter((t: string) => !isMatch(t));
 
         if (isSeenMovies) {
             if (updatedProfile.seenMoviesData) {
-                updatedProfile.seenMoviesData = updatedProfile.seenMoviesData.filter((m: any) => m?.title?.toLowerCase()?.trim() !== norm);
+                updatedProfile.seenMoviesData = updatedProfile.seenMoviesData.filter((m: any) => !isMatch(m?.title));
             }
             if (updatedProfile.seenMovieHistory) {
-                updatedProfile.seenMovieHistory = updatedProfile.seenMovieHistory.filter((m: any) => m?.title?.toLowerCase()?.trim() !== norm);
+                updatedProfile.seenMovieHistory = updatedProfile.seenMovieHistory.filter((m: any) => !isMatch(m?.title));
             }
             if (updatedProfile.movieRankings) {
                 const updatedRankings = { ...updatedProfile.movieRankings };
                 Object.keys(updatedRankings).forEach(key => {
                     const r = updatedRankings[key];
                     if (r) {
-                        r.rankedTitles = (r.rankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
-                        r.initialRankedTitles = (r.initialRankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
-                        r.newlyAddedTitles = (r.newlyAddedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
+                        r.rankedTitles = (r.rankedTitles || []).filter((t: string) => !isMatch(t));
+                        r.initialRankedTitles = (r.initialRankedTitles || []).filter((t: string) => !isMatch(t));
+                        r.newlyAddedTitles = (r.newlyAddedTitles || []).filter((t: string) => !isMatch(t));
                         if (r.movieCatalog) {
                             Object.keys(r.movieCatalog).forEach(catKey => {
-                                if (catKey.toLowerCase().trim() === norm) {
+                                if (isMatch(catKey)) {
                                     delete r.movieCatalog[catKey];
                                 }
                             });
@@ -614,20 +616,20 @@ export async function removeMovieFromList(
             if (updatedProfile.movieCategories) {
                 const copy = { ...updatedProfile.movieCategories };
                 Object.keys(copy).forEach(k => {
-                    if (k.toLowerCase().trim() === norm) delete copy[k];
+                    if (isMatch(k)) delete copy[k];
                 });
                 updatedProfile.movieCategories = copy;
             }
             if (updatedProfile.movieSagaLinks) {
                 const copy = { ...updatedProfile.movieSagaLinks };
                 Object.keys(copy).forEach(k => {
-                    if (k.toLowerCase().trim() === norm) delete copy[k];
+                    if (isMatch(k)) delete copy[k];
                 });
                 updatedProfile.movieSagaLinks = copy;
             }
             if (Array.isArray(updatedProfile.visits)) {
                 updatedProfile.visits = updatedProfile.visits.map((v: any) => {
-                    if (v && v.category === 'Cinéma' && v.orderedItem && v.orderedItem.toLowerCase().trim() === norm) {
+                    if (v && v.category === 'Cinéma' && v.orderedItem && isMatch(v.orderedItem)) {
                         const copy = { ...v };
                         delete copy.orderedItem;
                         return copy;
@@ -637,24 +639,24 @@ export async function removeMovieFromList(
             }
             // Strictement ajouter à rejectedMovieTitles pour bloquer toute réapparition
             const rejected = Array.isArray(updatedProfile.rejectedMovieTitles) ? updatedProfile.rejectedMovieTitles : [];
-            if (!rejected.some((t: string) => t.toLowerCase().trim() === norm)) {
+            if (!rejected.some((t: string) => isMatch(t))) {
                 updatedProfile.rejectedMovieTitles = [...rejected, movieTitle];
             }
         } else if (isSeenSeries) {
             if (updatedProfile.seenSeriesData) {
-                updatedProfile.seenSeriesData = updatedProfile.seenSeriesData.filter((m: any) => m?.title?.toLowerCase()?.trim() !== norm);
+                updatedProfile.seenSeriesData = updatedProfile.seenSeriesData.filter((m: any) => !isMatch(m?.title));
             }
             if (updatedProfile.seriesRankings) {
                 const updatedRankings = { ...updatedProfile.seriesRankings };
                 Object.keys(updatedRankings).forEach(key => {
                     const r = updatedRankings[key];
                     if (r) {
-                        r.rankedTitles = (r.rankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
-                        r.initialRankedTitles = (r.initialRankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
-                        r.newlyAddedTitles = (r.newlyAddedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm);
+                        r.rankedTitles = (r.rankedTitles || []).filter((t: string) => !isMatch(t));
+                        r.initialRankedTitles = (r.initialRankedTitles || []).filter((t: string) => !isMatch(t));
+                        r.newlyAddedTitles = (r.newlyAddedTitles || []).filter((t: string) => !isMatch(t));
                         if (r.movieCatalog) {
                             Object.keys(r.movieCatalog).forEach(catKey => {
-                                if (catKey.toLowerCase().trim() === norm) {
+                                if (isMatch(catKey)) {
                                     delete r.movieCatalog[catKey];
                                 }
                             });
@@ -667,12 +669,12 @@ export async function removeMovieFromList(
             if (updatedProfile.seriesCategories) {
                 const copy = { ...updatedProfile.seriesCategories };
                 Object.keys(copy).forEach(k => {
-                    if (k.toLowerCase().trim() === norm) delete copy[k];
+                    if (isMatch(k)) delete copy[k];
                 });
                 updatedProfile.seriesCategories = copy;
             }
             const rejectedSeries = Array.isArray(updatedProfile.rejectedSeriesTitles) ? updatedProfile.rejectedSeriesTitles : [];
-            if (!rejectedSeries.some((t: string) => t.toLowerCase().trim() === norm)) {
+            if (!rejectedSeries.some((t: string) => isMatch(t))) {
                 updatedProfile.rejectedSeriesTitles = [...rejectedSeries, movieTitle];
             }
         }
@@ -943,7 +945,8 @@ export async function addSeenSeriesWithDate(
     }
 ) {
     const userRef = doc(firestoreDb, "users", uid);
-    const norm = series.title.toLowerCase().trim();
+    const cleanStr = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
+    const norm = cleanStr(series.title);
 
     const seenSeries: any = {
         title: series.title,
@@ -964,19 +967,50 @@ export async function addSeenSeriesWithDate(
             ...(localProfile.seriesCategories || {}),
             ...(series.category ? { [norm]: series.category } : {}),
         };
+
+        // Scrub re-added series from seriesRankings in the profile
+        const updatedRankings = { ...(localProfile.seriesRankings || {}) };
+        let rankingsChanged = false;
+        Object.keys(updatedRankings).forEach(mKey => {
+            const r = updatedRankings[mKey];
+            if (r) {
+                const b = (r.rankedTitles || []).length;
+                const filteredRanked = (r.rankedTitles || []).filter((t: string) => cleanStr(t) !== norm);
+                const filteredInit = (r.initialRankedTitles || []).filter((t: string) => cleanStr(t) !== norm);
+                const filteredNew = (r.newlyAddedTitles || []).filter((t: string) => cleanStr(t) !== norm);
+                if (b !== filteredRanked.length) rankingsChanged = true;
+                const updatedR = {
+                    ...r,
+                    rankedTitles: filteredRanked,
+                    initialRankedTitles: filteredInit,
+                    newlyAddedTitles: filteredNew,
+                    updatedAt: Date.now(),
+                };
+                if (updatedR.movieCatalog) {
+                    Object.keys(updatedR.movieCatalog).forEach(catKey => {
+                        if (cleanStr(catKey) === norm) {
+                            delete updatedR.movieCatalog[catKey];
+                            rankingsChanged = true;
+                        }
+                    });
+                }
+                updatedRankings[mKey] = updatedR;
+            }
+        });
+
         const updatedProfile = {
             ...localProfile,
-            seriesToWatch: (localProfile.seriesToWatch || []).filter((t: string) => t.toLowerCase() !== series.title.toLowerCase()),
-            seenSeriesTitles: Array.from(new Set([...(localProfile.seenSeriesTitles || []), series.title])),
-            seenSeriesData: [...(localProfile.seenSeriesData || []).filter(m => m.title !== series.title), seenSeries],
+            seriesToWatch: (localProfile.seriesToWatch || []).filter((t: string) => cleanStr(t) !== norm),
+            seenSeriesTitles: Array.from(new Set([...(localProfile.seenSeriesTitles || []).filter((t: string) => cleanStr(t) !== norm), series.title])),
+            seenSeriesData: [...(localProfile.seenSeriesData || []).filter(m => cleanStr(m.title) !== norm), seenSeries],
             seriesCategories: updatedCategories,
-            // Remove from rejected list so it reappears in rankings
-            rejectedSeriesTitles: (localProfile.rejectedSeriesTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm),
+            seriesRankings: updatedRankings,
+            // Remove from rejected list so it reappears as a fresh entry
+            rejectedSeriesTitles: (localProfile.rejectedSeriesTitles || []).filter((t: string) => cleanStr(t) !== norm),
         };
         await storeUserInDb(uid, updatedProfile);
 
-        // ── Scrub re-added title from all cached series rankings so it is treated as a
-        //    NEW unranked entry (goes through duel again, not restored to old rank)
+        // ── Scrub re-added title from all cached series rankings in localStorage
         if (typeof window !== 'undefined') {
             try {
                 // 1. Global map: kolyoum_series_rankings
@@ -989,11 +1023,16 @@ export async function addSeenSeriesWithDate(
                         if (r && Array.isArray(r.rankedTitles)) {
                             const before = r.rankedTitles.length;
                             r.rankedTitles = r.rankedTitles.filter(
-                                (t: string) => (t || '').toLowerCase().trim() !== norm
+                                (t: string) => cleanStr(t) !== norm
                             );
                             if (Array.isArray(r.initialRankedTitles)) {
                                 r.initialRankedTitles = r.initialRankedTitles.filter(
-                                    (t: string) => (t || '').toLowerCase().trim() !== norm
+                                    (t: string) => cleanStr(t) !== norm
+                                );
+                            }
+                            if (Array.isArray(r.newlyAddedTitles)) {
+                                r.newlyAddedTitles = r.newlyAddedTitles.filter(
+                                    (t: string) => cleanStr(t) !== norm
                                 );
                             }
                             if (r.rankedTitles.length !== before) changed = true;
@@ -1009,11 +1048,16 @@ export async function addSeenSeriesWithDate(
                         if (r && Array.isArray(r.rankedTitles)) {
                             const before = r.rankedTitles.length;
                             r.rankedTitles = r.rankedTitles.filter(
-                                (t: string) => (t || '').toLowerCase().trim() !== norm
+                                (t: string) => cleanStr(t) !== norm
                             );
                             if (Array.isArray(r.initialRankedTitles)) {
                                 r.initialRankedTitles = r.initialRankedTitles.filter(
-                                    (t: string) => (t || '').toLowerCase().trim() !== norm
+                                    (t: string) => cleanStr(t) !== norm
+                                );
+                            }
+                            if (Array.isArray(r.newlyAddedTitles)) {
+                                r.newlyAddedTitles = r.newlyAddedTitles.filter(
+                                    (t: string) => cleanStr(t) !== norm
                                 );
                             }
                             if (r.rankedTitles.length !== before) localStorage.setItem(key, JSON.stringify(r));
@@ -1025,10 +1069,10 @@ export async function addSeenSeriesWithDate(
             }
             // Notify UI to refresh rankings
             window.dispatchEvent(new CustomEvent('kolyoum_ranking_updated', {
-                detail: { uid, title: series.title, action: 'added', mediaType: 'tv' }
+                detail: { uid, title: series.title, action: 'added', mediaType: 'tv', updatedProfile }
             }));
             window.dispatchEvent(new CustomEvent('kolyoum_series_ranking_updated', {
-                detail: { uid, title: series.title, action: 'added', mediaType: 'tv' }
+                detail: { uid, title: series.title, action: 'added', mediaType: 'tv', updatedProfile }
             }));
         }
     }
@@ -1043,6 +1087,9 @@ export async function addSeenSeriesWithDate(
         };
         if (series.category) {
             firestorePayload[`seriesCategories.${norm}`] = series.category;
+        }
+        if (localProfile?.seriesRankings) {
+            firestorePayload.seriesRankings = localProfile.seriesRankings;
         }
         setDoc(userRef, firestorePayload, { merge: true })
             .catch(e => console.warn('Firestore addSeenSeriesWithDate:', e));
@@ -1066,7 +1113,8 @@ export async function addSeenMovieWithDate(
     }
 ) {
     const userRef = doc(firestoreDb, "users", uid);
-    const norm = movie.title.toLowerCase().trim();
+    const cleanStr = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
+    const norm = cleanStr(movie.title);
 
     const seenMovie: any = {
         title: movie.title,
@@ -1095,15 +1143,47 @@ export async function addSeenMovieWithDate(
             ...(localProfile.movieSagaLinks || {}),
             ...(movie.collection ? { [norm]: String(movie.collection.id) } : {}),
         };
+
+        // Scrub re-added movie from movieRankings in the profile
+        const updatedRankings = { ...(localProfile.movieRankings || {}) };
+        let rankingsChanged = false;
+        Object.keys(updatedRankings).forEach(mKey => {
+            const r = updatedRankings[mKey];
+            if (r) {
+                const b = (r.rankedTitles || []).length;
+                const filteredRanked = (r.rankedTitles || []).filter((t: string) => cleanStr(t) !== norm);
+                const filteredInit = (r.initialRankedTitles || []).filter((t: string) => cleanStr(t) !== norm);
+                const filteredNew = (r.newlyAddedTitles || []).filter((t: string) => cleanStr(t) !== norm);
+                if (b !== filteredRanked.length) rankingsChanged = true;
+                const updatedR = {
+                    ...r,
+                    rankedTitles: filteredRanked,
+                    initialRankedTitles: filteredInit,
+                    newlyAddedTitles: filteredNew,
+                    updatedAt: Date.now(),
+                };
+                if (updatedR.movieCatalog) {
+                    Object.keys(updatedR.movieCatalog).forEach(catKey => {
+                        if (cleanStr(catKey) === norm) {
+                            delete updatedR.movieCatalog[catKey];
+                            rankingsChanged = true;
+                        }
+                    });
+                }
+                updatedRankings[mKey] = updatedR;
+            }
+        });
+
         const updatedProfile = {
             ...localProfile,
-            moviesToWatch: (localProfile.moviesToWatch || []).filter((t: string) => t.toLowerCase() !== movie.title.toLowerCase()),
-            seenMovieTitles: Array.from(new Set([...(localProfile.seenMovieTitles || []), movie.title])),
-            seenMoviesData: [...(localProfile.seenMoviesData || []).filter(m => m.title?.toLowerCase()?.trim() !== norm), seenMovie],
+            moviesToWatch: (localProfile.moviesToWatch || []).filter((t: string) => cleanStr(t) !== norm),
+            seenMovieTitles: Array.from(new Set([...(localProfile.seenMovieTitles || []).filter((t: string) => cleanStr(t) !== norm), movie.title])),
+            seenMoviesData: [...(localProfile.seenMoviesData || []).filter(m => cleanStr(m.title) !== norm), seenMovie],
             movieCategories: updatedCategories,
             movieSagaLinks: updatedSagaLinks,
-            // Remove from rejected list so it reappears in rankings
-            rejectedMovieTitles: (localProfile.rejectedMovieTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm),
+            movieRankings: updatedRankings,
+            // Remove from rejected list so it reappears as a fresh entry
+            rejectedMovieTitles: (localProfile.rejectedMovieTitles || []).filter((t: string) => cleanStr(t) !== norm),
         };
         await storeUserInDb(uid, updatedProfile);
 
@@ -1121,11 +1201,16 @@ export async function addSeenMovieWithDate(
                         if (r && Array.isArray(r.rankedTitles)) {
                             const before = r.rankedTitles.length;
                             r.rankedTitles = r.rankedTitles.filter(
-                                (t: string) => (t || '').toLowerCase().trim() !== norm
+                                (t: string) => cleanStr(t) !== norm
                             );
                             if (Array.isArray(r.initialRankedTitles)) {
                                 r.initialRankedTitles = r.initialRankedTitles.filter(
-                                    (t: string) => (t || '').toLowerCase().trim() !== norm
+                                    (t: string) => cleanStr(t) !== norm
+                                );
+                            }
+                            if (Array.isArray(r.newlyAddedTitles)) {
+                                r.newlyAddedTitles = r.newlyAddedTitles.filter(
+                                    (t: string) => cleanStr(t) !== norm
                                 );
                             }
                             if (r.rankedTitles.length !== before) changed = true;
@@ -1141,11 +1226,16 @@ export async function addSeenMovieWithDate(
                         if (r && Array.isArray(r.rankedTitles)) {
                             const before = r.rankedTitles.length;
                             r.rankedTitles = r.rankedTitles.filter(
-                                (t: string) => (t || '').toLowerCase().trim() !== norm
+                                (t: string) => cleanStr(t) !== norm
                             );
                             if (Array.isArray(r.initialRankedTitles)) {
                                 r.initialRankedTitles = r.initialRankedTitles.filter(
-                                    (t: string) => (t || '').toLowerCase().trim() !== norm
+                                    (t: string) => cleanStr(t) !== norm
+                                );
+                            }
+                            if (Array.isArray(r.newlyAddedTitles)) {
+                                r.newlyAddedTitles = r.newlyAddedTitles.filter(
+                                    (t: string) => cleanStr(t) !== norm
                                 );
                             }
                             if (r.rankedTitles.length !== before) localStorage.setItem(key, JSON.stringify(r));
@@ -1157,7 +1247,7 @@ export async function addSeenMovieWithDate(
             }
             // Notify UI to refresh rankings/actors
             window.dispatchEvent(new CustomEvent('kolyoum_ranking_updated', {
-                detail: { uid, title: movie.title, action: 'added' }
+                detail: { uid, title: movie.title, action: 'added', mediaType: 'movie', updatedProfile }
             }));
         }
     }
@@ -1176,6 +1266,9 @@ export async function addSeenMovieWithDate(
         }
         if (movie.collection) {
             firestorePayload[`movieSagaLinks.${norm}`] = String(movie.collection.id);
+        }
+        if (localProfile?.movieRankings) {
+            firestorePayload.movieRankings = localProfile.movieRankings;
         }
         setDoc(userRef, firestorePayload, { merge: true })
             .catch(e => console.warn('Firestore addSeenMovieWithDate:', e));
@@ -2662,9 +2755,12 @@ export async function sanitizeAndHealMovieData(
     }
 
     // E. Fusion et tri minutieux entre VRAIS films vus et films 'À voir'
+    const cleanStr = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
     const seenTitlesRaw: string[] = Array.isArray(updated.seenMovieTitles) ? updated.seenMovieTitles : [];
     const seenDataRaw: any[] = Array.isArray(updated.seenMoviesData) ? updated.seenMoviesData : [];
     const cinemaTitlesRaw = Array.from(cinemaDateByTitle.keys());
+    const rejectedMovieTitlesRaw: string[] = Array.isArray(updated.rejectedMovieTitles) ? updated.rejectedMovieTitles : [];
+    const rejectedTitlesSet = new Set(rejectedMovieTitlesRaw.map(t => cleanStr(t)));
 
     const isFakeSept4 = (ts?: any) => {
         if (!ts) return false;
@@ -2674,9 +2770,10 @@ export async function sanitizeAndHealMovieData(
 
     // Helper : déterminer si un film est authentiquement un film vu
     const isTrulySeen = (norm: string, item?: any) => {
-        if (cinemaDateByTitle.has(norm)) return true;
-        if (historyDateByTitle.has(norm)) return true;
-        if (rankedTitlesSet.has(norm)) return true;
+        const c = cleanStr(norm);
+        if (rejectedTitlesSet.has(c)) return false;
+        if (cinemaDateByTitle.has(norm) || cinemaDateByTitle.has(c)) return true;
+        if (historyDateByTitle.has(norm) || historyDateByTitle.has(c)) return true;
         if (item?.watchedInCinema) return true;
         if (item?.viewedAt && !isFakeSept4(item.viewedAt)) return true;
         return false;
@@ -2689,11 +2786,15 @@ export async function sanitizeAndHealMovieData(
     seenDataRaw.forEach((item: any) => {
         if (!item || !item.title || typeof item.title !== 'string') return;
         const norm = item.title.trim().toLowerCase();
-        if (isTestMovieTitle(norm)) return;
+        const c = cleanStr(norm);
+        if (isTestMovieTitle(c) || rejectedTitlesSet.has(c)) {
+            hasChanges = true;
+            return;
+        }
 
         if (!isTrulySeen(norm, item)) {
-            // Le film n'a aucune visite cinéma, aucun historique, aucun classement, aucune date authentique :
-            // Il appartenait à l'origine à la liste 'À voir' et a été aspiré par le bug du backfill !
+            // Le film n'a aucune visite cinéma, aucun historique authentique :
+            // Il appartenait à l'origine à la liste 'À voir'
             restoredToWatchlist.add(item.title.trim());
             hasChanges = true;
             return;
@@ -2703,9 +2804,9 @@ export async function sanitizeAndHealMovieData(
         let addedAt = item.addedAt;
 
         if (isFakeSept4(viewedAt) || isFakeSept4(addedAt)) {
-            const cinemaInfo = cinemaDateByTitle.get(norm);
-            const historyDate = historyDateByTitle.get(norm);
-            const rankingDate = monthlyRankingDateByTitle.get(norm);
+            const cinemaInfo = cinemaDateByTitle.get(norm) || cinemaDateByTitle.get(c);
+            const historyDate = historyDateByTitle.get(norm) || historyDateByTitle.get(c);
+            const rankingDate = monthlyRankingDateByTitle.get(norm) || monthlyRankingDateByTitle.get(c);
             const realDate = cinemaInfo?.date || historyDate || rankingDate;
             if (realDate) {
                 viewedAt = realDate;
@@ -2717,13 +2818,13 @@ export async function sanitizeAndHealMovieData(
             hasChanges = true;
         }
 
-        const cinemaInfo = cinemaDateByTitle.get(norm);
+        const cinemaInfo = cinemaDateByTitle.get(norm) || cinemaDateByTitle.get(c);
         const watchedInCinema = item.watchedInCinema || !!cinemaInfo;
         const cinemaPlace = item.cinemaPlace || cinemaInfo?.placeName;
 
-        const category = item.category || updated.movieCategories?.[norm];
+        const category = item.category || updated.movieCategories?.[norm] || updated.movieCategories?.[c];
 
-        seenMap.set(norm, {
+        seenMap.set(c, {
             title: item.title.trim(),
             ...(item.posterUrl && { posterUrl: item.posterUrl }),
             ...(item.year !== undefined && item.year !== null && { year: item.year }),
@@ -2741,7 +2842,11 @@ export async function sanitizeAndHealMovieData(
     seenTitlesRaw.forEach(t => {
         if (!t || typeof t !== 'string') return;
         const norm = t.trim().toLowerCase();
-        if (isTestMovieTitle(norm)) return;
+        const c = cleanStr(norm);
+        if (isTestMovieTitle(c) || rejectedTitlesSet.has(c)) {
+            hasChanges = true;
+            return;
+        }
 
         if (!isTrulySeen(norm)) {
             restoredToWatchlist.add(t.trim());
@@ -2749,14 +2854,14 @@ export async function sanitizeAndHealMovieData(
             return;
         }
 
-        const existing = seenMap.get(norm);
-        const cinemaInfo = cinemaDateByTitle.get(norm);
-        const historyDate = historyDateByTitle.get(norm);
-        const rankingDate = monthlyRankingDateByTitle.get(norm);
+        const existing = seenMap.get(c);
+        const cinemaInfo = cinemaDateByTitle.get(norm) || cinemaDateByTitle.get(c);
+        const historyDate = historyDateByTitle.get(norm) || historyDateByTitle.get(c);
+        const rankingDate = monthlyRankingDateByTitle.get(norm) || monthlyRankingDateByTitle.get(c);
         const realDate = cinemaInfo?.date || historyDate || rankingDate;
 
         if (!existing) {
-            seenMap.set(norm, {
+            seenMap.set(c, {
                 title: t.trim(),
                 ...(cinemaInfo && { watchedInCinema: true, cinemaPlace: cinemaInfo.placeName }),
                 ...(realDate && { viewedAt: realDate, addedAt: realDate }),
@@ -2778,12 +2883,13 @@ export async function sanitizeAndHealMovieData(
 
     // 3. Ajouter depuis les visites Cinéma
     cinemaTitlesRaw.forEach(norm => {
-        if (isTestMovieTitle(norm)) return;
-        if (!seenMap.has(norm)) {
+        const c = cleanStr(norm);
+        if (isTestMovieTitle(c) || rejectedTitlesSet.has(c)) return;
+        if (!seenMap.has(c)) {
             const cinemaInfo = cinemaDateByTitle.get(norm);
-            const visit = updated.visits.find((v: any) => v.category === 'Cinéma' && v.orderedItem?.trim().toLowerCase() === norm);
+            const visit = updated.visits.find((v: any) => v.category === 'Cinéma' && cleanStr(v.orderedItem) === c);
             const prettyTitle = visit?.orderedItem?.trim() || norm;
-            seenMap.set(norm, {
+            seenMap.set(c, {
                 title: prettyTitle,
                 watchedInCinema: true,
                 ...(cinemaInfo?.placeName && { cinemaPlace: cinemaInfo.placeName }),
@@ -2805,12 +2911,12 @@ export async function sanitizeAndHealMovieData(
     updated.seenMovieTitles = newSeenMovieTitles;
 
     // F. Reconstitution fidèle de moviesToWatch
-    const seenNormSet = new Set(seenMap.keys());
+    const seenNormSet = new Set(Array.from(seenMap.values()).map(m => cleanStr(m.title)));
     const currentWatchlist: string[] = Array.isArray(updated.moviesToWatch) ? updated.moviesToWatch : [];
     const combinedWatchlist = Array.from(new Set([
         ...currentWatchlist,
         ...Array.from(restoredToWatchlist)
-    ])).filter(t => !isTestMovieTitle(t) && !seenNormSet.has(t.trim().toLowerCase()));
+    ])).filter(t => !isTestMovieTitle(t) && !seenNormSet.has(cleanStr(t)) && !rejectedTitlesSet.has(cleanStr(t)));
 
     if (combinedWatchlist.length !== currentWatchlist.length || restoredToWatchlist.size > 0) {
         updated.moviesToWatch = combinedWatchlist;
@@ -2818,14 +2924,51 @@ export async function sanitizeAndHealMovieData(
     }
 
     if (Array.isArray(updated.rejectedMovieTitles)) {
-        const filteredRejected = updated.rejectedMovieTitles.filter((t: string) => !isTestMovieTitle(t) && !seenNormSet.has(t.trim().toLowerCase()));
+        const filteredRejected = updated.rejectedMovieTitles.filter((t: string) => !isTestMovieTitle(t) && !seenNormSet.has(cleanStr(t)));
         if (filteredRejected.length !== updated.rejectedMovieTitles.length) {
             updated.rejectedMovieTitles = filteredRejected;
             hasChanges = true;
         }
     }
 
+    // Scrub des classements mensuels de films
+    if (updated.movieRankings && typeof updated.movieRankings === 'object') {
+        Object.keys(updated.movieRankings).forEach(k => {
+            const r = updated.movieRankings[k];
+            if (r) {
+                const origLen = (r.rankedTitles || []).length;
+                r.rankedTitles = (r.rankedTitles || []).filter((t: string) => {
+                    const c = cleanStr(t);
+                    return !isTestMovieTitle(c) && !rejectedTitlesSet.has(c) && seenNormSet.has(c);
+                });
+                r.initialRankedTitles = (r.initialRankedTitles || []).filter((t: string) => {
+                    const c = cleanStr(t);
+                    return !isTestMovieTitle(c) && !rejectedTitlesSet.has(c) && seenNormSet.has(c);
+                });
+                r.newlyAddedTitles = (r.newlyAddedTitles || []).filter((t: string) => {
+                    const c = cleanStr(t);
+                    return !isTestMovieTitle(c) && !rejectedTitlesSet.has(c) && seenNormSet.has(c);
+                });
+                if (r.movieCatalog) {
+                    Object.keys(r.movieCatalog).forEach(catKey => {
+                        const c = cleanStr(catKey);
+                        if (isTestMovieTitle(c) || rejectedTitlesSet.has(c) || !seenNormSet.has(c)) {
+                            delete r.movieCatalog[catKey];
+                        }
+                    });
+                }
+                if (origLen !== (r.rankedTitles || []).length) {
+                    r.updatedAt = Date.now();
+                    hasChanges = true;
+                }
+            }
+        });
+    }
+
     // G. Assainissement similaire pour les séries
+    const rejectedSeriesTitlesRaw: string[] = Array.isArray(updated.rejectedSeriesTitles) ? updated.rejectedSeriesTitles : [];
+    const rejectedSeriesTitlesSet = new Set(rejectedSeriesTitlesRaw.map(t => cleanStr(t)));
+
     if (Array.isArray(updated.seenSeriesTitles) || Array.isArray(updated.seenSeriesData)) {
         const seenSeriesTitlesRaw: string[] = Array.isArray(updated.seenSeriesTitles) ? updated.seenSeriesTitles : [];
         const seenSeriesDataRaw: any[] = Array.isArray(updated.seenSeriesData) ? updated.seenSeriesData : [];
@@ -2836,21 +2979,29 @@ export async function sanitizeAndHealMovieData(
         seenSeriesDataRaw.forEach((s: any) => {
             if (!s || !s.title || typeof s.title !== 'string') return;
             const norm = s.title.trim().toLowerCase();
-            if (isTestMovieTitle(norm)) return;
+            const c = cleanStr(norm);
+            if (isTestMovieTitle(c) || rejectedSeriesTitlesSet.has(c)) {
+                hasChanges = true;
+                return;
+            }
 
             if (!s.viewedAt || isFakeSept4(s.viewedAt)) {
                 restoredSeriesToWatch.add(s.title.trim());
                 hasChanges = true;
                 return;
             }
-            seenSeriesMap.set(norm, s);
+            seenSeriesMap.set(c, s);
         });
 
         seenSeriesTitlesRaw.forEach((t: string) => {
             if (!t || typeof t !== 'string') return;
             const norm = t.trim().toLowerCase();
-            if (isTestMovieTitle(norm)) return;
-            if (!seenSeriesMap.has(norm)) {
+            const c = cleanStr(norm);
+            if (isTestMovieTitle(c) || rejectedSeriesTitlesSet.has(c)) {
+                hasChanges = true;
+                return;
+            }
+            if (!seenSeriesMap.has(c)) {
                 restoredSeriesToWatch.add(t.trim());
                 hasChanges = true;
             }
@@ -2858,18 +3009,59 @@ export async function sanitizeAndHealMovieData(
 
         const newSeenSeriesData = Array.from(seenSeriesMap.values());
         const newSeenSeriesTitles = Array.from(seenSeriesMap.values()).map(s => s.title);
-        const seenSeriesNormSet = new Set(seenSeriesMap.keys());
+        const seenSeriesNormSet = new Set(Array.from(seenSeriesMap.values()).map(s => cleanStr(s.title)));
 
         const combinedSeriesWatchlist = Array.from(new Set([
             ...currentSeriesWatchlist,
             ...Array.from(restoredSeriesToWatch)
-        ])).filter(t => !isTestMovieTitle(t) && !seenSeriesNormSet.has(t.trim().toLowerCase()));
+        ])).filter(t => !isTestMovieTitle(t) && !seenSeriesNormSet.has(cleanStr(t)) && !rejectedSeriesTitlesSet.has(cleanStr(t)));
 
         if (newSeenSeriesTitles.length !== seenSeriesTitlesRaw.length || combinedSeriesWatchlist.length !== currentSeriesWatchlist.length) {
             updated.seenSeriesTitles = newSeenSeriesTitles;
             updated.seenSeriesData = newSeenSeriesData;
             updated.seriesToWatch = combinedSeriesWatchlist;
             hasChanges = true;
+        }
+
+        if (Array.isArray(updated.rejectedSeriesTitles)) {
+            const filteredRejectedSeries = updated.rejectedSeriesTitles.filter((t: string) => !isTestMovieTitle(t) && !seenSeriesNormSet.has(cleanStr(t)));
+            if (filteredRejectedSeries.length !== updated.rejectedSeriesTitles.length) {
+                updated.rejectedSeriesTitles = filteredRejectedSeries;
+                hasChanges = true;
+            }
+        }
+
+        if (updated.seriesRankings && typeof updated.seriesRankings === 'object') {
+            Object.keys(updated.seriesRankings).forEach(k => {
+                const r = updated.seriesRankings[k];
+                if (r) {
+                    const origLen = (r.rankedTitles || []).length;
+                    r.rankedTitles = (r.rankedTitles || []).filter((t: string) => {
+                        const c = cleanStr(t);
+                        return !isTestMovieTitle(c) && !rejectedSeriesTitlesSet.has(c) && seenSeriesNormSet.has(c);
+                    });
+                    r.initialRankedTitles = (r.initialRankedTitles || []).filter((t: string) => {
+                        const c = cleanStr(t);
+                        return !isTestMovieTitle(c) && !rejectedSeriesTitlesSet.has(c) && seenSeriesNormSet.has(c);
+                    });
+                    r.newlyAddedTitles = (r.newlyAddedTitles || []).filter((t: string) => {
+                        const c = cleanStr(t);
+                        return !isTestMovieTitle(c) && !rejectedSeriesTitlesSet.has(c) && seenSeriesNormSet.has(c);
+                    });
+                    if (r.movieCatalog) {
+                        Object.keys(r.movieCatalog).forEach(catKey => {
+                            const c = cleanStr(catKey);
+                            if (isTestMovieTitle(c) || rejectedSeriesTitlesSet.has(c) || !seenSeriesNormSet.has(c)) {
+                                delete r.movieCatalog[catKey];
+                            }
+                        });
+                    }
+                    if (origLen !== (r.rankedTitles || []).length) {
+                        r.updatedAt = Date.now();
+                        hasChanges = true;
+                    }
+                }
+            });
         }
     }
 
@@ -2883,10 +3075,12 @@ export async function sanitizeAndHealMovieData(
                     seenMoviesData: updated.seenMoviesData,
                     moviesToWatch: updated.moviesToWatch || [],
                     rejectedMovieTitles: updated.rejectedMovieTitles || [],
+                    movieRankings: updated.movieRankings || {},
                     seenSeriesTitles: updated.seenSeriesTitles || [],
                     seenSeriesData: updated.seenSeriesData || [],
                     seriesToWatch: updated.seriesToWatch || [],
                     rejectedSeriesTitles: updated.rejectedSeriesTitles || [],
+                    seriesRankings: updated.seriesRankings || {},
                 }, { merge: true });
             } catch (err) {
                 console.warn("Erreur synchronisation Firestore sanitizeAndHealMovieData:", err);

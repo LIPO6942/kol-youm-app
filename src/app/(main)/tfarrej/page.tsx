@@ -149,18 +149,37 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
   }, [currentMonthKey, userProfile]);
 
   const existingRanking = useMemo(() => {
-    const rejectedTitles = new Set((userProfile?.rejectedMovieTitles || []).map(t => (t || '').toLowerCase().trim()));
+    const normalizeTitle = (t?: string) => (t || '').toLowerCase().trim().replace(/['’`]/g, "'");
+    const rejectedTitles = new Set((userProfile?.rejectedMovieTitles || []).map(t => normalizeTitle(t)));
+    const watchlistTitles = new Set((userProfile?.moviesToWatch || []).map(t => normalizeTitle(t)));
+    const seenTitlesSet = new Set([
+      ...(userProfile?.seenMovieTitles || []),
+      ...(Array.isArray(userProfile?.seenMoviesData) ? userProfile.seenMoviesData.map((m: any) => m?.title) : []),
+      ...((userProfile?.visits || []).filter((v: any) => v?.category === 'Cinéma' && v?.orderedItem).map((v: any) => v.orderedItem)),
+    ].filter((t): t is string => typeof t === 'string' && !!t.trim()).map(t => normalizeTitle(t)));
+
     const sanitize = (r: MonthlyMovieRanking | null): MonthlyMovieRanking | null => {
       if (!r) return null;
+      const isValid = (t: string) => {
+        if (!t || typeof t !== 'string' || !t.trim()) return false;
+        const norm = normalizeTitle(t);
+        if (isTestMovieTitle(norm)) return false;
+        if (rejectedTitles.has(norm)) return false;
+        if (watchlistTitles.has(norm)) return false;
+        if (seenTitlesSet.size > 0 && !seenTitlesSet.has(norm)) return false;
+        return true;
+      };
       return {
         ...r,
-        rankedTitles: (r.rankedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedTitles.has(t.toLowerCase().trim())),
-        initialRankedTitles: (r.initialRankedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedTitles.has(t.toLowerCase().trim())),
-        newlyAddedTitles: (r.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedTitles.has(t.toLowerCase().trim())),
+        rankedTitles: (r.rankedTitles || []).filter(isValid),
+        initialRankedTitles: (r.initialRankedTitles || []).filter(isValid),
+        newlyAddedTitles: (r.newlyAddedTitles || []).filter(isValid),
       };
     };
     const pickBest = (candidates: (MonthlyMovieRanking | null | undefined)[]): MonthlyMovieRanking | null => {
-      const valid = candidates.filter((r): r is MonthlyMovieRanking => !!(r?.rankedTitles?.length));
+      const valid = candidates
+        .map(r => sanitize(r ?? null))
+        .filter((r): r is MonthlyMovieRanking => !!(r?.rankedTitles?.length));
       if (valid.length === 0) return null;
       return valid.reduce((best, curr) => {
         const bestCount = best.rankedTitles?.length ?? 0;
@@ -178,22 +197,40 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         if (all) Object.values(JSON.parse(all)).forEach((r: any) => { if (r?.rankedTitles?.length) fromLS.push(r); });
       } catch {}
     }
-    return sanitize(pickBest([localRanking, ...allProfile, ...fromLS]));
+    return pickBest([localRanking, ...allProfile, ...fromLS]);
   }, [userProfile?.movieRankings, localRanking, userProfile]);
 
   const existingSeriesRanking = useMemo(() => {
-    const rejectedTitles = new Set((userProfile?.rejectedSeriesTitles || []).map(t => (t || '').toLowerCase().trim()));
+    const normalizeTitle = (t?: string) => (t || '').toLowerCase().trim().replace(/['’`]/g, "'");
+    const rejectedTitles = new Set((userProfile?.rejectedSeriesTitles || []).map(t => normalizeTitle(t)));
+    const watchlistTitles = new Set((userProfile?.seriesToWatch || []).map(t => normalizeTitle(t)));
+    const seenSeriesTitlesSet = new Set([
+      ...(userProfile?.seenSeriesTitles || []),
+      ...(Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData.map((s: any) => s?.title) : []),
+    ].filter((t): t is string => typeof t === 'string' && !!t.trim()).map(t => normalizeTitle(t)));
+
     const sanitize = (r: MonthlyMovieRanking | null): MonthlyMovieRanking | null => {
       if (!r) return null;
+      const isValid = (t: string) => {
+        if (!t || typeof t !== 'string' || !t.trim()) return false;
+        const norm = normalizeTitle(t);
+        if (isTestMovieTitle(norm)) return false;
+        if (rejectedTitles.has(norm)) return false;
+        if (watchlistTitles.has(norm)) return false;
+        if (seenSeriesTitlesSet.size > 0 && !seenSeriesTitlesSet.has(norm)) return false;
+        return true;
+      };
       return {
         ...r,
-        rankedTitles: (r.rankedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedTitles.has(t.toLowerCase().trim())),
-        initialRankedTitles: (r.initialRankedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedTitles.has(t.toLowerCase().trim())),
-        newlyAddedTitles: (r.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t) && !rejectedTitles.has(t.toLowerCase().trim())),
+        rankedTitles: (r.rankedTitles || []).filter(isValid),
+        initialRankedTitles: (r.initialRankedTitles || []).filter(isValid),
+        newlyAddedTitles: (r.newlyAddedTitles || []).filter(isValid),
       };
     };
     const pickBest = (candidates: (MonthlyMovieRanking | null | undefined)[]): MonthlyMovieRanking | null => {
-      const valid = candidates.filter((r): r is MonthlyMovieRanking => !!(r?.rankedTitles?.length));
+      const valid = candidates
+        .map(r => sanitize(r ?? null))
+        .filter((r): r is MonthlyMovieRanking => !!(r?.rankedTitles?.length));
       if (valid.length === 0) return null;
       return valid.reduce((best, curr) => {
         const bestCount = best.rankedTitles?.length ?? 0;
@@ -211,16 +248,17 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         if (all) Object.values(JSON.parse(all)).forEach((r: any) => { if (r?.rankedTitles?.length) fromLS.push(r); });
       } catch {}
     }
-    return sanitize(pickBest([seriesLocalRanking, ...allProfile, ...fromLS]));
+    return pickBest([seriesLocalRanking, ...allProfile, ...fromLS]);
   }, [userProfile?.seriesRankings, seriesLocalRanking, userProfile]);
 
   // Liste des films vus par l'utilisateur pour le classement et les duels
   const monthlySeenMovies: DuelMovieItem[] = useMemo(() => {
-    const watchlistTitles = new Set((userProfile?.moviesToWatch || []).map(t => (t || '').toLowerCase().trim()));
-    const rejectedTitles = new Set((userProfile?.rejectedMovieTitles || []).map(t => (t || '').toLowerCase().trim()));
+    const normalizeTitle = (t?: string) => (t || '').toLowerCase().trim().replace(/['’`]/g, "'");
+    const watchlistTitles = new Set((userProfile?.moviesToWatch || []).map(t => normalizeTitle(t)));
+    const rejectedTitles = new Set((userProfile?.rejectedMovieTitles || []).map(t => normalizeTitle(t)));
     const isExcluded = (t: string) => {
       if (!t || typeof t !== 'string' || !t.trim()) return true;
-      const norm = t.toLowerCase().trim();
+      const norm = normalizeTitle(t);
       if (isTestMovieTitle(norm)) return true;
       if (watchlistTitles.has(norm)) return true;
       if (rejectedTitles.has(norm)) return true;
@@ -230,7 +268,6 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
     const seenTitles = (userProfile?.seenMovieTitles || []).filter(t => !isExcluded(t));
     const seenDataList = (userProfile?.seenMoviesData || []).filter(m => !isExcluded(m?.title));
     const seenHistory = ((userProfile as any)?.seenMovieHistory || []).filter((h: any) => !isExcluded(h?.title));
-    const rankedFromExisting = (existingRanking?.rankedTitles || []).filter(t => !isExcluded(t));
 
     // Map de métadonnées pour chaque titre (insensible à la casse)
     const metadataMap = new Map<string, Partial<DuelMovieItem>>();
@@ -238,7 +275,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
     // 1. Enrichir avec seenMoviesData
     seenDataList.forEach(m => {
       if (m?.title) {
-        const norm = m.title.toLowerCase().trim();
+        const norm = normalizeTitle(m.title);
         metadataMap.set(norm, {
           posterUrl: m.posterUrl,
           year: m.year,
@@ -255,7 +292,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
     // 2. Enrichir avec seenMovieHistory (affiches TMDb issues du swiper pour les métadonnées uniquement)
     seenHistory.forEach((h: any) => {
       if (h?.title) {
-        const key = h.title.toLowerCase().trim();
+        const key = normalizeTitle(h.title);
         const existing = metadataMap.get(key) || {};
         if (!existing.posterUrl && (h.posterPath || h.posterUrl)) {
           existing.posterUrl = h.posterPath || h.posterUrl;
@@ -271,10 +308,10 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
     });
 
     // 3. Enrichir avec les visites Cinéma
-    const cinemaVisits = (userProfile?.visits || []).filter(v => v.category === 'Cinéma' && v.orderedItem && !rejectedTitles.has(v.orderedItem.toLowerCase().trim()));
+    const cinemaVisits = (userProfile?.visits || []).filter(v => v.category === 'Cinéma' && v.orderedItem && !rejectedTitles.has(normalizeTitle(v.orderedItem)));
     cinemaVisits.forEach(v => {
       if (v.orderedItem) {
-        const key = v.orderedItem.toLowerCase().trim();
+        const key = normalizeTitle(v.orderedItem);
         const existing = metadataMap.get(key) || {};
         existing.watchedInCinema = true;
         if (!existing.cinemaPlace) existing.cinemaPlace = v.placeName;
@@ -282,16 +319,16 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
       }
     });
 
-    // 4. Ensemble des vrais titres vus (seenTitles + seenDataList + classement existant, sans pollution de watchlist)
+    // 4. Ensemble des vrais titres vus UNIQUEMENT depuis les sources de visionnage (SANS rankedFromExisting qui ressuscitait les supprimés)
     const allUniqueTitles = Array.from(new Set([
       ...seenTitles,
       ...seenDataList.map(m => m.title),
-      ...rankedFromExisting,
+      ...cinemaVisits.map(v => v.orderedItem as string),
     ])).filter(t => !isExcluded(t));
 
     // 5. Construction de la liste finale pour le duel
     const results: DuelMovieItem[] = allUniqueTitles.map(title => {
-      const norm = title.toLowerCase().trim();
+      const norm = normalizeTitle(title);
       const meta = metadataMap.get(norm) || {};
       const cached = postersCache[norm];
       const cat = meta.category || (userProfile?.movieCategories || {})[norm] || guessMovieCategory(title, meta.genres);
@@ -309,28 +346,30 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
     });
 
     return results;
-  }, [userProfile?.seenMovieTitles, userProfile?.seenMoviesData, (userProfile as any)?.seenMovieHistory, userProfile?.visits, userProfile?.moviesToWatch, userProfile?.rejectedMovieTitles, userProfile?.seenSeriesTitles, userProfile?.seriesToWatch, existingRanking, postersCache]);
+  }, [userProfile?.seenMovieTitles, userProfile?.seenMoviesData, (userProfile as any)?.seenMovieHistory, userProfile?.visits, userProfile?.moviesToWatch, userProfile?.rejectedMovieTitles, postersCache]);
 
   // Liste des séries vues par l'utilisateur pour le classement et les duels de séries
   const monthlySeenSeries: DuelMovieItem[] = useMemo(() => {
-    const watchlistTitles = new Set((userProfile?.seriesToWatch || []).map(t => (t || '').toLowerCase().trim()));
+    const normalizeTitle = (t?: string) => (t || '').toLowerCase().trim().replace(/['’`]/g, "'");
+    const watchlistTitles = new Set((userProfile?.seriesToWatch || []).map(t => normalizeTitle(t)));
+    const rejectedTitles = new Set((userProfile?.rejectedSeriesTitles || []).map(t => normalizeTitle(t)));
     const isExcluded = (t: string) => {
       if (!t || typeof t !== 'string' || !t.trim()) return true;
-      const norm = t.toLowerCase().trim();
+      const norm = normalizeTitle(t);
       if (isTestMovieTitle(norm)) return true;
       if (watchlistTitles.has(norm)) return true;
+      if (rejectedTitles.has(norm)) return true;
       return false;
     };
 
     const seenTitles = (userProfile?.seenSeriesTitles || []).filter(t => !isExcluded(t));
     const seenDataList = (userProfile?.seenSeriesData || []).filter(s => !isExcluded(s?.title));
-    const rankedFromExisting = (existingSeriesRanking?.rankedTitles || []).filter(t => !isExcluded(t));
 
     const metadataMap = new Map<string, Partial<DuelMovieItem>>();
 
     seenDataList.forEach(s => {
       if (s?.title) {
-        const norm = s.title.toLowerCase().trim();
+        const norm = normalizeTitle(s.title);
         metadataMap.set(norm, {
           posterUrl: s.posterUrl,
           year: s.year,
@@ -342,14 +381,14 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
       }
     });
 
+    // Uniquement depuis les titres vus authentiques (SANS rankedFromExisting)
     const allUniqueTitles = Array.from(new Set([
       ...seenTitles,
       ...seenDataList.map(s => s.title),
-      ...rankedFromExisting,
     ])).filter(t => !isExcluded(t));
 
     const results: DuelMovieItem[] = allUniqueTitles.map(title => {
-      const norm = title.toLowerCase().trim();
+      const norm = normalizeTitle(title);
       const meta = metadataMap.get(norm) || {};
       const cached = postersCache[norm];
       const cat = meta.category || (userProfile?.seriesCategories || {})[norm] || guessMovieCategory(title, meta.genres);
@@ -365,7 +404,8 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
     });
 
     return results;
-  }, [userProfile?.seenSeriesTitles, userProfile?.seenSeriesData, userProfile?.seriesToWatch, userProfile?.seriesCategories, existingSeriesRanking, postersCache]);
+  }, [userProfile?.seenSeriesTitles, userProfile?.seenSeriesData, userProfile?.seriesToWatch, userProfile?.rejectedSeriesTitles, userProfile?.seriesCategories, postersCache]);
+
 
   // Détection et résolution automatique des affiches manquantes (films ou séries selon type)
   useEffect(() => {

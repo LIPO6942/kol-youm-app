@@ -615,6 +615,7 @@ function MovieListContent({
 
 
   const movieTitles = useMemo(() => {
+    const cleanStr = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
     const raw = userProfile?.[listType];
     const rawTitles = (Array.isArray(raw) ? raw : []).filter((t: any) => typeof t === 'string' && !isTestMovieTitle(t));
     const rejectedSet = new Set([
@@ -622,28 +623,28 @@ function MovieListContent({
         ? (userProfile?.rejectedSeriesTitles || [])
         : (userProfile?.rejectedMovieTitles || [])),
       ...Array.from(removedTitles || []),
-    ].map((t: string) => (t || '').toLowerCase().trim()));
+    ].map((t: string) => cleanStr(t)));
 
     if (listType === 'seenMovieTitles') {
-      const watchlistSet = new Set((userProfile?.moviesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
+      const watchlistSet = new Set((userProfile?.moviesToWatch || []).map((t: string) => cleanStr(t)));
       const fromData = (Array.isArray(userProfile?.seenMoviesData) ? userProfile.seenMoviesData : [])
         .map(m => m?.title)
-        .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim()));
+        .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)));
       const cinemaVisits = (Array.isArray(userProfile?.visits) ? userProfile.visits : [])
-        .filter(v => v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string' && !isTestMovieTitle(v.orderedItem) && !rejectedSet.has(v.orderedItem.toLowerCase().trim()))
+        .filter(v => v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string' && !isTestMovieTitle(v.orderedItem) && !rejectedSet.has(cleanStr(v.orderedItem)))
         .map(v => v.orderedItem as string);
       return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits]))
-        .filter(t => !watchlistSet.has(t.toLowerCase().trim()) && !rejectedSet.has(t.toLowerCase().trim()));
+        .filter(t => !watchlistSet.has(cleanStr(t)) && !rejectedSet.has(cleanStr(t)));
     }
     if (listType === 'seenSeriesTitles') {
-      const watchlistSet = new Set((userProfile?.seriesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
+      const watchlistSet = new Set((userProfile?.seriesToWatch || []).map((t: string) => cleanStr(t)));
       const fromData = (Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : [])
         .map(s => s?.title)
-        .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim()));
+        .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)));
       return Array.from(new Set([...rawTitles, ...fromData]))
-        .filter(t => !watchlistSet.has(t.toLowerCase().trim()) && !rejectedSet.has(t.toLowerCase().trim()));
+        .filter(t => !watchlistSet.has(cleanStr(t)) && !rejectedSet.has(cleanStr(t)));
     }
-    return rawTitles.filter(t => !rejectedSet.has(t.toLowerCase().trim()));
+    return rawTitles.filter(t => !rejectedSet.has(cleanStr(t)));
   }, [userProfile, listType, removedTitles]);
 
   const seenMoviesData = type === 'movie' ? userProfile?.seenMoviesData : userProfile?.seenSeriesData;
@@ -702,9 +703,47 @@ function MovieListContent({
   }, [currentMonthKey, userProfile, isSeries]);
 
   const existingRanking = useMemo(() => {
+    const normalizeTitle = (t?: string) => (t || '').toLowerCase().trim().replace(/['’`]/g, "'");
+    const rejectedTitles = new Set([
+      ...(isSeries ? (userProfile?.rejectedSeriesTitles || []) : (userProfile?.rejectedMovieTitles || [])),
+      ...Array.from(removedTitles || []),
+    ].map(t => normalizeTitle(t)));
+    const watchlistTitles = new Set((isSeries ? (userProfile?.seriesToWatch || []) : (userProfile?.moviesToWatch || [])).map(t => normalizeTitle(t)));
+
+    const seenTitlesSet = new Set([
+      ...(isSeries ? (userProfile?.seenSeriesTitles || []) : (userProfile?.seenMovieTitles || [])),
+      ...(Array.isArray(isSeries ? userProfile?.seenSeriesData : userProfile?.seenMoviesData)
+        ? (isSeries ? userProfile!.seenSeriesData! : userProfile!.seenMoviesData!).map((m: any) => m?.title)
+        : []),
+      ...(!isSeries && Array.isArray(userProfile?.visits)
+        ? userProfile!.visits!.filter((v: any) => v?.category === 'Cinéma' && v?.orderedItem).map((v: any) => v.orderedItem)
+        : []),
+    ].filter((t): t is string => typeof t === 'string' && !!t.trim()).map(t => normalizeTitle(t)));
+
+    const sanitize = (r: MonthlyMovieRanking | null): MonthlyMovieRanking | null => {
+      if (!r) return null;
+      const isValid = (t: string) => {
+        if (!t || typeof t !== 'string' || !t.trim()) return false;
+        const norm = normalizeTitle(t);
+        if (isTestMovieTitle(norm)) return false;
+        if (rejectedTitles.has(norm)) return false;
+        if (watchlistTitles.has(norm)) return false;
+        if (seenTitlesSet.size > 0 && !seenTitlesSet.has(norm)) return false;
+        return true;
+      };
+      return {
+        ...r,
+        rankedTitles: (r.rankedTitles || []).filter(isValid),
+        initialRankedTitles: (r.initialRankedTitles || []).filter(isValid),
+        newlyAddedTitles: (r.newlyAddedTitles || []).filter(isValid),
+      };
+    };
+
     // Helper: pick the ranking with the most ranked titles (most complete)
     const pickBest = (candidates: (MonthlyMovieRanking | null | undefined)[]): MonthlyMovieRanking | null => {
-      const valid = candidates.filter((r): r is MonthlyMovieRanking => !!(r && typeof r === 'object' && (r.rankedTitles?.length ?? 0) > 0));
+      const valid = candidates
+        .map(r => sanitize(r ?? null))
+        .filter((r): r is MonthlyMovieRanking => !!(r && typeof r === 'object' && (r.rankedTitles?.length ?? 0) > 0));
       if (valid.length === 0) return null;
       // Prefer the one with the most ranked titles; break ties by most recent
       return valid.reduce((best, curr) => {
@@ -741,17 +780,22 @@ function MovieListContent({
 
     const bestRanking = pickBest([localRanking, ...allProfileRankings, ...localStorageRankings]);
     return bestRanking;
-  }, [userProfile?.movieRankings, userProfile?.seriesRankings, localRanking, userProfile, isSeries]);
+  }, [userProfile?.movieRankings, userProfile?.seriesRankings, localRanking, userProfile, isSeries, removedTitles]);
 
   const duelSeenMovies: DuelMovieItem[] = useMemo(() => {
     if (listType !== 'seenMovieTitles' && listType !== 'seenSeriesTitles') return [];
 
+    const normalizeTitle = (t?: string) => (t || '').toLowerCase().trim().replace(/['’`]/g, "'");
+
     if (isSeries) {
-      const watchlistTitles = new Set((userProfile?.seriesToWatch || []).map(t => (t || '').toLowerCase().trim()));
-      const rejectedTitles = new Set((userProfile?.rejectedSeriesTitles || []).map(t => (t || '').toLowerCase().trim()));
+      const watchlistTitles = new Set((userProfile?.seriesToWatch || []).map(t => normalizeTitle(t)));
+      const rejectedTitles = new Set([
+        ...(userProfile?.rejectedSeriesTitles || []),
+        ...Array.from(removedTitles || []),
+      ].map(t => normalizeTitle(t)));
       const isExcluded = (t: string) => {
         if (!t || typeof t !== 'string' || !t.trim()) return true;
-        const norm = t.toLowerCase().trim();
+        const norm = normalizeTitle(t);
         if (isTestMovieTitle(norm)) return true;
         if (watchlistTitles.has(norm)) return true;
         if (rejectedTitles.has(norm)) return true;
@@ -760,13 +804,12 @@ function MovieListContent({
 
       const seenTitles = (userProfile?.seenSeriesTitles || []).filter(t => !isExcluded(t));
       const seenDataList = (userProfile?.seenSeriesData || []).filter(s => !isExcluded(s?.title));
-      const rankedFromExisting = (existingRanking?.rankedTitles || []).filter(t => !isExcluded(t));
 
       const metadataMap = new Map<string, Partial<DuelMovieItem>>();
 
       seenDataList.forEach(s => {
         if (s?.title) {
-          const norm = s.title.toLowerCase().trim();
+          const norm = normalizeTitle(s.title);
           metadataMap.set(norm, {
             posterUrl: s.posterUrl || movieDetails[s.title]?.posterUrl,
             year: s.year || movieDetails[s.title]?.year,
@@ -781,12 +824,11 @@ function MovieListContent({
       const allUniqueTitles = Array.from(new Set([
         ...seenTitles,
         ...seenDataList.map(s => s.title),
-        ...rankedFromExisting,
         ...(movieTitles || []),
       ])).filter(t => !isExcluded(t));
 
       return allUniqueTitles.map(title => {
-        const norm = title.toLowerCase().trim();
+        const norm = normalizeTitle(title);
         const meta = metadataMap.get(norm) || {};
         const cat = meta.category || (userProfile?.seriesCategories || {})[norm] || guessMovieCategory(title, meta.genres);
         return {
@@ -802,11 +844,14 @@ function MovieListContent({
     }
 
     // Films
-    const watchlistTitles = new Set((userProfile?.moviesToWatch || []).map(t => (t || '').toLowerCase().trim()));
-    const rejectedTitles = new Set((userProfile?.rejectedMovieTitles || []).map(t => (t || '').toLowerCase().trim()));
+    const watchlistTitles = new Set((userProfile?.moviesToWatch || []).map(t => normalizeTitle(t)));
+    const rejectedTitles = new Set([
+      ...(userProfile?.rejectedMovieTitles || []),
+      ...Array.from(removedTitles || []),
+    ].map(t => normalizeTitle(t)));
     const isExcluded = (t: string) => {
       if (!t || typeof t !== 'string' || !t.trim()) return true;
-      const norm = t.toLowerCase().trim();
+      const norm = normalizeTitle(t);
       if (isTestMovieTitle(norm)) return true;
       if (watchlistTitles.has(norm)) return true;
       if (rejectedTitles.has(norm)) return true;
@@ -816,13 +861,12 @@ function MovieListContent({
     const seenTitles = (userProfile?.seenMovieTitles || []).filter(t => !isExcluded(t));
     const seenDataList = (userProfile?.seenMoviesData || []).filter(m => !isExcluded(m?.title));
     const seenHistory = ((userProfile as any)?.seenMovieHistory || []).filter((h: any) => !isExcluded(h?.title));
-    const rankedFromExisting = (existingRanking?.rankedTitles || []).filter(t => !isExcluded(t));
 
     const metadataMap = new Map<string, Partial<DuelMovieItem>>();
 
     seenDataList.forEach(m => {
       if (m?.title) {
-        const norm = m.title.toLowerCase().trim();
+        const norm = normalizeTitle(m.title);
         metadataMap.set(norm, {
           posterUrl: m.posterUrl || movieDetails[m.title]?.posterUrl,
           year: m.year || movieDetails[m.title]?.year,
@@ -838,7 +882,7 @@ function MovieListContent({
 
     seenHistory.forEach((h: any) => {
       if (h?.title) {
-        const key = h.title.toLowerCase().trim();
+        const key = normalizeTitle(h.title);
         const existing = metadataMap.get(key) || {};
         if (!existing.posterUrl && (h.posterPath || h.posterUrl)) {
           existing.posterUrl = h.posterPath || h.posterUrl;
@@ -853,10 +897,10 @@ function MovieListContent({
       }
     });
 
-    const cinemaVisits = (userProfile?.visits || []).filter(v => v.category === 'Cinéma' && v.orderedItem && !rejectedTitles.has(v.orderedItem.toLowerCase().trim()));
+    const cinemaVisits = (userProfile?.visits || []).filter(v => v.category === 'Cinéma' && v.orderedItem && !rejectedTitles.has(normalizeTitle(v.orderedItem)));
     cinemaVisits.forEach(v => {
       if (v.orderedItem) {
-        const key = v.orderedItem.toLowerCase().trim();
+        const key = normalizeTitle(v.orderedItem);
         const existing = metadataMap.get(key) || {};
         existing.watchedInCinema = true;
         if (!existing.cinemaPlace) existing.cinemaPlace = v.placeName;
@@ -867,7 +911,7 @@ function MovieListContent({
     const allUniqueTitles = Array.from(new Set([
       ...seenTitles,
       ...seenDataList.map(m => m.title),
-      ...rankedFromExisting,
+      ...cinemaVisits.map(v => v.orderedItem as string),
       ...(movieTitles || []),
     ])).filter(t => !isExcluded(t));
 
@@ -2106,6 +2150,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
   // Fetch movie details logic lifted from MovieListContent
   const seenMoviesData = type === 'movie' ? userProfile?.seenMoviesData : userProfile?.seenSeriesData;
   const movieTitles = useMemo(() => {
+    const cleanStr = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
     const raw = userProfile?.[listType];
     const rawTitles = (Array.isArray(raw) ? raw : []).filter((t: any) => typeof t === 'string' && !isTestMovieTitle(t));
     const rejectedSet = new Set([
@@ -2113,28 +2158,28 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
         ? (userProfile?.rejectedSeriesTitles || [])
         : (userProfile?.rejectedMovieTitles || [])),
       ...Array.from(removedTitles),
-    ].map((t: string) => (t || '').toLowerCase().trim()));
+    ].map((t: string) => cleanStr(t)));
 
     if (listType === 'seenMovieTitles') {
-      const watchlistSet = new Set((userProfile?.moviesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
+      const watchlistSet = new Set((userProfile?.moviesToWatch || []).map((t: string) => cleanStr(t)));
       const fromData = (Array.isArray(userProfile?.seenMoviesData) ? userProfile.seenMoviesData : [])
         .map(m => m?.title)
-        .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t));
+        .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)));
       const cinemaVisits = (Array.isArray(userProfile?.visits) ? userProfile.visits : [])
-        .filter(v => v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string' && !isTestMovieTitle(v.orderedItem))
+        .filter(v => v && v.category === 'Cinéma' && v.orderedItem && typeof v.orderedItem === 'string' && !isTestMovieTitle(v.orderedItem) && !rejectedSet.has(cleanStr(v.orderedItem)))
         .map(v => v.orderedItem as string);
       return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits]))
-        .filter(t => !watchlistSet.has(t.toLowerCase().trim()) && !rejectedSet.has(t.toLowerCase().trim()));
+        .filter(t => !watchlistSet.has(cleanStr(t)) && !rejectedSet.has(cleanStr(t)));
     }
     if (listType === 'seenSeriesTitles') {
-      const watchlistSet = new Set((userProfile?.seriesToWatch || []).map((t: string) => (t || '').toLowerCase().trim()));
+      const watchlistSet = new Set((userProfile?.seriesToWatch || []).map((t: string) => cleanStr(t)));
       const fromData = (Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : [])
         .map(s => s?.title)
-        .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t));
+        .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)));
       return Array.from(new Set([...rawTitles, ...fromData]))
-        .filter(t => !watchlistSet.has(t.toLowerCase().trim()) && !rejectedSet.has(t.toLowerCase().trim()));
+        .filter(t => !watchlistSet.has(cleanStr(t)) && !rejectedSet.has(cleanStr(t)));
     }
-    return rawTitles.filter(t => !rejectedSet.has(t.toLowerCase().trim()));
+    return rawTitles.filter(t => !rejectedSet.has(cleanStr(t)));
   }, [userProfile, listType, removedTitles]);
 
   const allTitlesToFetch = useMemo(() => {
@@ -2241,9 +2286,11 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
 
   const handleRemove = async (movieTitle: string) => {
     if (!user) return;
-    const norm = movieTitle.toLowerCase().trim();
+    const cleanStr = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
+    const norm = cleanStr(movieTitle);
+    const origLower = movieTitle.toLowerCase().trim();
     // 1. Suppression optimiste immédiate : disparition instantanée de la vue (0ms)
-    setRemovedTitles(prev => new Set(prev).add(norm));
+    setRemovedTitles(prev => new Set(prev).add(norm).add(origLower));
     toast({ title: `"${movieTitle}" supprimé de la liste.` });
 
     try {
@@ -2253,6 +2300,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
       setRemovedTitles(prev => {
         const next = new Set(prev);
         next.delete(norm);
+        next.delete(origLower);
         return next;
       });
       toast({ variant: 'destructive', title: 'Erreur', description: 'Impossible de supprimer cet élément.' });

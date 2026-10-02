@@ -606,14 +606,16 @@ export function calculateCinematicDna(
   });
 
   // Map de métadonnées pour résoudre rapidement affiches et années
+  const cleanStr = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
   const metadataMap = new Map<string, { posterUrl?: string; year?: number; category?: MovieCategory; genres?: string[] }>();
-  const rejectedSet = new Set((mediaType === 'tv' ? userProfile?.rejectedSeriesTitles : userProfile?.rejectedMovieTitles || []).map(t => (t || '').toLowerCase().trim()));
+  const rejectedSet = new Set((mediaType === 'tv' ? userProfile?.rejectedSeriesTitles : userProfile?.rejectedMovieTitles || []).map(t => cleanStr(t)));
   const seenDataSource = (mediaType === 'tv' ? (userProfile?.seenSeriesData || []) : (userProfile?.seenMoviesData || []))
-    .filter(m => m?.title && !rejectedSet.has(m.title.toLowerCase().trim()));
+    .filter(m => m?.title && !rejectedSet.has(cleanStr(m.title)));
+  const seenTitlesSet = new Set(seenDataSource.map(m => cleanStr(m.title)));
 
   seenDataSource.forEach(m => {
     if (m?.title) {
-      const norm = m.title.toLowerCase().trim();
+      const norm = cleanStr(m.title);
       metadataMap.set(norm, {
         posterUrl: m.posterUrl,
         year: m.year,
@@ -625,7 +627,7 @@ export function calculateCinematicDna(
 
   // Déterminer la catégorie d'une œuvre
   const resolveCategory = (title: string): MovieCategory => {
-    const norm = title.toLowerCase().trim();
+    const norm = cleanStr(title);
     const meta = metadataMap.get(norm);
     if (meta?.category && (MOVIE_CATEGORIES as readonly string[]).includes(meta.category)) {
       return meta.category;
@@ -651,7 +653,7 @@ export function calculateCinematicDna(
 
   rankingsEntries.forEach(([_, ranking]) => {
     if (!ranking || !Array.isArray(ranking.rankedTitles)) return;
-    const cleanTitles = ranking.rankedTitles.filter(t => t && typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(t.toLowerCase().trim()));
+    const cleanTitles = ranking.rankedTitles.filter(t => t && typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && seenTitlesSet.has(cleanStr(t)));
     if (cleanTitles.length === 0) return;
 
     hasValidRankings = true;

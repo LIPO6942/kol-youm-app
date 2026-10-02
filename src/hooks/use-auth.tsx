@@ -60,7 +60,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
       if (detail?.deletedTitle) {
-        const norm = String(detail.deletedTitle).toLowerCase().trim();
+        const cleanTitle = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
+        const norm = cleanTitle(detail.deletedTitle);
+        const isMatch = (s?: any) => cleanTitle(s) === norm;
         const isTv = detail.mediaType === 'tv';
         setUserProfile(prev => {
           if (!prev) return prev;
@@ -79,9 +81,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             if (r) {
               currentRankings[k] = {
                 ...r,
-                rankedTitles: (r.rankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm),
-                initialRankedTitles: (r.initialRankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm),
-                newlyAddedTitles: (r.newlyAddedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm),
+                rankedTitles: (r.rankedTitles || []).filter((t: string) => !isMatch(t)),
+                initialRankedTitles: (r.initialRankedTitles || []).filter((t: string) => !isMatch(t)),
+                newlyAddedTitles: (r.newlyAddedTitles || []).filter((t: string) => !isMatch(t)),
                 updatedAt: Date.now(),
               };
             }
@@ -89,9 +91,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
           return {
             ...prev,
-            [listKey]: currentList.filter((t: string) => t.toLowerCase().trim() !== norm),
-            [dataKey]: currentData.filter((m: any) => m?.title?.toLowerCase()?.trim() !== norm),
-            [rejectedKey]: currentRejected.some((t: string) => t.toLowerCase().trim() === norm)
+            [listKey]: currentList.filter((t: string) => !isMatch(t)),
+            [dataKey]: currentData.filter((m: any) => !isMatch(m?.title)),
+            [rejectedKey]: currentRejected.some((t: string) => isMatch(t))
               ? currentRejected
               : [...currentRejected, detail.deletedTitle],
             [rankingsKey]: currentRankings,
@@ -100,7 +102,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
       if (detail?.action === 'added' && detail?.title) {
-        const norm = String(detail.title).toLowerCase().trim();
+        const cleanTitle = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
+        const norm = cleanTitle(detail.title);
+        const isMatch = (s?: any) => cleanTitle(s) === norm;
         setUserProfile(prev => {
           if (!prev) return prev;
           // Remove from rejectedMovieTitles
@@ -113,17 +117,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             if (r) {
               currentRankings[k] = {
                 ...r,
-                rankedTitles: (r.rankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm),
-                initialRankedTitles: (r.initialRankedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm),
-                newlyAddedTitles: (r.newlyAddedTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm),
+                rankedTitles: (r.rankedTitles || []).filter((t: string) => !isMatch(t)),
+                initialRankedTitles: (r.initialRankedTitles || []).filter((t: string) => !isMatch(t)),
+                newlyAddedTitles: (r.newlyAddedTitles || []).filter((t: string) => !isMatch(t)),
                 updatedAt: Date.now(),
               };
             }
           });
           return {
             ...prev,
-            rejectedMovieTitles: currentRejected.filter((t: string) => t.toLowerCase().trim() !== norm),
-            rejectedSeriesTitles: currentRejectedSeries.filter((t: string) => t.toLowerCase().trim() !== norm),
+            rejectedMovieTitles: currentRejected.filter((t: string) => !isMatch(t)),
+            rejectedSeriesTitles: currentRejectedSeries.filter((t: string) => !isMatch(t)),
             movieRankings: currentRankings,
           };
         });
