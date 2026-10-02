@@ -165,7 +165,6 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         const norm = normalizeTitle(t);
         if (isTestMovieTitle(norm)) return false;
         if (rejectedTitles.has(norm)) return false;
-        if (watchlistTitles.has(norm)) return false;
         return true;
       };
       return {
@@ -202,7 +201,6 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
   const existingSeriesRanking = useMemo(() => {
     const normalizeTitle = (t?: string) => (t || '').toLowerCase().trim().replace(/['’`]/g, "'");
     const rejectedTitles = new Set((userProfile?.rejectedSeriesTitles || []).map(t => normalizeTitle(t)));
-    const watchlistTitles = new Set((userProfile?.seriesToWatch || []).map(t => normalizeTitle(t)));
 
     const sanitize = (r: MonthlyMovieRanking | null): MonthlyMovieRanking | null => {
       if (!r) return null;
@@ -211,7 +209,6 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
         const norm = normalizeTitle(t);
         if (isTestMovieTitle(norm)) return false;
         if (rejectedTitles.has(norm)) return false;
-        if (watchlistTitles.has(norm)) return false;
         return true;
       };
       return {
@@ -248,13 +245,11 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
   // Liste des films vus par l'utilisateur pour le classement et les duels
   const monthlySeenMovies: DuelMovieItem[] = useMemo(() => {
     const normalizeTitle = (t?: string) => (t || '').toLowerCase().trim().replace(/['’`]/g, "'");
-    const watchlistTitles = new Set((userProfile?.moviesToWatch || []).map(t => normalizeTitle(t)));
     const rejectedTitles = new Set((userProfile?.rejectedMovieTitles || []).map(t => normalizeTitle(t)));
     const isExcluded = (t: string) => {
       if (!t || typeof t !== 'string' || !t.trim()) return true;
       const norm = normalizeTitle(t);
       if (isTestMovieTitle(norm)) return true;
-      if (watchlistTitles.has(norm)) return true;
       if (rejectedTitles.has(norm)) return true;
       return false;
     };

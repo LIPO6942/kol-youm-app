@@ -626,7 +626,6 @@ function MovieListContent({
     ].map((t: string) => cleanStr(t)));
 
     if (listType === 'seenMovieTitles') {
-      const watchlistSet = new Set((userProfile?.moviesToWatch || []).map((t: string) => cleanStr(t)));
       const fromData = (Array.isArray(userProfile?.seenMoviesData) ? userProfile.seenMoviesData : [])
         .map(m => m?.title)
         .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)));
@@ -639,7 +638,7 @@ function MovieListContent({
         Object.values(userProfile.movieRankings).forEach((r: any) => {
           if (Array.isArray(r?.rankedTitles)) {
             r.rankedTitles.forEach((t: any) => {
-              if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+              if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t))) {
                 fromRankings.push(t.trim());
               }
             });
@@ -653,7 +652,7 @@ function MovieListContent({
             Object.values(JSON.parse(allLS)).forEach((r: any) => {
               if (Array.isArray(r?.rankedTitles)) {
                 r.rankedTitles.forEach((t: any) => {
-                  if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                  if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t))) {
                     fromRankings.push(t.trim());
                   }
                 });
@@ -664,10 +663,9 @@ function MovieListContent({
       }
 
       return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits, ...fromRankings]))
-        .filter(t => !watchlistSet.has(cleanStr(t)) && !rejectedSet.has(cleanStr(t)));
+        .filter(t => !rejectedSet.has(cleanStr(t)));
     }
     if (listType === 'seenSeriesTitles') {
-      const watchlistSet = new Set((userProfile?.seriesToWatch || []).map((t: string) => cleanStr(t)));
       const fromData = (Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : [])
         .map(s => s?.title)
         .filter((t): t is string => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)));
@@ -677,7 +675,7 @@ function MovieListContent({
         Object.values(userProfile.seriesRankings).forEach((r: any) => {
           if (Array.isArray(r?.rankedTitles)) {
             r.rankedTitles.forEach((t: any) => {
-              if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+              if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t))) {
                 fromRankings.push(t.trim());
               }
             });
@@ -691,7 +689,7 @@ function MovieListContent({
             Object.values(JSON.parse(allLS)).forEach((r: any) => {
               if (Array.isArray(r?.rankedTitles)) {
                 r.rankedTitles.forEach((t: any) => {
-                  if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                  if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t))) {
                     fromRankings.push(t.trim());
                   }
                 });
@@ -702,7 +700,24 @@ function MovieListContent({
       }
 
       return Array.from(new Set([...rawTitles, ...fromData, ...fromRankings]))
-        .filter(t => !watchlistSet.has(cleanStr(t)) && !rejectedSet.has(cleanStr(t)));
+        .filter(t => !rejectedSet.has(cleanStr(t)));
+    }
+    if (listType === 'moviesToWatch') {
+      const seenSet = new Set([
+        ...(userProfile?.seenMovieTitles || []),
+        ...((Array.isArray(userProfile?.seenMoviesData) ? userProfile.seenMoviesData : []).map(m => m?.title)),
+        ...((Array.isArray(userProfile?.visits) ? userProfile.visits : []).filter(v => v?.category === 'Cinéma' && v?.orderedItem).map(v => v.orderedItem)),
+      ].filter((t): t is string => typeof t === 'string' && !!t.trim()).map(t => cleanStr(t)));
+
+      return rawTitles.filter(t => !rejectedSet.has(cleanStr(t)) && !seenSet.has(cleanStr(t)));
+    }
+    if (listType === 'seriesToWatch') {
+      const seenSet = new Set([
+        ...(userProfile?.seenSeriesTitles || []),
+        ...((Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : []).map(s => s?.title)),
+      ].filter((t): t is string => typeof t === 'string' && !!t.trim()).map(t => cleanStr(t)));
+
+      return rawTitles.filter(t => !rejectedSet.has(cleanStr(t)) && !seenSet.has(cleanStr(t)));
     }
     return rawTitles.filter(t => !rejectedSet.has(cleanStr(t)));
   }, [userProfile, listType, removedTitles]);
@@ -787,7 +802,6 @@ function MovieListContent({
         const norm = normalizeTitle(t);
         if (isTestMovieTitle(norm)) return false;
         if (rejectedTitles.has(norm)) return false;
-        if (watchlistTitles.has(norm)) return false;
         return true;
       };
       return {
@@ -847,7 +861,6 @@ function MovieListContent({
     const normalizeTitle = (t?: string) => (t || '').toLowerCase().trim().replace(/['’`]/g, "'");
 
     if (isSeries) {
-      const watchlistTitles = new Set((userProfile?.seriesToWatch || []).map(t => normalizeTitle(t)));
       const rejectedTitles = new Set([
         ...(userProfile?.rejectedSeriesTitles || []),
         ...Array.from(removedTitles || []),
@@ -856,7 +869,6 @@ function MovieListContent({
         if (!t || typeof t !== 'string' || !t.trim()) return true;
         const norm = normalizeTitle(t);
         if (isTestMovieTitle(norm)) return true;
-        if (watchlistTitles.has(norm)) return true;
         if (rejectedTitles.has(norm)) return true;
         return false;
       };
@@ -903,7 +915,6 @@ function MovieListContent({
     }
 
     // Films
-    const watchlistTitles = new Set((userProfile?.moviesToWatch || []).map(t => normalizeTitle(t)));
     const rejectedTitles = new Set([
       ...(userProfile?.rejectedMovieTitles || []),
       ...Array.from(removedTitles || []),
@@ -912,7 +923,6 @@ function MovieListContent({
       if (!t || typeof t !== 'string' || !t.trim()) return true;
       const norm = normalizeTitle(t);
       if (isTestMovieTitle(norm)) return true;
-      if (watchlistTitles.has(norm)) return true;
       if (rejectedTitles.has(norm)) return true;
       return false;
     };
@@ -1004,34 +1014,116 @@ function MovieListContent({
 
   // Helper to extract the most accurate viewing timestamp for a movie or series
   const getMovieViewTimestamp = useCallback((movieTitle: string): number => {
-    const norm = movieTitle.toLowerCase().trim();
+    const cleanStr = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
+    const norm = cleanStr(movieTitle);
+    const origNorm = movieTitle.toLowerCase().trim();
+
     // 1. Check local date if just edited in dialog
-    const localDate = localViewedDates[norm];
+    const localDate = localViewedDates[norm] ?? localViewedDates[origNorm];
     if (localDate !== undefined) {
       return localDate || 0;
     }
+
     // 2. Check metadata in seenMoviesData / seenSeriesData
-    const seenData = seenMoviesData?.find((m: any) => m?.title?.toLowerCase()?.trim() === norm);
+    const seenData = seenMoviesData?.find((m: any) => cleanStr(m?.title) === norm || m?.title?.toLowerCase()?.trim() === origNorm);
     if (seenData?.viewedAt) {
       return seenData.viewedAt;
     }
+
     // 3. Check movieDetails
-    const details = movieDetails[movieTitle] || Object.entries(movieDetails).find(([k]) => k.toLowerCase().trim() === norm)?.[1];
+    const details = movieDetails[movieTitle] || Object.entries(movieDetails).find(([k]) => cleanStr(k) === norm)?.[1];
     if (details?.viewedAt) {
       return details.viewedAt;
     }
+
     // 4. Check cinema visits
-    const cinemaVisit = userProfile?.visits?.find(v => v.category === 'Cinéma' && v.orderedItem?.toLowerCase()?.trim() === norm);
+    const cinemaVisit = userProfile?.visits?.find(v => v.category === 'Cinéma' && (cleanStr(v.orderedItem) === norm || v.orderedItem?.toLowerCase()?.trim() === origNorm));
     if (cinemaVisit?.date) {
       const visitTs = new Date(cinemaVisit.date).getTime();
       if (!isNaN(visitTs)) return visitTs;
     }
+
     // 5. Fallback to addedAt if marked seen without explicit viewing date
     if (seenData?.addedAt) {
       return seenData.addedAt;
     }
+
+    // 6. Check seenMovieHistory
+    const historyItem = ((userProfile as any)?.seenMovieHistory || []).find((h: any) => cleanStr(h?.title) === norm || h?.title?.toLowerCase()?.trim() === origNorm);
+    if (historyItem?.addedAt) {
+      return historyItem.addedAt;
+    }
+
+    // 7. Check rankings (from userProfile and localStorage)
+    const rankings = isSeries ? (userProfile?.seriesRankings || {}) : (userProfile?.movieRankings || {});
+    let foundTime: number | undefined;
+
+    for (const [mKey, r] of Object.entries(rankings as Record<string, any>)) {
+      if (!r) continue;
+      const match = (r.rankedTitles || []).some((t: string) => cleanStr(t) === norm)
+        || (r.initialRankedTitles || []).some((t: string) => cleanStr(t) === norm)
+        || (r.newlyAddedTitles || []).some((t: string) => cleanStr(t) === norm);
+      if (match) {
+        if (Array.isArray(r.duelHistory)) {
+          const duel = r.duelHistory.find((d: any) => cleanStr(d?.winner) === norm || cleanStr(d?.loser) === norm);
+          if (duel && typeof (duel.timestamp || duel.date) === 'number') {
+            foundTime = duel.timestamp || duel.date;
+            break;
+          }
+        }
+        if (r.updatedAt || r.publishedAt) {
+          foundTime = r.updatedAt || r.publishedAt;
+          break;
+        }
+        const [yStr, mStr] = mKey.split('-');
+        const y = parseInt(yStr, 10);
+        const m = parseInt(mStr, 10) - 1;
+        if (!isNaN(y) && !isNaN(m)) {
+          foundTime = new Date(y, m, 15).getTime();
+          break;
+        }
+      }
+    }
+
+    if (!foundTime && typeof window !== 'undefined') {
+      try {
+        const lsKey = isSeries ? 'kolyoum_series_rankings' : 'kolyoum_movie_rankings';
+        const lsAll = localStorage.getItem(lsKey);
+        if (lsAll) {
+          const parsed = JSON.parse(lsAll);
+          for (const [mKey, r] of Object.entries(parsed as Record<string, any>)) {
+            if (!r) continue;
+            const match = (r.rankedTitles || []).some((t: string) => cleanStr(t) === norm);
+            if (match) {
+              if (r.updatedAt || r.publishedAt) {
+                foundTime = r.updatedAt || r.publishedAt;
+                break;
+              }
+              const [yStr, mStr] = mKey.split('-');
+              const y = parseInt(yStr, 10);
+              const m = parseInt(mStr, 10) - 1;
+              if (!isNaN(y) && !isNaN(m)) {
+                foundTime = new Date(y, m, 15).getTime();
+                break;
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+
+    if (foundTime) return foundTime;
+
+    // 8. Fallback to release year if available
+    if (details?.year) {
+      return new Date(details.year, 0, 1).getTime();
+    }
+    if (seenData?.year) {
+      return new Date(seenData.year, 0, 1).getTime();
+    }
+
     return 0;
-  }, [localViewedDates, seenMoviesData, movieDetails, userProfile?.visits]);
+  }, [localViewedDates, seenMoviesData, movieDetails, userProfile?.visits, (userProfile as any)?.seenMovieHistory, userProfile?.movieRankings, userProfile?.seriesRankings, isSeries]);
 
   // Sort movies: for seen movies/series, sort strictly by viewing date descending (most recently viewed always on top)
   const sortedMovieTitles = useMemo(() => {
@@ -1112,10 +1204,7 @@ function MovieListContent({
     if (!isSeenList) return null;
     const groups: Record<number, string[]> = {};
     filteredMovies.forEach((title: string) => {
-      const norm = title.toLowerCase().trim();
-      const localDate = localViewedDates[norm];
-      const seenData = seenMoviesData?.find((m: any) => m?.title?.toLowerCase()?.trim() === norm);
-      const ts = localDate !== undefined ? localDate : (seenData?.viewedAt || seenData?.addedAt || undefined);
+      const ts = getMovieViewTimestamp(title);
       const year = ts ? new Date(ts).getFullYear() : 0;
       if (!groups[year]) groups[year] = [];
       groups[year].push(title);
@@ -1127,7 +1216,7 @@ function MovieListContent({
         if (b.year === 0) return -1;
         return b.year - a.year;
       });
-  }, [filteredMovies, listType, localViewedDates, seenMoviesData]);
+  }, [filteredMovies, listType, getMovieViewTimestamp]);
 
   const [collapsedYears, setCollapsedYears] = useState<Record<number, boolean>>({});
   const toggleYear = (year: number) => setCollapsedYears(prev => ({ ...prev, [year]: !prev[year] }));
@@ -1229,7 +1318,8 @@ function MovieListContent({
     const details = movieDetails[movieTitle] || Object.entries(movieDetails).find(([k]) => k.toLowerCase().trim() === norm)?.[1];
     const seenData = seenMoviesData?.find(m => m?.title?.toLowerCase()?.trim() === norm);
     const localDate = localViewedDates[norm];
-    const viewedAt = localDate !== undefined ? (localDate || undefined) : (details?.viewedAt || seenData?.viewedAt);
+    const fallbackTs = getMovieViewTimestamp(movieTitle);
+    const viewedAt = localDate !== undefined ? (localDate || undefined) : (details?.viewedAt || seenData?.viewedAt || (fallbackTs > 0 ? fallbackTs : undefined));
     const posterUrl = details?.posterUrl || seenData?.posterUrl;
     const movieCountry = details?.country || (seenData as any)?.country;
 
@@ -1451,7 +1541,8 @@ function MovieListContent({
     const details = movieDetails[movieTitle] || Object.entries(movieDetails).find(([k]) => k.toLowerCase().trim() === norm)?.[1];
     const seenData = seenMoviesData?.find(m => m?.title?.toLowerCase()?.trim() === norm);
     const localDate = localViewedDates[norm];
-    const viewedAt = localDate !== undefined ? (localDate || undefined) : (details?.viewedAt || seenData?.viewedAt);
+    const fallbackTs = getMovieViewTimestamp(movieTitle);
+    const viewedAt = localDate !== undefined ? (localDate || undefined) : (details?.viewedAt || seenData?.viewedAt || (fallbackTs > 0 ? fallbackTs : undefined));
     const posterUrl = details?.posterUrl || seenData?.posterUrl;
     const movieCountry = details?.country || (seenData as any)?.country;
 
@@ -2370,7 +2461,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
           country,
           posterUrl,
           collection,
-          viewedAt: seenData?.viewedAt,
+          viewedAt: seenData?.viewedAt || getMovieViewTimestamp(movieTitle) || undefined,
         }
       }));
 

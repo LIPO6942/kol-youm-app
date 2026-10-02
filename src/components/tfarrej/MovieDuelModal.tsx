@@ -108,7 +108,6 @@ export function MovieDuelModal({
         const norm = normalizeTitle(t);
         if (isTestMovieTitle(norm)) return false;
         if (rejectedSet.has(norm)) return false;
-        if (watchlistSet.has(norm)) return false;
         return true;
       };
       return {

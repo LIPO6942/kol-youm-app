@@ -2752,29 +2752,39 @@ export async function sanitizeAndHealMovieData(
                 const y = parseInt(yStr, 10);
                 const m = parseInt(mStr, 10) - 1;
                 const estimatedTime = (!isNaN(y) && !isNaN(m)) ? new Date(y, m, 15).getTime() : undefined;
+                const rankingTime = r.updatedAt || r.publishedAt || estimatedTime;
 
-                const registerTitle = (t: string) => {
+                const registerTitle = (t: string, specificTime?: number) => {
                     if (t && typeof t === 'string' && t.trim()) {
                         const norm = t.trim().toLowerCase();
                         const c = cleanStr(norm);
                         rankedTitlesSet.add(norm);
                         rankedTitlesSet.add(c);
                         if (!prettyTitleByNorm.has(c)) prettyTitleByNorm.set(c, t.trim());
-                        if (estimatedTime && mKey !== '2026-09' && !monthlyRankingDateByTitle.has(c)) {
-                            monthlyRankingDateByTitle.set(c, estimatedTime);
+                        const bestTime = specificTime || rankingTime;
+                        if (bestTime && !monthlyRankingDateByTitle.has(c)) {
+                            monthlyRankingDateByTitle.set(c, bestTime);
                         }
                     }
                 };
 
-                if (Array.isArray(r.rankedTitles)) r.rankedTitles.forEach(registerTitle);
-                if (Array.isArray(r.initialRankedTitles)) r.initialRankedTitles.forEach(registerTitle);
-                if (Array.isArray(r.newlyAddedTitles)) r.newlyAddedTitles.forEach(registerTitle);
                 if (Array.isArray(r.duelHistory)) {
                     r.duelHistory.forEach((d: any) => {
-                        if (d?.winner) registerTitle(d.winner);
-                        if (d?.loser) registerTitle(d.loser);
-                        if (d?.movieA) registerTitle(d.movieA);
-                        if (d?.movieB) registerTitle(d.movieB);
+                        const duelTs = typeof (d?.timestamp || d?.date) === 'number' ? (d?.timestamp || d?.date) : undefined;
+                        if (d?.winner) registerTitle(d.winner, duelTs);
+                        if (d?.loser) registerTitle(d.loser, duelTs);
+                        if (d?.movieA) registerTitle(d.movieA, duelTs);
+                        if (d?.movieB) registerTitle(d.movieB, duelTs);
+                    });
+                }
+                if (Array.isArray(r.rankedTitles)) r.rankedTitles.forEach(t => registerTitle(t));
+                if (Array.isArray(r.initialRankedTitles)) r.initialRankedTitles.forEach(t => registerTitle(t));
+                if (Array.isArray(r.newlyAddedTitles)) r.newlyAddedTitles.forEach(t => registerTitle(t));
+                if (r.movieCatalog && typeof r.movieCatalog === 'object') {
+                    Object.entries(r.movieCatalog).forEach(([t, item]: [string, any]) => {
+                        const catTs = item?.viewedAt || item?.addedAt;
+                        registerTitle(t, typeof catTs === 'number' ? catTs : undefined);
+                        if (item?.title) registerTitle(item.title, typeof catTs === 'number' ? catTs : undefined);
                     });
                 }
             }
@@ -2795,22 +2805,9 @@ export async function sanitizeAndHealMovieData(
         return !isNaN(d.getTime()) && d.getFullYear() === 2026 && d.getMonth() === 8 && d.getDate() === 4;
     };
 
-    // Helper : déterminer si un film est authentiquement un film vu
-    const isTrulySeen = (norm: string, item?: any) => {
-        const c = cleanStr(norm);
-        if (rejectedTitlesSet.has(c)) return false;
-        if (cinemaDateByTitle.has(norm) || cinemaDateByTitle.has(c)) return true;
-        if (historyDateByTitle.has(norm) || historyDateByTitle.has(c)) return true;
-        if (rankedTitlesSet.has(norm) || rankedTitlesSet.has(c)) return true;
-        if (item?.watchedInCinema) return true;
-        if (item?.viewedAt && !isFakeSept4(item.viewedAt)) return true;
-        return false;
-    };
+    const seenMap = new Map<string, { title: string; posterUrl?: string; year?: number; rating?: number; watchedInCinema?: boolean; cinemaPlace?: string; viewedAt?: number; addedAt?: number; genres?: string[]; category?: string }>();
 
-    const seenMap = new Map<string, { title: string; posterUrl?: string; year?: number; rating?: number; watchedInCinema?: boolean; cinemaPlace?: string; viewedAt?: number; addedAt?: number; genres?: string[] }>();
-    const restoredToWatchlist = new Set<string>();
-
-    // 1. Examiner seenMoviesData
+    // 1. Examiner seenMoviesData : TOUT film vu déclaré par l'utilisateur reste un film vu (jamais dégradé en 'à voir')
     seenDataRaw.forEach((item: any) => {
         if (!item || !item.title || typeof item.title !== 'string') return;
         const norm = item.title.trim().toLowerCase();
@@ -2820,36 +2817,33 @@ export async function sanitizeAndHealMovieData(
             return;
         }
 
-        if (!isTrulySeen(norm, item)) {
-            // Le film n'a aucune visite cinéma, aucun historique, aucun classement :
-            // Il appartenait à l'origine à la liste 'À voir'
-            restoredToWatchlist.add(item.title.trim());
-            hasChanges = true;
-            return;
-        }
-
         let viewedAt = item.viewedAt;
         let addedAt = item.addedAt;
 
+        const cinemaInfo = cinemaDateByTitle.get(norm) || cinemaDateByTitle.get(c);
+        const historyDate = historyDateByTitle.get(norm) || historyDateByTitle.get(c);
+        const rankingDate = monthlyRankingDateByTitle.get(norm) || monthlyRankingDateByTitle.get(c);
+        const realDate = cinemaInfo?.date || historyDate || rankingDate;
+
         if (isFakeSept4(viewedAt) || isFakeSept4(addedAt)) {
-            const cinemaInfo = cinemaDateByTitle.get(norm) || cinemaDateByTitle.get(c);
-            const historyDate = historyDateByTitle.get(norm) || historyDateByTitle.get(c);
-            const rankingDate = monthlyRankingDateByTitle.get(norm) || monthlyRankingDateByTitle.get(c);
-            const realDate = cinemaInfo?.date || historyDate || rankingDate;
             if (realDate) {
                 viewedAt = realDate;
                 addedAt = realDate;
-            } else {
-                viewedAt = undefined;
-                addedAt = undefined;
+                hasChanges = true;
             }
+        }
+
+        if (!viewedAt && realDate) {
+            viewedAt = realDate;
+            addedAt = addedAt || realDate;
+            hasChanges = true;
+        } else if (!viewedAt && addedAt) {
+            viewedAt = addedAt;
             hasChanges = true;
         }
 
-        const cinemaInfo = cinemaDateByTitle.get(norm) || cinemaDateByTitle.get(c);
         const watchedInCinema = item.watchedInCinema || !!cinemaInfo;
         const cinemaPlace = item.cinemaPlace || cinemaInfo?.placeName;
-
         const category = item.category || updated.movieCategories?.[norm] || updated.movieCategories?.[c];
 
         seenMap.set(c, {
@@ -2876,34 +2870,34 @@ export async function sanitizeAndHealMovieData(
             return;
         }
 
-        if (!isTrulySeen(norm)) {
-            restoredToWatchlist.add(t.trim());
-            hasChanges = true;
-            return;
-        }
-
         const existing = seenMap.get(c);
         const cinemaInfo = cinemaDateByTitle.get(norm) || cinemaDateByTitle.get(c);
         const historyDate = historyDateByTitle.get(norm) || historyDateByTitle.get(c);
         const rankingDate = monthlyRankingDateByTitle.get(norm) || monthlyRankingDateByTitle.get(c);
         const realDate = cinemaInfo?.date || historyDate || rankingDate;
+        const category = updated.movieCategories?.[norm] || updated.movieCategories?.[c];
 
         if (!existing) {
             seenMap.set(c, {
                 title: t.trim(),
                 ...(cinemaInfo && { watchedInCinema: true, cinemaPlace: cinemaInfo.placeName }),
                 ...(realDate && { viewedAt: realDate, addedAt: realDate }),
+                ...(category && { category }),
             });
             hasChanges = true;
         } else {
             if (!existing.viewedAt && realDate) {
                 existing.viewedAt = realDate;
-                existing.addedAt = realDate;
+                existing.addedAt = existing.addedAt || realDate;
                 hasChanges = true;
             }
             if (cinemaInfo && !existing.watchedInCinema) {
                 existing.watchedInCinema = true;
                 if (cinemaInfo.placeName) existing.cinemaPlace = cinemaInfo.placeName;
+                hasChanges = true;
+            }
+            if (!existing.category && category) {
+                existing.category = category;
                 hasChanges = true;
             }
         }
@@ -2931,14 +2925,72 @@ export async function sanitizeAndHealMovieData(
     rankedTitlesSet.forEach(norm => {
         const c = cleanStr(norm);
         if (isTestMovieTitle(c) || rejectedTitlesSet.has(c)) return;
+        const rankingDate = monthlyRankingDateByTitle.get(norm) || monthlyRankingDateByTitle.get(c);
         if (!seenMap.has(c)) {
             const prettyTitle = prettyTitleByNorm.get(c) || prettyTitleByNorm.get(norm) || norm;
-            const rankingDate = monthlyRankingDateByTitle.get(norm) || monthlyRankingDateByTitle.get(c);
             seenMap.set(c, {
                 title: prettyTitle,
                 ...(rankingDate && { viewedAt: rankingDate, addedAt: rankingDate }),
             });
             hasChanges = true;
+        } else {
+            const existing = seenMap.get(c)!;
+            if (!existing.viewedAt && rankingDate) {
+                existing.viewedAt = rankingDate;
+                existing.addedAt = existing.addedAt || rankingDate;
+                hasChanges = true;
+            }
+        }
+    });
+
+    // 3c. SAUVETAGE CRUCIAL : Tout film actuellement dans moviesToWatch qui est en réalité un film vu
+    // (classé, vu au cinéma, dans l'historique ou avec catégorie/note) est ramené dans les films vus
+    const currentWatchlist: string[] = Array.isArray(updated.moviesToWatch) ? updated.moviesToWatch : [];
+    currentWatchlist.forEach((t: string) => {
+        if (!t || typeof t !== 'string') return;
+        const norm = t.trim().toLowerCase();
+        const c = cleanStr(norm);
+        if (isTestMovieTitle(c) || rejectedTitlesSet.has(c)) return;
+
+        const isActuallySeen = rankedTitlesSet.has(norm) || rankedTitlesSet.has(c) ||
+            cinemaDateByTitle.has(norm) || cinemaDateByTitle.has(c) ||
+            historyDateByTitle.has(norm) || historyDateByTitle.has(c) ||
+            (updated.movieCategories && (updated.movieCategories[norm] || updated.movieCategories[c])) ||
+            seenMap.has(c);
+
+        if (isActuallySeen) {
+            const cinemaInfo = cinemaDateByTitle.get(norm) || cinemaDateByTitle.get(c);
+            const historyDate = historyDateByTitle.get(norm) || historyDateByTitle.get(c);
+            const rankingDate = monthlyRankingDateByTitle.get(norm) || monthlyRankingDateByTitle.get(c);
+            const realDate = cinemaInfo?.date || historyDate || rankingDate;
+            const category = (updated.movieCategories && (updated.movieCategories[norm] || updated.movieCategories[c]));
+
+            if (!seenMap.has(c)) {
+                const prettyTitle = prettyTitleByNorm.get(c) || prettyTitleByNorm.get(norm) || t.trim();
+                seenMap.set(c, {
+                    title: prettyTitle,
+                    ...(cinemaInfo && { watchedInCinema: true, cinemaPlace: cinemaInfo.placeName }),
+                    ...(realDate && { viewedAt: realDate, addedAt: realDate }),
+                    ...(category && { category }),
+                });
+                hasChanges = true;
+            } else {
+                const existing = seenMap.get(c)!;
+                if (!existing.viewedAt && realDate) {
+                    existing.viewedAt = realDate;
+                    existing.addedAt = existing.addedAt || realDate;
+                    hasChanges = true;
+                }
+                if (cinemaInfo && !existing.watchedInCinema) {
+                    existing.watchedInCinema = true;
+                    if (cinemaInfo.placeName) existing.cinemaPlace = cinemaInfo.placeName;
+                    hasChanges = true;
+                }
+                if (!existing.category && category) {
+                    existing.category = category;
+                    hasChanges = true;
+                }
+            }
         }
     });
 
@@ -2953,16 +3005,15 @@ export async function sanitizeAndHealMovieData(
     updated.seenMoviesData = newSeenMoviesData;
     updated.seenMovieTitles = newSeenMovieTitles;
 
-    // F. Reconstitution fidèle de moviesToWatch
+    // F. Reconstitution fidèle de moviesToWatch (aucun film vu ne doit rester dans 'À voir')
     const seenNormSet = new Set(Array.from(seenMap.values()).map(m => cleanStr(m.title)));
-    const currentWatchlist: string[] = Array.isArray(updated.moviesToWatch) ? updated.moviesToWatch : [];
-    const combinedWatchlist = Array.from(new Set([
-        ...currentWatchlist,
-        ...Array.from(restoredToWatchlist)
-    ])).filter(t => !isTestMovieTitle(t) && !seenNormSet.has(cleanStr(t)) && !rejectedTitlesSet.has(cleanStr(t)));
+    const filteredWatchlist = currentWatchlist.filter((t: string) => {
+        const c = cleanStr(t);
+        return !isTestMovieTitle(c) && !rejectedTitlesSet.has(c) && !seenNormSet.has(c);
+    });
 
-    if (combinedWatchlist.length !== currentWatchlist.length || restoredToWatchlist.size > 0) {
-        updated.moviesToWatch = combinedWatchlist;
+    if (filteredWatchlist.length !== currentWatchlist.length) {
+        updated.moviesToWatch = filteredWatchlist;
         hasChanges = true;
     }
 
@@ -3012,11 +3063,80 @@ export async function sanitizeAndHealMovieData(
     const rejectedSeriesTitlesRaw: string[] = Array.isArray(updated.rejectedSeriesTitles) ? updated.rejectedSeriesTitles : [];
     const rejectedSeriesTitlesSet = new Set(rejectedSeriesTitlesRaw.map(t => cleanStr(t)));
 
-    if (Array.isArray(updated.seenSeriesTitles) || Array.isArray(updated.seenSeriesData)) {
+    const seriesRankingDateByTitle = new Map<string, number>();
+    const seriesRankingsSet = new Set<string>();
+    const seriesPrettyTitleByNorm = new Map<string, string>();
+
+    // Fusion des séries depuis localStorage
+    if (typeof window !== 'undefined') {
+        try {
+            const allSeriesLS = localStorage.getItem('kolyoum_series_rankings');
+            if (allSeriesLS) {
+                const parsedLS = JSON.parse(allSeriesLS);
+                if (parsedLS && typeof parsedLS === 'object') {
+                    if (!updated.seriesRankings) updated.seriesRankings = {};
+                    Object.entries(parsedLS).forEach(([mKey, rLS]: [string, any]) => {
+                        const rCurrent = updated.seriesRankings[mKey];
+                        const lsLen = (rLS?.rankedTitles || []).length;
+                        const currLen = (rCurrent?.rankedTitles || []).length;
+                        if (lsLen > currLen) {
+                            updated.seriesRankings[mKey] = rLS;
+                            hasChanges = true;
+                        }
+                    });
+                }
+            }
+        } catch {}
+    }
+
+    if (updated.seriesRankings && typeof updated.seriesRankings === 'object') {
+        Object.entries(updated.seriesRankings).forEach(([mKey, r]: [string, any]) => {
+            if (r) {
+                const [yStr, mStr] = mKey.split('-');
+                const y = parseInt(yStr, 10);
+                const m = parseInt(mStr, 10) - 1;
+                const estimatedTime = (!isNaN(y) && !isNaN(m)) ? new Date(y, m, 15).getTime() : undefined;
+                const rankingTime = r.updatedAt || r.publishedAt || estimatedTime;
+                const registerSeriesTitle = (t: string, specificTime?: number) => {
+                    if (t && typeof t === 'string' && t.trim()) {
+                        const norm = t.trim().toLowerCase();
+                        const c = cleanStr(norm);
+                        seriesRankingsSet.add(norm);
+                        seriesRankingsSet.add(c);
+                        if (!seriesPrettyTitleByNorm.has(c)) seriesPrettyTitleByNorm.set(c, t.trim());
+                        const bestTime = specificTime || rankingTime;
+                        if (bestTime && !seriesRankingDateByTitle.has(c)) {
+                            seriesRankingDateByTitle.set(c, bestTime);
+                        }
+                    }
+                };
+                if (Array.isArray(r.duelHistory)) {
+                    r.duelHistory.forEach((d: any) => {
+                        const duelTs = typeof (d?.timestamp || d?.date) === 'number' ? (d?.timestamp || d?.date) : undefined;
+                        if (d?.winner) registerSeriesTitle(d.winner, duelTs);
+                        if (d?.loser) registerSeriesTitle(d.loser, duelTs);
+                        if (d?.movieA) registerSeriesTitle(d.movieA, duelTs);
+                        if (d?.movieB) registerSeriesTitle(d.movieB, duelTs);
+                    });
+                }
+                if (Array.isArray(r.rankedTitles)) r.rankedTitles.forEach(t => registerSeriesTitle(t));
+                if (Array.isArray(r.initialRankedTitles)) r.initialRankedTitles.forEach(t => registerSeriesTitle(t));
+                if (Array.isArray(r.newlyAddedTitles)) r.newlyAddedTitles.forEach(t => registerSeriesTitle(t));
+                if (r.movieCatalog && typeof r.movieCatalog === 'object') {
+                    Object.entries(r.movieCatalog).forEach(([t, item]: [string, any]) => {
+                        const catTs = item?.viewedAt || item?.addedAt;
+                        registerSeriesTitle(t, typeof catTs === 'number' ? catTs : undefined);
+                        if (item?.title) registerSeriesTitle(item.title, typeof catTs === 'number' ? catTs : undefined);
+                    });
+                }
+            }
+        });
+    }
+
+    if (Array.isArray(updated.seenSeriesTitles) || Array.isArray(updated.seenSeriesData) || Array.isArray(updated.seriesToWatch)) {
         const seenSeriesTitlesRaw: string[] = Array.isArray(updated.seenSeriesTitles) ? updated.seenSeriesTitles : [];
         const seenSeriesDataRaw: any[] = Array.isArray(updated.seenSeriesData) ? updated.seenSeriesData : [];
         const currentSeriesWatchlist: string[] = Array.isArray(updated.seriesToWatch) ? updated.seriesToWatch : [];
-        const restoredSeriesToWatch = new Set<string>();
         const seenSeriesMap = new Map<string, any>();
 
         seenSeriesDataRaw.forEach((s: any) => {
@@ -3028,12 +3148,15 @@ export async function sanitizeAndHealMovieData(
                 return;
             }
 
-            if (!s.viewedAt || isFakeSept4(s.viewedAt)) {
-                restoredSeriesToWatch.add(s.title.trim());
+            let viewedAt = s.viewedAt;
+            const rankingDate = seriesRankingDateByTitle.get(c) || seriesRankingDateByTitle.get(norm);
+            if (!viewedAt && rankingDate) {
+                viewedAt = rankingDate;
+                s.viewedAt = rankingDate;
                 hasChanges = true;
-                return;
             }
-            seenSeriesMap.set(c, s);
+            const category = s.category || (updated.seriesCategories && (updated.seriesCategories[norm] || updated.seriesCategories[c]));
+            seenSeriesMap.set(c, { ...s, ...(viewedAt && { viewedAt }), ...(category && { category }) });
         });
 
         seenSeriesTitlesRaw.forEach((t: string) => {
@@ -3044,9 +3167,82 @@ export async function sanitizeAndHealMovieData(
                 hasChanges = true;
                 return;
             }
-            if (!seenSeriesMap.has(c)) {
-                restoredSeriesToWatch.add(t.trim());
+            const rankingDate = seriesRankingDateByTitle.get(c) || seriesRankingDateByTitle.get(norm);
+            const category = updated.seriesCategories && (updated.seriesCategories[norm] || updated.seriesCategories[c]);
+            const existing = seenSeriesMap.get(c);
+            if (!existing) {
+                seenSeriesMap.set(c, {
+                    title: t.trim(),
+                    ...(rankingDate && { viewedAt: rankingDate, addedAt: rankingDate }),
+                    ...(category && { category }),
+                });
                 hasChanges = true;
+            } else {
+                if (!existing.viewedAt && rankingDate) {
+                    existing.viewedAt = rankingDate;
+                    hasChanges = true;
+                }
+                if (!existing.category && category) {
+                    existing.category = category;
+                    hasChanges = true;
+                }
+            }
+        });
+
+        // Ajouter depuis les classements de séries
+        seriesRankingsSet.forEach((norm: string) => {
+            const c = cleanStr(norm);
+            if (isTestMovieTitle(c) || rejectedSeriesTitlesSet.has(c)) return;
+            const rankingDate = seriesRankingDateByTitle.get(c) || seriesRankingDateByTitle.get(norm);
+            const category = updated.seriesCategories && (updated.seriesCategories[norm] || updated.seriesCategories[c]);
+            if (!seenSeriesMap.has(c)) {
+                seenSeriesMap.set(c, {
+                    title: seriesPrettyTitleByNorm.get(c) || seriesPrettyTitleByNorm.get(norm) || norm,
+                    ...(rankingDate && { viewedAt: rankingDate, addedAt: rankingDate }),
+                    ...(category && { category }),
+                });
+                hasChanges = true;
+            } else {
+                const existing = seenSeriesMap.get(c)!;
+                if (!existing.viewedAt && rankingDate) {
+                    existing.viewedAt = rankingDate;
+                    hasChanges = true;
+                }
+                if (!existing.category && category) {
+                    existing.category = category;
+                    hasChanges = true;
+                }
+            }
+        });
+
+        // Récupérer depuis seriesToWatch toute série qui a été vue ou classée
+        currentSeriesWatchlist.forEach((t: string) => {
+            if (!t || typeof t !== 'string') return;
+            const norm = t.trim().toLowerCase();
+            const c = cleanStr(norm);
+            if (isTestMovieTitle(c) || rejectedSeriesTitlesSet.has(c)) return;
+            const isActuallySeen = seriesRankingsSet.has(norm) || seriesRankingsSet.has(c) ||
+                seriesRankingDateByTitle.has(c) || seriesRankingDateByTitle.has(norm) ||
+                (updated.seriesCategories && (updated.seriesCategories[norm] || updated.seriesCategories[c])) ||
+                seenSeriesMap.has(c);
+
+            if (isActuallySeen) {
+                const rankingDate = seriesRankingDateByTitle.get(c) || seriesRankingDateByTitle.get(norm);
+                const category = (updated.seriesCategories && (updated.seriesCategories[norm] || updated.seriesCategories[c]));
+                if (!seenSeriesMap.has(c)) {
+                    seenSeriesMap.set(c, {
+                        title: seriesPrettyTitleByNorm.get(c) || seriesPrettyTitleByNorm.get(norm) || t.trim(),
+                        ...(rankingDate && { viewedAt: rankingDate, addedAt: rankingDate }),
+                        ...(category && { category }),
+                    });
+                    hasChanges = true;
+                } else {
+                    const existing = seenSeriesMap.get(c)!;
+                    if (!existing.viewedAt && rankingDate) {
+                        existing.viewedAt = rankingDate;
+                        hasChanges = true;
+                    }
+                }
             }
         });
 
@@ -3054,15 +3250,12 @@ export async function sanitizeAndHealMovieData(
         const newSeenSeriesTitles = Array.from(seenSeriesMap.values()).map(s => s.title);
         const seenSeriesNormSet = new Set(Array.from(seenSeriesMap.values()).map(s => cleanStr(s.title)));
 
-        const combinedSeriesWatchlist = Array.from(new Set([
-            ...currentSeriesWatchlist,
-            ...Array.from(restoredSeriesToWatch)
-        ])).filter(t => !isTestMovieTitle(t) && !seenSeriesNormSet.has(cleanStr(t)) && !rejectedSeriesTitlesSet.has(cleanStr(t)));
+        const filteredSeriesWatchlist = currentSeriesWatchlist.filter(t => !isTestMovieTitle(t) && !seenSeriesNormSet.has(cleanStr(t)) && !rejectedSeriesTitlesSet.has(cleanStr(t)));
 
-        if (newSeenSeriesTitles.length !== seenSeriesTitlesRaw.length || combinedSeriesWatchlist.length !== currentSeriesWatchlist.length) {
+        if (newSeenSeriesTitles.length !== seenSeriesTitlesRaw.length || filteredSeriesWatchlist.length !== currentSeriesWatchlist.length) {
             updated.seenSeriesTitles = newSeenSeriesTitles;
             updated.seenSeriesData = newSeenSeriesData;
-            updated.seriesToWatch = combinedSeriesWatchlist;
+            updated.seriesToWatch = filteredSeriesWatchlist;
             hasChanges = true;
         }
 

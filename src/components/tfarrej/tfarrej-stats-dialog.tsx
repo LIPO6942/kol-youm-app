@@ -71,7 +71,7 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
             Object.values(userProfile.movieRankings).forEach((r: any) => {
                 if (Array.isArray(r?.rankedTitles)) {
                     r.rankedTitles.forEach((t: any) => {
-                        if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                        if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t))) {
                             fromRankings.push(t.trim());
                         }
                     });
@@ -85,7 +85,7 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
                     Object.values(JSON.parse(allLS)).forEach((r: any) => {
                         if (Array.isArray(r?.rankedTitles)) {
                             r.rankedTitles.forEach((t: any) => {
-                                if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                                if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t))) {
                                     fromRankings.push(t.trim());
                                 }
                             });
@@ -96,13 +96,12 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
         }
 
         return Array.from(new Set([...fromTitles, ...fromData, ...fromVisits, ...fromRankings]))
-            .filter(t => !watchlistSet.has(cleanStr(t)) && !rejectedSet.has(cleanStr(t))).length;
-    }, [userProfile?.seenMovieTitles, userProfile?.seenMoviesData, userProfile?.visits, userProfile?.movieRankings, userProfile?.rejectedMovieTitles, userProfile?.moviesToWatch]);
+            .filter(t => !rejectedSet.has(cleanStr(t))).length;
+    }, [userProfile?.seenMovieTitles, userProfile?.seenMoviesData, userProfile?.visits, userProfile?.movieRankings, userProfile?.rejectedMovieTitles]);
 
     const totalSeenSeries = useMemo(() => {
         const cleanStr = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
         const rejectedSet = new Set((userProfile?.rejectedSeriesTitles || []).map((t: string) => cleanStr(t)));
-        const watchlistSet = new Set((userProfile?.seriesToWatch || []).map((t: string) => cleanStr(t)));
 
         const fromTitles = (Array.isArray(userProfile?.seenSeriesTitles) ? userProfile.seenSeriesTitles : [])
             .filter(t => typeof t === 'string' && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)));
@@ -115,7 +114,7 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
             Object.values(userProfile.seriesRankings).forEach((r: any) => {
                 if (Array.isArray(r?.rankedTitles)) {
                     r.rankedTitles.forEach((t: any) => {
-                        if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                        if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t))) {
                             fromRankings.push(t.trim());
                         }
                     });
@@ -129,7 +128,7 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
                     Object.values(JSON.parse(allLS)).forEach((r: any) => {
                         if (Array.isArray(r?.rankedTitles)) {
                             r.rankedTitles.forEach((t: any) => {
-                                if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t)) && !watchlistSet.has(cleanStr(t))) {
+                                if (typeof t === 'string' && t.trim() && !isTestMovieTitle(t) && !rejectedSet.has(cleanStr(t))) {
                                     fromRankings.push(t.trim());
                                 }
                             });
@@ -140,8 +139,8 @@ export function TfarrejStatsDialog({ trigger }: TfarrejStatsDialogProps) {
         }
 
         return Array.from(new Set([...fromTitles, ...fromData, ...fromRankings]))
-            .filter(t => !watchlistSet.has(cleanStr(t)) && !rejectedSet.has(cleanStr(t))).length;
-    }, [userProfile?.seenSeriesTitles, userProfile?.seenSeriesData, userProfile?.seriesRankings, userProfile?.rejectedSeriesTitles, userProfile?.seriesToWatch]);
+            .filter(t => !rejectedSet.has(cleanStr(t))).length;
+    }, [userProfile?.seenSeriesTitles, userProfile?.seenSeriesData, userProfile?.seriesRankings, userProfile?.rejectedSeriesTitles]);
 
     const totalWatched = activeTab === 'movie' ? totalSeenMovies : totalSeenSeries;
 
