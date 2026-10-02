@@ -1035,8 +1035,64 @@ export async function addSeenMovieWithDate(
             seenMoviesData: [...(localProfile.seenMoviesData || []).filter(m => m.title?.toLowerCase()?.trim() !== norm), seenMovie],
             movieCategories: updatedCategories,
             movieSagaLinks: updatedSagaLinks,
+            // Remove from rejected list so it reappears in rankings
+            rejectedMovieTitles: (localProfile.rejectedMovieTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm),
         };
         await storeUserInDb(uid, updatedProfile);
+
+        // ── Scrub re-added title from all cached rankings so it is treated as a
+        //    NEW unranked entry (goes through duel again, not restored to old rank)
+        if (typeof window !== 'undefined') {
+            try {
+                // 1. Global map: kolyoum_movie_rankings
+                const allRaw = localStorage.getItem('kolyoum_movie_rankings');
+                if (allRaw) {
+                    const allRankings: Record<string, any> = JSON.parse(allRaw);
+                    let changed = false;
+                    Object.keys(allRankings).forEach(mKey => {
+                        const r = allRankings[mKey];
+                        if (r && Array.isArray(r.rankedTitles)) {
+                            const before = r.rankedTitles.length;
+                            r.rankedTitles = r.rankedTitles.filter(
+                                (t: string) => (t || '').toLowerCase().trim() !== norm
+                            );
+                            if (Array.isArray(r.initialRankedTitles)) {
+                                r.initialRankedTitles = r.initialRankedTitles.filter(
+                                    (t: string) => (t || '').toLowerCase().trim() !== norm
+                                );
+                            }
+                            if (r.rankedTitles.length !== before) changed = true;
+                        }
+                    });
+                    if (changed) localStorage.setItem('kolyoum_movie_rankings', JSON.stringify(allRankings));
+                }
+                // 2. Individual keys: kolyoum_movie_ranking_<monthKey>
+                Object.keys(localStorage).forEach(key => {
+                    if (!key.startsWith('kolyoum_movie_ranking_')) return;
+                    try {
+                        const r = JSON.parse(localStorage.getItem(key) || 'null');
+                        if (r && Array.isArray(r.rankedTitles)) {
+                            const before = r.rankedTitles.length;
+                            r.rankedTitles = r.rankedTitles.filter(
+                                (t: string) => (t || '').toLowerCase().trim() !== norm
+                            );
+                            if (Array.isArray(r.initialRankedTitles)) {
+                                r.initialRankedTitles = r.initialRankedTitles.filter(
+                                    (t: string) => (t || '').toLowerCase().trim() !== norm
+                                );
+                            }
+                            if (r.rankedTitles.length !== before) localStorage.setItem(key, JSON.stringify(r));
+                        }
+                    } catch { /* ignore malformed entries */ }
+                });
+            } catch (e) {
+                console.warn('[addSeenMovieWithDate] Could not scrub rankings cache:', e);
+            }
+            // Notify UI to refresh rankings/actors
+            window.dispatchEvent(new CustomEvent('kolyoum_ranking_updated', {
+                detail: { uid, title: movie.title, action: 'added' }
+            }));
+        }
     }
 
     // ── Firestore sync in background (doesn't block UI) ──────────────────────
@@ -1045,6 +1101,8 @@ export async function addSeenMovieWithDate(
             moviesToWatch: arrayRemove(movie.title),
             seenMovieTitles: arrayUnion(movie.title),
             seenMoviesData: arrayUnion(seenMovie),
+            // Remove from rejected list on Firestore too
+            rejectedMovieTitles: arrayRemove(movie.title),
         };
         if (movie.category) {
             firestorePayload[`movieCategories.${norm}`] = movie.category;
