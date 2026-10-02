@@ -970,8 +970,67 @@ export async function addSeenSeriesWithDate(
             seenSeriesTitles: Array.from(new Set([...(localProfile.seenSeriesTitles || []), series.title])),
             seenSeriesData: [...(localProfile.seenSeriesData || []).filter(m => m.title !== series.title), seenSeries],
             seriesCategories: updatedCategories,
+            // Remove from rejected list so it reappears in rankings
+            rejectedSeriesTitles: (localProfile.rejectedSeriesTitles || []).filter((t: string) => t.toLowerCase().trim() !== norm),
         };
         await storeUserInDb(uid, updatedProfile);
+
+        // ── Scrub re-added title from all cached series rankings so it is treated as a
+        //    NEW unranked entry (goes through duel again, not restored to old rank)
+        if (typeof window !== 'undefined') {
+            try {
+                // 1. Global map: kolyoum_series_rankings
+                const allRaw = localStorage.getItem('kolyoum_series_rankings');
+                if (allRaw) {
+                    const allRankings: Record<string, any> = JSON.parse(allRaw);
+                    let changed = false;
+                    Object.keys(allRankings).forEach(mKey => {
+                        const r = allRankings[mKey];
+                        if (r && Array.isArray(r.rankedTitles)) {
+                            const before = r.rankedTitles.length;
+                            r.rankedTitles = r.rankedTitles.filter(
+                                (t: string) => (t || '').toLowerCase().trim() !== norm
+                            );
+                            if (Array.isArray(r.initialRankedTitles)) {
+                                r.initialRankedTitles = r.initialRankedTitles.filter(
+                                    (t: string) => (t || '').toLowerCase().trim() !== norm
+                                );
+                            }
+                            if (r.rankedTitles.length !== before) changed = true;
+                        }
+                    });
+                    if (changed) localStorage.setItem('kolyoum_series_rankings', JSON.stringify(allRankings));
+                }
+                // 2. Individual keys: kolyoum_series_ranking_<monthKey>
+                Object.keys(localStorage).forEach(key => {
+                    if (!key.startsWith('kolyoum_series_ranking_')) return;
+                    try {
+                        const r = JSON.parse(localStorage.getItem(key) || 'null');
+                        if (r && Array.isArray(r.rankedTitles)) {
+                            const before = r.rankedTitles.length;
+                            r.rankedTitles = r.rankedTitles.filter(
+                                (t: string) => (t || '').toLowerCase().trim() !== norm
+                            );
+                            if (Array.isArray(r.initialRankedTitles)) {
+                                r.initialRankedTitles = r.initialRankedTitles.filter(
+                                    (t: string) => (t || '').toLowerCase().trim() !== norm
+                                );
+                            }
+                            if (r.rankedTitles.length !== before) localStorage.setItem(key, JSON.stringify(r));
+                        }
+                    } catch { /* ignore malformed entries */ }
+                });
+            } catch (e) {
+                console.warn('[addSeenSeriesWithDate] Could not scrub series rankings cache:', e);
+            }
+            // Notify UI to refresh rankings
+            window.dispatchEvent(new CustomEvent('kolyoum_ranking_updated', {
+                detail: { uid, title: series.title, action: 'added', mediaType: 'tv' }
+            }));
+            window.dispatchEvent(new CustomEvent('kolyoum_series_ranking_updated', {
+                detail: { uid, title: series.title, action: 'added', mediaType: 'tv' }
+            }));
+        }
     }
 
     // ── Firestore sync in background (doesn't block UI) ──────────────────────
@@ -980,6 +1039,7 @@ export async function addSeenSeriesWithDate(
             seriesToWatch: arrayRemove(series.title),
             seenSeriesTitles: arrayUnion(series.title),
             seenSeriesData: arrayUnion(seenSeries),
+            rejectedSeriesTitles: arrayRemove(series.title),
         };
         if (series.category) {
             firestorePayload[`seriesCategories.${norm}`] = series.category;

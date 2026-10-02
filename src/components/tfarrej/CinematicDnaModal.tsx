@@ -18,6 +18,7 @@ import {
   addSeriesToWatchlist,
   addSeenMovieWithDate,
   addSeenSeriesWithDate,
+  isTestMovieTitle,
 } from '@/lib/firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { calculateCinematicDna, CategoryDnaScore } from '@/lib/cinematic-dna-utils';

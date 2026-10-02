@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, setDoc, getDoc, arrayUnion } from 'firebase/firestore';
+import { doc, setDoc, getDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
@@ -45,6 +45,8 @@ export async function POST(req: NextRequest) {
     const fieldName = type === 'movie' ? 'seenMovieTitles' : 'seenSeriesTitles';
     const historyFieldName = type === 'movie' ? 'seenMovieHistory' : 'seenSeriesHistory';
     const dataFieldName = type === 'movie' ? 'seenMoviesData' : 'seenSeriesData';
+    const rejectedFieldName = type === 'movie' ? 'rejectedMovieTitles' : 'rejectedSeriesTitles';
+    const toWatchFieldName = type === 'movie' ? 'moviesToWatch' : 'seriesToWatch';
 
     const historyObject: Record<string, any> = {
         title,
@@ -65,6 +67,8 @@ export async function POST(req: NextRequest) {
       [fieldName]: arrayUnion(title),
       [historyFieldName]: arrayUnion(historyObject),
       [dataFieldName]: arrayUnion(dataObject),
+      [rejectedFieldName]: arrayRemove(title),
+      [toWatchFieldName]: arrayRemove(title),
     };
 
     if (category && type === 'movie') {
