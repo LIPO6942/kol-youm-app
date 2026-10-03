@@ -1621,6 +1621,9 @@ export default function DecisionMaker() {
     const [editingDateId, setEditingDateId] = useState<string | null>(null);
     const [editedDate, setEditedDate] = useState<string>('');
     const [editedDish, setEditedDish] = useState<string>('');
+    // État local optimiste : IDs supprimés et overrides de date pour rafraîchissement immédiat
+    const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+    const [localDateOverrides, setLocalDateOverrides] = useState<Record<string, number>>({});
 
     const handleEditClick = (visit: VisitLog) => {
       setEditingDateId(visit.id);
@@ -1638,11 +1641,16 @@ export default function DecisionMaker() {
     const handleSaveVisit = async (visitId: string) => {
       if (!user) return;
 
-      const updates: { date?: number; orderedItem?: string } = {};
+      const updates: { date?: number; orderedItem?: string; isPending?: boolean; category?: string; placeName?: string } = {};
       if (editedDate) updates.date = new Date(editedDate).getTime();
       updates.orderedItem = editedDish.trim() || undefined;
 
       await updateVisitLog(user.uid, visitId, updates);
+
+      // Mise à jour optimiste locale de la date
+      if (updates.date) {
+        setLocalDateOverrides(prev => ({ ...prev, [visitId]: updates.date! }));
+      }
 
       toast({
         title: "Visite modifiée",
@@ -1665,7 +1673,7 @@ export default function DecisionMaker() {
           {dates.sort((a: number, b: number) => b - a).map((date: number, idx: number) => {
             const visit = userProfile?.visits?.find((v: VisitLog) => v.placeName === placeName && v.date === date);
             const visitId = visit?.id;
-            if (!visitId) return null;
+            if (!visitId || deletedIds.has(visitId)) return null;  // masquer les visites supprimées optimistement
 
             const isEditing = editingDateId === visitId;
 
@@ -1760,6 +1768,7 @@ export default function DecisionMaker() {
                       className="h-8 w-8 text-destructive"
                       onClick={async () => {
                         if (!user) return;
+                        setDeletedIds(prev => new Set([...prev, visitId]));
                         await deleteVisitLog(user.uid, visitId);
                         toast({ title: "Visite supprimée" });
                       }}

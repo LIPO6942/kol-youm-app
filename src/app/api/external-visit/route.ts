@@ -286,13 +286,16 @@ async function handleVisitRequest(request: NextRequest) {
             }
             if (resolvedDescription) {
                 updatedVisit.description = resolvedDescription;
-                updatedVisit.note = resolvedDescription;
+                // note = description libre uniquement si différente du plat (sinon doublon dans l'UI)
+                if (resolvedDescription !== resolvedDishName) {
+                    updatedVisit.note = resolvedDescription;
+                }
                 if (!resolvedDishName) {
                     updatedVisit.orderedItem = resolvedDescription;
                 }
             } else if (resolvedDishName) {
                 updatedVisit.description = resolvedDishName;
-                updatedVisit.note = resolvedDishName;
+                // Ne pas mettre note=dishName : orderedItem suffit, la note serait un doublon
             }
 
             finalVisitsArray[existingIndex] = updatedVisit;
@@ -336,13 +339,16 @@ async function handleVisitRequest(request: NextRequest) {
             }
             if (resolvedDescription) {
                 newVisit.description = resolvedDescription;
-                newVisit.note = resolvedDescription;
+                // note = description libre uniquement si différente du plat (sinon doublon dans l'UI)
+                if (resolvedDescription !== resolvedDishName) {
+                    newVisit.note = resolvedDescription;
+                }
                 if (!resolvedDishName) {
                     newVisit.orderedItem = resolvedDescription;
                 }
             } else if (resolvedDishName) {
                 newVisit.description = resolvedDishName;
-                newVisit.note = resolvedDishName;
+                // Ne pas mettre note=dishName : orderedItem suffit
             }
 
             if (isAmbiguous) {
