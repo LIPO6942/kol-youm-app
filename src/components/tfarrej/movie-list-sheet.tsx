@@ -1392,10 +1392,10 @@ function MovieListContent({
                 </a>
               )}
 
-              {/* Actions panel : Saga + Supprimer + Fermer — apparaît uniquement au clic sur ⋯ */}
+              {/* Actions panel : Saga (films vus seulement) + Supprimer + Fermer — apparaît uniquement au clic sur ⋯ */}
               {isActionsOpen && (
                 <div className="inline-flex items-center gap-1 ml-1 shrink-0 animate-in fade-in zoom-in-95 duration-150">
-                  {type === 'movie' && (
+                  {type === 'movie' && (listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
                     <button
                       type="button"
                       onClick={(e) => {
