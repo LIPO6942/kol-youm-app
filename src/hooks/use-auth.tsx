@@ -9,6 +9,7 @@ import type { UserProfile, WardrobeItem } from '@/lib/firebase/firestore';
 import { getUserFromDb, storeUserInDb } from '@/lib/indexeddb';
 import { updateUserProfile as updateProfileInFirestore, purgeTestMovieData, sanitizeAndHealMovieData } from '@/lib/firebase/firestore';
 import { mergeVisits } from '@/lib/khrouj-visits-manager';
+import { flushPendingOps, getPendingCount } from '@/lib/offline-sync-queue';
 
 interface AuthContextType {
   user: User | null;
@@ -345,6 +346,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (!profile) {
           setLoading(false);
         }
+        // 🔄 Rejouer les opérations offline en attente au login
+        flushPendingOps(user.uid).then(({ success, failed }) => {
+          if (success > 0 || failed > 0) {
+            console.log(`[OfflineSync] Au login : ${success} op(s) rejouée(s), ${failed} échec(s)`);
+          }
+        }).catch(() => {});
       } else {
         setUser(null);
         setUserProfile(null);
@@ -354,6 +361,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => unsubscribeAuth();
   }, [fetchAndSetProfile]);
+
+  // 🌐 Rejouer la file offline au retour de la connexion réseau
+  useEffect(() => {
+    if (!user?.uid) return;
+    const handleOnline = () => {
+      console.log('[OfflineSync] Connexion rétablie — rejeu de la file en attente...');
+      flushPendingOps(user.uid).then(({ success, failed }) => {
+        if (success > 0) {
+          console.log(`[OfflineSync] ${success} opération(s) synchronisée(s) après reconnexion`);
+        }
+      }).catch(() => {});
+    };
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [user?.uid]);
   
   useEffect(() => {
     let unsubscribe = () => {};

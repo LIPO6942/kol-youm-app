@@ -3,6 +3,7 @@ import { doc, setDoc, getDoc, serverTimestamp, arrayUnion, arrayRemove, writeBat
 import { db as firestoreDb } from "./client";
 import { getUserFromDb, storeUserInDb } from "@/lib/indexeddb";
 import { mergeVisits, validateVisitsMutation } from "@/lib/khrouj-visits-manager";
+import { withOfflineFallback } from "@/lib/offline-sync-queue";
 
 // ── Déclaré ici en premier pour éviter tout problème de TDZ ou de bundling ──
 export const isTestMovieTitle = (title?: any): boolean => {
@@ -1300,12 +1301,15 @@ export async function updateMovieCategory(uid: string, movieTitle: string, categ
 
     if (uid && uid !== 'guest') {
         const userRef = doc(firestoreDb, 'users', uid);
-        setDoc(userRef, {
-            [dataKey]: currentSeenData,
-            [catKey]: updatedCategories,
-        }, { merge: true }).catch(e => {
-            console.warn('Erreur updateMovieCategory Firestore background sync:', e);
-        });
+        await withOfflineFallback(
+            'updateMovieCategory',
+            uid,
+            { norm, category: safeCategory, mediaType },
+            () => setDoc(userRef, {
+                [dataKey]: currentSeenData,
+                [catKey]: updatedCategories,
+            }, { merge: true })
+        );
     }
 }
 
@@ -1362,11 +1366,14 @@ export async function updateMovieViewingDate(
 
     if (uid && uid !== 'guest') {
         const userRef = doc(firestoreDb, 'users', uid);
-        setDoc(userRef, {
-            [dataKey]: currentSeenData,
-        }, { merge: true }).catch(e => {
-            console.warn('Erreur updateMovieViewingDate Firestore background sync:', e);
-        });
+        await withOfflineFallback(
+            'updateViewingDate',
+            uid,
+            { title: movieTitle, viewedAt, watchedInCinema, mediaType },
+            () => setDoc(userRef, {
+                [dataKey]: currentSeenData,
+            }, { merge: true })
+        );
     }
 }
 
