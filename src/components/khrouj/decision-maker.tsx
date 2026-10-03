@@ -1645,7 +1645,7 @@ export default function DecisionMaker() {
       if (editedDate) updates.date = new Date(editedDate).getTime();
       updates.orderedItem = editedDish.trim() || undefined;
 
-      await updateVisitLog(user.uid, visitId, updates);
+      await updateVisitLog(user.uid, visitId, updates, { placeName });
 
       // Mise à jour optimiste locale de la date
       if (updates.date) {
@@ -1671,14 +1671,17 @@ export default function DecisionMaker() {
       <ScrollArea className="h-[300px] pr-4">
         <div className="space-y-3">
           {dates.sort((a: number, b: number) => b - a).map((date: number, idx: number) => {
-            const visit = userProfile?.visits?.find((v: VisitLog) => v.placeName === placeName && v.date === date);
-            const visitId = visit?.id;
-            if (!visitId || deletedIds.has(visitId)) return null;  // masquer les visites supprimées optimistement
+            const visit = userProfile?.visits?.find((v: VisitLog) => 
+              (v.placeName || '').trim().toLowerCase() === placeName.trim().toLowerCase() && 
+              Math.abs((Number(v.date) || 0) - Number(date)) < 12 * 3600 * 1000
+            ) || userProfile?.visits?.find((v: VisitLog) => v.placeName === placeName && v.date === date);
+            const visitId = visit?.id || `visit_${date}_${idx}`;
+            if (deletedIds.has(visitId)) return null;  // masquer les visites supprimées optimistement
 
             const isEditing = editingDateId === visitId;
 
             return (
-              <div key={idx} className={cn(
+              <div key={visitId || idx} className={cn(
                 "flex items-center justify-between p-3 rounded-lg border gap-2 transition-all duration-300",
                 isEditing ? "border-primary bg-primary/5 shadow-sm" : "bg-muted/30 hover:bg-muted/50 border-transparent hover:border-muted-foreground/20"
               )}>
@@ -1695,13 +1698,13 @@ export default function DecisionMaker() {
                         />
                       </div>
                       <div className="flex items-center gap-2">
-                        {(visit.category === 'Kharjet' || visit.category === 'Balade') ? (
+                        {(visit?.category === 'Kharjet' || visit?.category === 'Balade') ? (
                           <Layers className="h-4 w-4 text-emerald-500 flex-shrink-0" />
                         ) : (
                           <UtensilsCrossed className="h-4 w-4 text-primary flex-shrink-0" />
                         )}
                         <Input
-                          placeholder={(visit.category === 'Kharjet' || visit.category === 'Balade') ? "Tags / activités..." : "Plat commandé..."}
+                          placeholder={(visit?.category === 'Kharjet' || visit?.category === 'Balade') ? "Tags / activités..." : "Plat commandé..."}
                           value={editedDish}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditedDish(e.target.value)}
                           className="h-8 text-sm"
@@ -1731,12 +1734,12 @@ export default function DecisionMaker() {
                   <>
                     <div
                       className="flex flex-col gap-1 flex-1 cursor-pointer hover:text-primary transition-colors"
-                      onClick={() => handleEditClick(visit)}
+                      onClick={() => visit && handleEditClick(visit)}
                     >
                       <div className="flex items-center gap-3 text-sm">
                         <Calendar className="h-4 w-4 text-primary" />
                         <span>{getDayName(date)} {new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                        {visit.source === 'momenty' && (
+                        {visit?.source === 'momenty' && (
                           <Link
                             href={visit.momentyUrl ? normalizeMomentyUrl(visit.momentyUrl, visit.category) : ((visit.category === 'Kharjet' || visit.category === 'Balade') ? 'https://momenty-ten.vercel.app/timeline' : 'https://momenty-ten.vercel.app/plats')}
                             target="_blank"
@@ -1751,7 +1754,7 @@ export default function DecisionMaker() {
                           </Link>
                         )}
                       </div>
-                      {visit.orderedItem && (
+                      {visit?.orderedItem && (
                         <div className="flex items-center gap-2 pl-7">
                           {(visit.category === 'Kharjet' || visit.category === 'Balade') ? (
                             <Layers className="h-3 w-3 text-emerald-500" />
@@ -1769,7 +1772,7 @@ export default function DecisionMaker() {
                       onClick={async () => {
                         if (!user) return;
                         setDeletedIds(prev => new Set([...prev, visitId]));
-                        await deleteVisitLog(user.uid, visitId);
+                        await deleteVisitLog(user.uid, visitId, { placeName, date });
                         toast({ title: "Visite supprimée" });
                       }}
                     >
@@ -2231,7 +2234,7 @@ export default function DecisionMaker() {
                         onClick={async (e) => {
                           e.stopPropagation();
                           if (!user) return;
-                          await deleteVisitLog(user.uid, visit.id);
+                          await deleteVisitLog(user.uid, visit.id, { placeName: visit.placeName, date: visit.date });
                           toast({ title: "Visite supprimée" });
                         }}
                         title="Supprimer cette visite"

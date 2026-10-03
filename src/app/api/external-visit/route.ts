@@ -96,6 +96,37 @@ async function handleVisitRequest(request: NextRequest) {
             }, { status: 400, headers: corsHeaders() });
         }
 
+        // Parsing fiable et normalisation de la date en timestamp numérique (millisecondes)
+        const rawDate = date || body.visitedAt || body.visitDate || body.momentDate || body.postDate || body.timestamp || body.createdAt || body.publicationDate;
+        let parsedDate: number | undefined = undefined;
+        if (rawDate !== undefined && rawDate !== null && rawDate !== '') {
+            if (typeof rawDate === 'number') {
+                parsedDate = rawDate > 1e11 ? rawDate : rawDate * 1000;
+            } else if (typeof rawDate === 'string') {
+                const t = new Date(rawDate).getTime();
+                if (!isNaN(t)) {
+                    parsedDate = t;
+                } else {
+                    const num = Number(rawDate);
+                    if (!isNaN(num)) parsedDate = num > 1e11 ? num : num * 1000;
+                }
+            } else if (typeof rawDate === 'object') {
+                if ('seconds' in rawDate) parsedDate = (rawDate as any).seconds * 1000;
+                else if ('_seconds' in rawDate) parsedDate = (rawDate as any)._seconds * 1000;
+            }
+        }
+
+        const rawOldDate = body.oldDate || body.previousDate || body.originalDate;
+        let parsedOldDate: number | undefined = undefined;
+        if (rawOldDate !== undefined && rawOldDate !== null && rawOldDate !== '') {
+            if (typeof rawOldDate === 'number') {
+                parsedOldDate = rawOldDate > 1e11 ? rawOldDate : rawOldDate * 1000;
+            } else if (typeof rawOldDate === 'string') {
+                const t = new Date(rawOldDate).getTime();
+                if (!isNaN(t)) parsedOldDate = t;
+            }
+        }
+
         // Helper pour extraire l'ID d'un instant Momenty (support query param ET path param)
         const extractInstantId = (url?: string) => {
             if (!url) return null;
@@ -116,24 +147,44 @@ async function handleVisitRequest(request: NextRequest) {
             ''
         ).toString();
 
-        // 4. Rechercher l'utilisateur par email dans Firestore
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('email', '==', userEmail));
-        const querySnapshot = await getDocs(q);
+        // 4. Rechercher l'utilisateur par email dans Firestore (avec support comptes liés Moslem/Rania)
+        const COUPLE_EMAILS = ['moslem.gouia@gmail.com', 'zayani.rania@gmail.com'];
+        const isCouple = COUPLE_EMAILS.includes(userEmail.toLowerCase().trim());
 
-        if (querySnapshot.empty) {
+        const usersRef = collection(db, 'users');
+        const targetUserDocs: { id: string; ref: any; data: any }[] = [];
+
+        if (isCouple) {
+            for (const email of COUPLE_EMAILS) {
+                const qUser = query(usersRef, where('email', '==', email));
+                const snap = await getDocs(qUser);
+                if (!snap.empty) {
+                    targetUserDocs.push({
+                        id: snap.docs[0].id,
+                        ref: doc(db, 'users', snap.docs[0].id),
+                        data: snap.docs[0].data()
+                    });
+                }
+            }
+        } else {
+            const q = query(usersRef, where('email', '==', userEmail));
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                targetUserDocs.push({
+                    id: querySnapshot.docs[0].id,
+                    ref: doc(db, 'users', querySnapshot.docs[0].id),
+                    data: querySnapshot.docs[0].data()
+                });
+            }
+        }
+
+        if (targetUserDocs.length === 0) {
             console.log(`[External Visit API] User not found for email: ${userEmail}`);
             return NextResponse.json(
                 { success: false, error: 'Utilisateur non trouvé' },
                 { status: 404, headers: corsHeaders() }
             );
         }
-
-        const userDoc = querySnapshot.docs[0];
-        const userId = userDoc.id;
-        const userRef = doc(db, 'users', userId);
-        const userData = userDoc.data();
-        const existingVisits = (userData.visits || []) as Record<string, any>[];
 
         // Helper fuzzy match
         const fuzzyMatch = (dbName: string, searchName: string): boolean => {
@@ -157,75 +208,6 @@ async function handleVisitRequest(request: NextRequest) {
             }
         };
 
-        // 5. Chercher si la visite existe déjà (Mise à jour d'un plat ou instant Momenty)
-        let existingIndex = -1;
-
-        if (incomingInstantId) {
-            existingIndex = existingVisits.findIndex(v => {
-                if (v.id === incomingInstantId) return true;
-                if (v.instantId === incomingInstantId) return true;
-                if (v.momentyUrl && extractInstantId(v.momentyUrl) === incomingInstantId) return true;
-                return false;
-            });
-        }
-
-        if (existingIndex === -1 && postUrl) {
-            const cleanPostUrl = postUrl.split('#')[0];
-            existingIndex = existingVisits.findIndex(v => {
-                if (!v.momentyUrl) return false;
-                return v.momentyUrl.split('#')[0] === cleanPostUrl;
-            });
-        }
-
-        if (existingIndex === -1 && placeName && date) {
-            const normalizedPlace = placeName.trim().toLowerCase();
-            existingIndex = existingVisits.findIndex(v => {
-                if (v.source !== 'momenty') return false;
-                const vPlace = (v.placeName || '').trim().toLowerCase();
-                return fuzzyMatch(vPlace, normalizedPlace) && isSameDay(v.date, date);
-            });
-        }
-
-        // Fallback : la date elle-même a peut-être changé dans Momenty.
-        // Si un identifiant stable était présent (instantId → c'est forcément une MAJ)
-        // OU si l'action est explicite, chercher par placeName seul parmi les visites Momenty récentes.
-        if (existingIndex === -1 && placeName && (incomingInstantId || action === 'update' || action === 'updateDish' || action === 'edit' || postUrl)) {
-            const normalizedPlace = placeName.trim().toLowerCase();
-            const NINETY_DAYS = 90 * 24 * 60 * 60 * 1000;
-            existingIndex = existingVisits.findIndex(v => {
-                if (v.source !== 'momenty') return false;
-                const vPlace = (v.placeName || '').trim().toLowerCase();
-                const isRecent = !v.date || (Date.now() - Number(v.date)) < NINETY_DAYS;
-                return fuzzyMatch(vPlace, normalizedPlace) && isRecent;
-            });
-            if (existingIndex !== -1) {
-                console.log(`[External Visit API] Matched by placeName fallback (date changed): ${placeName}`);
-            }
-        }
-
-        // Dernier fallback : si toujours pas trouvé ET on a un instantId ou postUrl,
-        // c'est clairement une MAJ, donc chercher sans restriction de source ni de date
-        if (existingIndex === -1 && placeName && (incomingInstantId || postUrl)) {
-            const normalizedPlace = placeName.trim().toLowerCase();
-            existingIndex = existingVisits.findIndex(v => {
-                const vPlace = (v.placeName || '').trim().toLowerCase();
-                return fuzzyMatch(vPlace, normalizedPlace);
-            });
-            if (existingIndex !== -1) {
-                console.log(`[External Visit API] Last-resort match by placeName (any source): ${placeName}`);
-            }
-        }
-
-        const isExplicitUpdate = action === 'update' || action === 'updateDish' || action === 'edit';
-
-        // Si la visite n'existe pas et qu'on n'a pas les infos minimales de création
-        if (existingIndex === -1 && (!placeName || !category || !date)) {
-            return NextResponse.json({
-                success: false,
-                error: 'Pour une nouvelle visite, les champs userEmail, placeName, category et date sont obligatoires.'
-            }, { status: 400, headers: corsHeaders() });
-        }
-
         // Normalisation de la catégorie
         const normalizeCategoryInput = (cat: string) => {
             if (!cat) return 'Autre';
@@ -244,7 +226,7 @@ async function handleVisitRequest(request: NextRequest) {
 
         // Détection catégories Firestore
         let dbCategories: string[] = [];
-        const checkPlaceName = (existingIndex !== -1 ? existingVisits[existingIndex].placeName : placeName) || '';
+        const checkPlaceName = placeName || '';
         try {
             const zonesSnap = await getDocs(collection(db, 'zones'));
             const normalizedCheckPlace = checkPlaceName.trim().toLowerCase();
@@ -270,7 +252,7 @@ async function handleVisitRequest(request: NextRequest) {
         }
 
         const isAmbiguous = dbCategories.length > 1;
-        const finalCategory = incomingCategory || (existingIndex !== -1 ? existingVisits[existingIndex].category : 'Restaurant');
+        const finalCategory = incomingCategory || (dbCategories[0] || 'Restaurant');
 
         let possibleCategories: string[] = [];
         if (isAmbiguous) {
@@ -280,116 +262,188 @@ async function handleVisitRequest(request: NextRequest) {
             }
         }
 
-        const finalVisitsArray = [...existingVisits];
+        const isExplicitUpdate = action === 'update' || action === 'updateDish' || action === 'edit';
         let wasUpdated = false;
         let resultingVisitId = '';
         let oldDishToReplace: string | null = oldDishName || null;
-        const cleanCityName = cityName?.trim() || (existingIndex !== -1 ? existingVisits[existingIndex].zone : 'La Marsa');
 
-        if (existingIndex !== -1) {
-            // ==========================================
-            // MISE À JOUR DE LA VISITE / DU PLAT MOMENTY
-            // ==========================================
-            const existing = existingVisits[existingIndex];
-            resultingVisitId = existing.id;
-            oldDishToReplace = oldDishToReplace || existing.dishName || existing.orderedItem || null;
+        for (const userItem of targetUserDocs) {
+            const existingVisits = (userItem.data.visits || []) as Record<string, any>[];
+            let existingIndex = -1;
 
-            const updatedVisit: Record<string, any> = {
-                ...existing,
-            };
-
-            if (placeName) updatedVisit.placeName = placeName;
-            if (incomingCategory) updatedVisit.category = finalCategory;
-            if (date) updatedVisit.date = date;
-            if (cleanCityName) {
-                updatedVisit.zone = cleanCityName;
-                updatedVisit.cityName = cleanCityName;
+            // 1. Par instantId ou id dans momentyUrl
+            if (incomingInstantId) {
+                existingIndex = existingVisits.findIndex(v => {
+                    if (v.id === incomingInstantId) return true;
+                    if (v.instantId === incomingInstantId) return true;
+                    if (v.momentyUrl && extractInstantId(v.momentyUrl) === incomingInstantId) return true;
+                    return false;
+                });
             }
-            if (postUrl) updatedVisit.momentyUrl = postUrl;
-            if (incomingInstantId) updatedVisit.instantId = incomingInstantId;
-            if (resolvedImageUrl) updatedVisit.momentyImageUrl = resolvedImageUrl;
 
-            // Synchroniser la description et le plat modifié
-            if (resolvedDishName) {
-                updatedVisit.dishName = resolvedDishName;
-                updatedVisit.orderedItem = resolvedDishName;
+            // 2. Par postUrl
+            if (existingIndex === -1 && postUrl) {
+                const cleanPostUrl = postUrl.split('#')[0];
+                existingIndex = existingVisits.findIndex(v => {
+                    if (!v.momentyUrl) return false;
+                    return v.momentyUrl.split('#')[0] === cleanPostUrl;
+                });
             }
-            if (resolvedDescription) {
-                updatedVisit.description = resolvedDescription;
-                // note = description libre uniquement si différente du plat (sinon doublon dans l'UI)
-                if (resolvedDescription !== resolvedDishName) {
-                    updatedVisit.note = resolvedDescription;
+
+            // 3. Par placeName et date (si même date ou oldDate)
+            if (existingIndex === -1 && placeName && (parsedDate || parsedOldDate)) {
+                const normalizedPlace = placeName.trim().toLowerCase();
+                existingIndex = existingVisits.findIndex(v => {
+                    if (v.source !== 'momenty') return false;
+                    const vPlace = (v.placeName || '').trim().toLowerCase();
+                    const matchesPlace = fuzzyMatch(vPlace, normalizedPlace);
+                    if (!matchesPlace) return false;
+                    if (parsedOldDate && isSameDay(v.date, parsedOldDate)) return true;
+                    if (parsedDate && isSameDay(v.date, parsedDate)) return true;
+                    return false;
+                });
+            }
+
+            // 4. Par placeName ET plat / dishName (cas typique où la date a changé dans Momenty !)
+            if (existingIndex === -1 && placeName && (resolvedDishName || body.dish || body.orderedItem)) {
+                const normalizedPlace = placeName.trim().toLowerCase();
+                const targetDish = (resolvedDishName || body.dish || body.orderedItem || '').trim().toLowerCase();
+                existingIndex = existingVisits.findIndex(v => {
+                    if (v.source !== 'momenty') return false;
+                    const vPlace = (v.placeName || '').trim().toLowerCase();
+                    const vDish = (v.orderedItem || v.dishName || '').trim().toLowerCase();
+                    return fuzzyMatch(vPlace, normalizedPlace) && (fuzzyMatch(vDish, targetDish) || vDish.includes(targetDish) || targetDish.includes(vDish));
+                });
+                if (existingIndex !== -1) {
+                    console.log(`[External Visit API] Matched by placeName + dishName (date changed): ${placeName} - ${targetDish}`);
                 }
-                if (!resolvedDishName) {
-                    updatedVisit.orderedItem = resolvedDescription;
+            }
+
+            // 5. Par placeName parmi les visites Momenty récentes (< 120 jours)
+            if (existingIndex === -1 && placeName) {
+                const normalizedPlace = placeName.trim().toLowerCase();
+                const ONE_TWENTY_DAYS = 120 * 24 * 60 * 60 * 1000;
+                existingIndex = existingVisits.findIndex(v => {
+                    if (v.source !== 'momenty') return false;
+                    const vPlace = (v.placeName || '').trim().toLowerCase();
+                    const isRecent = !v.date || (Date.now() - Number(v.date)) < ONE_TWENTY_DAYS;
+                    return fuzzyMatch(vPlace, normalizedPlace) && isRecent;
+                });
+                if (existingIndex !== -1) {
+                    console.log(`[External Visit API] Matched by placeName fallback (date changed): ${placeName}`);
                 }
-            } else if (resolvedDishName) {
-                updatedVisit.description = resolvedDishName;
-                // Ne pas mettre note=dishName : orderedItem suffit, la note serait un doublon
             }
 
-            finalVisitsArray[existingIndex] = updatedVisit;
-            wasUpdated = true;
-
-            await updateDoc(userRef, {
-                visits: finalVisitsArray
-            });
-
-            console.log(`[External Visit API] Successfully UPDATED visit description/dish for ${userEmail}:`, {
-                placeName: updatedVisit.placeName,
-                dishName: updatedVisit.dishName,
-                orderedItem: updatedVisit.orderedItem,
-                description: updatedVisit.description
-            });
-        } else {
-            // ==========================================
-            // CRÉATION D'UNE NOUVELLE VISITE
-            // ==========================================
-            const visitId = incomingInstantId || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            resultingVisitId = visitId;
-
-            const newVisit: Record<string, any> = {
-                id: visitId,
-                placeName: placeName,
-                category: finalCategory,
-                date: date,
-                source: 'momenty',
-                isPending: isAmbiguous,
-                zone: cleanCityName,
-                cityName: cleanCityName,
-            };
-
-            if (incomingInstantId) newVisit.instantId = incomingInstantId;
-            if (postUrl) newVisit.momentyUrl = postUrl;
-            if (resolvedImageUrl) newVisit.momentyImageUrl = resolvedImageUrl;
-
-            if (resolvedDishName) {
-                newVisit.dishName = resolvedDishName;
-                newVisit.orderedItem = resolvedDishName;
+            // 6. Dernier recours : placeName seul si MAJ explicite ou identifiant
+            if (existingIndex === -1 && placeName && (incomingInstantId || postUrl || isExplicitUpdate)) {
+                const normalizedPlace = placeName.trim().toLowerCase();
+                existingIndex = existingVisits.findIndex(v => {
+                    const vPlace = (v.placeName || '').trim().toLowerCase();
+                    return fuzzyMatch(vPlace, normalizedPlace);
+                });
             }
-            if (resolvedDescription) {
-                newVisit.description = resolvedDescription;
-                // note = description libre uniquement si différente du plat (sinon doublon dans l'UI)
-                if (resolvedDescription !== resolvedDishName) {
-                    newVisit.note = resolvedDescription;
+
+            const cleanCityName = cityName?.trim() || (existingIndex !== -1 ? existingVisits[existingIndex].zone : 'La Marsa');
+
+            if (existingIndex !== -1) {
+                // ==========================================
+                // MISE À JOUR DE LA VISITE / DU PLAT MOMENTY
+                // ==========================================
+                const existing = existingVisits[existingIndex];
+                resultingVisitId = existing.id;
+                oldDishToReplace = oldDishToReplace || existing.dishName || existing.orderedItem || null;
+
+                const updatedVisit: Record<string, any> = {
+                    ...existing,
+                };
+
+                if (placeName) updatedVisit.placeName = placeName;
+                if (incomingCategory) updatedVisit.category = finalCategory;
+                if (parsedDate) updatedVisit.date = parsedDate; // Nouvelle date appliquée !
+                if (cleanCityName) {
+                    updatedVisit.zone = cleanCityName;
+                    updatedVisit.cityName = cleanCityName;
                 }
-                if (!resolvedDishName) {
-                    newVisit.orderedItem = resolvedDescription;
+                if (postUrl) updatedVisit.momentyUrl = postUrl;
+                if (incomingInstantId) updatedVisit.instantId = incomingInstantId;
+                if (resolvedImageUrl) updatedVisit.momentyImageUrl = resolvedImageUrl;
+                updatedVisit.updatedAt = Date.now();
+
+                // Synchroniser la description et le plat modifié
+                if (resolvedDishName) {
+                    updatedVisit.dishName = resolvedDishName;
+                    updatedVisit.orderedItem = resolvedDishName;
                 }
-            } else if (resolvedDishName) {
-                newVisit.description = resolvedDishName;
-                // Ne pas mettre note=dishName : orderedItem suffit
+                if (resolvedDescription) {
+                    updatedVisit.description = resolvedDescription;
+                    if (resolvedDescription !== resolvedDishName) {
+                        updatedVisit.note = resolvedDescription;
+                    }
+                    if (!resolvedDishName) {
+                        updatedVisit.orderedItem = resolvedDescription;
+                    }
+                } else if (resolvedDishName) {
+                    updatedVisit.description = resolvedDishName;
+                }
+
+                const finalVisitsArray = [...existingVisits];
+                finalVisitsArray[existingIndex] = updatedVisit;
+                wasUpdated = true;
+
+                await updateDoc(userItem.ref, {
+                    visits: finalVisitsArray
+                });
+
+                console.log(`[External Visit API] Successfully UPDATED visit for ${userItem.data.email}: date=${updatedVisit.date}, place=${updatedVisit.placeName}, dish=${updatedVisit.orderedItem}`);
+            } else if (!isExplicitUpdate && placeName && (parsedDate || date)) {
+                // ==========================================
+                // CRÉATION D'UNE NOUVELLE VISITE
+                // ==========================================
+                const visitId = incomingInstantId || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                resultingVisitId = visitId;
+
+                const newVisit: Record<string, any> = {
+                    id: visitId,
+                    placeName: placeName,
+                    category: finalCategory,
+                    date: parsedDate || (typeof date === 'number' ? date : Date.now()),
+                    source: 'momenty',
+                    isPending: isAmbiguous,
+                    zone: cleanCityName,
+                    cityName: cleanCityName,
+                    createdAt: Date.now(),
+                };
+
+                if (incomingInstantId) newVisit.instantId = incomingInstantId;
+                if (postUrl) newVisit.momentyUrl = postUrl;
+                if (resolvedImageUrl) newVisit.momentyImageUrl = resolvedImageUrl;
+
+                if (resolvedDishName) {
+                    newVisit.dishName = resolvedDishName;
+                    newVisit.orderedItem = resolvedDishName;
+                }
+                if (resolvedDescription) {
+                    newVisit.description = resolvedDescription;
+                    if (resolvedDescription !== resolvedDishName) {
+                        newVisit.note = resolvedDescription;
+                    }
+                    if (!resolvedDishName) {
+                        newVisit.orderedItem = resolvedDescription;
+                    }
+                } else if (resolvedDishName) {
+                    newVisit.description = resolvedDishName;
+                }
+
+                if (isAmbiguous) {
+                    newVisit.possibleCategories = possibleCategories;
+                }
+
+                await updateDoc(userItem.ref, {
+                    visits: arrayUnion(newVisit)
+                });
+
+                console.log(`[External Visit API] Successfully ADDED new visit for ${userItem.data.email} at ${placeName}`);
             }
-
-            if (isAmbiguous) {
-                newVisit.possibleCategories = possibleCategories;
-            }
-
-            await updateDoc(userRef, {
-                visits: arrayUnion(newVisit)
-            });
-
-            console.log(`[External Visit API] Successfully ADDED new visit for ${userEmail} at ${placeName}`);
         }
 
         // ==============================================================

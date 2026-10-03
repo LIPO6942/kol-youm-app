@@ -201,8 +201,8 @@ export function validateVisitsMutation(
         return proposed;
     }
 
-    // Suppression explicite d'une seule visite via deleteVisitLog : autorisée
-    if ((ctx.isExplicitSingleDeletion || ctx.operation?.includes('deleteVisitLog')) && (prev.length - proposed.length === 1)) {
+    // Suppression explicite via deleteVisitLog : toujours autorisée
+    if (ctx.isExplicitSingleDeletion || ctx.operation?.includes('deleteVisitLog')) {
         return proposed;
     }
 

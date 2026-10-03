@@ -1849,7 +1849,8 @@ export async function addVisitLog(uid: string, visit: Omit<VisitLog, 'id'>) {
 export async function updateVisitLog(
     uid: string, 
     visitId: string, 
-    updates: { date?: number; orderedItem?: string; isPending?: boolean; category?: string; placeName?: string }
+    updates: { date?: number; orderedItem?: string; isPending?: boolean; category?: string; placeName?: string },
+    fallback?: { placeName?: string; date?: number }
 ) {
     if (!uid || uid === 'guest') return;
     try {
@@ -1865,12 +1866,19 @@ export async function updateVisitLog(
         // Lossless base
         const mergedVisits = mergeVisits(localVisits, remoteVisits);
 
-        const index = mergedVisits.findIndex(v => v.id === visitId);
+        let index = mergedVisits.findIndex(v => v.id === visitId);
+        if (index === -1 && fallback?.placeName) {
+            index = mergedVisits.findIndex(v =>
+                (v.placeName || '').trim().toLowerCase() === fallback.placeName!.trim().toLowerCase() &&
+                (!fallback.date || Math.abs((Number(v.date) || 0) - Number(fallback.date)) < 12 * 3600 * 1000)
+            );
+        }
         if (index === -1) {
             console.warn(`[updateVisitLog] Visit ${visitId} not found`);
             return;
         }
 
+        const resolvedId = mergedVisits[index].id;
         const updatedVisit: VisitLog = {
             ...mergedVisits[index],
             ...updates,
@@ -1883,7 +1891,7 @@ export async function updateVisitLog(
         const nextVisits = [...mergedVisits];
         nextVisits[index] = cleanedVisit;
 
-        const validated = validateVisitsMutation(mergedVisits, nextVisits, `updateVisitLog(${visitId})`);
+        const validated = validateVisitsMutation(mergedVisits, nextVisits, `updateVisitLog(${resolvedId})`);
 
         await updateDoc(userRef, {
             visits: validated
@@ -1895,67 +1903,100 @@ export async function updateVisitLog(
                 visits: validated
             });
         }
+
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('kolyoum_visit_updated', {
+                detail: { visitId: resolvedId, updates }
+            }));
+        }
     } catch (err) {
         console.error('[updateVisitLog] Error updating visit log:', err);
     }
 }
 
-export async function deleteVisitLog(uid: string, visitId: string) {
+export async function deleteVisitLog(
+    uid: string, 
+    visitId: string,
+    fallback?: { placeName?: string; date?: number }
+) {
     if (!uid || uid === 'guest') return;
     try {
-        const userRef = doc(firestoreDb, 'users', uid);
-        const userSnap = await getDoc(userRef);
-        if (!userSnap.exists()) {
-            console.warn(`[deleteVisitLog] User doc not found for uid: ${uid}`);
-            return;
-        }
+        const COUPLE_UIDS = ['9Q87pssUMweGMsQ5ULgC1cPi2DV2', 'MpVFX2wVxJYPrrGfpwpz4sbjEMx2'];
+        const targetUids = COUPLE_UIDS.includes(uid) 
+            ? Array.from(new Set([uid, ...COUPLE_UIDS]))
+            : [uid];
 
-        const remoteVisits: VisitLog[] = Array.isArray(userSnap.data()?.visits)
-            ? userSnap.data()!.visits
-            : [];
+        for (const targetUid of targetUids) {
+            try {
+                const userRef = doc(firestoreDb, 'users', targetUid);
+                const userSnap = await getDoc(userRef);
+                if (!userSnap.exists()) continue;
 
-        // Tentative 1 : suppression par ID exact dans Firestore
-        let remaining = remoteVisits.filter(v => v.id !== visitId);
-        let deleted = remaining.length < remoteVisits.length;
+                const remoteVisits: VisitLog[] = Array.isArray(userSnap.data()?.visits)
+                    ? userSnap.data()!.visits
+                    : [];
 
-        // Tentative 2 : si ID non trouvé dans Firestore (données forcées avec ID différent),
-        // chercher dans le profil local pour obtenir les coordonnées de la visite
-        if (!deleted) {
-            const localProfile = await getUserFromDb(uid);
-            const localVisits = localProfile?.visits || [];
-            const refVisit = localVisits.find((v: VisitLog) => v.id === visitId);
+                // Critère de suppression : par ID ou par empreinte placeName + date
+                const isTargetVisit = (v: VisitLog) => {
+                    if (visitId && v.id === visitId) return true;
+                    if (fallback?.placeName) {
+                        const pMatch = (v.placeName || '').trim().toLowerCase() === fallback.placeName.trim().toLowerCase();
+                        if (pMatch) {
+                            if (!fallback.date) return true;
+                            const dMatch = Math.abs((Number(v.date) || 0) - Number(fallback.date)) < 12 * 3600 * 1000;
+                            if (dMatch) return true;
+                        }
+                    }
+                    return false;
+                };
 
-            if (refVisit) {
-                // Chercher par fingerprint place + date (±12h) dans Firestore
-                const TWELVE_H = 12 * 60 * 60 * 1000;
-                const matchIdx = remoteVisits.findIndex(v =>
-                    (v.placeName || '').trim().toLowerCase() === (refVisit.placeName || '').trim().toLowerCase() &&
-                    Math.abs((Number(v.date) || 0) - (Number(refVisit.date) || 0)) < TWELVE_H
-                );
-                if (matchIdx !== -1) {
-                    remaining = remoteVisits.filter((_, i) => i !== matchIdx);
-                    deleted = true;
-                    console.log(`[deleteVisitLog] Fingerprint match for ${visitId} → deleted index ${matchIdx}`);
+                let remaining = remoteVisits.filter(v => !isTargetVisit(v));
+
+                // Si pas encore trouvé dans ce doc et qu'on a un profil local avec un refVisit
+                if (remaining.length === remoteVisits.length && visitId) {
+                    const localProfile = await getUserFromDb(uid);
+                    const refVisit = (localProfile?.visits || []).find((v: VisitLog) => v.id === visitId);
+                    if (refVisit) {
+                        const TWELVE_H = 12 * 60 * 60 * 1000;
+                        remaining = remoteVisits.filter(v => !(
+                            (v.placeName || '').trim().toLowerCase() === (refVisit.placeName || '').trim().toLowerCase() &&
+                            Math.abs((Number(v.date) || 0) - (Number(refVisit.date) || 0)) < TWELVE_H
+                        ));
+                    }
                 }
+
+                if (remaining.length < remoteVisits.length) {
+                    await updateDoc(userRef, { visits: remaining });
+                    console.log(`[deleteVisitLog] Deleted visit from uid ${targetUid}. Remaining: ${remaining.length}`);
+                }
+            } catch (targetErr) {
+                console.warn(`[deleteVisitLog] Error processing target uid ${targetUid}:`, targetErr);
             }
         }
 
-        if (!deleted) {
-            console.warn(`[deleteVisitLog] Visit ${visitId} not found in Firestore (${remoteVisits.length} visits)`);
-            return;
-        }
-
-        // Écriture directe dans Firestore (pas de merge, pas de validateVisitsMutation)
-        await updateDoc(userRef, { visits: remaining });
-
-        // Synchroniser local IndexedDB
+        // Synchroniser le cache local IndexedDB du user connecté
         const localProfile = await getUserFromDb(uid);
         if (localProfile) {
-            const localRemaining = (localProfile.visits || []).filter((v: VisitLog) => v.id !== visitId);
+            const isLocalTarget = (v: VisitLog) => {
+                if (visitId && v.id === visitId) return true;
+                if (fallback?.placeName) {
+                    const pMatch = (v.placeName || '').trim().toLowerCase() === fallback.placeName.trim().toLowerCase();
+                    if (pMatch && (!fallback.date || Math.abs((Number(v.date) || 0) - Number(fallback.date)) < 12 * 3600 * 1000)) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            const localRemaining = (localProfile.visits || []).filter(v => !isLocalTarget(v));
             await storeUserInDb(uid, { ...localProfile, visits: localRemaining });
         }
 
-        console.log(`[deleteVisitLog] Deleted visit ${visitId}. Remaining: ${remaining.length}`);
+        // Émettre l'événement pour mettre à jour l'état React useAuth immédiatement
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('kolyoum_visit_deleted', {
+                detail: { visitId, placeName: fallback?.placeName, date: fallback?.date }
+            }));
+        }
     } catch (err) {
         console.error('[deleteVisitLog] Error deleting visit log:', err);
     }

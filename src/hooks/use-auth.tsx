@@ -189,6 +189,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         });
         return;
       }
+      if (e.type === 'kolyoum_visit_deleted' && detail) {
+        const { visitId, placeName, date } = detail;
+        setUserProfile(prev => {
+          if (!prev?.visits) return prev;
+          const remaining = prev.visits.filter(v => {
+            if (visitId && v.id === visitId) return false;
+            if (placeName && (v.placeName || '').trim().toLowerCase() === placeName.trim().toLowerCase()) {
+              if (!date || Math.abs((Number(v.date) || 0) - Number(date)) < 12 * 3600 * 1000) {
+                return false;
+              }
+            }
+            return true;
+          });
+          return { ...prev, visits: remaining };
+        });
+        return;
+      }
+      if (e.type === 'kolyoum_visit_updated' && detail?.visitId) {
+        const { visitId, updates } = detail;
+        setUserProfile(prev => {
+          if (!prev?.visits) return prev;
+          const visits = prev.visits.map(v => {
+            if (v.id === visitId) {
+              return { ...v, ...updates };
+            }
+            return v;
+          });
+          return { ...prev, visits };
+        });
+        return;
+      }
       if (detail?.ranking && detail?.monthKey) {
         const isTv = detail.mediaType === 'tv';
         setUserProfile(prev => {
@@ -220,12 +251,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     window.addEventListener('kolyoum_movie_deleted', handleRankingUpdate);
     window.addEventListener('kolyoum_category_updated', handleRankingUpdate);
     window.addEventListener('kolyoum_movie_date_updated', handleRankingUpdate);
+    window.addEventListener('kolyoum_visit_deleted', handleRankingUpdate);
+    window.addEventListener('kolyoum_visit_updated', handleRankingUpdate);
     return () => {
       window.removeEventListener('kolyoum_ranking_updated', handleRankingUpdate);
       window.removeEventListener('kolyoum_series_ranking_updated', handleRankingUpdate);
       window.removeEventListener('kolyoum_movie_deleted', handleRankingUpdate);
       window.removeEventListener('kolyoum_category_updated', handleRankingUpdate);
       window.removeEventListener('kolyoum_movie_date_updated', handleRankingUpdate);
+      window.removeEventListener('kolyoum_visit_deleted', handleRankingUpdate);
+      window.removeEventListener('kolyoum_visit_updated', handleRankingUpdate);
     };
   }, []);
 
@@ -243,8 +278,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         movieRankings: mergeRankingsByTimestamp(localProfile.movieRankings, localStoredRankings),
       };
       setUserProfile(prev => {
-        if (prev?.visits && (!mergedProfile.visits || mergedProfile.visits.length < prev.visits.length)) {
-          return { ...mergedProfile, visits: mergeVisits(prev.visits, mergedProfile.visits) };
+        if (!mergedProfile.visits && prev?.visits) {
+          return { ...mergedProfile, visits: prev.visits };
         }
         return mergedProfile;
       });
@@ -450,8 +485,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             },
             seenMoviesData: mergeSeenData(localProfile?.seenMoviesData, firestoreData?.seenMoviesData),
             seenSeriesData: mergeSeenData(localProfile?.seenSeriesData, firestoreData?.seenSeriesData),
-            // KHROUJ : protéger les visites et lieux enregistrés
-            visits: mergeVisits(localProfile?.visits, firestoreData?.visits),
+            // KHROUJ : Firestore est la source de vérité autoritaire
+            visits: Array.isArray(firestoreData?.visits) ? firestoreData.visits : (localProfile?.visits || []),
             places: (() => {
               const localPlaces = localProfile?.places || [];
               const remotePlaces = firestoreData?.places || [];
