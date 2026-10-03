@@ -491,9 +491,11 @@ export function resolveMovieViewTimestamp(
     if (!isNaN(visitTs)) return visitTs;
   }
 
-  // 5. Repli sur addedAt si marqué comme vu
+  // 5. Repli sur addedAt UNIQUEMENT si c'est une date ancienne (pas Date.now() d'aujourd'hui)
   if (seenData?.addedAt) {
-    return seenData.addedAt;
+    const TWO_DAYS = 48 * 60 * 60 * 1000;
+    const isRecentAddedAt = (Date.now() - seenData.addedAt) < TWO_DAYS;
+    if (!isRecentAddedAt) return seenData.addedAt;
   }
 
   // 6. Historique seenMovieHistory
@@ -1009,7 +1011,7 @@ function MovieListContent({
             posterUrl: s.posterUrl || movieDetails[s.title]?.posterUrl,
             year: s.year || movieDetails[s.title]?.year,
             rating: s.rating || movieDetails[s.title]?.rating,
-            viewedAt: s.viewedAt || s.addedAt,
+            viewedAt: s.viewedAt,  // Ne pas fallback sur addedAt (= Date.now() → fausse date "aujourd'hui")
             genres: s.genres,
             category: s.category || (userProfile?.seriesCategories || {})[norm],
           });
@@ -1066,7 +1068,7 @@ function MovieListContent({
           rating: m.rating || movieDetails[m.title]?.rating,
           watchedInCinema: m.watchedInCinema,
           cinemaPlace: m.cinemaPlace,
-          viewedAt: m.viewedAt || m.addedAt,
+          viewedAt: m.viewedAt,  // Ne pas fallback sur addedAt (= Date.now() → fausse date "aujourd'hui")
           genres: m.genres,
           category: localCategories[norm] || m.category || (userProfile?.movieCategories || {})[norm],
         });
