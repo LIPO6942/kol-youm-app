@@ -2874,13 +2874,13 @@ export async function sanitizeAndHealMovieData(
         }
 
         if (!viewedAt && realDate) {
+            // On ne renseigne viewedAt qu'avec une date historique réelle (cinéma, historique, classement)
             viewedAt = realDate;
             addedAt = addedAt || realDate;
             hasChanges = true;
-        } else if (!viewedAt && addedAt) {
-            viewedAt = addedAt;
-            hasChanges = true;
         }
+        // NOTE : on ne fait PAS viewedAt = addedAt car addedAt peut être Date.now() (ajouté aujourd'hui)
+        //        et cela provoquerait des "vu aujourd'hui" erronés sur tous les films sans date.
 
         const watchedInCinema = item.watchedInCinema || !!cinemaInfo;
         const cinemaPlace = item.cinemaPlace || cinemaInfo?.placeName;

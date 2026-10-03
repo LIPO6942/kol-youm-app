@@ -95,14 +95,26 @@ export function CinematicDnaModal({
 
   // ── TITRES VUS & WATCHLIST (pour badges sur la filmographie) ─────────────────
   function normalizeTitle(t: string) {
-    // Normalisation robuste : minuscule, sans accents, sans ponctuation, sans espaces multiples
-    // Conserve les caractères alphanumériques uniquement pour comparaison
     return (t || '')
       .toLowerCase()
       .trim()
+      // Retirer l'année entre parenthèses ex: "Inception (2010)" → "Inception"
+      .replace(/\s*\(\d{4}\)\s*$/, '')
+      // Retirer les suffixes de version ex: "[VF]" "[VOSTFR]"
+      .replace(/\s*[\[\(][A-Z]{2,6}[\]\)]\s*$/i, '')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')   // supprime les accents
-      .replace(/[^a-z0-9]/g, '');         // conserve seulement lettres+chiffres
+      .replace(/[^a-z0-9]/g, '');        // conserve seulement lettres+chiffres
+  }
+
+  /** Variantes d'un titre pour le matching : avec et sans article de début */
+  function titleVariants(t: string): string[] {
+    const norm = normalizeTitle(t);
+    const variants = [norm];
+    // Retirer l'article initial si présent (the/le/la/les/l/un/une/a/an)
+    const withoutArticle = norm.replace(/^(the|le|la|les|l|un|une|a|an)/, '').trim();
+    if (withoutArticle && withoutArticle !== norm) variants.push(withoutArticle);
+    return variants;
   }
 
   function toDateInputValue(ts: number) {
@@ -120,7 +132,9 @@ export function CinematicDnaModal({
       ? (userProfile?.seenSeriesData || []).map((m: any) => m?.title).filter(Boolean)
       : (userProfile?.seenMoviesData || []).map((m: any) => m?.title).filter(Boolean);
     const all = [...titlesFromList, ...titlesFromData];
-    return new Set(all.map(normalizeTitle));
+    // Générer toutes les variantes (avec + sans article) pour chaque titre
+    const allVariants = all.flatMap(titleVariants);
+    return new Set(allVariants);
   }, [userProfile?.seenMovieTitles, userProfile?.seenSeriesTitles, userProfile?.seenMoviesData, userProfile?.seenSeriesData, mediaType]);
 
   const watchSet = useMemo(() => {
@@ -131,17 +145,27 @@ export function CinematicDnaModal({
     const normalized = titles.map((item: any) =>
       typeof item === 'string' ? item : (item?.title || '')
     ).filter(Boolean);
-    return new Set(normalized.map(normalizeTitle));
+    const allVariants = normalized.flatMap(titleVariants);
+    return new Set(allVariants);
   }, [userProfile?.moviesToWatch, userProfile?.seriesToWatch, mediaType]);
 
   /** Vérifie si un FilmographyItem est dans un Set de titres normalisés.
-   * Essaie d'abord le titre localisé (FR), puis le titre original (EN) en fallback.
+   * Essaie le titre localisé (FR) + titre original (EN) + variantes sans article.
    */
   const filmMatchesSet = (film: FilmographyItem, set: Set<string>): boolean => {
-    if (set.has(normalizeTitle(film.title))) return true;
-    if (film.originalTitle && set.has(normalizeTitle(film.originalTitle))) return true;
+    // Toutes les variantes du titre FR
+    for (const v of titleVariants(film.title)) {
+      if (set.has(v)) return true;
+    }
+    // Toutes les variantes du titre original
+    if (film.originalTitle) {
+      for (const v of titleVariants(film.originalTitle)) {
+        if (set.has(v)) return true;
+      }
+    }
     return false;
   };
+
 
 
   // ── ACTIONS SUR FILMOGRAPHIE (comme sur la bande tendances) ──────────────────
