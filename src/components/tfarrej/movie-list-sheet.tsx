@@ -1436,21 +1436,6 @@ function MovieListContent({
               )}
               {/* Boutons permanents : Vu (watchlist) + ⋯ (actions) — TOUJOURS visibles */}
               <div className="flex items-center gap-1 shrink-0 ml-auto">
-                {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onMarkAsWatched(movieTitle);
-                    }}
-                    disabled={isUpdating}
-                    className="h-6 px-2 rounded-md inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all cursor-pointer shadow-xs active:scale-95"
-                    title="Marquer comme vu"
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    <span>Vu</span>
-                  </button>
-                )}
                 {!isActionsOpen && (
                   <button
                     type="button"
@@ -1494,11 +1479,26 @@ function MovieListContent({
                 </div>
               )}
 
-              {/* Année */}
+              {/* Année + bouton Vu (watchlist uniquement) */}
               {!isOld && details?.year && (
                 <span className="inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] h-4 font-semibold border-transparent bg-secondary text-secondary-foreground shrink-0">
                   {details.year}
                 </span>
+              )}
+              {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMarkAsWatched(movieTitle);
+                  }}
+                  disabled={isUpdating}
+                  className="h-5 px-1.5 rounded-md inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all cursor-pointer shadow-xs active:scale-95"
+                  title="Marquer comme vu"
+                >
+                  <Eye className="h-3 w-3" />
+                  <span>Vu</span>
+                </button>
               )}
             </div>
 

@@ -8,6 +8,7 @@ import { auth, db as firestoreDb } from '@/lib/firebase/client';
 import type { UserProfile, WardrobeItem } from '@/lib/firebase/firestore';
 import { getUserFromDb, storeUserInDb } from '@/lib/indexeddb';
 import { updateUserProfile as updateProfileInFirestore, purgeTestMovieData, sanitizeAndHealMovieData } from '@/lib/firebase/firestore';
+import { mergeVisits } from '@/lib/khrouj-visits-manager';
 
 interface AuthContextType {
   user: User | null;
@@ -240,14 +241,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         ...localProfile,
         movieRankings: mergeRankingsByTimestamp(localProfile.movieRankings, localStoredRankings),
       };
-      setUserProfile(mergedProfile);
+      setUserProfile(prev => {
+        if (prev?.visits && (!mergedProfile.visits || mergedProfile.visits.length < prev.visits.length)) {
+          return { ...mergedProfile, visits: mergeVisits(prev.visits, mergedProfile.visits) };
+        }
+        return mergedProfile;
+      });
       return mergedProfile;
     } else if (Object.keys(localStoredRankings).length > 0) {
       const partialProfile = {
         uid,
         movieRankings: localStoredRankings,
       } as unknown as UserProfile;
-      setUserProfile(partialProfile);
+      setUserProfile(prev => {
+        if (prev?.visits) {
+          return { ...partialProfile, visits: prev.visits };
+        }
+        return partialProfile;
+      });
       return partialProfile;
     }
     return localProfile;
@@ -279,15 +290,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         ...(localProfile || {}),
         ...firestoreData,
         uid: user.uid,
-        // Protéger les données critiques : garder le plus grand des deux ensembles
-        visits: (() => {
-          const localV = localProfile?.visits || [];
-          const remoteV = firestoreData?.visits || [];
-          const map = new Map<string, any>();
-          remoteV.forEach(v => { if (v?.id) map.set(v.id, { ...v }); });
-          localV.forEach(v => { if (v?.id) map.set(v.id, { ...v }); });
-          return Array.from(map.values()).sort((a, b) => (b.date || 0) - (a.date || 0));
-        })(),
+        // Protéger les données critiques : fusion sans perte Khrouj
+        visits: mergeVisits(localProfile?.visits, firestoreData?.visits),
         places: (() => {
           const localP = localProfile?.places || [];
           const remoteP = firestoreData?.places || [];
@@ -400,23 +404,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             return Array.from(map.values());
           };
 
-          // Helper to merge visits (Khrouj) by id — local takes precedence, remote adds missing ones
-          const mergeVisits = (localList: any[] = [], remoteList: any[] = []) => {
-            const map = new Map<string, any>();
-            // Remote first (base)
-            remoteList.forEach(v => {
-              if (v?.id) map.set(v.id, { ...v });
-            });
-            // Local overwrites (more recent local edits win)
-            localList.forEach(v => {
-              if (v?.id) map.set(v.id, { ...v });
-              else if (v?.date) {
-                // No id: keep it as-is
-                map.set(`noid_${v.date}_${v.placeName}`, { ...v });
-              }
-            });
-            return Array.from(map.values()).sort((a, b) => (b.date || 0) - (a.date || 0));
-          };
+
 
           // Merge Firestore data with sensitive local data, categories, dates, and rankings
           finalProfile = {

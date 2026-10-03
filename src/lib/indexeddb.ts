@@ -1,5 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { UserProfile } from './firebase/firestore';
+import { mergeVisits } from './khrouj-visits-manager';
 
 interface MyDB extends DBSchema {
   'user-profile': {
@@ -28,10 +29,20 @@ const getDb = () => {
     return dbPromise;
 };
 
-
 export async function storeUserInDb(uid: string, profile: UserProfile) {
     try {
         const db = await getDb();
+        if (profile) {
+            // Protection anti-perte : si IndexedDB possède déjà des visites et que le nouveau profil
+            // en contient moins ou aucune, fusionner pour ne jamais écraser l'historique Khrouj.
+            const existing = await db.get('user-profile', uid);
+            if (existing && Array.isArray(existing.visits) && existing.visits.length > 0) {
+                const incomingVisits = Array.isArray(profile.visits) ? profile.visits : [];
+                if (incomingVisits.length < existing.visits.length) {
+                    profile.visits = mergeVisits(incomingVisits, existing.visits);
+                }
+            }
+        }
         return db.put('user-profile', profile, uid);
     } catch (error) {
         console.warn("Could not store user in IndexedDB:", error);

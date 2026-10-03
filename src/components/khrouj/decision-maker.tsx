@@ -169,7 +169,7 @@ export default function DecisionMaker() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [isAddingVisit, setIsAddingVisit] = useState(false);
   const { toast } = useToast();
-  const { user, userProfile, restoreFromFirestore } = useAuth();
+  const { user, userProfile, restoreFromFirestore, loading } = useAuth();
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
   const [showAllFrequent, setShowAllFrequent] = useState(false);
   const [pendingVisit, setPendingVisit] = useState<VisitLog | null>(null);
@@ -1784,6 +1784,17 @@ export default function DecisionMaker() {
 
     const [isRestoring, setIsRestoring] = React.useState(false);
     const [restoreResult, setRestoreResult] = React.useState<{ visits: number; places: number; movies: number } | null>(null);
+
+    if (loading || (user && !userProfile)) {
+      return (
+        <div className="flex flex-col items-center justify-center py-16 text-center gap-3 text-muted-foreground animate-pulse">
+          <div className="h-16 w-16 bg-muted/40 rounded-full flex items-center justify-center">
+            <History className="h-8 w-8 opacity-40 animate-spin" />
+          </div>
+          <p className="font-medium text-foreground/70 text-sm">Chargement de votre historique...</p>
+        </div>
+      );
+    }
 
     if (!userProfile?.visits || userProfile.visits.length === 0) {
       return (

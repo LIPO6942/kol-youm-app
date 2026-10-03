@@ -2,6 +2,7 @@
 import { doc, setDoc, getDoc, serverTimestamp, arrayUnion, arrayRemove, writeBatch, updateDoc, deleteField } from "firebase/firestore";
 import { db as firestoreDb } from "./client";
 import { getUserFromDb, storeUserInDb } from "@/lib/indexeddb";
+import { mergeVisits, validateVisitsMutation } from "@/lib/khrouj-visits-manager";
 
 // ── Déclaré ici en premier pour éviter tout problème de TDZ ou de bundling ──
 export const isTestMovieTitle = (title?: any): boolean => {
@@ -627,16 +628,7 @@ export async function removeMovieFromList(
                 });
                 updatedProfile.movieSagaLinks = copy;
             }
-            if (Array.isArray(updatedProfile.visits)) {
-                updatedProfile.visits = updatedProfile.visits.map((v: any) => {
-                    if (v && v.category === 'Cinéma' && v.orderedItem && isMatch(v.orderedItem)) {
-                        const copy = { ...v };
-                        delete copy.orderedItem;
-                        return copy;
-                    }
-                    return v;
-                });
-            }
+            // Khrouj visits are immutable past logs and are never mutated or synced by Tfarrej movie deletions
             // Strictement ajouter à rejectedMovieTitles pour bloquer toute réapparition
             const rejected = Array.isArray(updatedProfile.rejectedMovieTitles) ? updatedProfile.rejectedMovieTitles : [];
             if (!rejected.some((t: string) => isMatch(t))) {
@@ -708,7 +700,6 @@ export async function removeMovieFromList(
                     syncPayload.seenMoviesData = updatedProfile.seenMoviesData || [];
                     if (updatedProfile.movieRankings) syncPayload.movieRankings = updatedProfile.movieRankings;
                     if (updatedProfile.rejectedMovieTitles) syncPayload.rejectedMovieTitles = updatedProfile.rejectedMovieTitles;
-                    if (updatedProfile.visits) syncPayload.visits = updatedProfile.visits;
                     if (updatedProfile.movieCategories) syncPayload.movieCategories = updatedProfile.movieCategories;
                 } else if (isSeenSeries) {
                     syncPayload.seenSeriesData = updatedProfile.seenSeriesData || [];
@@ -1825,67 +1816,120 @@ export async function addVisitLog(uid: string, visit: Omit<VisitLog, 'id'>) {
         Object.entries(rawVisit).filter(([, v]) => v !== undefined)
     ) as VisitLog;
 
-    const userRef = doc(firestoreDb, 'users', uid);
-    await updateDoc(userRef, {
-        visits: arrayUnion(newVisit)
-    });
+    if (uid && uid !== 'guest') {
+        const userRef = doc(firestoreDb, 'users', uid);
+        await updateDoc(userRef, {
+            visits: arrayUnion(newVisit)
+        }).catch(async () => {
+            // Fallback if document doesn't exist yet
+            await setDoc(userRef, { visits: [newVisit] }, { merge: true });
+        });
+    }
 
-    // Update local state
+    // Update local state losslessly
     const localProfile = await getUserFromDb(uid);
     if (localProfile) {
+        const currentVisits = localProfile.visits || [];
+        const updatedVisits = mergeVisits(currentVisits, [newVisit]);
         const updatedProfile = {
             ...localProfile,
-            visits: [...(localProfile.visits || []), newVisit]
+            visits: updatedVisits
         };
         await storeUserInDb(uid, updatedProfile);
     }
 }
 
-export async function updateVisitLog(uid: string, visitId: string, updates: { date?: number; orderedItem?: string }) {
-    const localProfile = await getUserFromDb(uid);
-    if (!localProfile) return;
+export async function updateVisitLog(
+    uid: string, 
+    visitId: string, 
+    updates: { date?: number; orderedItem?: string; isPending?: boolean; category?: string; placeName?: string }
+) {
+    if (!uid || uid === 'guest') return;
+    try {
+        const userRef = doc(firestoreDb, 'users', uid);
+        const userSnap = await getDoc(userRef);
+        const remoteVisits: VisitLog[] = (userSnap.exists() && Array.isArray(userSnap.data()?.visits))
+            ? userSnap.data()!.visits
+            : [];
 
-    const visitToUpdate = localProfile.visits?.find(v => v.id === visitId);
-    if (!visitToUpdate) return;
+        const localProfile = await getUserFromDb(uid);
+        const localVisits = localProfile?.visits || [];
 
-    const userRef = doc(firestoreDb, 'users', uid);
+        // Lossless base
+        const mergedVisits = mergeVisits(localVisits, remoteVisits);
 
-    // Remove the old visit and add the updated one
-    const updatedVisit = { ...visitToUpdate, ...updates };
-    await updateDoc(userRef, {
-        visits: arrayRemove(visitToUpdate)
-    });
-    await updateDoc(userRef, {
-        visits: arrayUnion(updatedVisit)
-    });
+        const index = mergedVisits.findIndex(v => v.id === visitId);
+        if (index === -1) {
+            console.warn(`[updateVisitLog] Visit ${visitId} not found`);
+            return;
+        }
 
-    // Update local state
-    const updatedProfile = {
-        ...localProfile,
-        visits: (localProfile.visits || []).map(v =>
-            v.id === visitId ? updatedVisit : v
-        )
-    };
-    await storeUserInDb(uid, updatedProfile);
+        const updatedVisit: VisitLog = {
+            ...mergedVisits[index],
+            ...updates,
+        };
+
+        const cleanedVisit = Object.fromEntries(
+            Object.entries(updatedVisit).filter(([, val]) => val !== undefined)
+        ) as VisitLog;
+
+        const nextVisits = [...mergedVisits];
+        nextVisits[index] = cleanedVisit;
+
+        const validated = validateVisitsMutation(mergedVisits, nextVisits, `updateVisitLog(${visitId})`);
+
+        await updateDoc(userRef, {
+            visits: validated
+        });
+
+        if (localProfile) {
+            await storeUserInDb(uid, {
+                ...localProfile,
+                visits: validated
+            });
+        }
+    } catch (err) {
+        console.error('[updateVisitLog] Error updating visit log:', err);
+    }
 }
 
 export async function deleteVisitLog(uid: string, visitId: string) {
-    const localProfile = await getUserFromDb(uid);
-    if (!localProfile) return;
+    if (!uid || uid === 'guest') return;
+    try {
+        const userRef = doc(firestoreDb, 'users', uid);
+        const userSnap = await getDoc(userRef);
+        const remoteVisits: VisitLog[] = (userSnap.exists() && Array.isArray(userSnap.data()?.visits))
+            ? userSnap.data()!.visits
+            : [];
 
-    const visitToDelete = localProfile.visits?.find(v => v.id === visitId);
-    if (!visitToDelete) return;
+        const localProfile = await getUserFromDb(uid);
+        const localVisits = localProfile?.visits || [];
 
-    const userRef = doc(firestoreDb, 'users', uid);
-    await updateDoc(userRef, {
-        visits: arrayRemove(visitToDelete)
-    });
+        // Lossless base
+        const mergedVisits = mergeVisits(localVisits, remoteVisits);
 
-    const updatedProfile = {
-        ...localProfile,
-        visits: (localProfile.visits || []).filter(v => v.id !== visitId)
-    };
-    await storeUserInDb(uid, updatedProfile);
+        const exists = mergedVisits.some(v => v.id === visitId);
+        if (!exists) {
+            console.warn(`[deleteVisitLog] Visit ${visitId} not found`);
+            return;
+        }
+
+        const remainingVisits = mergedVisits.filter(v => v.id !== visitId);
+        const validated = validateVisitsMutation(mergedVisits, remainingVisits, `deleteVisitLog(${visitId})`);
+
+        await updateDoc(userRef, {
+            visits: validated
+        });
+
+        if (localProfile) {
+            await storeUserInDb(uid, {
+                ...localProfile,
+                visits: validated
+            });
+        }
+    } catch (err) {
+        console.error('[deleteVisitLog] Error deleting visit log:', err);
+    }
 }
 
 export async function addBrainAttempt(uid: string, attempt: Omit<BrainAttempt, 'id' | 'date'>) {
@@ -2478,13 +2522,7 @@ export async function purgeTestMovieData(
         }
     }
 
-    if (Array.isArray(updated.visits)) {
-        const filtered = updated.visits.filter((v: any) => !(v.category === 'Cinéma' && isTestMovieTitle(v.orderedItem)));
-        if (filtered.length !== updated.visits.length) {
-            updated.visits = filtered;
-            profileChanged = true;
-        }
-    }
+    // Khrouj visits are immutable activity logs and are strictly excluded from movie test purges
 
     if (updated.movieRankings) {
         Object.keys(updated.movieRankings).forEach(k => {
@@ -2519,7 +2557,6 @@ export async function purgeTestMovieData(
                     seenMoviesData: updated.seenMoviesData || [],
                     moviesToWatch: updated.moviesToWatch || [],
                     rejectedMovieTitles: updated.rejectedMovieTitles || [],
-                    visits: updated.visits || [],
                     movieRankings: updated.movieRankings || {},
                 }, { merge: true });
             } catch (err) {

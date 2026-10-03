@@ -46,3 +46,6 @@ firestore-debug.log
 
 # Generated service worker (contains Firebase config from env vars)
 public/firebase-messaging-sw.js
+
+# Temporary recovery / scratch
+scratch/
