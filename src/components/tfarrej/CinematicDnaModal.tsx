@@ -95,7 +95,14 @@ export function CinematicDnaModal({
 
   // ── TITRES VUS & WATCHLIST (pour badges sur la filmographie) ─────────────────
   function normalizeTitle(t: string) {
-    return t.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+    // Normalisation robuste : minuscule, sans accents, sans ponctuation, sans espaces multiples
+    // Conserve les caractères alphanumériques uniquement pour comparaison
+    return (t || '')
+      .toLowerCase()
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')   // supprime les accents
+      .replace(/[^a-z0-9]/g, '');         // conserve seulement lettres+chiffres
   }
 
   function toDateInputValue(ts: number) {
@@ -104,18 +111,29 @@ export function CinematicDnaModal({
   }
 
   const seenSet = useMemo(() => {
-    const titles = mediaType === 'tv'
+    // Source 1 : liste officielle des titres vus (strings)
+    const titlesFromList = mediaType === 'tv'
       ? (userProfile?.seenSeriesTitles || [])
       : (userProfile?.seenMovieTitles || []);
-    return new Set(titles.map(normalizeTitle));
-  }, [userProfile, mediaType]);
+    // Source 2 : données enrichies (objets) — fallback pour titres non dans la liste principale
+    const titlesFromData = mediaType === 'tv'
+      ? (userProfile?.seenSeriesData || []).map((m: any) => m?.title).filter(Boolean)
+      : (userProfile?.seenMoviesData || []).map((m: any) => m?.title).filter(Boolean);
+    const all = [...titlesFromList, ...titlesFromData];
+    return new Set(all.map(normalizeTitle));
+  }, [userProfile?.seenMovieTitles, userProfile?.seenSeriesTitles, userProfile?.seenMoviesData, userProfile?.seenSeriesData, mediaType]);
 
   const watchSet = useMemo(() => {
     const titles = mediaType === 'tv'
       ? (userProfile?.seriesToWatch || [])
       : (userProfile?.moviesToWatch || []);
-    return new Set(titles.map(normalizeTitle));
-  }, [userProfile, mediaType]);
+    // Gérer les cas où un élément est un objet {title:...} au lieu d'une string
+    const normalized = titles.map((item: any) =>
+      typeof item === 'string' ? item : (item?.title || '')
+    ).filter(Boolean);
+    return new Set(normalized.map(normalizeTitle));
+  }, [userProfile?.moviesToWatch, userProfile?.seriesToWatch, mediaType]);
+
 
   // ── ACTIONS SUR FILMOGRAPHIE (comme sur la bande tendances) ──────────────────
   const [activeFilm, setActiveFilm] = useState<FilmographyItem | null>(null);
