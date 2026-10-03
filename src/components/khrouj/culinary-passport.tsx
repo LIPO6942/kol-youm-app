@@ -10,7 +10,7 @@ import {
     ArrowLeft,
     UtensilsCrossed, 
     Pizza, 
-    Burger, 
+    Beef, 
     Fish, 
     Soup, 
     Coffee, 
@@ -39,7 +39,7 @@ const COLORS = ['#f97316', '#f59e0b', '#8b5cf6', '#ec4899', '#3b82f6', '#06b6d4'
 const CUISINE_ICONS: Record<string, any> = {
     'Tunisien': UtensilsCrossed,
     'Italien': Pizza,
-    'Américain': Burger,
+    'Américain': Beef,
     'Oriental': Flame,
     'Japonaise': Fish,
     'Chinoise': Soup,

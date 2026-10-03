@@ -1069,7 +1069,7 @@ export default function DecisionMaker() {
           title: selectedCat === 'Kharjet' ? "✨ Kharja enregistrée !" : "Visite ajoutée",
           description: `${cleanedName} a été enregistré avec succès.`
         });
-        setOpen(false);
+        onOpenChange(false);
         setSelectedPlace("");
         setSearchQuery("");
         setOrderedItem("");
@@ -2596,7 +2596,7 @@ export default function DecisionMaker() {
     };
 
     return (
-      <Dialog>
+      <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogTrigger asChild>
           <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full bg-orange-50 text-orange-600 hover:bg-orange-100 transition-all duration-300 shadow-sm border border-orange-100">
             <UtensilsCrossed className="h-5 w-5" />
