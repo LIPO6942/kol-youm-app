@@ -134,6 +134,15 @@ export function CinematicDnaModal({
     return new Set(normalized.map(normalizeTitle));
   }, [userProfile?.moviesToWatch, userProfile?.seriesToWatch, mediaType]);
 
+  /** Vérifie si un FilmographyItem est dans un Set de titres normalisés.
+   * Essaie d'abord le titre localisé (FR), puis le titre original (EN) en fallback.
+   */
+  const filmMatchesSet = (film: FilmographyItem, set: Set<string>): boolean => {
+    if (set.has(normalizeTitle(film.title))) return true;
+    if (film.originalTitle && set.has(normalizeTitle(film.originalTitle))) return true;
+    return false;
+  };
+
 
   // ── ACTIONS SUR FILMOGRAPHIE (comme sur la bande tendances) ──────────────────
   const [activeFilm, setActiveFilm] = useState<FilmographyItem | null>(null);
@@ -280,6 +289,7 @@ export function CinematicDnaModal({
   interface FilmographyItem {
     id: number;
     title: string;
+    originalTitle?: string | null;
     year: number | null;
     posterPath: string | null;
     voteAverage: number | null;
@@ -946,9 +956,8 @@ export function CinematicDnaModal({
                           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                         >
                           {selectedPerson.bio.filmography.map((film) => {
-                            const normTitle = normalizeTitle(film.title);
-                            const alreadySeen = seenSet.has(normTitle);
-                            const inWatchlist = watchSet.has(normTitle);
+                            const alreadySeen = filmMatchesSet(film, seenSet);
+                            const inWatchlist = filmMatchesSet(film, watchSet);
                             const isActive = activeFilm?.id === film.id;
 
                             return (
@@ -1078,7 +1087,7 @@ export function CinematicDnaModal({
                             {/* Actions : Ajouter à À Voir / Marquer comme vu / Voir fiche */}
                             <div className="space-y-1.5 pt-0.5">
                               {/* 1. Ajouter à À Voir */}
-                              {!seenSet.has(normalizeTitle(activeFilm.title)) && !watchSet.has(normalizeTitle(activeFilm.title)) && (
+                              {!filmMatchesSet(activeFilm, seenSet) && !filmMatchesSet(activeFilm, watchSet) && (
                                 <button
                                   type="button"
                                   onClick={() => handleAddToWatchlist(activeFilm)}
@@ -1098,7 +1107,7 @@ export function CinematicDnaModal({
                               )}
 
                               {/* Déjà dans À Voir */}
-                              {watchSet.has(normalizeTitle(activeFilm.title)) && !seenSet.has(normalizeTitle(activeFilm.title)) && (
+                              {filmMatchesSet(activeFilm, watchSet) && !filmMatchesSet(activeFilm, seenSet) && (
                                 <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-400/20 text-blue-300 text-xs font-semibold">
                                   <BookmarkPlus className="w-4 h-4 text-blue-400 flex-shrink-0" />
                                   <span>Déjà dans votre liste "À Voir"</span>
@@ -1106,7 +1115,7 @@ export function CinematicDnaModal({
                               )}
 
                               {/* 2. Marquer comme vu */}
-                              {!seenSet.has(normalizeTitle(activeFilm.title)) && (
+                              {!filmMatchesSet(activeFilm, seenSet) && (
                                 <>
                                   {!showDatePicker ? (
                                     <button
@@ -1267,7 +1276,7 @@ export function CinematicDnaModal({
                               )}
 
                               {/* Déjà vu */}
-                              {seenSet.has(normalizeTitle(activeFilm.title)) && (
+                              {filmMatchesSet(activeFilm, seenSet) && (
                                 <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-400/20 text-emerald-300 text-xs font-semibold">
                                   <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                                   <span>Déjà vu — dans votre historique</span>

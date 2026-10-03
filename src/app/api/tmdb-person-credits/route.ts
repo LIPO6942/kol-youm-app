@@ -64,6 +64,7 @@ export async function GET(req: NextRequest) {
     const credits = filtered.map((c: any) => ({
       id: c.id,
       title: c.title || c.name,
+      originalTitle: c.original_title || c.original_name || null,
       year: c.release_date
         ? new Date(c.release_date).getFullYear()
         : c.first_air_date
