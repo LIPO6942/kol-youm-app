@@ -173,7 +173,7 @@ export default function DecisionMaker() {
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
   const [showAllFrequent, setShowAllFrequent] = useState(false);
   const [pendingVisit, setPendingVisit] = useState<VisitLog | null>(null);
-  const [manualFormOpen, setManualFormOpen] = useState(() => searchParams.get('open') === 'add-pepite');
+  const [manualFormOpen, setManualFormOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [zoneDialogOpen, setZoneDialogOpen] = useState(false);
   const [specialtyDialogOpen, setSpecialtyDialogOpen] = useState(false);
