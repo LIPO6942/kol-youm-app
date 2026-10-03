@@ -2873,6 +2873,27 @@ export async function sanitizeAndHealMovieData(
             }
         }
 
+        // ── Détection des viewedAt corrompus (= bug addedAt=viewedAt) ──────────────
+        // Si viewedAt == addedAt ET c'est une date récente (< 60 jours), on considère
+        // que c'est probablement un artefact du bug « viewedAt = addedAt ».
+        // On remplace par la date réelle si on en a une, sinon on supprime viewedAt.
+        const SIXTY_DAYS = 60 * 24 * 60 * 60 * 1000;
+        const isSuspectViewedAt = viewedAt && addedAt &&
+            viewedAt === addedAt &&
+            (Date.now() - viewedAt) < SIXTY_DAYS &&
+            !cinemaInfo && !historyDate;  // pas de source réelle confirmée
+
+        if (isSuspectViewedAt) {
+            if (realDate && realDate !== viewedAt) {
+                viewedAt = realDate;
+                hasChanges = true;
+            } else if (!rankingDate) {
+                // Pas de date réelle du tout → supprimer la fausse date
+                viewedAt = undefined;
+                hasChanges = true;
+            }
+        }
+
         if (!viewedAt && realDate) {
             // On ne renseigne viewedAt qu'avec une date historique réelle (cinéma, historique, classement)
             viewedAt = realDate;
@@ -2881,6 +2902,7 @@ export async function sanitizeAndHealMovieData(
         }
         // NOTE : on ne fait PAS viewedAt = addedAt car addedAt peut être Date.now() (ajouté aujourd'hui)
         //        et cela provoquerait des "vu aujourd'hui" erronés sur tous les films sans date.
+
 
         const watchedInCinema = item.watchedInCinema || !!cinemaInfo;
         const cinemaPlace = item.cinemaPlace || cinemaInfo?.placeName;
