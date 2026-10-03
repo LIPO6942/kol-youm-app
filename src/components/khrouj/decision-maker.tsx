@@ -173,6 +173,10 @@ export default function DecisionMaker() {
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
   const [showAllFrequent, setShowAllFrequent] = useState(false);
   const [pendingVisit, setPendingVisit] = useState<VisitLog | null>(null);
+  const [manualFormOpen, setManualFormOpen] = useState(() => searchParams.get('open') === 'add-pepite');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [zoneDialogOpen, setZoneDialogOpen] = useState(false);
+  const [specialtyDialogOpen, setSpecialtyDialogOpen] = useState(false);
 
   // Check for pending visits from Momenty
   useEffect(() => {
@@ -806,8 +810,7 @@ export default function DecisionMaker() {
   }, [userProfile?.visits, allPlaces, selectedYear]);
 
 
-  const ManualVisitForm = () => {
-    const [open, setOpen] = useState(() => searchParams.get('open') === 'add-pepite');
+  const ManualVisitForm = ({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) => {
     const [selectedPlace, setSelectedPlace] = useState("");
     const [selectedCat, setSelectedCat] = useState("Café");
     const [selectedZoneToAdd, setSelectedZoneToAdd] = useState<string>("La Marsa");
@@ -825,12 +828,12 @@ export default function DecisionMaker() {
 
     useEffect(() => {
       if (searchParams.get('open') === 'add-pepite') {
-        setOpen(true);
+        onOpenChange(true);
       }
-    }, [searchParams]);
+    }, [searchParams, onOpenChange]);
 
     const handleOpenChange = (nextOpen: boolean) => {
-      setOpen(nextOpen);
+      onOpenChange(nextOpen);
       if (!nextOpen && searchParams.get('open') === 'add-pepite') {
         if (typeof window !== 'undefined') {
           const url = new URL(window.location.href);
@@ -2237,13 +2240,13 @@ export default function DecisionMaker() {
     );
   };
 
-  const ZoneExplorationDialog = () => {
+  const ZoneExplorationDialog = ({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) => {
     const sortedZones = Object.entries(stats.byZone)
       .filter(([_, data]) => data.totalInDb > 0 || data.count > 0)
       .sort((a, b) => b[1].count - a[1].count);
 
     return (
-      <Dialog>
+      <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogTrigger asChild>
           <Card className="bg-blue-50 border-blue-200 group hover:border-blue-400 transition-all duration-300 cursor-pointer overflow-hidden relative">
             <CardContent className="p-4 flex flex-col items-center justify-center text-center">
@@ -2499,7 +2502,7 @@ export default function DecisionMaker() {
     );
   };
 
-  const SpecialtyMasteryDialog = () => {
+  const SpecialtyMasteryDialog = ({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) => {
     const sortedSpecialties = Object.entries(stats.bySpecialty).sort((a, b) => b[1].count - a[1].count);
     const [editingSpecialty, setEditingSpecialty] = useState<{ name: string, current: string } | null>(null);
     const [newVal, setNewVal] = useState('');
@@ -3035,8 +3038,7 @@ export default function DecisionMaker() {
     );
   };
 
-  const StatsDashboard = () => {
-    const [historyOpen, setHistoryOpen] = useState(false);
+  const StatsDashboard = ({ historyOpen, setHistoryOpen }: { historyOpen: boolean; setHistoryOpen: (v: boolean) => void }) => {
 
 
     useEffect(() => {
@@ -3108,11 +3110,11 @@ export default function DecisionMaker() {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <h2 className="text-2xl font-bold font-headline text-foreground tracking-tight">Mes Habitudes</h2>
-              <SpecialtyMasteryDialog />
+              <SpecialtyMasteryDialog open={specialtyDialogOpen} onOpenChange={setSpecialtyDialogOpen} />
             </div>
           </div>
           <div className="flex justify-center w-full">
-            <ManualVisitForm />
+            <ManualVisitForm open={manualFormOpen} onOpenChange={setManualFormOpen} />
           </div>
         </div>
 
@@ -3171,7 +3173,7 @@ export default function DecisionMaker() {
           </Dialog>
 
           {/* Location Dialog */}
-          <ZoneExplorationDialog />
+          <ZoneExplorationDialog open={zoneDialogOpen} onOpenChange={setZoneDialogOpen} />
 
           {outingOptions.slice(0, 4).map(opt => {
             const count = stats.byCategory[opt.label] || 0;
@@ -3525,7 +3527,7 @@ export default function DecisionMaker() {
         </div>
         <Card className="max-w-2xl mx-auto">
           <CardContent className="p-3 sm:p-6">
-            <StatsDashboard />
+            <StatsDashboard historyOpen={historyOpen} setHistoryOpen={setHistoryOpen} />
           </CardContent>
         </Card>
       </div>
