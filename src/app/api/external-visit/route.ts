@@ -186,6 +186,22 @@ async function handleVisitRequest(request: NextRequest) {
             });
         }
 
+        // Fallback supplémentaire : si la date elle-même a changé (mise à jour Momenty de date),
+        // chercher uniquement par placeName parmi les visites Momenty récentes (< 90 jours)
+        if (existingIndex === -1 && placeName && (action === 'update' || action === 'updateDish' || action === 'edit' || postUrl)) {
+            const normalizedPlace = placeName.trim().toLowerCase();
+            const NINETY_DAYS = 90 * 24 * 60 * 60 * 1000;
+            existingIndex = existingVisits.findIndex(v => {
+                if (v.source !== 'momenty') return false;
+                const vPlace = (v.placeName || '').trim().toLowerCase();
+                const isRecent = !v.date || (Date.now() - Number(v.date)) < NINETY_DAYS;
+                return fuzzyMatch(vPlace, normalizedPlace) && isRecent;
+            });
+            if (existingIndex !== -1) {
+                console.log(`[External Visit API] Matched by placeName fallback (date changed): ${placeName}`);
+            }
+        }
+
         const isExplicitUpdate = action === 'update' || action === 'updateDish' || action === 'edit';
 
         // Si la visite n'existe pas et qu'on n'a pas les infos minimales de création
