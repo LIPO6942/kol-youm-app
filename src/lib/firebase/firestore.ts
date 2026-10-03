@@ -1905,66 +1905,57 @@ export async function deleteVisitLog(uid: string, visitId: string) {
     try {
         const userRef = doc(firestoreDb, 'users', uid);
         const userSnap = await getDoc(userRef);
-        const remoteVisits: VisitLog[] = (userSnap.exists() && Array.isArray(userSnap.data()?.visits))
+        if (!userSnap.exists()) {
+            console.warn(`[deleteVisitLog] User doc not found for uid: ${uid}`);
+            return;
+        }
+
+        const remoteVisits: VisitLog[] = Array.isArray(userSnap.data()?.visits)
             ? userSnap.data()!.visits
             : [];
 
-        const localProfile = await getUserFromDb(uid);
-        const localVisits = localProfile?.visits || [];
+        // Tentative 1 : suppression par ID exact dans Firestore
+        let remaining = remoteVisits.filter(v => v.id !== visitId);
+        let deleted = remaining.length < remoteVisits.length;
 
-        // Lossless base
-        const mergedVisits = mergeVisits(localVisits, remoteVisits);
+        // Tentative 2 : si ID non trouvé dans Firestore (données forcées avec ID différent),
+        // chercher dans le profil local pour obtenir les coordonnées de la visite
+        if (!deleted) {
+            const localProfile = await getUserFromDb(uid);
+            const localVisits = localProfile?.visits || [];
+            const refVisit = localVisits.find((v: VisitLog) => v.id === visitId);
 
-        // Recherche par ID exact d'abord
-        let targetId = visitId;
-        let exists = mergedVisits.some(v => v.id === visitId);
-
-        // Fallback : si l'ID ne correspond pas (données forcées depuis un autre compte),
-        // chercher par fingerprint place+date dans la liste merged
-        if (!exists) {
-            // Chercher dans le profil local/remote par ID pour obtenir les coordonnées
-            const refVisit = [...remoteVisits, ...localVisits].find(v => v.id === visitId);
             if (refVisit) {
+                // Chercher par fingerprint place + date (±12h) dans Firestore
                 const TWELVE_H = 12 * 60 * 60 * 1000;
-                const match = mergedVisits.find(v =>
-                    v.placeName?.trim().toLowerCase() === refVisit.placeName?.trim().toLowerCase() &&
+                const matchIdx = remoteVisits.findIndex(v =>
+                    (v.placeName || '').trim().toLowerCase() === (refVisit.placeName || '').trim().toLowerCase() &&
                     Math.abs((Number(v.date) || 0) - (Number(refVisit.date) || 0)) < TWELVE_H
                 );
-                if (match) {
-                    targetId = match.id;
-                    exists = true;
-                    console.log(`[deleteVisitLog] Matched via fingerprint: ${visitId} → ${targetId}`);
+                if (matchIdx !== -1) {
+                    remaining = remoteVisits.filter((_, i) => i !== matchIdx);
+                    deleted = true;
+                    console.log(`[deleteVisitLog] Fingerprint match for ${visitId} → deleted index ${matchIdx}`);
                 }
-            }
-
-            if (!exists) {
-                console.warn(`[deleteVisitLog] Visit ${visitId} not found in merged (remote:${remoteVisits.length}, local:${localVisits.length}, merged:${mergedVisits.length})`);
-                // Dernier recours : supprimer directement depuis Firestore sans merge
-                const directRemaining = remoteVisits.filter(v => v.id !== visitId);
-                if (directRemaining.length < remoteVisits.length) {
-                    await updateDoc(userRef, { visits: directRemaining });
-                    if (localProfile) await storeUserInDb(uid, { ...localProfile, visits: directRemaining });
-                    console.log(`[deleteVisitLog] Direct Firestore delete succeeded for ${visitId}`);
-                } else {
-                    console.warn(`[deleteVisitLog] Visit ${visitId} not found anywhere, cannot delete`);
-                }
-                return;
             }
         }
 
-        const remainingVisits = mergedVisits.filter(v => v.id !== targetId);
-        const validated = validateVisitsMutation(mergedVisits, remainingVisits, `deleteVisitLog(${targetId})`);
+        if (!deleted) {
+            console.warn(`[deleteVisitLog] Visit ${visitId} not found in Firestore (${remoteVisits.length} visits)`);
+            return;
+        }
 
-        await updateDoc(userRef, {
-            visits: validated
-        });
+        // Écriture directe dans Firestore (pas de merge, pas de validateVisitsMutation)
+        await updateDoc(userRef, { visits: remaining });
 
+        // Synchroniser local IndexedDB
+        const localProfile = await getUserFromDb(uid);
         if (localProfile) {
-            await storeUserInDb(uid, {
-                ...localProfile,
-                visits: validated
-            });
+            const localRemaining = (localProfile.visits || []).filter((v: VisitLog) => v.id !== visitId);
+            await storeUserInDb(uid, { ...localProfile, visits: localRemaining });
         }
+
+        console.log(`[deleteVisitLog] Deleted visit ${visitId}. Remaining: ${remaining.length}`);
     } catch (err) {
         console.error('[deleteVisitLog] Error deleting visit log:', err);
     }

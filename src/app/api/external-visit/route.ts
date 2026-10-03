@@ -186,9 +186,10 @@ async function handleVisitRequest(request: NextRequest) {
             });
         }
 
-        // Fallback supplémentaire : si la date elle-même a changé (mise à jour Momenty de date),
-        // chercher uniquement par placeName parmi les visites Momenty récentes (< 90 jours)
-        if (existingIndex === -1 && placeName && (action === 'update' || action === 'updateDish' || action === 'edit' || postUrl)) {
+        // Fallback : la date elle-même a peut-être changé dans Momenty.
+        // Si un identifiant stable était présent (instantId → c'est forcément une MAJ)
+        // OU si l'action est explicite, chercher par placeName seul parmi les visites Momenty récentes.
+        if (existingIndex === -1 && placeName && (incomingInstantId || action === 'update' || action === 'updateDish' || action === 'edit' || postUrl)) {
             const normalizedPlace = placeName.trim().toLowerCase();
             const NINETY_DAYS = 90 * 24 * 60 * 60 * 1000;
             existingIndex = existingVisits.findIndex(v => {
@@ -199,6 +200,19 @@ async function handleVisitRequest(request: NextRequest) {
             });
             if (existingIndex !== -1) {
                 console.log(`[External Visit API] Matched by placeName fallback (date changed): ${placeName}`);
+            }
+        }
+
+        // Dernier fallback : si toujours pas trouvé ET on a un instantId ou postUrl,
+        // c'est clairement une MAJ, donc chercher sans restriction de source ni de date
+        if (existingIndex === -1 && placeName && (incomingInstantId || postUrl)) {
+            const normalizedPlace = placeName.trim().toLowerCase();
+            existingIndex = existingVisits.findIndex(v => {
+                const vPlace = (v.placeName || '').trim().toLowerCase();
+                return fuzzyMatch(vPlace, normalizedPlace);
+            });
+            if (existingIndex !== -1) {
+                console.log(`[External Visit API] Last-resort match by placeName (any source): ${placeName}`);
             }
         }
 
