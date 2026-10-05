@@ -3052,9 +3052,25 @@ export default function DecisionMaker() {
 
   const StatsDashboard = ({ historyOpen, setHistoryOpen }: { historyOpen: boolean; setHistoryOpen: (v: boolean) => void }) => {
 
-    // Track which milestones have already been celebrated this session to avoid
-    // re-triggering the animation every time the history dialog is opened.
-    const celebratedMilestones = useRef<Set<string>>(new Set());
+    // Persist celebrated milestones in localStorage so the animation never
+    // fires again for the same milestone, even after a page reload.
+    const STORAGE_KEY = 'khrouj_celebrated_milestones';
+
+    const hasCelebrated = (key: string): boolean => {
+      try {
+        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as string[];
+        return stored.includes(key);
+      } catch { return false; }
+    };
+
+    const markCelebrated = (key: string) => {
+      try {
+        const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as string[];
+        if (!stored.includes(key)) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify([...stored, key]));
+        }
+      } catch { /* ignore */ }
+    };
 
     useEffect(() => {
       if (!historyOpen) return;
@@ -3070,8 +3086,8 @@ export default function DecisionMaker() {
 
       if (total > 0 && total % 100 === 0) {
         const key = `total-${total}`;
-        if (!celebratedMilestones.current.has(key)) {
-          celebratedMilestones.current.add(key);
+        if (!hasCelebrated(key)) {
+          markCelebrated(key);
           setTimeout(() => {
             triggerFireworks();
             toast({
@@ -3086,8 +3102,8 @@ export default function DecisionMaker() {
 
       if (cafeCount > 0 && cafeCount % 50 === 0) {
         const key = `cafe-${cafeCount}`;
-        if (!celebratedMilestones.current.has(key)) {
-          celebratedMilestones.current.add(key);
+        if (!hasCelebrated(key)) {
+          markCelebrated(key);
           setTimeout(() => {
             triggerCategoryAnimation(['☕', '🥐', '🍪', '🍩', '🥤', '🍰']);
             toast({
@@ -3102,8 +3118,8 @@ export default function DecisionMaker() {
 
       if (restauCount > 0 && restauCount % 50 === 0) {
         const key = `restau-${restauCount}`;
-        if (!celebratedMilestones.current.has(key)) {
-          celebratedMilestones.current.add(key);
+        if (!hasCelebrated(key)) {
+          markCelebrated(key);
           setTimeout(() => {
             triggerCategoryAnimation(['🍕', '🍔', '🍟', '🍝', '🌮', '🥗', '🍣', '🍜', '🍽️', '🍗']);
             toast({
@@ -3118,8 +3134,8 @@ export default function DecisionMaker() {
 
       if (brunchCount > 0 && brunchCount % 50 === 0) {
         const key = `brunch-${brunchCount}`;
-        if (!celebratedMilestones.current.has(key)) {
-          celebratedMilestones.current.add(key);
+        if (!hasCelebrated(key)) {
+          markCelebrated(key);
           setTimeout(() => {
             triggerCategoryAnimation(['🥞', '🍳', '🧇', '🥓', '🥑', '🍞', '☕', '🍓', '🍊']);
             toast({
