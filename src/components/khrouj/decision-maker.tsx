@@ -3052,6 +3052,9 @@ export default function DecisionMaker() {
 
   const StatsDashboard = ({ historyOpen, setHistoryOpen }: { historyOpen: boolean; setHistoryOpen: (v: boolean) => void }) => {
 
+    // Track which milestones have already been celebrated this session to avoid
+    // re-triggering the animation every time the history dialog is opened.
+    const celebratedMilestones = useRef<Set<string>>(new Set());
 
     useEffect(() => {
       if (!historyOpen) return;
@@ -3061,53 +3064,71 @@ export default function DecisionMaker() {
       const restauCount = stats.byCategory['Restaurant'] || 0;
       const brunchCount = stats.byCategory['Brunch'] || 0;
 
-      let delay = 200;
+      // Use a longer initial delay so the dialog finishes mounting before
+      // the canvas-confetti animation starts (prevents rendering glitches).
+      let delay = 800;
 
       if (total > 0 && total % 100 === 0) {
-        setTimeout(() => {
-          triggerFireworks();
-          toast({
-            title: "🎉 Palier historique atteint !",
-            description: `Incroyable ! Vous avez visité ${total} lieux au total !`,
-            className: "bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white font-bold border-none",
-          });
-        }, delay);
-        delay += 2500;
+        const key = `total-${total}`;
+        if (!celebratedMilestones.current.has(key)) {
+          celebratedMilestones.current.add(key);
+          setTimeout(() => {
+            triggerFireworks();
+            toast({
+              title: "🎉 Palier historique atteint !",
+              description: `Incroyable ! Vous avez visité ${total} lieux au total !`,
+              className: "bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white font-bold border-none",
+            });
+          }, delay);
+          delay += 2500;
+        }
       }
 
       if (cafeCount > 0 && cafeCount % 50 === 0) {
-        setTimeout(() => {
-          triggerCategoryAnimation(['☕', '🥐', '🍪', '🍩', '🥤', '🍰']);
-          toast({
-            title: "☕ Palier Café atteint !",
-            description: `Vous avez atteint ${cafeCount} cafés visités !`,
-            className: "bg-amber-100 dark:bg-amber-900 border border-amber-500 text-amber-900 dark:text-amber-100 font-semibold",
-          });
-        }, delay);
-        delay += 2500;
+        const key = `cafe-${cafeCount}`;
+        if (!celebratedMilestones.current.has(key)) {
+          celebratedMilestones.current.add(key);
+          setTimeout(() => {
+            triggerCategoryAnimation(['☕', '🥐', '🍪', '🍩', '🥤', '🍰']);
+            toast({
+              title: "☕ Palier Café atteint !",
+              description: `Vous avez atteint ${cafeCount} cafés visités !`,
+              className: "bg-amber-100 dark:bg-amber-900 border border-amber-500 text-amber-900 dark:text-amber-100 font-semibold",
+            });
+          }, delay);
+          delay += 2500;
+        }
       }
 
       if (restauCount > 0 && restauCount % 50 === 0) {
-        setTimeout(() => {
-          triggerCategoryAnimation(['🍕', '🍔', '🍟', '🍝', '🌮', '🥗', '🍣', '🍜', '🍽️', '🍗']);
-          toast({
-            title: "🍕 Palier Restaurant atteint !",
-            description: `Vous avez atteint ${restauCount} restaurants visités !`,
-            className: "bg-red-100 dark:bg-red-900 border border-red-500 text-red-900 dark:text-red-100 font-semibold",
-          });
-        }, delay);
-        delay += 2500;
+        const key = `restau-${restauCount}`;
+        if (!celebratedMilestones.current.has(key)) {
+          celebratedMilestones.current.add(key);
+          setTimeout(() => {
+            triggerCategoryAnimation(['🍕', '🍔', '🍟', '🍝', '🌮', '🥗', '🍣', '🍜', '🍽️', '🍗']);
+            toast({
+              title: "🍕 Palier Restaurant atteint !",
+              description: `Vous avez atteint ${restauCount} restaurants visités !`,
+              className: "bg-red-100 dark:bg-red-900 border border-red-500 text-red-900 dark:text-red-100 font-semibold",
+            });
+          }, delay);
+          delay += 2500;
+        }
       }
 
       if (brunchCount > 0 && brunchCount % 50 === 0) {
-        setTimeout(() => {
-          triggerCategoryAnimation(['🥞', '🍳', '🧇', '🥓', '🥑', '🍞', '☕', '🍓', '🍊']);
-          toast({
-            title: "🥞 Palier Brunch atteint !",
-            description: `Vous avez atteint ${brunchCount} brunchs visités !`,
-            className: "bg-yellow-100 dark:bg-yellow-900 border border-yellow-500 text-yellow-900 dark:text-yellow-100 font-semibold",
-          });
-        }, delay);
+        const key = `brunch-${brunchCount}`;
+        if (!celebratedMilestones.current.has(key)) {
+          celebratedMilestones.current.add(key);
+          setTimeout(() => {
+            triggerCategoryAnimation(['🥞', '🍳', '🧇', '🥓', '🥑', '🍞', '☕', '🍓', '🍊']);
+            toast({
+              title: "🥞 Palier Brunch atteint !",
+              description: `Vous avez atteint ${brunchCount} brunchs visités !`,
+              className: "bg-yellow-100 dark:bg-yellow-900 border border-yellow-500 text-yellow-900 dark:text-yellow-100 font-semibold",
+            });
+          }, delay);
+        }
       }
     }, [historyOpen]);
 
