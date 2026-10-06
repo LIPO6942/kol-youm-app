@@ -15,6 +15,7 @@ interface TitleCredit {
   title: string;
   cast: CastMember[];
   director?: { id: number; name: string; profilePath?: string };
+  countryCode?: string;
 }
 
 /**
@@ -39,8 +40,8 @@ export async function POST(req: NextRequest) {
     const endpoint = type === 'tv' ? 'tv' : 'movie';
     const results: Record<string, TitleCredit> = {};
 
-    // Traiter jusqu'aux 50 premiers films par lots de 10 pour respecter les limites TMDB
-    const targetTitles = titles.slice(0, 50);
+    // Traiter jusqu'aux 100 premiers films par lots de 10 pour respecter les limites TMDB
+    const targetTitles = titles.slice(0, 100);
     const CHUNK_SIZE = 10;
 
     for (let i = 0; i < targetTitles.length; i += CHUNK_SIZE) {
@@ -84,6 +85,34 @@ export async function POST(req: NextRequest) {
               (c: any) => c.job === 'Director' || c.job === 'Creator'
             );
 
+            // Origin country from TMDB search result (TV ou Film)
+            let countryCode: string | undefined = undefined;
+            if (Array.isArray(item.origin_country) && item.origin_country.length > 0) {
+              countryCode = String(item.origin_country[0]).toUpperCase();
+            } else if (item.original_language) {
+              const langMap: Record<string, string> = {
+                en: 'US',
+                fr: 'FR',
+                ko: 'KR',
+                ja: 'JP',
+                es: 'ES',
+                it: 'IT',
+                de: 'DE',
+                ar: 'TN',
+                hi: 'IN',
+                tr: 'TR',
+                pt: 'BR',
+                da: 'DK',
+                sv: 'SE',
+                no: 'NO',
+                zh: 'CN',
+                cn: 'HK',
+                ru: 'RU',
+                pl: 'PL',
+              };
+              countryCode = langMap[item.original_language] || undefined;
+            }
+
             results[title] = {
               title,
               cast,
@@ -96,6 +125,7 @@ export async function POST(req: NextRequest) {
                       : undefined,
                   }
                 : undefined,
+              countryCode,
             };
           } catch {
             // Skip individual title errors silently

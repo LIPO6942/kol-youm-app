@@ -24,6 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { calculateCinematicDna, CategoryDnaScore } from '@/lib/cinematic-dna-utils';
 import { CategoryBadge, CATEGORY_HEX_COLORS, MovieCategoryPicker } from '@/components/tfarrej/movie-category-picker';
 import { guessMovieCategory } from '@/lib/movie-category-utils';
+import { formatCountryCode, getCountryFullName } from '@/lib/country-code-utils';
 import {
   Dna,
   Trophy,
@@ -44,6 +45,7 @@ import {
   ExternalLink,
   CalendarDays,
   X,
+  Compass,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -122,6 +124,17 @@ export function CinematicDnaModal({
     return d.toISOString().split('T')[0];
   }
 
+  function cleanStr(s?: any) {
+    return String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
+  }
+
+  function getCountryFlagEmoji(countryCode?: string): string {
+    if (!countryCode || countryCode.length !== 2) return '🌐';
+    const code = countryCode.toUpperCase();
+    if (!/^[A-Z]{2}$/.test(code)) return '🌐';
+    return String.fromCodePoint(...[...code].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+  }
+
   const seenSet = useMemo(() => {
     // Source 1 : liste officielle des titres vus (strings)
     const titlesFromList = mediaType === 'tv'
@@ -186,6 +199,7 @@ export function CinematicDnaModal({
       setActiveFilm(null);
       setShowDatePicker(false);
       setWatchedInCinema(false);
+      setSelectedCountryCode(null);
     }
   }, [isOpen]);
 
@@ -342,6 +356,17 @@ export function CinematicDnaModal({
   }>({ actors: [], directors: [], loading: false, fetched: false });
 
   const [selectedPerson, setSelectedPerson] = useState<(ActorScore & { bio?: PersonBio; bioLoading?: boolean }) | null>(null);
+  const [titleCredits, setTitleCredits] = useState<Record<string, any>>({});
+  const [selectedCountryCode, setSelectedCountryCode] = useState<string | null>(null);
+
+  // Synchroniser le cache local pour alimenter immédiatement le Passeport Cinéphile
+  useEffect(() => {
+    try {
+      const cacheKey = `kolyoum_tmdb_cast_${mediaType}`;
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(cacheKey) : null;
+      if (raw) setTitleCredits(JSON.parse(raw));
+    } catch {}
+  }, [mediaType]);
 
   const personPanelRef = useRef<HTMLDivElement>(null);
   const isFetchingRef = useRef(false);
@@ -375,7 +400,7 @@ export function CinematicDnaModal({
     }
   };
 
-  // Top-ranked titles to analyse (élargi jusqu'à 50 films/séries classés et vus, avec exclusion stricte des supprimés)
+  // Top-ranked titles to analyse (formule hybride adaptative : min 50, 35%, max 100 avec exclusion des supprimés)
   const isSeries = mediaType === 'tv';
   const topRankedTitles = useMemo(() => {
     const cleanStr = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
@@ -410,7 +435,7 @@ export function CinematicDnaModal({
       return !isTestMovieTitle(c) && !rejectedSet.has(c);
     });
 
-    // Compléter avec les autres œuvres vues valides (non supprimées) si moins de 50
+    // Compléter avec les autres œuvres vues valides (non supprimées)
     const seenList = (isSeries ? userProfile?.seenSeriesTitles : userProfile?.seenMovieTitles || [])
       .filter((t: string) => {
         const c = cleanStr(t);
@@ -418,7 +443,13 @@ export function CinematicDnaModal({
       });
 
     const combined = Array.from(new Set([...ranked, ...seenList]));
-    return combined.slice(0, 50) as string[];
+
+    // Formule hybride adaptative :
+    // - Plancher : min 50 films (ou la totalité si le catalogue en a moins)
+    // - Ratio progressif : 35% de la filmothèque vue/classée
+    // - Plafond de sécurité : 100 films max (protection timeout et quota TMDB)
+    const sampleSize = Math.max(50, Math.min(Math.round(combined.length * 0.35), 100));
+    return combined.slice(0, sampleSize) as string[];
   }, [userProfile?.movieRankings, userProfile?.seriesRankings, userProfile?.seenMovieTitles, userProfile?.seenSeriesTitles, userProfile?.rejectedMovieTitles, userProfile?.rejectedSeriesTitles, isSeries]);
 
   const fetchActors = useCallback(async () => {
@@ -426,22 +457,55 @@ export function CinematicDnaModal({
     isFetchingRef.current = true;
     setActorData(prev => ({ ...prev, loading: true }));
     try {
-      const res = await fetch('/api/tmdb-cast-batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ titles: topRankedTitles, type: mediaType }),
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      // 1. Récupération du cache local pour réduire drastiquement la latence et les requêtes TMDB
+      const cacheKey = `kolyoum_tmdb_cast_${mediaType}`;
+      let cachedResults: Record<string, any> = {};
+      try {
+        const raw = typeof window !== 'undefined' ? localStorage.getItem(cacheKey) : null;
+        if (raw) cachedResults = JSON.parse(raw);
+      } catch {}
 
-      // Score = (N - rankIndex) where N = number of titles analysed (up to 50)
+      // Identifier les titres manquants non encore présents dans le cache
+      const missingTitles = topRankedTitles.filter(title => !cachedResults[title]);
+
+      let newlyFetchedResults: Record<string, any> = {};
+      if (missingTitles.length > 0) {
+        const res = await fetch('/api/tmdb-cast-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ titles: missingTitles, type: mediaType }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          newlyFetchedResults = json.results || {};
+          // Sauvegarder dans le cache local les nouveaux crédits
+          try {
+            const updatedCache = { ...cachedResults, ...newlyFetchedResults };
+            // Garder max 250 titres dans le cache pour ne pas encombrer le localStorage
+            const keys = Object.keys(updatedCache);
+            if (keys.length > 250) {
+              const pruned: Record<string, any> = {};
+              keys.slice(-250).forEach(k => { pruned[k] = updatedCache[k]; });
+              localStorage.setItem(cacheKey, JSON.stringify(pruned));
+            } else {
+              localStorage.setItem(cacheKey, JSON.stringify(updatedCache));
+            }
+          } catch {}
+        }
+      }
+
+      // Fusionner les données du cache et les nouvelles données récupérées
+      const allCredits: Record<string, any> = { ...cachedResults, ...newlyFetchedResults };
+      setTitleCredits(allCredits);
+
+      // Score = (N - rankIndex) where N = number of titles analysed (jusqu'à 100 via formule hybride)
       // rank 0 (#1 film) → highest score
       const N = topRankedTitles.length;
       const actorMap = new Map<number, ActorScore>();
       const directorMap = new Map<number, ActorScore>();
 
       topRankedTitles.forEach((title, rankIndex) => {
-        const credit = data.results?.[title];
+        const credit = allCredits[title];
         if (!credit) return;
         const rankScore = N - rankIndex; // #1 = N pts, #N = 1 pt
 
@@ -597,7 +661,134 @@ export function CinematicDnaModal({
       fetchActors();
     }
   }, [isOpen, fetchActors, actorData.fetched, actorData.loading]);
-  // ─────────────────────────────────────────────────────────────────────────────
+  // ── PASSEPORT CINÉPHILE & CARTE DU MONDE ─────────────────────────────────────
+  const passportData = useMemo(() => {
+    const seenDataList = isSeries ? (userProfile?.seenSeriesData || []) : (userProfile?.seenMoviesData || []);
+
+    const countryMap = new Map<string, { count: number; titles: string[] }>();
+    let totalCounted = 0;
+
+    topRankedTitles.forEach(title => {
+      const norm = cleanStr(title);
+      // 1. Chercher dans seenData
+      const seenItem = seenDataList.find(m => cleanStr(m?.title) === norm);
+      const rawCountry = seenItem?.countryCode || seenItem?.country || titleCredits[title]?.countryCode;
+      const code = formatCountryCode(rawCountry);
+
+      if (code) {
+        totalCounted++;
+        const current = countryMap.get(code) || { count: 0, titles: [] };
+        current.count += 1;
+        if (!current.titles.includes(title)) current.titles.push(title);
+        countryMap.set(code, current);
+      }
+    });
+
+    if (totalCounted === 0) return null;
+
+    const COUNTRY_COLORS: Record<string, string> = {
+      US: '#3b82f6', // Bleu
+      GB: '#8b5cf6', // Violet
+      FR: '#06b6d4', // Cyan
+      KR: '#ec4899', // Rose
+      JP: '#f43f5e', // Rouge vif
+      IT: '#10b981', // Émeraude
+      ES: '#f59e0b', // Ambre
+      DE: '#eab308', // Jaune
+      TN: '#ef4444', // Rouge
+      CA: '#14b8a6', // Turquoise
+      IN: '#f97316', // Orange
+      AU: '#6366f1', // Indigo
+      IE: '#22c55e', // Vert
+      MX: '#d97706', // Ocre
+      BR: '#84cc16', // Lime
+    };
+
+    const countries = Array.from(countryMap.entries())
+      .map(([code, data]) => {
+        const percentage = Math.round((data.count / totalCounted) * 100);
+        const name = getCountryFullName(code) || code;
+        const flag = getCountryFlagEmoji(code);
+        const color = COUNTRY_COLORS[code] || '#6366f1';
+
+        // Identifier les acteurs / réalisateurs du Top rattachés à ce pays
+        const matchingPersons: { name: string; profilePath?: string; role: string }[] = [];
+
+        (actorData.actors || []).slice(0, 8).forEach(actor => {
+          const hasFilmInCountry = actor.films.some(f => data.titles.includes(f));
+          if (hasFilmInCountry && !matchingPersons.some(p => p.name === actor.name)) {
+            matchingPersons.push({ name: actor.name, profilePath: actor.profilePath, role: 'Acteur' });
+          }
+        });
+
+        (actorData.directors || []).slice(0, 4).forEach(dir => {
+          const hasFilmInCountry = dir.films.some(f => data.titles.includes(f));
+          if (hasFilmInCountry && !matchingPersons.some(p => p.name === dir.name)) {
+            matchingPersons.push({ name: dir.name, profilePath: dir.profilePath, role: 'Réalisateur' });
+          }
+        });
+
+        return {
+          code,
+          name,
+          flag,
+          color,
+          count: data.count,
+          percentage,
+          titles: data.titles,
+          matchingPersons: matchingPersons.slice(0, 3),
+        };
+      })
+      .sort((a, b) => b.count - a.count);
+
+    const totalCountries = countries.length;
+    const topCountry = countries[0];
+    const internationalRatio = topCountry ? Math.max(0, 100 - topCountry.percentage) : 0;
+
+    let stamp = {
+      title: 'Cinéphile Éclectique 🌐',
+      badge: 'Passeport Actif',
+      ring: 'border-indigo-400/50 bg-indigo-500/10 text-indigo-300',
+      description: 'Vos visionnages naviguent avec curiosité entre plusieurs cultures.',
+    };
+
+    if (totalCountries >= 5) {
+      stamp = {
+        title: 'Globe-Trotter Cinéphile 🌍',
+        badge: 'Tampon d\'Or',
+        ring: 'border-amber-400/50 bg-amber-500/10 text-amber-300',
+        description: 'Empreinte internationale remarquable : vous explorez le cinéma sans frontières.',
+      };
+    } else if (totalCountries >= 3) {
+      stamp = {
+        title: 'Explorateur d\'Horizons ✈️',
+        badge: 'Tampon d\'Argent',
+        ring: 'border-cyan-400/50 bg-cyan-500/10 text-cyan-300',
+        description: 'Une belle ouverture sur des cinématographies complémentaires.',
+      };
+    } else if (topCountry && topCountry.code === 'US' && topCountry.percentage >= 70) {
+      stamp = {
+        title: 'Cœur Hollywoodien 🎬',
+        badge: 'Grand Écran US',
+        ring: 'border-blue-400/50 bg-blue-500/10 text-blue-300',
+        description: 'Fidélité majeure aux grandes productions et studios américains.',
+      };
+    }
+
+    return {
+      countries,
+      totalCounted,
+      totalCountries,
+      topCountry,
+      internationalRatio,
+      stamp,
+    };
+  }, [topRankedTitles, isSeries, userProfile?.seenMoviesData, userProfile?.seenSeriesData, titleCredits, actorData.actors, actorData.directors]);
+
+  const selectedCountry = useMemo(() => {
+    if (!selectedCountryCode || !passportData) return null;
+    return passportData.countries.find(c => c.code === selectedCountryCode) || null;
+  }, [selectedCountryCode, passportData]);
 
 
 
@@ -777,6 +968,15 @@ export function CinematicDnaModal({
                 <div className="grid grid-cols-5 gap-2">
                   {actorData.actors.map((actor, i) => {
                     const roleBadge = getRoleBadge(actor.bestOrder);
+                    const actorFlag = (() => {
+                      for (const f of actor.films) {
+                        const seenItem = (isSeries ? userProfile?.seenSeriesData : userProfile?.seenMoviesData)?.find(m => cleanStr(m?.title) === cleanStr(f));
+                        const raw = seenItem?.countryCode || seenItem?.country || titleCredits[f]?.countryCode;
+                        const code = formatCountryCode(raw);
+                        if (code) return getCountryFlagEmoji(code);
+                      }
+                      return '';
+                    })();
                     return (
                       <button
                         key={actor.id}
@@ -795,7 +995,10 @@ export function CinematicDnaModal({
                           </div>
                           <span className="absolute -bottom-0.5 -right-0.5 text-[9px] leading-none bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center font-black shadow">{i + 1}</span>
                         </div>
-                        <p className="text-[9px] sm:text-[10px] font-bold text-white leading-tight line-clamp-1 w-full">{actor.name}</p>
+                        <p className="text-[9px] sm:text-[10px] font-bold text-white leading-tight line-clamp-1 w-full flex items-center justify-center gap-0.5">
+                          <span className="truncate">{actor.name}</span>
+                          {actorFlag && <span className="text-[9px] shrink-0" title="Origine cinéphile">{actorFlag}</span>}
+                        </p>
                         <div className="flex flex-wrap items-center justify-center gap-1 mt-0.5">
                           <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full border leading-none max-w-full truncate ${roleBadge.badgeClass}`}>
                             {roleBadge.shortLabel}
@@ -819,27 +1022,41 @@ export function CinematicDnaModal({
                       {mediaType === 'tv' ? 'Créateurs / Showrunners' : 'Réalisateurs'}
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      {actorData.directors.map((dir, i) => (
-                        <button
-                          key={dir.id}
-                          type="button"
-                          onClick={() => handlePersonClick(dir)}
-                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.09] hover:border-amber-400/40 transition-all cursor-pointer"
-                        >
-                          <div className="w-6 h-6 rounded-full overflow-hidden bg-white/10 border border-white/15 shrink-0">
-                            {dir.profilePath ? (
-                              <img src={`/api/image-proxy?url=${encodeURIComponent(dir.profilePath)}`} alt={dir.name} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-xs">🎬</div>
-                            )}
-                          </div>
-                          <div className="text-left">
-                            <p className="text-[10px] font-bold text-white">{dir.name}</p>
-                            <p className="text-[9px] text-white/40">{dir.films.length} film{dir.films.length > 1 ? 's' : ''}</p>
-                          </div>
-                          {i === 0 && <span className="text-[10px]">🏆</span>}
-                        </button>
-                      ))}
+                      {actorData.directors.map((dir, i) => {
+                        const dirFlag = (() => {
+                          for (const f of dir.films) {
+                            const seenItem = (isSeries ? userProfile?.seenSeriesData : userProfile?.seenMoviesData)?.find(m => cleanStr(m?.title) === cleanStr(f));
+                            const raw = seenItem?.countryCode || seenItem?.country || titleCredits[f]?.countryCode;
+                            const code = formatCountryCode(raw);
+                            if (code) return getCountryFlagEmoji(code);
+                          }
+                          return '';
+                        })();
+                        return (
+                          <button
+                            key={dir.id}
+                            type="button"
+                            onClick={() => handlePersonClick(dir)}
+                            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.09] hover:border-amber-400/40 transition-all cursor-pointer"
+                          >
+                            <div className="w-6 h-6 rounded-full overflow-hidden bg-white/10 border border-white/15 shrink-0">
+                              {dir.profilePath ? (
+                                <img src={`/api/image-proxy?url=${encodeURIComponent(dir.profilePath)}`} alt={dir.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-xs">🎬</div>
+                              )}
+                            </div>
+                            <div className="text-left">
+                              <p className="text-[10px] font-bold text-white flex items-center gap-1">
+                                <span>{dir.name}</span>
+                                {dirFlag && <span className="text-[9px] shrink-0" title="Origine cinéphile">{dirFlag}</span>}
+                              </p>
+                              <p className="text-[9px] text-white/40">{dir.films.length} film{dir.films.length > 1 ? 's' : ''}</p>
+                            </div>
+                            {i === 0 && <span className="text-[10px]">🏆</span>}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -882,7 +1099,10 @@ export function CinematicDnaModal({
                               </p>
                             )}
                             {selectedPerson.bio.placeOfBirth && (
-                              <p className="text-[10px] text-white/60">📍 {selectedPerson.bio.placeOfBirth}</p>
+                              <p className="text-[10px] text-white/60 flex items-center gap-1">
+                                <span>📍 {selectedPerson.bio.placeOfBirth}</span>
+                                <span>{getCountryFlagEmoji(formatCountryCode(selectedPerson.bio.placeOfBirth))}</span>
+                              </p>
                             )}
                             {selectedPerson.bio.department && (
                               <span className="inline-block text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300">
@@ -1334,6 +1554,209 @@ export function CinematicDnaModal({
               </>
             )}
           </div>
+
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {/* PASSEPORT CINÉPHILE & CARTE DU MONDE (DIRECTEMENT SOUS LES ACTEURS/RÉALISATEURS) */}
+          {/* ═══════════════════════════════════════════════════════════════ */}
+          {passportData && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-3xl p-4 sm:p-5 border border-cyan-500/25 bg-gradient-to-br from-[#0c1322] via-[#09101d] to-[#070b14] space-y-3.5 shadow-xl relative overflow-hidden"
+            >
+              {/* Effet lueur de fond */}
+              <div className="absolute -top-10 -right-10 w-36 h-36 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+
+              {/* Header du Passeport */}
+              <div className="flex flex-wrap items-center justify-between gap-2 relative z-10">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.3)]">
+                    <Compass className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-white/95 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>Passeport Cinéphile & Carte du Monde</span>
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-400/30">
+                        {passportData.totalCountries} nations
+                      </span>
+                    </h4>
+                    <p className="text-[10px] text-white/50">
+                      Rayonnement culturel et origines de vos œuvres et artistes favoris
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tampon de Passeport / Stamp */}
+                <div className={`px-2.5 py-1 rounded-full border text-[10px] font-bold flex items-center gap-1.5 shadow-sm ${passportData.stamp.ring}`}>
+                  <span>{passportData.stamp.badge}</span>
+                  <span>·</span>
+                  <span>{passportData.stamp.title}</span>
+                </div>
+              </div>
+
+              {/* 3 Cartouches KPIs en ligne */}
+              <div className="grid grid-cols-3 gap-2 relative z-10">
+                <div className="p-2.5 rounded-2xl bg-white/[0.03] border border-white/10 text-center space-y-0.5">
+                  <p className="text-[9px] font-bold text-white/40 uppercase tracking-wider">Territoires</p>
+                  <p className="text-base sm:text-lg font-black text-cyan-300 font-mono">
+                    {passportData.totalCountries} <span className="text-xs font-normal text-white/60">pays</span>
+                  </p>
+                </div>
+
+                <div className="p-2.5 rounded-2xl bg-white/[0.03] border border-white/10 text-center space-y-0.5">
+                  <p className="text-[9px] font-bold text-white/40 uppercase tracking-wider">Foyer N°1</p>
+                  <p className="text-xs sm:text-sm font-bold text-white truncate flex items-center justify-center gap-1">
+                    <span>{passportData.topCountry?.flag}</span>
+                    <span className="truncate">{passportData.topCountry?.name}</span>
+                    <span className="text-[10px] font-mono text-cyan-300 font-bold">{passportData.topCountry?.percentage}%</span>
+                  </p>
+                </div>
+
+                <div className="p-2.5 rounded-2xl bg-white/[0.03] border border-white/10 text-center space-y-0.5">
+                  <p className="text-[9px] font-bold text-white/40 uppercase tracking-wider">International</p>
+                  <p className="text-base sm:text-lg font-black text-emerald-300 font-mono">
+                    {passportData.internationalRatio}%
+                  </p>
+                </div>
+              </div>
+
+              {/* Barre segmentée lumineuse des pays */}
+              <div className="space-y-1 relative z-10">
+                <div className="h-2.5 w-full rounded-full overflow-hidden bg-white/5 border border-white/10 p-0.5 flex gap-0.5">
+                  {passportData.countries.map(c => (
+                    <div
+                      key={c.code}
+                      className="h-full rounded-xs transition-all duration-300 hover:brightness-125 cursor-pointer"
+                      style={{
+                        width: `${c.percentage}%`,
+                        backgroundColor: c.color,
+                      }}
+                      title={`${c.flag} ${c.name} : ${c.percentage}% (${c.count} œuvres)`}
+                      onClick={() => setSelectedCountryCode(prev => prev === c.code ? null : c.code)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Rangée horizontale de cartes-visas des pays */}
+              <div
+                className="flex gap-2 overflow-x-auto pb-1 pt-0.5 px-0.5 relative z-10"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {passportData.countries.map(c => {
+                  const isSelected = selectedCountryCode === c.code;
+                  return (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => setSelectedCountryCode(prev => prev === c.code ? null : c.code)}
+                      className={`flex-shrink-0 p-2.5 rounded-2xl border transition-all text-left flex flex-col justify-between w-28 sm:w-32 cursor-pointer group ${
+                        isSelected
+                          ? 'bg-cyan-500/20 border-cyan-400 ring-2 ring-cyan-400/50 shadow-[0_0_15px_rgba(6,182,212,0.4)] scale-[1.02]'
+                          : 'bg-white/[0.03] border-white/10 hover:border-cyan-400/40 hover:bg-white/[0.07]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-xl leading-none">{c.flag}</span>
+                        <span className="text-[10px] font-mono font-bold text-cyan-300 bg-white/5 px-1.5 py-0.5 rounded-full border border-white/10">
+                          {c.percentage}%
+                        </span>
+                      </div>
+
+                      <div className="mt-2 w-full">
+                        <p className="text-[11px] font-black text-white truncate group-hover:text-cyan-200 transition-colors">
+                          {c.name}
+                        </p>
+                        <p className="text-[9px] text-white/50">
+                          {c.count} œuvre{c.count > 1 ? 's' : ''}
+                        </p>
+                      </div>
+
+                      {/* Pastille personnalités rattachées si existantes */}
+                      {c.matchingPersons.length > 0 && (
+                        <div className="mt-1.5 pt-1.5 border-t border-white/10 flex items-center gap-1 w-full truncate">
+                          <span className="text-[8px] text-white/40">⭐</span>
+                          <span className="text-[8.5px] font-semibold text-white/70 truncate">
+                            {c.matchingPersons.map(p => p.name.split(' ')[0]).join(', ')}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Panneau d'inspection d'un pays sélectionné */}
+              <AnimatePresence>
+                {selectedCountry && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="rounded-2xl p-3.5 bg-black/40 border border-cyan-400/30 space-y-2.5 relative z-10"
+                  >
+                    <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">{selectedCountry.flag}</span>
+                        <div>
+                          <h5 className="text-xs font-bold text-white flex items-center gap-1.5">
+                            <span>{selectedCountry.name}</span>
+                            <span className="text-[10px] text-cyan-300 font-mono font-semibold">
+                              ({selectedCountry.count} œuvre{selectedCountry.count > 1 ? 's' : ''} · {selectedCountry.percentage}% de votre Top)
+                            </span>
+                          </h5>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCountryCode(null)}
+                        className="text-white/40 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Artistes associés du Top */}
+                    {selectedCountry.matchingPersons.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-[9px] font-extrabold text-white/50 uppercase tracking-wider">
+                          🌟 Artistes de votre Top rattachés
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedCountry.matchingPersons.map((p, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-200 text-[10px] font-medium"
+                            >
+                              <span>{p.role === 'Réalisateur' ? '🎬' : '🎭'}</span>
+                              <span>{p.name}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Titres vus dans ce pays */}
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-extrabold text-white/50 uppercase tracking-wider">
+                        🎬 Vos œuvres phares de ce pays ({selectedCountry.titles.length})
+                      </p>
+                      <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
+                        {selectedCountry.titles.map((t, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 rounded-lg bg-white/5 border border-white/10 text-white/80 text-[10px] truncate max-w-full"
+                          >
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )}
 
           {/* 3. SPECTRE GÉNÉTIQUE VISUEL */}
           <div className="space-y-2">
