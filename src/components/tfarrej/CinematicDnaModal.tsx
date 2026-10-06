@@ -135,6 +135,18 @@ export function CinematicDnaModal({
     return String.fromCodePoint(...[...code].map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
   }
 
+  function extractCountryCodeFromPlaceOfBirth(placeOfBirth?: string | null): string {
+    if (!placeOfBirth || typeof placeOfBirth !== 'string') return '';
+    // Format typique TMDB : "Shawnee, Oklahoma, USA" ou "Londres, Royaume-Uni"
+    // On teste les segments depuis la fin vers le début (le pays étant souvent en dernière position)
+    const parts = placeOfBirth.split(/[,/|]/).map(p => p.trim()).filter(Boolean);
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const code = formatCountryCode(parts[i]);
+      if (code) return code;
+    }
+    return formatCountryCode(placeOfBirth);
+  }
+
   const seenSet = useMemo(() => {
     // Source 1 : liste officielle des titres vus (strings)
     const titlesFromList = mediaType === 'tv'
@@ -704,29 +716,12 @@ export function CinematicDnaModal({
       BR: '#84cc16', // Lime
     };
 
-    const countries = Array.from(countryMap.entries())
+    const allCountriesSorted = Array.from(countryMap.entries())
       .map(([code, data]) => {
         const percentage = Math.round((data.count / totalCounted) * 100);
         const name = getCountryFullName(code) || code;
         const flag = getCountryFlagEmoji(code);
         const color = COUNTRY_COLORS[code] || '#6366f1';
-
-        // Identifier les acteurs / réalisateurs du Top rattachés à ce pays
-        const matchingPersons: { name: string; profilePath?: string; role: string }[] = [];
-
-        (actorData.actors || []).slice(0, 8).forEach(actor => {
-          const hasFilmInCountry = actor.films.some(f => data.titles.includes(f));
-          if (hasFilmInCountry && !matchingPersons.some(p => p.name === actor.name)) {
-            matchingPersons.push({ name: actor.name, profilePath: actor.profilePath, role: 'Acteur' });
-          }
-        });
-
-        (actorData.directors || []).slice(0, 4).forEach(dir => {
-          const hasFilmInCountry = dir.films.some(f => data.titles.includes(f));
-          if (hasFilmInCountry && !matchingPersons.some(p => p.name === dir.name)) {
-            matchingPersons.push({ name: dir.name, profilePath: dir.profilePath, role: 'Réalisateur' });
-          }
-        });
 
         return {
           code,
@@ -736,14 +731,39 @@ export function CinematicDnaModal({
           count: data.count,
           percentage,
           titles: data.titles,
-          matchingPersons: matchingPersons.slice(0, 3),
+          isOtherGroup: false,
+          subCountriesList: [] as { code: string; name: string; flag: string; count: number }[],
         };
       })
       .sort((a, b) => b.count - a.count);
 
-    const totalCountries = countries.length;
-    const topCountry = countries[0];
+    const totalCountries = allCountriesSorted.length;
+    const topCountry = allCountriesSorted[0];
     const internationalRatio = topCountry ? Math.max(0, 100 - topCountry.percentage) : 0;
+
+    // TOP 5 PAYS + REGROUPEMENT EN % (INTERNATIONAL) POUR LE RESTE
+    let displayCountries = allCountriesSorted;
+    if (allCountriesSorted.length > 5) {
+      const top5 = allCountriesSorted.slice(0, 5);
+      const others = allCountriesSorted.slice(5);
+      const otherCount = others.reduce((sum, c) => sum + c.count, 0);
+      const otherPercentage = Math.round((otherCount / totalCounted) * 100);
+      const otherTitles = Array.from(new Set(others.flatMap(c => c.titles)));
+
+      const otherGroup = {
+        code: 'OTHER',
+        name: 'International (Autres)',
+        flag: '🌐',
+        color: '#a855f7', // Violet néon élégant
+        count: otherCount,
+        percentage: otherPercentage,
+        titles: otherTitles,
+        isOtherGroup: true,
+        subCountriesList: others.map(o => ({ code: o.code, name: o.name, flag: o.flag, count: o.count })),
+      };
+
+      displayCountries = [...top5, otherGroup];
+    }
 
     let stamp = {
       title: 'Cinéphile Éclectique 🌐',
@@ -776,14 +796,14 @@ export function CinematicDnaModal({
     }
 
     return {
-      countries,
+      countries: displayCountries,
+      allCountriesCount: totalCountries,
       totalCounted,
-      totalCountries,
       topCountry,
       internationalRatio,
       stamp,
     };
-  }, [topRankedTitles, isSeries, userProfile?.seenMoviesData, userProfile?.seenSeriesData, titleCredits, actorData.actors, actorData.directors]);
+  }, [topRankedTitles, isSeries, userProfile?.seenMoviesData, userProfile?.seenSeriesData, titleCredits]);
 
   const selectedCountry = useMemo(() => {
     if (!selectedCountryCode || !passportData) return null;
@@ -965,25 +985,16 @@ export function CinematicDnaModal({
             {actorData.actors.length > 0 && (
               <>
                 {/* Grille 5×2 acteurs avec affichage explicite du rôle (1er rôle, 2nd rôle...) */}
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
                   {actorData.actors.map((actor, i) => {
                     const roleBadge = getRoleBadge(actor.bestOrder);
-                    const actorFlag = (() => {
-                      for (const f of actor.films) {
-                        const seenItem = (isSeries ? userProfile?.seenSeriesData : userProfile?.seenMoviesData)?.find(m => cleanStr(m?.title) === cleanStr(f));
-                        const raw = seenItem?.countryCode || seenItem?.country || titleCredits[f]?.countryCode;
-                        const code = formatCountryCode(raw);
-                        if (code) return getCountryFlagEmoji(code);
-                      }
-                      return '';
-                    })();
                     return (
                       <button
                         key={actor.id}
                         type="button"
                         onClick={() => handlePersonClick(actor)}
-                        className="flex flex-col items-center gap-1 p-2 rounded-2xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.09] hover:border-rose-400/40 transition-all text-center group cursor-pointer"
-                        title={`Cliquer pour voir le profil · ${roleBadge.label} · ${actor.films.slice(0, 2).join(', ')}`}
+                        className="flex flex-col items-center gap-1 p-1 sm:p-2 rounded-2xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.09] hover:border-rose-400/40 transition-all text-center group cursor-pointer overflow-hidden"
+                        title={`Cliquer pour voir le profil · ${roleBadge.label} · ${actor.name} (${actor.films.slice(0, 2).join(', ')})`}
                       >
                         <div className="relative">
                           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden bg-white/10 border-2 border-white/15 group-hover:border-rose-400/60 transition-all">
@@ -995,16 +1006,18 @@ export function CinematicDnaModal({
                           </div>
                           <span className="absolute -bottom-0.5 -right-0.5 text-[9px] leading-none bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center font-black shadow">{i + 1}</span>
                         </div>
-                        <p className="text-[9px] sm:text-[10px] font-bold text-white leading-tight line-clamp-1 w-full flex items-center justify-center gap-0.5">
-                          <span className="truncate">{actor.name}</span>
-                          {actorFlag && <span className="text-[9px] shrink-0" title="Origine cinéphile">{actorFlag}</span>}
+                        <p
+                          className="text-[8.5px] sm:text-[10px] font-bold text-white leading-[1.15] line-clamp-2 w-full text-center min-h-[20px] sm:min-h-[25px] break-words px-0.5"
+                          title={actor.name}
+                        >
+                          {actor.name}
                         </p>
-                        <div className="flex flex-wrap items-center justify-center gap-1 mt-0.5">
-                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full border leading-none max-w-full truncate ${roleBadge.badgeClass}`}>
+                        <div className="flex flex-wrap items-center justify-center gap-0.5 mt-0.5 w-full">
+                          <span className={`text-[7.5px] sm:text-[8px] font-bold px-1.5 py-0.5 rounded-full border leading-none max-w-full truncate ${roleBadge.badgeClass}`}>
                             {roleBadge.shortLabel}
                           </span>
                           {actor.films.length > 1 && (
-                            <span className="text-[7.5px] font-bold px-1 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 leading-none">
+                            <span className="text-[7px] sm:text-[7.5px] font-bold px-1 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 leading-none">
                               {actor.films.length} {mediaType === 'tv' ? 'séries' : 'films'}
                             </span>
                           )}
@@ -1022,41 +1035,27 @@ export function CinematicDnaModal({
                       {mediaType === 'tv' ? 'Créateurs / Showrunners' : 'Réalisateurs'}
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      {actorData.directors.map((dir, i) => {
-                        const dirFlag = (() => {
-                          for (const f of dir.films) {
-                            const seenItem = (isSeries ? userProfile?.seenSeriesData : userProfile?.seenMoviesData)?.find(m => cleanStr(m?.title) === cleanStr(f));
-                            const raw = seenItem?.countryCode || seenItem?.country || titleCredits[f]?.countryCode;
-                            const code = formatCountryCode(raw);
-                            if (code) return getCountryFlagEmoji(code);
-                          }
-                          return '';
-                        })();
-                        return (
-                          <button
-                            key={dir.id}
-                            type="button"
-                            onClick={() => handlePersonClick(dir)}
-                            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.09] hover:border-amber-400/40 transition-all cursor-pointer"
-                          >
-                            <div className="w-6 h-6 rounded-full overflow-hidden bg-white/10 border border-white/15 shrink-0">
-                              {dir.profilePath ? (
-                                <img src={`/api/image-proxy?url=${encodeURIComponent(dir.profilePath)}`} alt={dir.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center text-xs">🎬</div>
-                              )}
-                            </div>
-                            <div className="text-left">
-                              <p className="text-[10px] font-bold text-white flex items-center gap-1">
-                                <span>{dir.name}</span>
-                                {dirFlag && <span className="text-[9px] shrink-0" title="Origine cinéphile">{dirFlag}</span>}
-                              </p>
-                              <p className="text-[9px] text-white/40">{dir.films.length} film{dir.films.length > 1 ? 's' : ''}</p>
-                            </div>
-                            {i === 0 && <span className="text-[10px]">🏆</span>}
-                          </button>
-                        );
-                      })}
+                      {actorData.directors.map((dir, i) => (
+                        <button
+                          key={dir.id}
+                          type="button"
+                          onClick={() => handlePersonClick(dir)}
+                          className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.09] hover:border-amber-400/40 transition-all cursor-pointer"
+                        >
+                          <div className="w-6 h-6 rounded-full overflow-hidden bg-white/10 border border-white/15 shrink-0">
+                            {dir.profilePath ? (
+                              <img src={`/api/image-proxy?url=${encodeURIComponent(dir.profilePath)}`} alt={dir.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xs">🎬</div>
+                            )}
+                          </div>
+                          <div className="text-left min-w-0">
+                            <p className="text-[10px] sm:text-[11px] font-bold text-white truncate" title={dir.name}>{dir.name}</p>
+                            <p className="text-[9px] text-white/40">{dir.films.length} film{dir.films.length > 1 ? 's' : ''}</p>
+                          </div>
+                          {i === 0 && <span className="text-[10px]">🏆</span>}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -1098,12 +1097,16 @@ export function CinematicDnaModal({
                                 {' '}· {new Date().getFullYear() - new Date(selectedPerson.bio.birthday).getFullYear()} ans
                               </p>
                             )}
-                            {selectedPerson.bio.placeOfBirth && (
-                              <p className="text-[10px] text-white/60 flex items-center gap-1">
-                                <span>📍 {selectedPerson.bio.placeOfBirth}</span>
-                                <span>{getCountryFlagEmoji(formatCountryCode(selectedPerson.bio.placeOfBirth))}</span>
-                              </p>
-                            )}
+                            {selectedPerson.bio.placeOfBirth && (() => {
+                              const cCode = extractCountryCodeFromPlaceOfBirth(selectedPerson.bio.placeOfBirth);
+                              const flag = cCode ? getCountryFlagEmoji(cCode) : '';
+                              return (
+                                <p className="text-[10px] text-white/60 flex items-center gap-1">
+                                  <span>📍 {selectedPerson.bio.placeOfBirth}</span>
+                                  {flag && flag !== '🌐' && <span>{flag}</span>}
+                                </p>
+                              );
+                            })()}
                             {selectedPerson.bio.department && (
                               <span className="inline-block text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300">
                                 {selectedPerson.bio.department}
@@ -1577,7 +1580,7 @@ export function CinematicDnaModal({
                     <h4 className="text-xs font-black text-white/95 uppercase tracking-wider flex items-center gap-1.5">
                       <span>Passeport Cinéphile & Carte du Monde</span>
                       <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-400/30">
-                        {passportData.totalCountries} nations
+                        {passportData.allCountriesCount} nations
                       </span>
                     </h4>
                     <p className="text-[10px] text-white/50">
@@ -1599,7 +1602,7 @@ export function CinematicDnaModal({
                 <div className="p-2.5 rounded-2xl bg-white/[0.03] border border-white/10 text-center space-y-0.5">
                   <p className="text-[9px] font-bold text-white/40 uppercase tracking-wider">Territoires</p>
                   <p className="text-base sm:text-lg font-black text-cyan-300 font-mono">
-                    {passportData.totalCountries} <span className="text-xs font-normal text-white/60">pays</span>
+                    {passportData.allCountriesCount} <span className="text-xs font-normal text-white/60">pays</span>
                   </p>
                 </div>
 
@@ -1628,7 +1631,7 @@ export function CinematicDnaModal({
                       key={c.code}
                       className="h-full rounded-xs transition-all duration-300 hover:brightness-125 cursor-pointer"
                       style={{
-                        width: `${c.percentage}%`,
+                        flex: c.count,
                         backgroundColor: c.color,
                       }}
                       title={`${c.flag} ${c.name} : ${c.percentage}% (${c.count} œuvres)`}
@@ -1638,7 +1641,7 @@ export function CinematicDnaModal({
                 </div>
               </div>
 
-              {/* Rangée horizontale de cartes-visas des pays */}
+              {/* Rangée horizontale de cartes-visas des pays (Top 5 + International) */}
               <div
                 className="flex gap-2 overflow-x-auto pb-1 pt-0.5 px-0.5 relative z-10"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
@@ -1652,19 +1655,21 @@ export function CinematicDnaModal({
                       onClick={() => setSelectedCountryCode(prev => prev === c.code ? null : c.code)}
                       className={`flex-shrink-0 p-2.5 rounded-2xl border transition-all text-left flex flex-col justify-between w-28 sm:w-32 cursor-pointer group ${
                         isSelected
-                          ? 'bg-cyan-500/20 border-cyan-400 ring-2 ring-cyan-400/50 shadow-[0_0_15px_rgba(6,182,212,0.4)] scale-[1.02]'
+                          ? c.isOtherGroup
+                            ? 'bg-purple-500/20 border-purple-400 ring-2 ring-purple-400/50 shadow-[0_0_15px_rgba(168,85,247,0.4)] scale-[1.02]'
+                            : 'bg-cyan-500/20 border-cyan-400 ring-2 ring-cyan-400/50 shadow-[0_0_15px_rgba(6,182,212,0.4)] scale-[1.02]'
                           : 'bg-white/[0.03] border-white/10 hover:border-cyan-400/40 hover:bg-white/[0.07]'
                       }`}
                     >
                       <div className="flex items-center justify-between w-full">
                         <span className="text-xl leading-none">{c.flag}</span>
-                        <span className="text-[10px] font-mono font-bold text-cyan-300 bg-white/5 px-1.5 py-0.5 rounded-full border border-white/10">
+                        <span className={`text-[10px] font-mono font-bold bg-white/5 px-1.5 py-0.5 rounded-full border border-white/10 ${c.isOtherGroup ? 'text-purple-300' : 'text-cyan-300'}`}>
                           {c.percentage}%
                         </span>
                       </div>
 
                       <div className="mt-2 w-full">
-                        <p className="text-[11px] font-black text-white truncate group-hover:text-cyan-200 transition-colors">
+                        <p className={`text-[11px] font-black text-white truncate transition-colors ${c.isOtherGroup ? 'group-hover:text-purple-200' : 'group-hover:text-cyan-200'}`}>
                           {c.name}
                         </p>
                         <p className="text-[9px] text-white/50">
@@ -1672,13 +1677,15 @@ export function CinematicDnaModal({
                         </p>
                       </div>
 
-                      {/* Pastille personnalités rattachées si existantes */}
-                      {c.matchingPersons.length > 0 && (
+                      {c.isOtherGroup ? (
                         <div className="mt-1.5 pt-1.5 border-t border-white/10 flex items-center gap-1 w-full truncate">
-                          <span className="text-[8px] text-white/40">⭐</span>
-                          <span className="text-[8.5px] font-semibold text-white/70 truncate">
-                            {c.matchingPersons.map(p => p.name.split(' ')[0]).join(', ')}
+                          <span className="text-[8px] text-purple-400 font-bold uppercase tracking-wider">
+                            International
                           </span>
+                        </div>
+                      ) : (
+                        <div className="mt-1.5 pt-1.5 border-t border-white/10 flex items-center gap-1 w-full truncate text-[8px] text-white/40">
+                          <span>🎬 Cinéma {c.code}</span>
                         </div>
                       )}
                     </button>
@@ -1716,20 +1723,21 @@ export function CinematicDnaModal({
                       </button>
                     </div>
 
-                    {/* Artistes associés du Top */}
-                    {selectedCountry.matchingPersons.length > 0 && (
+                    {/* Si c'est le groupe "Autres pays (International)", lister les nations regroupées */}
+                    {selectedCountry.isOtherGroup && selectedCountry.subCountriesList && selectedCountry.subCountriesList.length > 0 && (
                       <div className="space-y-1">
                         <p className="text-[9px] font-extrabold text-white/50 uppercase tracking-wider">
-                          🌟 Artistes de votre Top rattachés
+                          🌍 Territoires regroupés ({selectedCountry.subCountriesList.length})
                         </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {selectedCountry.matchingPersons.map((p, idx) => (
+                        <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto pr-1">
+                          {selectedCountry.subCountriesList.map((sc: any) => (
                             <span
-                              key={idx}
-                              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-200 text-[10px] font-medium"
+                              key={sc.code}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-400/30 text-purple-200 text-[10px] font-medium"
                             >
-                              <span>{p.role === 'Réalisateur' ? '🎬' : '🎭'}</span>
-                              <span>{p.name}</span>
+                              <span>{sc.flag}</span>
+                              <span>{sc.name}</span>
+                              <span className="font-mono text-white/60 font-bold">({sc.count})</span>
                             </span>
                           ))}
                         </div>
@@ -1739,9 +1747,9 @@ export function CinematicDnaModal({
                     {/* Titres vus dans ce pays */}
                     <div className="space-y-1">
                       <p className="text-[9px] font-extrabold text-white/50 uppercase tracking-wider">
-                        🎬 Vos œuvres phares de ce pays ({selectedCountry.titles.length})
+                        🎬 Vos œuvres phares ({selectedCountry.titles.length})
                       </p>
-                      <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
+                      <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto pr-1">
                         {selectedCountry.titles.map((t, idx) => (
                           <span
                             key={idx}
