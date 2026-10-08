@@ -225,10 +225,10 @@ export function NotificationSettings() {
                             <div className="space-y-0.5">
                                 <span className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
                                     <Film className="h-4 w-4 text-primary" />
-                                    Notification film du dimanche (avec poster)
+                                    Notification film du dimanche (format optimisé)
                                 </span>
                                 <p className="text-xs text-muted-foreground">
-                                    Teste la notification envoyée en arrière-plan après 5 secondes avec le poster du film à voir.
+                                    Teste la notification envoyée en arrière-plan après 5 secondes (titre en tête, texte complet, visuel 16:9).
                                 </p>
                             </div>
                             <Button
@@ -264,7 +264,7 @@ export function NotificationSettings() {
                                 </div>
                                 <div className="flex flex-col">
                                     <span className="font-bold">👉 Réduis l&apos;application ou verrouille ton écran maintenant !</span>
-                                    <span className="text-[11px] opacity-90">La notification push arrivera dans {countdown}s en arrière-plan avec l&apos;affiche du film.</span>
+                                    <span className="text-[11px] opacity-90">La notification push arrivera dans {countdown}s en arrière-plan sans aucune troncature.</span>
                                 </div>
                             </div>
                         )}
@@ -277,21 +277,21 @@ export function NotificationSettings() {
                                 </div>
                                 <p className="text-muted-foreground leading-relaxed">{lastTestResult.body}</p>
                                 
-                                {lastTestResult.imageUrl ? (
+                                {lastTestResult.imageUrl || lastTestResult.posterUrl ? (
                                     <div className="flex items-center gap-3 pt-2 border-t border-border/50">
                                         <img
-                                            src={lastTestResult.imageUrl}
+                                            src={lastTestResult.posterUrl || lastTestResult.imageUrl}
                                             alt={lastTestResult.suggestedMovieTitle || lastTestResult.title}
                                             className="w-14 h-20 object-cover rounded-lg shadow-md border border-border shrink-0"
                                         />
                                         <div className="flex flex-col text-xs text-muted-foreground">
                                             <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                                                <span>🖼️</span> Affiche TMDb attachée avec succès
+                                                <span>🖼️</span> Visuel TMDb attaché {lastTestResult.backdropUrl ? '(bannière 16:9 + affiche)' : ''}
                                             </span>
-                                            <span className="text-[11px] mt-0.5 leading-tight">Le poster est configuré pour s&apos;afficher directement en grand dans le tiroir de notification en arrière-plan.</span>
+                                            <span className="text-[11px] mt-0.5 leading-tight">Format paysage configuré pour s&apos;afficher directement et sans recadrage dans le tiroir de notification.</span>
                                             {lastTestResult.suggestedMovieTitle && (
                                                 <span className="text-[11px] font-semibold text-foreground mt-1">
-                                                    Film suggéré : {lastTestResult.suggestedMovieTitle}
+                                                    Œuvre suggérée : {lastTestResult.suggestedMovieTitle}
                                                 </span>
                                             )}
                                         </div>

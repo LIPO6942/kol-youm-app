@@ -74,7 +74,7 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
 
     if (highlight && fromSunday) {
       toast({
-        title: `🍿 Ton choix du dimanche : ${highlight}`,
+        title: `🍿 ${highlight}`,
         description: `Retrouve-le dans ta liste "À Voir" pour passer une bonne soirée !`,
       });
       setIsWatchlistOpen(true);

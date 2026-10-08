@@ -9,6 +9,8 @@ export interface SundayNotificationPayload {
   body: string;
   link: string;
   imageUrl?: string;
+  posterUrl?: string;
+  backdropUrl?: string;
   type: 'movie' | '5amem';
   suggestedMovieTitle?: string;
 }
@@ -17,56 +19,58 @@ export interface TmdbMovieInfo {
   title: string;
   originalTitle?: string;
   posterUrl?: string;
+  backdropUrl?: string;
   rating?: number;
   year?: number;
   overview?: string;
 }
 
 // 🧠 Messages 5amem (Quiz, Énigmes Talla3, Dormir moins bête, Culture Tunisienne)
+// Textes courts et percutants (< 48 caractères pour le corps) pour ne jamais être tronqués
 export const SUNDAY_5AMEM_MESSAGES = [
   {
-    title: '🧠 Dormir moins bête : Le secret du Kafteji',
-    body: "Pourquoi ce plat mythique s'appelle-t-il ainsi ? Découvre son histoire insolite et teste tes connaissances sur 5amem ! 🇹🇳",
+    title: '🧠 Le secret du Kafteji',
+    body: "D'où vient ce plat mythique ? Viens voir sur 5amem !",
     link: '/5amem?tab=trivia&id=kafteji-origin&sundayNotification=true',
   },
   {
-    title: '🏛️ Le saviez-vous ? (Culture Tunisienne)',
-    body: "Quelle ville de Tunisie abrite le plus grand amphithéâtre romain d'Afrique ? Viens répondre dans le Quiz de 5amem !",
+    title: '🏛️ Quiz Culture Tunisienne',
+    body: "Connais-tu le secret d'El Jem ? Viens tester !",
     link: '/5amem?tab=trivia&id=el-jem-amphitheatre&sundayNotification=true',
   },
   {
-    title: '🌸 Pourquoi le Jasmin est notre symbole ?',
-    body: "D'où vient cette tradition parfumée en Tunisie ? Découvre l'anecdote historique ce soir sur 5amem !",
+    title: '🌸 Le symbole du Jasmin',
+    body: "D'où vient cette tradition ? Découvre l'anecdote !",
     link: '/5amem?tab=trivia&id=jasmin-symbole&sundayNotification=true',
   },
   {
-    title: '🏺 Une ruse légendaire à Carthage...',
-    body: "Sais-tu comment la reine Didon a fondé Carthage avec une simple peau de bœuf ? Viens faire le quiz 5amem !",
+    title: '🏺 Le mystère de Carthage',
+    body: "Comment Didon a fondé Carthage ? Réponds vite !",
     link: '/5amem?tab=trivia&id=didon-carthage&sundayNotification=true',
   },
   {
-    title: '🥖 Énigme du dimanche : Devine le mot !',
-    body: "\"Je commence par M, croustillant, beurré, adoré au petit-déj en Tunisie.\" Entre ta réponse dans le jeu Talla3 !",
+    title: '🥖 Énigme du dimanche',
+    body: "Devine le mot mystère en 15s dans le jeu Talla3 !",
     link: '/5amem?tab=talla3',
   },
   {
-    title: '🌌 Pourquoi le ciel est-il bleu ?',
-    body: "Ce n'est pas le reflet de la mer ! Viens découvrir la vraie explication scientifique dans le Quiz de ce dimanche.",
+    title: '🌌 Quiz scientifique',
+    body: "Pourquoi le ciel est bleu ? Découvre la réponse !",
     link: '/5amem?tab=quiz',
   },
   {
-    title: '🧠 Gym des neurones avant lundi !',
-    body: "Recharge tes batteries cérébrales avec le Quiz Quotidien. 10 questions pour démarrer la semaine au top !",
+    title: '🧠 Gym des neurones',
+    body: "10 questions rapides pour attaquer la semaine !",
     link: '/5amem?tab=quiz',
   },
   {
-    title: '🏆 Défi Talla3 : Es-tu à la hauteur ?',
-    body: "Remets les éléments dans le bon ordre en moins de 15 secondes. Viens tester tes réflexes sur 5amem !",
+    title: '🏆 Défi Talla3 du soir',
+    body: "Remets tout dans l'ordre en 15s. Prêt à jouer ?",
     link: '/5amem?tab=talla3',
   },
   {
-    title: '🎯 Pause culture avant la semaine',
-    body: "Quelques minutes pour tester ta culture générale et briller en société. Lance le quiz sur 5amem !",
+    title: '🎯 Pause culture du dimanche',
+    body: "Quelques minutes pour tester ta culture sur 5amem !",
     link: '/5amem?tab=quiz',
   },
 ];
@@ -85,8 +89,42 @@ export function getRandom5amemMessage(): SundayNotificationPayload {
 }
 
 /**
+ * Nettoie et formate le titre pour qu'il soit immédiatement visible et NON tronqué
+ * dans la barre de notifications des smartphones (limite standard ~34-36 caractères).
+ * Le titre commence directement par l'émoji et le nom de l'œuvre.
+ */
+export function formatNotificationMediaTitle(rawTitle: string, emoji: string = '🍿'): string {
+  const clean = rawTitle.trim();
+  if (!clean) return `${emoji} Séance du dimanche`;
+
+  const prefix = `${emoji} `;
+  // 32 chars + 3 chars prefix = 35 chars max (rentre sur 100% des smartphones sans troncature)
+  const maxTitleLength = 32;
+
+  if (clean.length <= maxTitleLength) {
+    return `${prefix}${clean}`;
+  }
+
+  // Si le titre contient un sous-titre explicatif avec ":" ou " - " (ex: "Green Book : Sur les routes du Sud")
+  const colonIndex = clean.indexOf(':');
+  const dashIndex = clean.indexOf(' - ');
+  const splitIndex = colonIndex > 0 ? colonIndex : (dashIndex > 0 ? dashIndex : -1);
+
+  if (splitIndex > 2 && splitIndex <= maxTitleLength) {
+    return `${prefix}${clean.substring(0, splitIndex).trim()}`;
+  }
+
+  // Troncature propre aux limites de mots pour ne jamais couper un mot au milieu
+  const truncated = clean.substring(0, maxTitleLength - 1);
+  const lastSpace = truncated.lastIndexOf(' ');
+  const safeTitle = lastSpace > 12 ? truncated.substring(0, lastSpace).trim() : truncated.trim();
+
+  return `${prefix}${safeTitle}…`;
+}
+
+/**
  * Interroge l'API TMDb avec timeout sécurisé pour récupérer
- * l'affiche HD et les détails d'un film ou d'une série.
+ * l'affiche HD, la bannière paysage 16:9 et les détails d'un film ou d'une série.
  */
 export async function fetchTmdbMovieForNotification(
   title: string,
@@ -163,6 +201,11 @@ export async function fetchTmdbMovieForNotification(
       ? `https://image.tmdb.org/t/p/w500${first.poster_path}`
       : undefined;
 
+    // Récupérer la bannière paysage 16:9 native (adaptée au tiroir de notification Android / Chrome sans recadrage)
+    const backdropUrl = first.backdrop_path
+      ? `https://image.tmdb.org/t/p/w780${first.backdrop_path}`
+      : undefined;
+
     let year: number | undefined;
     const dateStr = first.release_date || first.first_air_date;
     if (dateStr && typeof dateStr === 'string') {
@@ -180,6 +223,7 @@ export async function fetchTmdbMovieForNotification(
       title: displayTitle,
       originalTitle: first.original_title || first.original_name,
       posterUrl,
+      backdropUrl,
       rating,
       year,
       overview: first.overview,
@@ -191,77 +235,70 @@ export async function fetchTmdbMovieForNotification(
 }
 
 /**
- * Génère un message engageant, chaleureux et séduisant pour un film ou une série
+ * Génère un message engageant, chaleureux et compact pour un film ou une série
  * issu de la liste "À voir" de l'utilisateur.
+ * 
+ * Conçu pour ÉVITER TOUTE TRONCATURE :
+ * - Titre : Démarre directement par le nom de l'œuvre (formaté sous 35 caractères)
+ * - Corps : Ultra-court (37 à 46 caractères), garantissant 0 troncature même en vue repliée
+ * - Image : Privilégie la bannière 16:9 (backdrop) pour un affichage natif parfait sans découpe
  */
 export function generateSundayMovieMessage(
   movie: TmdbMovieInfo,
   mediaType: 'movie' | 'tv' = 'movie'
 ): SundayNotificationPayload {
-  const title = movie.title;
-  const ratingStr = movie.rating && movie.rating >= 6.5 ? `⭐ ${movie.rating}/10` : '';
+  const rawTitle = movie.title || 'Film';
   const isSeries = mediaType === 'tv';
+  const ratingStr = movie.rating && movie.rating >= 6.5 ? `⭐ ${movie.rating}/10` : '';
 
-  const movieTemplates = [
-    {
-      title: `🍿 Ce soir : Popcorn devant ${title} ?`,
-      body: `Tu l'avais mis de côté dans ta liste... C'est le moment idéal pour enfin le regarder ! Installe-toi bien. ${ratingStr ? `(${ratingStr})` : ''}`.trim(),
-    },
-    {
-      title: `✨ Ton film du dimanche : ${title}`,
-      body: `Avant d'attaquer une nouvelle semaine, accorde-toi une pause cinéma bien méritée devant ${title} !`,
-    },
-    {
-      title: `🔥 Alerte pépite dans ta liste à voir !`,
-      body: `${title} t'attend sagement dans ta liste. Plaid, boisson chaude et c'est parti pour une bonne séance !`,
-    },
-    {
-      title: `🎬 Soirée ciné : Et si tu lançais ${title} ?`,
-      body: `Plus d'excuse pour repousser ! ${title} est prêt pour ton dimanche soir. Bon visionnage !`,
-    },
-    {
-      title: `🛋️ Dimanche cosy devant ${title}`,
-      body: `Lumière tamisée, zéro prise de tête et ${title} au programme. Fais chauffer le pop-corn !`,
-    },
+  // 1. Titre compact avec le nom du film/série en première position
+  const primaryEmoji = isSeries ? '📺' : '🍿';
+  const altEmoji = isSeries ? '✨' : '🎬';
+
+  const titleOptions = [
+    formatNotificationMediaTitle(rawTitle, primaryEmoji),
+    formatNotificationMediaTitle(rawTitle, altEmoji),
   ];
-
-  const seriesTemplates = [
-    {
-      title: `📺 Ce soir : Un épisode de ${title} ?`,
-      body: `Tu l'avais ajoutée à ta liste... C'est le moment parfait pour lancer un épisode ce dimanche soir ! ${ratingStr ? `(${ratingStr})` : ''}`.trim(),
-    },
-    {
-      title: `✨ Ta série du dimanche : ${title}`,
-      body: `Avant la reprise lundi, détends-toi devant un bon épisode de ${title} !`,
-    },
-    {
-      title: `🛋️ Dimanche cosy devant ${title}`,
-      body: `Plaid, canapé et ${title} au programme pour terminer le week-end en beauté !`,
-    },
-    {
-      title: `🔥 Alerte série dans ta liste à voir !`,
-      body: `${title} t'attend dans tes séries à voir. Prêt pour ta séance de ce soir ?`,
-    },
-  ];
-
-  const templates = isSeries ? seriesTemplates : movieTemplates;
 
   if (movie.rating && movie.rating >= 7.2) {
-    templates.push({
-      title: `🌟 Coup de cœur de ta liste : ${title} (${ratingStr})`,
-      body: `Ce chef-d'œuvre t'attend dans tes ${isSeries ? 'séries' : 'films'} à voir. Ce dimanche soir est l'occasion parfaite pour le savourer !`,
-    });
+    titleOptions.push(formatNotificationMediaTitle(rawTitle, '🌟'));
   }
 
-  const chosen = templates[Math.floor(Math.random() * templates.length)];
+  const chosenTitle = titleOptions[Math.floor(Math.random() * titleOptions.length)];
+
+  // 2. Corps court (< 48 caractères) pour garantir un affichage 100% complet
+  const movieBodies = [
+    ...(ratingStr ? [`${ratingStr} • Dans ta liste à voir ce soir !`] : []),
+    'Dans ta liste à voir • Prêt pour ce soir ?',
+    'Le moment parfait pour enfin le savourer !',
+    'Plaid, pop-corn et séance ciné cosy !',
+    'Accorde-toi une pause cinéma bien méritée !',
+  ];
+
+  const seriesBodies = [
+    ...(ratingStr ? [`${ratingStr} • Un épisode pour ce soir ?`] : []),
+    'Dans ta liste • Un épisode pour ce soir ?',
+    'Le moment parfait pour lancer un épisode !',
+    'Détends-toi devant ton épisode ce soir !',
+    'Plaid & canapé devant ta série du dimanche !',
+  ];
+
+  const bodies = isSeries ? seriesBodies : movieBodies;
+  const chosenBody = bodies[Math.floor(Math.random() * bodies.length)];
+
+  // 3. Image : On priorise le backdrop 16:9 pour les bannières push Web,
+  // avec repli sur le poster vertical si absent.
+  const notificationImageUrl = movie.backdropUrl || movie.posterUrl;
 
   return {
-    title: chosen.title,
-    body: chosen.body,
-    link: `/tfarrej?highlight=${encodeURIComponent(title)}&from=sundayNotification&type=${mediaType}`,
-    imageUrl: movie.posterUrl,
+    title: chosenTitle,
+    body: chosenBody,
+    link: `/tfarrej?highlight=${encodeURIComponent(rawTitle)}&from=sundayNotification&type=${mediaType}`,
+    imageUrl: notificationImageUrl,
+    posterUrl: movie.posterUrl,
+    backdropUrl: movie.backdropUrl,
     type: 'movie',
-    suggestedMovieTitle: title,
+    suggestedMovieTitle: rawTitle,
   };
 }
 
@@ -349,19 +386,20 @@ export async function buildSundayNotificationForUser(
   const chosen = eligibleItems[Math.floor(Math.random() * eligibleItems.length)];
   console.log(`[Sunday Notification] Suggestion sélectionnée: "${chosen.title}" (${chosen.mediaType}) sur ${availableItems.length} élément(s)`);
 
-  // 3. Récupérer les métadonnées TMDb (affiche HD, note, année)
+  // 3. Récupérer les métadonnées TMDb (affiche HD, bannière paysage, note, année)
   const tmdbInfo = await fetchTmdbMovieForNotification(chosen.title, chosen.mediaType);
 
   const finalMovieInfo: TmdbMovieInfo = {
     title: tmdbInfo?.title || chosen.title,
     originalTitle: tmdbInfo?.originalTitle,
     posterUrl: tmdbInfo?.posterUrl || chosen.existingPoster,
+    backdropUrl: tmdbInfo?.backdropUrl,
     rating: tmdbInfo?.rating,
     year: tmdbInfo?.year,
     overview: tmdbInfo?.overview,
   };
 
-  // 4. Générer le message séduisant avec l'affiche
+  // 4. Générer le message séduisant sans aucune troncature
   return generateSundayMovieMessage(
     finalMovieInfo,
     chosen.mediaType

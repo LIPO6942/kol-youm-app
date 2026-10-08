@@ -51,7 +51,7 @@ messaging.onBackgroundMessage((payload) => {
 
   const title = payload.notification?.title || payload.data?.title || '🔔 kol youm';
   const body = payload.notification?.body || payload.data?.body || "N'oublie pas de marquer ton passage !";
-  const imageUrl = payload.data?.image || payload.data?.imageUrl || payload.notification?.image || payload.notification?.imageUrl;
+  const imageUrl = payload.data?.image || payload.data?.imageUrl || payload.notification?.image || payload.notification?.imageUrl || payload.data?.backdropUrl || payload.data?.posterUrl;
   const targetUrl = payload.data?.url || payload.fcmOptions?.link || payload.notification?.click_action || '/';
 
   // Si le message contient déjà une notification automatique SANS image/poster spécifique à afficher

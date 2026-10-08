@@ -49,87 +49,87 @@ const CRON_SECRET = process.env.CRON_SECRET || 'kol-youm-weekly-notification-sec
 const NOTIFICATION_MESSAGES = [
     // --- DORMIR MOINS BÊTE & 5AMEM (Quiz/Talla3) ---
     {
-        title: '🧠 Dormir moins bête : Le secret du Kafteji',
-        body: "Pourquoi ce plat mythique s'appelle-t-il ainsi ? Découvre son histoire insolite et teste tes connaissances sur 5amem ! 🇹🇳",
+        title: '🧠 Le secret du Kafteji',
+        body: "D'où vient ce plat mythique ? Viens voir sur 5amem !",
         link: '/5amem?tab=trivia&id=kafteji-origin&sundayNotification=true',
     },
     {
-        title: '🏛️ Le saviez-vous ? (Culture Tunisienne)',
-        body: "Quelle ville de Tunisie abrite le plus grand amphithéâtre romain d'Afrique ? Viens répondre dans le Quiz de 5amem !",
+        title: '🏛️ Quiz Culture Tunisienne',
+        body: "Connais-tu le secret d'El Jem ? Viens tester !",
         link: '/5amem?tab=trivia&id=el-jem-amphitheatre&sundayNotification=true',
     },
     {
-        title: '🌸 Pourquoi le Jasmin est notre symbole ?',
-        body: "D'où vient cette tradition parfumée en Tunisie ? Découvre l'anecdote historique ce soir sur 5amem !",
+        title: '🌸 Le symbole du Jasmin',
+        body: "D'où vient cette tradition ? Découvre l'anecdote !",
         link: '/5amem?tab=trivia&id=jasmin-symbole&sundayNotification=true',
     },
     {
-        title: '🏺 Une ruse légendaire à Carthage...',
-        body: "Sais-tu comment la reine Didon a fondé Carthage avec une simple peau de bœuf ? Viens faire le quiz 5amem !",
+        title: '🏺 Le mystère de Carthage',
+        body: "Comment Didon a fondé Carthage ? Réponds vite !",
         link: '/5amem?tab=trivia&id=didon-carthage&sundayNotification=true',
     },
     {
-        title: '🥖 Énigme du dimanche : Devine le mot !',
-        body: "\"Je commence par M, croustillant, beurré, adoré au petit-déj en Tunisie.\" Entre ta réponse dans le jeu Talla3 !",
+        title: '🥖 Énigme du dimanche',
+        body: "Devine le mot mystère en 15s dans le jeu Talla3 !",
         link: '/5amem?tab=talla3',
     },
     {
-        title: '🌌 Pourquoi le ciel est-il bleu ?',
-        body: "Ce n'est pas le reflet de la mer ! Viens découvrir la vraie explication scientifique dans le Quiz de ce dimanche.",
+        title: '🌌 Quiz scientifique',
+        body: "Pourquoi le ciel est bleu ? Découvre la réponse !",
         link: '/5amem?tab=quiz',
     },
     {
-        title: '🧠 Gym des neurones avant lundi !',
-        body: "Recharge tes batteries cérébrales avec le Quiz Quotidien. 10 questions pour démarrer la semaine au top !",
+        title: '🧠 Gym des neurones',
+        body: "10 questions rapides pour attaquer la semaine !",
         link: '/5amem?tab=quiz',
     },
     {
-        title: '🏆 Défi Talla3 : Es-tu à la hauteur ?',
-        body: "Remets les éléments dans le bon ordre en moins de 15 secondes. Viens tester tes réflexes sur 5amem !",
+        title: '🏆 Défi Talla3 du soir',
+        body: "Remets tout dans l'ordre en 15s. Prêt à jouer ?",
         link: '/5amem?tab=talla3',
     },
     // --- KHROUJ (Sorties/Restos) ---
     {
         title: '📍 Tes sorties de la semaine ?',
-        body: "N'oublie pas d'enregistrer tes nouvelles adresses et coups de cœur dans ton passeport culinaire !",
+        body: "Note tes nouvelles adresses dans ton passeport culinaire !",
         link: '/khrouj',
     },
     {
         title: '🌟 Où es-tu allé cette semaine ?',
-        body: "Garde une trace de tes sorties ! Prends 2 minutes pour noter les lieux que tu as découverts.",
+        body: "Prends 2 minutes pour enregistrer tes coups de cœur !",
         link: '/khrouj',
     },
     // --- TFARREJ (Films/Séries) ---
     {
-        title: '🍿 Ciné-bilan de la semaine !',
-        body: "Quels films as-tu vus ? Note-les vite dans kol youm avant d'oublier !",
+        title: '🍿 Ciné-bilan de la semaine',
+        body: "Quels films as-tu vus ? Note-les avant d'oublier !",
         link: '/tfarrej',
     },
     {
         title: '🎬 À jour dans tes films ?',
-        body: "As-tu vu de bons films cette semaine ? Mets à jour ta liste et partage ton avis.",
+        body: "Mets à jour ta liste et partage ton avis ce soir !",
         link: '/tfarrej',
     },
     // --- STYLEK (Tenues/Garde-robe) ---
     {
         title: '👗 Ton look de la semaine',
-        body: "As-tu créé de nouveaux outfits ? Ajoute-les à ton Stylek pour tes prochaines inspirations !",
+        body: "Ajoute tes nouveaux outfits dans ton Stylek !",
         link: '/stylek',
     },
     {
         title: '✨ Garde-robe à jour',
-        body: "Prends un moment pour organiser tes tenues préférées et compléter ton dressing.",
+        body: "Organise tes tenues pour préparer la semaine !",
         link: '/stylek',
     },
     // --- MIXTE / GENERAL ---
     {
-        title: '📝 Ton bilan kol youm',
-        body: "Sorties, films, looks... c'est dimanche ! Prends 2 minutes pour tout noter et garder une trace de ta semaine.",
+        title: '📝 Ton bilan du dimanche',
+        body: "Sorties, films, looks... prends 2 min pour tout noter !",
         link: '/',
     },
     {
-        title: '🎯 Rappel kol youm',
-        body: "C'est le moment parfait pour faire le point sur ta semaine. Films, sorties, styles... tout compte !",
+        title: '🎯 Rappel du dimanche',
+        body: "Fais le point sur ta semaine sur kol youm !",
         link: '/',
     },
 ];
@@ -297,6 +297,8 @@ async function sendTestNotificationToUser(userId: string, delaySeconds: number =
             type: notif.type,
             ...(notif.suggestedMovieTitle ? { movieTitle: notif.suggestedMovieTitle } : {}),
             ...(notif.imageUrl ? { image: notif.imageUrl, imageUrl: notif.imageUrl } : {}),
+            ...(notif.posterUrl ? { posterUrl: notif.posterUrl } : {}),
+            ...(notif.backdropUrl ? { backdropUrl: notif.backdropUrl } : {}),
         },
         webpush: {
             headers: {
@@ -473,6 +475,8 @@ async function sendWeeklyNotifications() {
                             type: notif.type,
                             ...(notif.suggestedMovieTitle ? { movieTitle: notif.suggestedMovieTitle } : {}),
                             ...(notif.imageUrl ? { image: notif.imageUrl, imageUrl: notif.imageUrl } : {}),
+                            ...(notif.posterUrl ? { posterUrl: notif.posterUrl } : {}),
+                            ...(notif.backdropUrl ? { backdropUrl: notif.backdropUrl } : {}),
                         },
                         webpush: {
                             headers: {
