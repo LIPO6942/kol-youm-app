@@ -1604,6 +1604,17 @@ export async function saveSagaRanking(uid: string, ranking: SagaRanking) {
     };
     await storeUserInDb(effectiveUid, updatedProfile);
 
+    // Synchronisation synchrone via localStorage et notification globale
+    if (typeof window !== 'undefined') {
+        try {
+            localStorage.setItem('kolyoum_saga_rankings', JSON.stringify(sagaRankings));
+        } catch {}
+        window.dispatchEvent(new CustomEvent('kolyoum_ranking_updated', {
+            detail: { updatedProfile, sagaRankings }
+        }));
+        window.dispatchEvent(new CustomEvent('storage'));
+    }
+
     if (uid && uid !== 'guest') {
         try {
             const userRef = doc(firestoreDb, 'users', uid);

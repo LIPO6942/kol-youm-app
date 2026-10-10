@@ -62,6 +62,9 @@ export type DuelHistorySnapshot = {
   podiumBadgeText?: string;
   podiumTargetRank?: number;
   podiumCandidateFaced?: string[];
+  sagaRankings?: Record<string, SagaRanking> | null;
+  isSingleReclassification?: boolean;
+  reclassifiedTitle?: string;
 };
 
 export type DuelSessionState = {
@@ -101,6 +104,9 @@ export type DuelSessionState = {
   podiumBadgeText?: string;
   podiumTargetRank?: number;
   podiumCandidateFaced?: string[];
+  sagaRankings?: Record<string, SagaRanking> | null;
+  isSingleReclassification?: boolean;
+  reclassifiedTitle?: string;
 };
 
 /**
@@ -142,7 +148,10 @@ function estimateCategoryFirstComparisons(
  * Priorise les duels entre films de la MÊME catégorie,
  * puis arbitre entre catégories pour le classement général.
  */
-export function createInitialDuelSession(movies: DuelMovieItem[]): DuelSessionState {
+export function createInitialDuelSession(
+  movies: DuelMovieItem[],
+  sagaRankings?: Record<string, SagaRanking> | null
+): DuelSessionState {
   const catalog: Record<string, DuelMovieItem> = {};
   movies.forEach(m => {
     const cat = m.category || guessMovieCategory(m.title, m.genres);
@@ -174,6 +183,7 @@ export function createInitialDuelSession(movies: DuelMovieItem[]): DuelSessionSt
       categoryRankings: {},
       generalQueue: [],
       currentGeneralItem: null,
+      sagaRankings,
     };
   }
 
@@ -185,6 +195,20 @@ export function createInitialDuelSession(movies: DuelMovieItem[]): DuelSessionSt
     if (!byCategory.has(cat)) byCategory.set(cat, []);
     byCategory.get(cat)!.push(item);
   });
+
+  // Trier les films au sein de chaque catégorie selon la saga si connue
+  if (sagaRankings && Object.keys(sagaRankings).length > 0) {
+    byCategory.forEach(items => {
+      if (items.length > 1) {
+        items.sort((a, b) => {
+          const winner = getKnownSagaWinner(a.title, b.title, sagaRankings);
+          if (winner === 'candidate') return -1;
+          if (winner === 'reference') return 1;
+          return 0;
+        });
+      }
+    });
+  }
 
   const categoryRankings: Record<string, string[]> = {};
   const categoryQueue: CategoryQueueItem[] = [];
@@ -247,6 +271,7 @@ export function createInitialDuelSession(movies: DuelMovieItem[]): DuelSessionSt
       categoryRankings,
       generalQueue: [],
       currentGeneralItem: null,
+      sagaRankings,
     };
   }
 
@@ -291,6 +316,7 @@ export function createInitialDuelSession(movies: DuelMovieItem[]): DuelSessionSt
     categoryRankings,
     generalQueue: remainingGeneral,
     currentGeneralItem,
+    sagaRankings,
   };
 }
 
@@ -302,7 +328,8 @@ export function createInitialDuelSession(movies: DuelMovieItem[]): DuelSessionSt
 export function createIncrementalDuelSession(
   existingRankedTitles: string[],
   newMovies: DuelMovieItem[],
-  existingCatalog?: Record<string, DuelMovieItem>
+  existingCatalog?: Record<string, DuelMovieItem>,
+  sagaRankings?: Record<string, SagaRanking> | null
 ): DuelSessionState {
   const catalog: Record<string, DuelMovieItem> = { ...(existingCatalog || {}) };
   newMovies.forEach(m => {
@@ -335,27 +362,101 @@ export function createIncrementalDuelSession(
       categoryRankings: {},
       generalQueue: [],
       currentGeneralItem: null,
+      sagaRankings,
     };
   }
 
+  // Trier les nouveaux films pour placer les vainqueurs de saga connus en premier
+  const orderedNewMovies = [...newMovies];
+  if (sagaRankings && Object.keys(sagaRankings).length > 0 && orderedNewMovies.length > 1) {
+    orderedNewMovies.sort((a, b) => {
+      const winner = getKnownSagaWinner(a.title, b.title, sagaRankings);
+      if (winner === 'candidate') return -1;
+      if (winner === 'reference') return 1;
+      return 0;
+    });
+  }
+
   const sortedTitles = [...existingRankedTitles];
-  const candidate = newMovies[0];
-  const remainingPending = newMovies.slice(1);
+  const candidate = orderedNewMovies[0];
+  const remainingPending = orderedNewMovies.slice(1);
   const candidateCat = candidate.category || guessMovieCategory(candidate.title, candidate.genres);
 
-  // Chercher si des films de cette catégorie existent déjà dans le classement général
-  const catIndices: number[] = [];
-  sortedTitles.forEach((title, idx) => {
-    const item = catalog[title];
-    const cat = item?.category || guessMovieCategory(title, item?.genres);
-    if (cat === candidateCat) {
-      catIndices.push(idx);
-    }
-  });
+  // Bornes de saga initiales pour ce candidat (Plafond & Plancher)
+  const candidateBounds = getSagaSearchBounds(candidate.title, sortedTitles, sagaRankings);
+  const initLow = candidateBounds.low;
+  const initHigh = candidateBounds.high;
 
   const estimatedTotal = estimateComparisons(existingRankedTitles.length, newMovies.length);
 
-  // Si au moins 1 film de la même catégorie existe déjà, confronter d'abord avec sa catégorie !
+  // Si la position est déjà forcée à 100% par la saga : insertion immédiate
+  if (initLow > initHigh) {
+    const directSorted = [...sortedTitles];
+    directSorted.splice(initLow, 0, candidate.title);
+    return advanceIncrementalCandidate(
+      {
+        mode: 'incremental',
+        sortedTitles: directSorted,
+        pendingItems: remainingPending,
+        currentCandidate: candidate,
+        low: initLow,
+        high: initHigh,
+        mid: initLow,
+        activeDuel: null,
+        history: [],
+        stepNumber: 0,
+        estimatedTotalSteps: estimatedTotal,
+        isFinished: false,
+        initialRankedTitles: [...existingRankedTitles],
+        newlyAddedTitles: [candidate.title],
+        movieCatalog: catalog,
+        phase: 'general',
+        categoryQueue: [],
+        currentCategoryIndex: 0,
+        currentCategorySorted: [],
+        currentCategoryPending: [],
+        categoryRankings: {},
+        generalQueue: [],
+        currentGeneralItem: null,
+        sagaRankings,
+      },
+      directSorted,
+      [candidate.title],
+      {
+        sortedTitles,
+        pendingItems: remainingPending,
+        currentCandidate: candidate,
+        low: initLow,
+        high: initHigh,
+        mid: initLow,
+        stepNumber: 0,
+        newlyAddedTitles: [candidate.title],
+        phase: 'general',
+        categoryQueue: [],
+        currentCategoryIndex: 0,
+        currentCategorySorted: [],
+        currentCategoryPending: [],
+        categoryRankings: {},
+        generalQueue: [],
+        currentGeneralItem: null,
+        sagaRankings,
+      }
+    );
+  }
+
+  // Chercher si des films de cette catégorie existent déjà dans le classement général DANS l'intervalle autorisé
+  const catIndices: number[] = [];
+  sortedTitles.forEach((title, idx) => {
+    if (idx >= initLow && idx <= initHigh) {
+      const item = catalog[title];
+      const cat = item?.category || guessMovieCategory(title, item?.genres);
+      if (cat === candidateCat) {
+        catIndices.push(idx);
+      }
+    }
+  });
+
+  // Si au moins 1 film de la même catégorie existe déjà dans cet intervalle, duel de catégorie restreint !
   if (catIndices.length > 0) {
     const catLow = 0;
     const catHigh = catIndices.length - 1;
@@ -368,8 +469,8 @@ export function createIncrementalDuelSession(
       sortedTitles,
       pendingItems: remainingPending,
       currentCandidate: candidate,
-      low: 0,
-      high: sortedTitles.length - 1,
+      low: initLow,
+      high: initHigh,
       mid: targetGeneralIndex,
       activeDuel: {
         movieA: candidate,
@@ -395,21 +496,22 @@ export function createIncrementalDuelSession(
       incrementalCategoryLow: catLow,
       incrementalCategoryHigh: catHigh,
       incrementalStage: 'category',
+      sagaRankings,
     };
   }
 
-  // Aucune référence dans cette catégorie : duel dichotomique classique guidé par la note si connue
-  const low = 0;
-  const high = sortedTitles.length - 1;
-  let mid = Math.max(0, Math.floor((low + high) / 2));
+  // Aucune référence dans cette catégorie dans cet intervalle : duel dichotomique classique restreint par la saga
+  const low = initLow;
+  const high = initHigh;
+  let mid = Math.max(low, Math.floor((low + high) / 2));
   const candRating = candidate.rating;
-  if (candRating && candRating > 0 && sortedTitles.length >= 4) {
+  if (candRating && candRating > 0 && (high - low + 1) >= 4) {
     if (candRating < 6.0) {
-      // Film moyen / modeste : démarre dans le bas de tableau (70%) pour éviter de surclasser prématurément
-      mid = Math.min(high, Math.floor(sortedTitles.length * 0.7));
+      // Film moyen / modeste : démarre dans les 70% de l'intervalle permis
+      mid = Math.min(high, Math.max(low, low + Math.floor((high - low) * 0.7)));
     } else if (candRating >= 8.2) {
-      // Film d'exception : démarre dans le haut de tableau (30%)
-      mid = Math.max(low, Math.floor(sortedTitles.length * 0.3));
+      // Film d'exception : démarre dans les 30% de l'intervalle permis
+      mid = Math.max(low, Math.min(high, low + Math.floor((high - low) * 0.3)));
     }
   }
   const movieB = catalog[sortedTitles[mid]] || { title: sortedTitles[mid] };
@@ -447,6 +549,7 @@ export function createIncrementalDuelSession(
     incrementalStage: 'general',
     isPodiumDuel: isPodium,
     podiumBadgeText: badge,
+    sagaRankings,
   };
 }
 
@@ -580,6 +683,9 @@ export function processDuelDecision(
     podiumBadgeText: state.podiumBadgeText,
     podiumTargetRank: state.podiumTargetRank,
     podiumCandidateFaced: state.podiumCandidateFaced ? [...state.podiumCandidateFaced] : undefined,
+    sagaRankings: state.sagaRankings,
+    isSingleReclassification: state.isSingleReclassification,
+    reclassifiedTitle: state.reclassifiedTitle,
   };
 
   // =========================================================================
@@ -1116,13 +1222,38 @@ function advanceIncrementalCandidate(
     const remainingPending = state.pendingItems.slice(1);
     const candidateCat = nextCandidate.category || guessMovieCategory(nextCandidate.title, nextCandidate.genres);
 
-    // Vérifier si des films de cette catégorie existent dans le classement général
+    // Calcul des bornes de saga (Plafond & Plancher)
+    const sagaBounds = getSagaSearchBounds(nextCandidate.title, newSortedTitles, state.sagaRankings);
+    let nextLow = sagaBounds.low;
+    let nextHigh = sagaBounds.high;
+
+    // Si la saga impose déjà le placement exact (nextLow > nextHigh) :
+    if (nextLow > nextHigh) {
+      const autoSorted = [...newSortedTitles];
+      autoSorted.splice(nextLow, 0, nextCandidate.title);
+      const updatedNewlyAddedWithCandidate = Array.from(new Set([...updatedNewlyAdded, nextCandidate.title]));
+      return advanceIncrementalCandidate(
+        {
+          ...state,
+          pendingItems: remainingPending,
+          currentCandidate: nextCandidate,
+          newlyAddedTitles: updatedNewlyAddedWithCandidate,
+        },
+        autoSorted,
+        updatedNewlyAddedWithCandidate,
+        snapshot
+      );
+    }
+
+    // Vérifier si des films de cette catégorie existent dans le classement général DANS l'intervalle autorisé
     const catIndices: number[] = [];
     newSortedTitles.forEach((title, idx) => {
-      const item = state.movieCatalog[title];
-      const cat = item?.category || guessMovieCategory(title, item?.genres);
-      if (cat === candidateCat) {
-        catIndices.push(idx);
+      if (idx >= nextLow && idx <= nextHigh) {
+        const item = state.movieCatalog[title];
+        const cat = item?.category || guessMovieCategory(title, item?.genres);
+        if (cat === candidateCat) {
+          catIndices.push(idx);
+        }
       }
     });
 
@@ -1138,8 +1269,8 @@ function advanceIncrementalCandidate(
         sortedTitles: newSortedTitles,
         pendingItems: remainingPending,
         currentCandidate: nextCandidate,
-        low: 0,
-        high: newSortedTitles.length - 1,
+        low: nextLow,
+        high: nextHigh,
         mid: targetGeneralIndex,
         activeDuel: {
           movieA: nextCandidate,
@@ -1161,18 +1292,16 @@ function advanceIncrementalCandidate(
       };
     }
 
-    // Sinon duel classique guidé par la note si connue
-    const nextLow = 0;
-    const nextHigh = newSortedTitles.length - 1;
+    // Sinon duel classique guidé par la note si connue restreint par la saga
     let nextMid = Math.floor((nextLow + nextHigh) / 2);
     const candRating = nextCandidate.rating;
-    if (candRating && candRating > 0 && newSortedTitles.length >= 4) {
+    if (candRating && candRating > 0 && (nextHigh - nextLow + 1) >= 4) {
       if (candRating < 6.0) {
-        // Film moyen / modeste : démarre dans le bas de tableau (70%)
-        nextMid = Math.min(nextHigh, Math.floor(newSortedTitles.length * 0.7));
+        // Film moyen / modeste : démarre vers 70% de l'intervalle permis
+        nextMid = Math.min(nextHigh, Math.max(nextLow, nextLow + Math.floor((nextHigh - nextLow) * 0.7)));
       } else if (candRating >= 8.2) {
-        // Film d'exception : démarre dans le haut de tableau (30%)
-        nextMid = Math.max(nextLow, Math.floor(newSortedTitles.length * 0.3));
+        // Film d'exception : démarre vers 30% de l'intervalle permis
+        nextMid = Math.max(nextLow, Math.min(nextHigh, nextLow + Math.floor((nextHigh - nextLow) * 0.3)));
       }
     }
     const movieB = state.movieCatalog[newSortedTitles[nextMid]] || { title: newSortedTitles[nextMid] };
@@ -1301,6 +1430,21 @@ export function undoDuelDecision(state: DuelSessionState): DuelSessionState {
 }
 
 /**
+ * Normalise un titre pour comparaison insensible à la casse, accents, ponctuations et parenthèses.
+ */
+export function normalizeTitleForComparison(t?: string): string {
+  if (!t) return '';
+  return t
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // supprime les accents
+    .replace(/['’`"«»]/g, '')        // supprime les apostrophes et guillemets
+    .replace(/[:\-–—_.,!?/()]/g, ' ') // remplace ponctuation par un espace
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Vérifie si deux films ont déjà un ordre de préférence établi dans les duels de saga de l'utilisateur.
  * Retourne 'candidate' si movieA bat movieB, 'reference' si movieB bat movieA, ou null si inconnu.
  */
@@ -1310,15 +1454,26 @@ export function getKnownSagaWinner(
   sagaRankings?: Record<string, SagaRanking> | null
 ): 'candidate' | 'reference' | null {
   if (!sagaRankings || !titleA || !titleB) return null;
-  const normA = titleA.toLowerCase().trim();
-  const normB = titleB.toLowerCase().trim();
-  if (normA === normB) return null;
+  const normA = normalizeTitleForComparison(titleA);
+  const normB = normalizeTitleForComparison(titleB);
+  if (!normA || !normB || normA === normB) return null;
 
   for (const ranking of Object.values(sagaRankings)) {
     if (!ranking || !Array.isArray(ranking.rankedTitles) || ranking.rankedTitles.length < 2) continue;
 
-    const idxA = ranking.rankedTitles.findIndex(t => (t || '').toLowerCase().trim() === normA);
-    const idxB = ranking.rankedTitles.findIndex(t => (t || '').toLowerCase().trim() === normB);
+    const normalizedRanked = ranking.rankedTitles.map(t => normalizeTitleForComparison(t));
+
+    // Recherche exacte normalisée
+    let idxA = normalizedRanked.findIndex(t => t === normA);
+    let idxB = normalizedRanked.findIndex(t => t === normB);
+
+    // Recherche flexible tolérante (si l'un contient l'autre, ex: sous-titre TMDB tronqué)
+    if (idxA === -1) {
+      idxA = normalizedRanked.findIndex(t => t.length >= 4 && (normA.includes(t) || t.includes(normA)));
+    }
+    if (idxB === -1) {
+      idxB = normalizedRanked.findIndex(t => t.length >= 4 && (normB.includes(t) || t.includes(normB)));
+    }
 
     if (idxA >= 0 && idxB >= 0 && idxA !== idxB) {
       // Dans le classement de la saga : le premier indice (0) est le champion
@@ -1331,6 +1486,162 @@ export function getKnownSagaWinner(
 }
 
 /**
+ * Calcule l'intervalle [low, high] dans sortedTitles pour un candidat en fonction
+ * de l'ordre déjà établi dans les sagas (Principe du Plafond & Plancher / Transitivité).
+ */
+export function getSagaSearchBounds(
+  candidateTitle: string,
+  sortedTitles: string[],
+  sagaRankings?: Record<string, SagaRanking> | null
+): { low: number; high: number } {
+  let low = 0;
+  let high = Math.max(0, sortedTitles.length - 1);
+
+  if (!sagaRankings || Object.keys(sagaRankings).length === 0 || sortedTitles.length === 0) {
+    return { low, high };
+  }
+
+  sortedTitles.forEach((refTitle, idx) => {
+    const winner = getKnownSagaWinner(candidateTitle, refTitle, sagaRankings);
+    if (winner === 'candidate') {
+      // Le candidat bat ce film de la saga -> Il doit impérativement être classé AVANT lui
+      high = Math.min(high, idx - 1);
+    } else if (winner === 'reference') {
+      // Ce film de la saga bat le candidat -> Le candidat doit impérativement être classé APRÈS lui
+      low = Math.max(low, idx + 1);
+    }
+  });
+
+  return { low, high };
+}
+
+/**
+ * Initialise une session de duel ciblée pour RECLASSER un seul film spécifique déjà présent dans le classement.
+ * Le film est extrait de la liste ordonnée et inséré par dichotomie ciblée.
+ */
+export function createSingleMovieReclassificationSession(
+  targetTitle: string,
+  currentRankedTitles: string[],
+  movieCatalog: Record<string, DuelMovieItem>,
+  sagaRankings?: Record<string, SagaRanking> | null
+): DuelSessionState {
+  const normTarget = normalizeTitleForComparison(targetTitle);
+  const originalIndex = currentRankedTitles.findIndex(t => normalizeTitleForComparison(t) === normTarget);
+  const remainingSorted = currentRankedTitles.filter((_, idx) => idx !== originalIndex);
+
+  const candidate = movieCatalog[targetTitle] || { title: targetTitle };
+
+  if (remainingSorted.length === 0) {
+    return {
+      mode: 'incremental',
+      sortedTitles: [targetTitle],
+      pendingItems: [],
+      currentCandidate: null,
+      low: 0,
+      high: 0,
+      mid: 0,
+      activeDuel: null,
+      history: [],
+      stepNumber: 0,
+      estimatedTotalSteps: 0,
+      isFinished: true,
+      initialRankedTitles: currentRankedTitles,
+      newlyAddedTitles: [],
+      movieCatalog,
+      phase: 'general',
+      categoryQueue: [],
+      currentCategoryIndex: 0,
+      currentCategorySorted: [],
+      currentCategoryPending: [],
+      categoryRankings: {},
+      generalQueue: [],
+      currentGeneralItem: null,
+      isSingleReclassification: true,
+      reclassifiedTitle: targetTitle,
+      sagaRankings,
+    };
+  }
+
+  // Calcul des bornes de saga (Plafond / Plancher)
+  const { low, high } = getSagaSearchBounds(targetTitle, remainingSorted, sagaRankings);
+
+  // Si l'intervalle est déjà résolu (low > high) : placement direct
+  if (low > high) {
+    const finalSorted = [...remainingSorted];
+    finalSorted.splice(low, 0, targetTitle);
+    return {
+      mode: 'incremental',
+      sortedTitles: finalSorted,
+      pendingItems: [],
+      currentCandidate: null,
+      low,
+      high,
+      mid: low,
+      activeDuel: null,
+      history: [],
+      stepNumber: 0,
+      estimatedTotalSteps: 0,
+      isFinished: true,
+      initialRankedTitles: currentRankedTitles,
+      newlyAddedTitles: [],
+      movieCatalog,
+      phase: 'general',
+      categoryQueue: [],
+      currentCategoryIndex: 0,
+      currentCategorySorted: [],
+      currentCategoryPending: [],
+      categoryRankings: {},
+      generalQueue: [],
+      currentGeneralItem: null,
+      isSingleReclassification: true,
+      reclassifiedTitle: targetTitle,
+      sagaRankings,
+    };
+  }
+
+  // Déterminer le duel initial
+  const mid = Math.floor((low + high) / 2);
+  const movieB = movieCatalog[remainingSorted[mid]] || { title: remainingSorted[mid] };
+  const isPodium = mid <= 2;
+  const badge = mid === 0 ? '👑 Duel face au n°1' : mid === 1 ? '🥈 Duel face au n°2' : mid === 2 ? '🥉 Duel face au n°3' : '🎯 Reclassement ciblé';
+
+  return {
+    mode: 'incremental',
+    sortedTitles: remainingSorted,
+    pendingItems: [],
+    currentCandidate: candidate,
+    low,
+    high,
+    mid,
+    activeDuel: {
+      movieA: candidate,
+      movieB,
+    },
+    history: [],
+    stepNumber: 1,
+    estimatedTotalSteps: Math.max(1, Math.ceil(Math.log2(remainingSorted.length + 1))),
+    isFinished: false,
+    initialRankedTitles: currentRankedTitles, // Permet à calculateRankMovements de calculer le delta (+ / -)
+    newlyAddedTitles: [],
+    movieCatalog,
+    phase: 'general',
+    categoryQueue: [],
+    currentCategoryIndex: 0,
+    currentCategorySorted: [],
+    currentCategoryPending: [],
+    categoryRankings: {},
+    generalQueue: [],
+    currentGeneralItem: null,
+    incrementalStage: 'general',
+    isPodiumDuel: isPodium,
+    podiumBadgeText: badge,
+    isSingleReclassification: true,
+    reclassifiedTitle: targetTitle,
+    sagaRankings,
+  };
+}
+
+/**
  * Résout automatiquement et silencieusement tous les duels consécutifs
  * dont l'issue a déjà été déterminée lors d'un duel de saga précédent.
  * Évite à l'utilisateur de devoir re-choisir entre deux films de la même saga.
@@ -1339,9 +1650,10 @@ export function autoResolveSagaDuels(
   initialState: DuelSessionState,
   sagaRankings?: Record<string, SagaRanking> | null
 ): DuelSessionState {
-  if (!sagaRankings || Object.keys(sagaRankings).length === 0) return initialState;
+  const effectiveRankings = sagaRankings || initialState.sagaRankings;
+  if (!effectiveRankings || Object.keys(effectiveRankings).length === 0) return initialState;
 
-  let current = initialState;
+  let current = { ...initialState, sagaRankings: effectiveRankings };
   let safetyCounter = 0;
   const maxIterations = 150;
 
@@ -1350,7 +1662,7 @@ export function autoResolveSagaDuels(
     const movieA = current.activeDuel.movieA.title;
     const movieB = current.activeDuel.movieB.title;
 
-    const knownWinner = getKnownSagaWinner(movieA, movieB, sagaRankings);
+    const knownWinner = getKnownSagaWinner(movieA, movieB, effectiveRankings);
     if (!knownWinner) {
       break;
     }

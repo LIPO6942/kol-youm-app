@@ -13,7 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Swords, Trophy, ArrowUp, ArrowDown, Minus, Undo2, Check, Sparkles,
-  Film, Clapperboard, Star, ChevronRight, RotateCcw, X, Rocket, EyeOff, Dna
+  Film, Clapperboard, Star, ChevronRight, RotateCcw, X, Rocket, EyeOff, Dna,
+  MoreVertical
 } from 'lucide-react';
 import {
   DuelMovieItem,
@@ -27,6 +28,7 @@ import {
   dismissCandidate,
   removeReferenceFromSession,
   autoResolveSagaDuels,
+  createSingleMovieReclassificationSession,
 } from '@/lib/movie-duel-engine';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -78,6 +80,35 @@ export function MovieDuelModal({
   const [selectedWinnerSide, setSelectedWinnerSide] = useState<'A' | 'B' | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<MovieCategory | 'all'>(initialCategory || 'all');
   const [reclassifyingCategory, setReclassifyingCategory] = useState<MovieCategory | null>(null);
+
+  // Récupération multi-sources des classements de saga (Profil Firebase + LocalStorage fallback)
+  const effectiveSagaRankings = useMemo(() => {
+    const fromProfile = userProfile?.sagaRankings || {};
+    let fromStorage: Record<string, any> = {};
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('kolyoum_saga_rankings');
+        if (raw) fromStorage = JSON.parse(raw);
+      } catch {}
+    }
+    return { ...fromStorage, ...fromProfile };
+  }, [userProfile?.sagaRankings]);
+
+  // État du menu contextuel d'action sur un film après appui long
+  const [actionMenuMovie, setActionMenuMovie] = useState<{
+    title: string;
+    currentRank: number;
+    posterUrl?: string;
+    category?: MovieCategory;
+    year?: number;
+    rating?: number;
+  } | null>(null);
+
+  // Pour animer visuellement le film en cours d'appui long
+  const [pressingMovieTitle, setPressingMovieTitle] = useState<string | null>(null);
+
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
   // Sync category if initialCategory changes
   useEffect(() => {
@@ -251,9 +282,10 @@ export function MovieDuelModal({
       const newSession = createIncrementalDuelSession(
         (effectiveExistingRanking.rankedTitles || []).filter(t => !isTestMovieTitle(t)),
         unrankedMovies,
-        existingCatalog
+        existingCatalog,
+        effectiveSagaRankings
       );
-      const resolvedSession = autoResolveSagaDuels(newSession, userProfile?.sagaRankings);
+      const resolvedSession = autoResolveSagaDuels(newSession, effectiveSagaRankings);
       setSession(resolvedSession);
       if (resolvedSession.isFinished) {
         executeSaveRanking(resolvedSession, { notifyToast: false, closeModal: false });
@@ -263,8 +295,8 @@ export function MovieDuelModal({
 
     // 3. Mode Initial : tri complet depuis zéro (si au moins 2 films)
     if (validSeenMovies.length >= 2) {
-      const newSession = createInitialDuelSession(validSeenMovies);
-      const resolvedSession = autoResolveSagaDuels(newSession, userProfile?.sagaRankings);
+      const newSession = createInitialDuelSession(validSeenMovies, effectiveSagaRankings);
+      const resolvedSession = autoResolveSagaDuels(newSession, effectiveSagaRankings);
       setSession(resolvedSession);
       if (resolvedSession.isFinished) {
         executeSaveRanking(resolvedSession, { notifyToast: false, closeModal: false });
@@ -290,9 +322,10 @@ export function MovieDuelModal({
       isFinished: false,
       movieCatalog: emptyCatalog,
       initialRankedTitles: validSeenMovies.map(m => m.title),
-      newlyAddedTitles: []
+      newlyAddedTitles: [],
+      sagaRankings: effectiveSagaRankings,
     });
-  }, [isOpen, effectiveExistingRanking, validSeenMovies, unrankedMovies, isIncrementalMode]);
+  }, [isOpen, effectiveExistingRanking, validSeenMovies, unrankedMovies, isIncrementalMode, effectiveSagaRankings]);
 
   // Résolution et rétro-remplissage automatique des affiches manquantes pour tous les films du duel
   useEffect(() => {
@@ -518,15 +551,15 @@ export function MovieDuelModal({
     }
 
     setReclassifyingCategory(category);
-    const initial = createInitialDuelSession(categoryMovies);
-    const resolved = autoResolveSagaDuels(initial, userProfile?.sagaRankings);
+    const initial = createInitialDuelSession(categoryMovies, effectiveSagaRankings);
+    const resolved = autoResolveSagaDuels(initial, effectiveSagaRankings);
 
     if (resolved.isFinished) {
       handleFinishCategoryDuel(resolved, category);
     } else {
       setSession(resolved);
     }
-  }, [validSeenMovies, userProfile?.sagaRankings, handleFinishCategoryDuel, toast, isTv]);
+  }, [validSeenMovies, effectiveSagaRankings, handleFinishCategoryDuel, toast, isTv]);
 
   // Abandonner le reclassement de catégorie et restaurer l'état précédent
   const handleCancelCategoryDuel = useCallback(() => {
@@ -555,8 +588,9 @@ export function MovieDuelModal({
       initialRankedTitles: (effectiveExistingRanking?.initialRankedTitles || effectiveExistingRanking?.rankedTitles || []).filter(t => !isTestMovieTitle(t)),
       newlyAddedTitles: (effectiveExistingRanking?.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t)),
       movieCatalog: existingCatalog,
+      sagaRankings: effectiveSagaRankings,
     });
-  }, [validSeenMovies, effectiveExistingRanking]);
+  }, [validSeenMovies, effectiveExistingRanking, effectiveSagaRankings]);
 
   // Choix utilisateur (Winner: movieA = candidate, movieB = reference)
   const handleChoice = useCallback((side: 'A' | 'B') => {
@@ -571,7 +605,7 @@ export function MovieDuelModal({
       setSession(prev => {
         if (!prev) return null;
         const next = processDuelDecision(prev, winner);
-        const resolvedNext = autoResolveSagaDuels(next, userProfile?.sagaRankings);
+        const resolvedNext = autoResolveSagaDuels(next, effectiveSagaRankings);
         if (resolvedNext.isFinished) {
           if (reclassifyingCategory) {
             setTimeout(() => {
@@ -579,13 +613,22 @@ export function MovieDuelModal({
             }, 0);
           } else {
             // Sauvegarde automatique et immédiate dès la fin du duel !
-            executeSaveRanking(resolvedNext, { notifyToast: false, closeModal: false });
+            executeSaveRanking(resolvedNext, {
+              notifyToast: resolvedNext.isSingleReclassification,
+              closeModal: false
+            });
+            if (resolvedNext.isSingleReclassification) {
+              toast({
+                title: "🎯 Reclassement validé !",
+                description: `« ${resolvedNext.reclassifiedTitle || 'Film'} » a trouvé sa nouvelle place !`,
+              });
+            }
           }
         }
         return resolvedNext;
       });
     }, 180);
-  }, [session, reclassifyingCategory, handleFinishCategoryDuel, userProfile?.sagaRankings, executeSaveRanking]);
+  }, [session, reclassifyingCategory, handleFinishCategoryDuel, effectiveSagaRankings, executeSaveRanking, toast]);
 
   // Annuler le dernier duel
   const handleUndo = useCallback(() => {
@@ -605,7 +648,7 @@ export function MovieDuelModal({
     } else {
       nextSession = removeReferenceFromSession(session, title);
     }
-    const resolvedNext = autoResolveSagaDuels(nextSession, userProfile?.sagaRankings);
+    const resolvedNext = autoResolveSagaDuels(nextSession, effectiveSagaRankings);
     setSession(resolvedNext);
 
     if (resolvedNext.isFinished) {
@@ -627,7 +670,89 @@ export function MovieDuelModal({
       title: `"${title}" retiré${isTv ? 'e' : ''}`,
       description: `Cette ${isTv ? 'série a été retirée' : 'film a été retiré'} du duel et de votre liste de ${isTv ? 'séries vues' : 'films vus'}.`,
     });
-  }, [session, reclassifyingCategory, user?.uid, userProfile?.uid, handleFinishCategoryDuel, executeSaveRanking, toast, isTv]);
+  }, [session, reclassifyingCategory, user?.uid, userProfile?.uid, handleFinishCategoryDuel, executeSaveRanking, toast, isTv, effectiveSagaRankings]);
+
+  // Gestionnaires de l'Appui Long (Long Press) sur les films classés
+  const handlePointerDownMovie = useCallback((e: React.PointerEvent, item: RankMovement) => {
+    if (!session?.isFinished) return;
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    touchStartPosRef.current = { x: e.clientX, y: e.clientY };
+    setPressingMovieTitle(item.title);
+
+    longPressTimerRef.current = setTimeout(() => {
+      if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+        try { navigator.vibrate(50); } catch {}
+      }
+      const catalogItem = session.movieCatalog[item.title];
+      setActionMenuMovie({
+        title: item.title,
+        currentRank: item.currentRank,
+        posterUrl: catalogItem?.posterUrl,
+        category: item.category,
+        year: catalogItem?.year,
+        rating: catalogItem?.rating,
+      });
+      setPressingMovieTitle(null);
+      longPressTimerRef.current = null;
+    }, 500);
+  }, [session]);
+
+  const handlePointerMoveMovie = useCallback((e: React.PointerEvent) => {
+    if (touchStartPosRef.current && longPressTimerRef.current) {
+      const dx = Math.abs(e.clientX - touchStartPosRef.current.x);
+      const dy = Math.abs(e.clientY - touchStartPosRef.current.y);
+      if (dx > 10 || dy > 10) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+        setPressingMovieTitle(null);
+      }
+    }
+  }, []);
+
+  const handlePointerUpMovie = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    setPressingMovieTitle(null);
+  }, []);
+
+  // Déclencher le duel de reclassement ciblé pour un film unique
+  const handleStartSingleMovieReclassification = useCallback((targetTitle: string) => {
+    if (!session) return;
+    setActionMenuMovie(null);
+    const reclassSession = createSingleMovieReclassificationSession(
+      targetTitle,
+      session.sortedTitles,
+      session.movieCatalog,
+      effectiveSagaRankings
+    );
+    const resolved = autoResolveSagaDuels(reclassSession, effectiveSagaRankings);
+    setSession(resolved);
+    if (resolved.isFinished) {
+      executeSaveRanking(resolved, { notifyToast: true, closeModal: false });
+    }
+  }, [session, effectiveSagaRankings, executeSaveRanking]);
+
+  // Abandonner le reclassement ciblé et restaurer le classement initial
+  const handleCancelSingleReclassification = useCallback(() => {
+    if (!session || !session.isSingleReclassification) return;
+    setSession(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        sortedTitles: [...prev.initialRankedTitles],
+        isFinished: true,
+        activeDuel: null,
+        isSingleReclassification: false,
+        reclassifiedTitle: undefined,
+      };
+    });
+  }, [session]);
 
   // Raccourcis clavier (Flèche gauche = Film A, Flèche droite = Film B)
   useEffect(() => {
@@ -657,7 +782,9 @@ export function MovieDuelModal({
     const normalizeTitle = (t?: string) => (t || '').toLowerCase().trim().replace(/['’`]/g, "'");
     const validSeenSet = new Set(validSeenMovies.map(m => normalizeTitle(m?.title)).filter(Boolean));
 
-    const baseList = (effectiveExistingRanking?.initialRankedTitles || session.initialRankedTitles || []).filter(t => !isTestMovieTitle(t));
+    const baseList = session.isSingleReclassification
+      ? (session.initialRankedTitles || []).filter(t => !isTestMovieTitle(t))
+      : (effectiveExistingRanking?.initialRankedTitles || session.initialRankedTitles || []).filter(t => !isTestMovieTitle(t));
     const sorted = (session.sortedTitles || []).filter(t => !isTestMovieTitle(t));
     const newlyAdded = (session.newlyAddedTitles || []).filter(t => !isTestMovieTitle(t));
     return calculateRankMovements(baseList, sorted, newlyAdded, session.movieCatalog, selectedCategory)
@@ -681,7 +808,8 @@ export function MovieDuelModal({
   if (!session) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[700px] w-[95vw] max-h-[92vh] overflow-hidden p-0 border border-border/40 bg-[#0B0C10] text-white shadow-[0_25px_70px_rgba(0,0,0,0.85)] flex flex-col !z-[200] [&>button]:text-white [&>button]:opacity-80 [&>button:hover]:opacity-100 [&>button]:bg-white/10 [&>button]:p-1.5 [&>button]:rounded-full [&>button]:transition-all">
         {/* Header néon cinématographique */}
         <div className="relative px-6 py-4 border-b border-white/10 bg-gradient-to-r from-blue-950/40 via-purple-950/40 to-slate-900/40 flex items-center justify-between">
@@ -702,7 +830,12 @@ export function MovieDuelModal({
                 ) : (
                   isTv ? "⚔️ Duel Séries : Le Grand Choix" : "⚔️ Duel Ciné : Le Grand Choix"
                 )}
-                {session.mode === 'incremental' && !session.isFinished && !reclassifyingCategory && (
+                {session.isSingleReclassification && !session.isFinished && (
+                  <Badge variant="outline" className="bg-indigo-500/20 border-indigo-400/40 text-indigo-300 text-[10px] font-bold animate-pulse">
+                    Reclassement Ciblé
+                  </Badge>
+                )}
+                {session.mode === 'incremental' && !session.isFinished && !reclassifyingCategory && !session.isSingleReclassification && (
                   <Badge variant="outline" className="bg-amber-500/20 border-amber-400/40 text-amber-300 text-[10px] font-bold">
                     Reclassement des Nouveaux
                   </Badge>
@@ -773,6 +906,23 @@ export function MovieDuelModal({
                       Abandonner
                     </button>
                   </div>
+                ) : session.isSingleReclassification ? (
+                  <div className="w-full max-w-[560px] mb-3 px-3.5 py-2.5 rounded-xl text-[11px] leading-relaxed flex items-center justify-between gap-2 border bg-indigo-500/15 border-indigo-400/40 text-indigo-200 shadow-md">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Swords className="w-4 h-4 text-indigo-400 shrink-0" />
+                      <span className="truncate">
+                        <strong>Reclassement ciblé :</strong> <span className="font-semibold text-white">« {session.reclassifiedTitle || session.currentCandidate?.title} »</span>
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCancelSingleReclassification}
+                      className="text-[11px] text-indigo-300 hover:text-white underline whitespace-nowrap shrink-0 ml-2 font-semibold"
+                      title="Annuler le reclassement et conserver le classement initial"
+                    >
+                      Abandonner
+                    </button>
+                  </div>
                 ) : (
                   <div className={`w-full max-w-[560px] mb-3 px-3 py-2 rounded-xl text-[11px] leading-relaxed flex items-center justify-between gap-2 border ${
                     session.mode === 'incremental'
@@ -827,7 +977,12 @@ export function MovieDuelModal({
 
                 {/* Indicateur de phase : Catégorie vs Général */}
                 <div className="flex items-center justify-center mb-3 sm:mb-4">
-                  {reclassifyingCategory ? (
+                  {session.isSingleReclassification ? (
+                    <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-blue-500/25 via-indigo-500/25 to-purple-500/25 border border-indigo-400/50 text-indigo-200 text-xs font-black shadow-[0_0_15px_rgba(99,102,241,0.3)]">
+                      <Swords className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                      <span>🎯 Duel de Reclassement Ciblé</span>
+                    </div>
+                  ) : reclassifyingCategory ? (
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/40 text-purple-200 text-xs font-bold shadow-[0_0_15px_rgba(168,85,247,0.25)]">
                       <span>⚔️ Duel Exclusif :</span>
                       <CategoryBadge category={reclassifyingCategory} size="xs" />
@@ -1154,11 +1309,23 @@ export function MovieDuelModal({
                   </div>
                 )}
 
+                {/* Astuce Appui Long */}
+                <div className="w-full max-w-[550px] mb-3 px-3.5 py-2.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-between gap-2 text-indigo-300 text-xs font-medium shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-indigo-400 flex-shrink-0 animate-pulse" />
+                    <span>💡 <strong>Astuce :</strong> Maintiens un appui long sur un {isTv ? 'programme' : 'film'} pour le reclasser.</span>
+                  </div>
+                  <Badge variant="outline" className="border-indigo-400/40 text-[10px] text-indigo-200 bg-indigo-500/15 shrink-0">
+                    Appui long
+                  </Badge>
+                </div>
+
                 {/* Liste animée avec Framer Motion layout */}
                 <motion.div layout className="w-full max-w-[550px] space-y-2 mb-6">
                   {rankMovements.map((item) => {
                     const movie = session.movieCatalog[item.title];
                     const poster = getPosterUrl(movie?.posterUrl);
+                    const isPressing = pressingMovieTitle === item.title;
 
                     return (
                       <motion.div
@@ -1167,16 +1334,33 @@ export function MovieDuelModal({
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-                        className={`flex items-center justify-between p-2.5 sm:p-3 rounded-2xl border transition-all ${
-                          item.currentRank === 1
-                            ? 'bg-gradient-to-r from-amber-500/20 via-yellow-500/10 to-transparent border-amber-400/50 shadow-[0_0_20px_rgba(245,158,11,0.2)]'
+                        onPointerDown={(e) => handlePointerDownMovie(e, item)}
+                        onPointerMove={handlePointerMoveMovie}
+                        onPointerUp={handlePointerUpMovie}
+                        onPointerCancel={handlePointerUpMovie}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          setActionMenuMovie({
+                            title: item.title,
+                            currentRank: item.currentRank,
+                            posterUrl: movie?.posterUrl,
+                            category: item.category || movie?.category,
+                            year: movie?.year,
+                            rating: movie?.rating,
+                          });
+                        }}
+                        className={`group relative select-none cursor-pointer flex items-center justify-between p-2.5 sm:p-3 rounded-2xl border transition-all duration-200 ${
+                          isPressing
+                            ? 'scale-[0.98] ring-2 ring-indigo-400 bg-indigo-500/25 border-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.4)]'
+                            : item.currentRank === 1
+                            ? 'bg-gradient-to-r from-amber-500/20 via-yellow-500/10 to-transparent border-amber-400/50 shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:border-amber-400/80'
                             : item.currentRank === 2
-                            ? 'bg-gradient-to-r from-slate-400/20 via-slate-500/10 to-transparent border-slate-300/40 shadow-[0_0_15px_rgba(203,213,225,0.15)]'
+                            ? 'bg-gradient-to-r from-slate-400/20 via-slate-500/10 to-transparent border-slate-300/40 shadow-[0_0_15px_rgba(203,213,225,0.15)] hover:border-slate-300/70'
                             : item.currentRank === 3
-                            ? 'bg-gradient-to-r from-amber-700/20 via-amber-800/10 to-transparent border-amber-600/40 shadow-[0_0_15px_rgba(180,83,9,0.15)]'
+                            ? 'bg-gradient-to-r from-amber-700/20 via-amber-800/10 to-transparent border-amber-600/40 shadow-[0_0_15px_rgba(180,83,9,0.15)] hover:border-amber-600/70'
                             : item.isNew
-                            ? 'bg-gradient-to-r from-blue-500/15 via-indigo-500/10 to-transparent border-blue-400/40'
-                            : 'bg-white/[0.04] border-white/10 hover:border-white/20'
+                            ? 'bg-gradient-to-r from-blue-500/15 via-indigo-500/10 to-transparent border-blue-400/40 hover:border-blue-400/70'
+                            : 'bg-white/[0.04] border-white/10 hover:border-white/25 hover:bg-white/[0.07]'
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
@@ -1203,7 +1387,7 @@ export function MovieDuelModal({
 
                           {/* Titre & métadonnées */}
                           <div className="min-w-0 text-left">
-                            <h4 className="text-sm font-bold text-white truncate max-w-[220px] sm:max-w-[280px]">
+                            <h4 className="text-sm font-bold text-white truncate max-w-[200px] sm:max-w-[260px]">
                               {item.title}
                             </h4>
                             <div className="flex items-center flex-wrap gap-1.5 text-[11px] text-white/50 mt-0.5">
@@ -1225,7 +1409,7 @@ export function MovieDuelModal({
                           </div>
                         </div>
 
-                        {/* BADGE D'ANIMATION DE CLASSEMENT / DÉCLASSEMENT */}
+                        {/* BADGE D'ANIMATION DE CLASSEMENT / DÉCLASSEMENT & MENU D'ACTIONS */}
                         <div className="flex-shrink-0 flex items-center gap-1.5 pl-2">
                           {item.isNew ? (
                             <motion.span
@@ -1262,6 +1446,27 @@ export function MovieDuelModal({
                               Stable
                             </span>
                           )}
+
+                          {/* Bouton pour ouvrir le menu d'actions (reclasser ce film) */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActionMenuMovie({
+                                title: item.title,
+                                currentRank: item.currentRank,
+                                posterUrl: movie?.posterUrl,
+                                category: item.category || movie?.category,
+                                year: movie?.year,
+                                rating: movie?.rating,
+                              });
+                            }}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-colors ml-0.5"
+                            title={`Options pour ${item.title}`}
+                            aria-label={`Options pour ${item.title}`}
+                          >
+                            <MoreVertical className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </motion.div>
                     );
@@ -1331,8 +1536,8 @@ export function MovieDuelModal({
                       type="button"
                       variant="ghost"
                       onClick={() => {
-                        const initial = createInitialDuelSession(validSeenMovies);
-                        const resolved = autoResolveSagaDuels(initial, userProfile?.sagaRankings);
+                        const initial = createInitialDuelSession(validSeenMovies, effectiveSagaRankings);
+                        const resolved = autoResolveSagaDuels(initial, effectiveSagaRankings);
                         setSession(resolved);
                         if (resolved.isFinished) {
                           executeSaveRanking(resolved, { notifyToast: false, closeModal: false });
@@ -1352,5 +1557,88 @@ export function MovieDuelModal({
         </div>
       </DialogContent>
     </Dialog>
-  );
+
+    {/* Menu d'action au clic ou appui long sur un film : Reclasser ce film */}
+    <Dialog
+      open={!!actionMenuMovie}
+      onOpenChange={(open) => {
+        if (!open) setActionMenuMovie(null);
+      }}
+    >
+      <DialogContent className="sm:max-w-md w-[92vw] bg-[#12141D] border border-white/20 text-white p-5 rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,0.95)] !z-[250] flex flex-col gap-4">
+        <DialogHeader className="space-y-1 text-left">
+          <div className="flex items-center gap-2">
+            <Badge className="bg-indigo-500/20 border-indigo-400/40 text-indigo-300 text-xs font-bold">
+              Rang actuel #{actionMenuMovie?.currentRank}
+            </Badge>
+            {actionMenuMovie?.category && (
+              <CategoryBadge category={actionMenuMovie.category} size="xs" />
+            )}
+          </div>
+          <DialogTitle className="text-lg font-black text-white mt-1">
+            {actionMenuMovie?.title}
+          </DialogTitle>
+          <DialogDescription className="text-xs text-white/60">
+            {isTv
+              ? "Défie tes autres séries en duel pour repositionner celle-ci dans la hiérarchie."
+              : "Défie tes autres films en duel pour repositionner celui-ci dans la hiérarchie."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Carte aperçu du film sélectionné */}
+        <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-white/[0.04] border border-white/10">
+          <div className="w-12 h-16 rounded-xl overflow-hidden bg-black/40 flex-shrink-0 border border-white/10 shadow-md">
+            {actionMenuMovie?.posterUrl ? (
+              <img
+                src={getPosterUrl(actionMenuMovie.posterUrl) || undefined}
+                alt={actionMenuMovie.title}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-white/30">
+                <Film className="w-5 h-5" />
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-bold text-white truncate">
+              {actionMenuMovie?.title}
+            </div>
+            <div className="text-xs text-indigo-300 font-semibold mt-0.5">
+              Position #{actionMenuMovie?.currentRank} sur {session?.sortedTitles.length || 0}
+            </div>
+            <p className="text-[11px] text-white/50 mt-1 leading-snug">
+              Un duel ciblé va se lancer pour réinsérer ce {isTv ? 'programme' : 'film'} à sa place idéale sans réinitialiser le reste du classement.
+            </p>
+          </div>
+        </div>
+
+        {/* Boutons d'actions */}
+        <div className="flex flex-col gap-2 mt-1">
+          <Button
+            type="button"
+            onClick={() => {
+              if (actionMenuMovie) {
+                handleStartSingleMovieReclassification(actionMenuMovie.title);
+              }
+            }}
+            className="w-full h-12 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white font-black text-sm shadow-[0_4px_25px_rgba(99,102,241,0.45)] border border-indigo-400/30 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+          >
+            <Swords className="w-4 h-4 text-indigo-200" />
+            <span>Reclasser ce {isTv ? 'programme' : 'film'}</span>
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setActionMenuMovie(null)}
+            className="w-full h-10 rounded-xl text-white/60 hover:text-white hover:bg-white/5 text-xs font-semibold"
+          >
+            Annuler
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  </>
+);
 }
