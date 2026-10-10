@@ -127,8 +127,8 @@ export const MOVIE_CATEGORY_CONFIG: Record<MovieCategory, {
     gradient: 'from-orange-500/20 to-amber-600/10',
   },
   'Sci-Fi': {
-    label: 'Sci-Fi',
-    shortLabel: 'Sci-Fi',
+    label: 'Sci-Fi/Tech',
+    shortLabel: 'Sci-Fi/Tech',
     emoji: '🚀',
     color: 'text-cyan-400',
     badgeBg: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',

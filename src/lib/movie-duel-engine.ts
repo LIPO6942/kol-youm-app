@@ -105,6 +105,7 @@ export type DuelSessionState = {
   podiumTargetRank?: number;
   podiumCandidateFaced?: string[];
   sagaRankings?: Record<string, SagaRanking> | null;
+  activeDuel?: ActiveDuel | null;
   isSingleReclassification?: boolean;
   reclassifiedTitle?: string;
 };
@@ -684,6 +685,7 @@ export function processDuelDecision(
     podiumTargetRank: state.podiumTargetRank,
     podiumCandidateFaced: state.podiumCandidateFaced ? [...state.podiumCandidateFaced] : undefined,
     sagaRankings: state.sagaRankings,
+    activeDuel: state.activeDuel ? { ...state.activeDuel } : null,
     isSingleReclassification: state.isSingleReclassification,
     reclassifiedTitle: state.reclassifiedTitle,
   };
@@ -1653,7 +1655,7 @@ export function autoResolveSagaDuels(
   const effectiveRankings = sagaRankings || initialState.sagaRankings;
   if (!effectiveRankings || Object.keys(effectiveRankings).length === 0) return initialState;
 
-  let current = { ...initialState, sagaRankings: effectiveRankings };
+  let current: DuelSessionState = { ...initialState, sagaRankings: effectiveRankings || undefined };
   let safetyCounter = 0;
   const maxIterations = 150;
 

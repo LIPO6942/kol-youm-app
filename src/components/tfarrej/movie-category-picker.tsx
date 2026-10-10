@@ -148,16 +148,16 @@ export function CategoryBadge({
 
   const sizeClasses =
     size === 'xs'
-      ? 'px-2.5 py-0.5 text-[11px] sm:text-[11.5px] leading-tight font-extrabold'
+      ? 'px-1.5 py-0.5 text-[9.5px] sm:text-[10px] leading-tight font-bold shrink-0'
       : size === 'sm'
-      ? 'px-3 py-1 text-xs sm:text-[12.5px] leading-tight font-black tracking-tight shadow-xs'
-      : 'px-3.5 py-1.5 text-xs sm:text-sm leading-normal font-black';
+      ? 'px-2 py-0.5 text-[10.5px] sm:text-[11px] leading-tight font-extrabold tracking-tight shadow-xs shrink-0'
+      : 'px-3 py-1.5 text-xs sm:text-sm leading-normal font-black shrink-0';
 
   const emojiSize =
     size === 'xs'
-      ? 'text-xs leading-none'
+      ? 'text-[10px] leading-none'
       : size === 'sm'
-      ? 'text-xs sm:text-sm leading-none'
+      ? 'text-xs leading-none'
       : 'text-sm sm:text-base leading-none';
 
   const isInteractive = Boolean(onClick);

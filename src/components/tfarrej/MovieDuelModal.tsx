@@ -1277,22 +1277,18 @@ export function MovieDuelModal({
                 <motion.div
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-bold mb-4 shadow-[0_0_20px_rgba(16,185,129,0.25)]"
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-[11px] font-bold mb-2 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
                 >
-                  <Check className="w-4 h-4 text-emerald-400" />
-                  <span>Classement enregistré et synchronisé</span>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Enregistré & synchronisé</span>
                 </motion.div>
 
-                <p className="text-xs text-white/60 text-center max-w-[480px] mb-5">
+                <p className="text-[11px] text-white/50 text-center max-w-[420px] mb-3 leading-tight">
                   {selectedCategory === 'all'
                     ? (session.mode === 'incremental'
-                      ? (isTv
-                        ? "Les nouvelles séries ont bousculé les positions ! Observe les montées, descentes et nouvelles entrées ci-dessous."
-                        : "Les nouveaux films ont bousculé les positions ! Observe les montées, descentes et nouvelles entrées ci-dessous.")
-                      : (isTv
-                        ? "Chaque série a trouvé sa place grâce à tes duels. Prêt à publier pour le Wrap-Up ?"
-                        : "Chaque film a trouvé sa place grâce à tes duels. Prêt à publier pour le Wrap-Up ?"))
-                    : `Hiérarchie exclusive de vos ${isTv ? 'séries' : 'films'} ${selectedCategory} pour ce mois (${rankMovements.length} ${isTv ? 'série' : 'film'}${rankMovements.length > 1 ? 's' : ''}).`}
+                      ? "Positions réactualisées suite aux nouveaux duels."
+                      : (isTv ? "Hiérarchie officielle de vos séries." : "Hiérarchie officielle de vos films."))
+                    : `Palmarès « ${selectedCategory} » (${rankMovements.length}).`}
                 </p>
 
                 {rankMovements.length === 0 && (
@@ -1308,17 +1304,6 @@ export function MovieDuelModal({
                     </Button>
                   </div>
                 )}
-
-                {/* Astuce Appui Long */}
-                <div className="w-full max-w-[550px] mb-3 px-3.5 py-2.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-between gap-2 text-indigo-300 text-xs font-medium shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-indigo-400 flex-shrink-0 animate-pulse" />
-                    <span>💡 <strong>Astuce :</strong> Maintiens un appui long sur un {isTv ? 'programme' : 'film'} pour le reclasser.</span>
-                  </div>
-                  <Badge variant="outline" className="border-indigo-400/40 text-[10px] text-indigo-200 bg-indigo-500/15 shrink-0">
-                    Appui long
-                  </Badge>
-                </div>
 
                 {/* Liste animée avec Framer Motion layout */}
                 <motion.div layout className="w-full max-w-[550px] space-y-2 mb-6">
@@ -1363,46 +1348,46 @@ export function MovieDuelModal({
                             : 'bg-white/[0.04] border-white/10 hover:border-white/25 hover:bg-white/[0.07]'
                         }`}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-1.5">
                           {/* Numéro de rang */}
-                          <div className="w-7 h-7 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0">
-                            {item.currentRank === 1 && <span className="text-xl">🥇</span>}
-                            {item.currentRank === 2 && <span className="text-xl">🥈</span>}
-                            {item.currentRank === 3 && <span className="text-xl">🥉</span>}
+                          <div className="w-6 sm:w-7 h-6 sm:h-7 rounded-xl flex items-center justify-center font-black text-xs sm:text-sm flex-shrink-0">
+                            {item.currentRank === 1 && <span className="text-lg sm:text-xl">🥇</span>}
+                            {item.currentRank === 2 && <span className="text-lg sm:text-xl">🥈</span>}
+                            {item.currentRank === 3 && <span className="text-lg sm:text-xl">🥉</span>}
                             {item.currentRank > 3 && (
                               <span className="text-white/60 font-bold">#{item.currentRank}</span>
                             )}
                           </div>
 
                           {/* Mini poster */}
-                          <div className="w-8 h-12 rounded-md overflow-hidden bg-black/40 flex-shrink-0 border border-white/10">
+                          <div className="w-7 sm:w-8 h-10 sm:h-12 rounded-md overflow-hidden bg-black/40 flex-shrink-0 border border-white/10">
                             {poster ? (
                               <img src={poster} alt={item.title} className="w-full h-full object-cover" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-white/30">
-                                <Film className="w-4 h-4" />
+                                <Film className="w-3.5 h-3.5" />
                               </div>
                             )}
                           </div>
 
                           {/* Titre & métadonnées */}
-                          <div className="min-w-0 text-left">
-                            <h4 className="text-sm font-bold text-white truncate max-w-[200px] sm:max-w-[260px]">
+                          <div className="min-w-0 flex-1 text-left">
+                            <h4 className="text-xs sm:text-sm font-bold text-white truncate max-w-[160px] xs:max-w-[200px] sm:max-w-[260px]">
                               {item.title}
                             </h4>
-                            <div className="flex items-center flex-wrap gap-1.5 text-[11px] text-white/50 mt-0.5">
-                              {movie?.year && <span>{movie.year}</span>}
+                            <div className="flex items-center flex-wrap gap-1 text-[9.5px] sm:text-[10px] text-white/50 mt-0.5 leading-none">
+                              {movie?.year && <span className="shrink-0">{movie.year}</span>}
                               {movie?.watchedInCinema && (
-                                <span className="text-violet-300 font-semibold">🎬 Cinéma</span>
+                                <span className="text-violet-300 font-semibold shrink-0">🎬 Cinéma</span>
                               )}
                               <CategoryBadge
                                 category={item.category || movie?.category}
-                                size={selectedCategory === 'all' ? 'sm' : 'xs'}
-                                className="shadow-xs"
+                                size="xs"
+                                className="shadow-xs shrink-0"
                               />
                               {selectedCategory !== 'all' && (
-                                <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10 text-white/70 text-[9.5px] font-mono font-semibold leading-none">
-                                  #{item.generalRank} Général
+                                <span className="px-1.5 py-0.5 rounded-full bg-white/10 border border-white/10 text-white/70 text-[9px] font-mono font-semibold shrink-0">
+                                  #{item.generalRank}
                                 </span>
                               )}
                             </div>
@@ -1410,39 +1395,39 @@ export function MovieDuelModal({
                         </div>
 
                         {/* BADGE D'ANIMATION DE CLASSEMENT / DÉCLASSEMENT & MENU D'ACTIONS */}
-                        <div className="flex-shrink-0 flex items-center gap-1.5 pl-2">
+                        <div className="flex-shrink-0 flex items-center gap-1 pl-1 ml-auto">
                           {item.isNew ? (
                             <motion.span
                               initial={{ scale: 0.8, opacity: 0 }}
                               animate={{ scale: 1, opacity: 1 }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-500/20 border border-blue-400/50 text-blue-300 text-xs font-black shadow-[0_0_12px_rgba(59,130,246,0.3)]"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/20 border border-blue-400/50 text-blue-300 text-[10.5px] font-black shrink-0 whitespace-nowrap shadow-[0_0_12px_rgba(59,130,246,0.3)]"
                             >
-                              <Rocket className="w-3 h-3 text-blue-300" />
+                              <Rocket className="w-2.5 h-2.5 text-blue-300" />
                               Entré #{item.currentRank}
                             </motion.span>
                           ) : item.diff > 0 ? (
                             <motion.span
                               initial={{ scale: 0.8, opacity: 0 }}
                               animate={{ scale: 1, opacity: 1 }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-xs font-black shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-[10.5px] font-black shrink-0 whitespace-nowrap shadow-[0_0_12px_rgba(16,185,129,0.25)]"
                               title={`Anciennement #${item.previousRank}`}
                             >
-                              <ArrowUp className="w-3.5 h-3.5 text-emerald-400" />
+                              <ArrowUp className="w-3 h-3 text-emerald-400" />
                               +{item.diff}
                             </motion.span>
                           ) : item.diff < 0 ? (
                             <motion.span
                               initial={{ scale: 0.8, opacity: 0 }}
                               animate={{ scale: 1, opacity: 1 }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-500/20 border border-rose-400/50 text-rose-300 text-xs font-black"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/50 text-rose-300 text-[10.5px] font-black shrink-0 whitespace-nowrap"
                               title={`Anciennement #${item.previousRank}`}
                             >
-                              <ArrowDown className="w-3.5 h-3.5 text-rose-400" />
+                              <ArrowDown className="w-3 h-3 text-rose-400" />
                               {item.diff}
                             </motion.span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 text-white/40 text-xs font-semibold">
-                              <Minus className="w-3 h-3" />
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/5 text-white/40 text-[10.5px] font-semibold shrink-0 whitespace-nowrap">
+                              <Minus className="w-2.5 h-2.5" />
                               Stable
                             </span>
                           )}
@@ -1461,7 +1446,7 @@ export function MovieDuelModal({
                                 rating: movie?.rating,
                               });
                             }}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-colors ml-0.5"
+                            className="w-6 h-6 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
                             title={`Options pour ${item.title}`}
                             aria-label={`Options pour ${item.title}`}
                           >
