@@ -85,12 +85,16 @@ self.addEventListener('notificationclick', (event) => {
     || event.notification.data?.link
     || '/';
 
+  const isExternal = urlToOpen.startsWith('http') && !urlToOpen.includes(self.location.origin);
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      for (const client of windowClients) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.navigate(urlToOpen);
-          return client.focus();
+      if (!isExternal) {
+        for (const client of windowClients) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            client.navigate(urlToOpen);
+            return client.focus();
+          }
         }
       }
       if (clients.openWindow) {

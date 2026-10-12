@@ -16,6 +16,7 @@ export interface SundayNotificationPayload {
 }
 
 export interface TmdbMovieInfo {
+  id?: number;
   title: string;
   originalTitle?: string;
   posterUrl?: string;
@@ -23,6 +24,8 @@ export interface TmdbMovieInfo {
   rating?: number;
   year?: number;
   overview?: string;
+  mediaType?: 'movie' | 'tv';
+  tmdbUrl?: string;
 }
 
 // 🧠 Messages 5amem (Quiz, Énigmes Talla3, Dormir moins bête, Culture Tunisienne)
@@ -194,7 +197,10 @@ export async function fetchTmdbMovieForNotification(
 
     const first = results?.[0];
     if (!first) {
-      return { title: rawTitle };
+      return {
+        title: rawTitle,
+        tmdbUrl: `https://www.themoviedb.org/search?query=${encodeURIComponent(rawTitle)}`,
+      };
     }
 
     const posterUrl = first.poster_path
@@ -218,8 +224,13 @@ export async function fetchTmdbMovieForNotification(
       : undefined;
 
     const displayTitle = first.title || first.name || rawTitle;
+    const detectedType: 'movie' | 'tv' = (first.media_type === 'tv' || mediaType === 'tv') ? 'tv' : 'movie';
+    const tmdbUrl = first.id
+      ? `https://www.themoviedb.org/${detectedType}/${first.id}`
+      : `https://www.themoviedb.org/search?query=${encodeURIComponent(displayTitle)}`;
 
     return {
+      id: first.id,
       title: displayTitle,
       originalTitle: first.original_title || first.original_name,
       posterUrl,
@@ -227,10 +238,15 @@ export async function fetchTmdbMovieForNotification(
       rating,
       year,
       overview: first.overview,
+      mediaType: detectedType,
+      tmdbUrl,
     };
   } catch (error) {
     console.error(`[Sunday Notification] Erreur fetch TMDb pour "${rawTitle}":`, error);
-    return { title: rawTitle };
+    return {
+      title: rawTitle,
+      tmdbUrl: `https://www.themoviedb.org/search?query=${encodeURIComponent(rawTitle)}`,
+    };
   }
 }
 
@@ -290,10 +306,14 @@ export function generateSundayMovieMessage(
   // avec repli sur le poster vertical si absent.
   const notificationImageUrl = movie.backdropUrl || movie.posterUrl;
 
+  const tmdbLink = movie.tmdbUrl || (movie.id
+    ? `https://www.themoviedb.org/${isSeries ? 'tv' : 'movie'}/${movie.id}`
+    : `https://www.themoviedb.org/search?query=${encodeURIComponent(rawTitle)}`);
+
   return {
     title: chosenTitle,
     body: chosenBody,
-    link: `/tfarrej?highlight=${encodeURIComponent(rawTitle)}&from=sundayNotification&type=${mediaType}`,
+    link: tmdbLink,
     imageUrl: notificationImageUrl,
     posterUrl: movie.posterUrl,
     backdropUrl: movie.backdropUrl,
@@ -390,6 +410,7 @@ export async function buildSundayNotificationForUser(
   const tmdbInfo = await fetchTmdbMovieForNotification(chosen.title, chosen.mediaType);
 
   const finalMovieInfo: TmdbMovieInfo = {
+    id: tmdbInfo?.id,
     title: tmdbInfo?.title || chosen.title,
     originalTitle: tmdbInfo?.originalTitle,
     posterUrl: tmdbInfo?.posterUrl || chosen.existingPoster,
@@ -397,6 +418,8 @@ export async function buildSundayNotificationForUser(
     rating: tmdbInfo?.rating,
     year: tmdbInfo?.year,
     overview: tmdbInfo?.overview,
+    mediaType: chosen.mediaType,
+    tmdbUrl: tmdbInfo?.tmdbUrl,
   };
 
   // 4. Générer le message séduisant sans aucune troncature

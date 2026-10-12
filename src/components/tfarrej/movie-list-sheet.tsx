@@ -45,6 +45,8 @@ interface MovieDetails {
   title: string;
   rating?: number;
   wikipediaUrl?: string;
+  tmdbId?: number;
+  tmdbUrl?: string;
   year?: number;
   country?: string;
   posterUrl?: string;
@@ -1380,19 +1382,25 @@ function MovieListContent({
                   {formatCountryCode(movieCountry)}
                 </span>
               )}
-              {details?.wikipediaUrl && (
-                <a
-                  href={details.wikipediaUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                  onClick={(e) => e.stopPropagation()}
-                  title="Wikipedia"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                  <span className="sr-only">Wikipedia</span>
-                </a>
-              )}
+              {/* Lien vers la fiche TMDB du film (conserve l'icône ExternalLink) */}
+              {(() => {
+                const tmdbLink = details?.tmdbUrl || (details?.tmdbId
+                  ? `https://www.themoviedb.org/${type === 'tv' ? 'tv' : 'movie'}/${details.tmdbId}`
+                  : `https://www.themoviedb.org/search?query=${encodeURIComponent(movieTitle)}`);
+                return (
+                  <a
+                    href={tmdbLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                    title="Voir la fiche TMDB"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    <span className="sr-only">Fiche TMDB</span>
+                  </a>
+                );
+              })()}
 
               {/* Actions panel : Saga (films vus seulement) + Supprimer + Fermer — apparaît uniquement au clic sur ⋯ */}
               {isActionsOpen && (
@@ -2504,6 +2512,8 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
       let year = seenData?.year || undefined;
       let country: string | undefined = (seenData as any)?.country || undefined;
       let wikipediaUrl: string | undefined;
+      let tmdbId: number | undefined;
+      let tmdbUrl: string | undefined;
       let collection: MovieCollectionInfo | undefined = seenData?.collection;
 
       const response = await fetch('/api/tmdb-movie-details', {
@@ -2519,6 +2529,10 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
           year = year || data.movie.year;
           country = data.movie.countryCode || data.movie.country || country;
           wikipediaUrl = data.movie.wikipediaUrl;
+          if (data.movie.id) {
+            tmdbId = data.movie.id;
+            tmdbUrl = data.movie.tmdbUrl || `https://www.themoviedb.org/${type === 'tv' ? 'tv' : 'movie'}/${data.movie.id}`;
+          }
           if (!posterUrl && data.movie.posterUrl) {
             posterUrl = data.movie.posterUrl;
           }
@@ -2528,14 +2542,20 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
         }
       }
 
-      // Si toujours pas d'affiche, recherche TMDb de repli
-      if (!posterUrl) {
+      // Si toujours pas d'affiche ou d'id TMDB, recherche TMDb de repli
+      if (!posterUrl || !tmdbId) {
         const searchRes = await fetch(`/api/tmdb-search?q=${encodeURIComponent(movieTitle)}&type=${type}`);
         if (searchRes.ok) {
           const searchData = await searchRes.json();
           const match = searchData.results?.[0];
-          if (match?.posterUrl) {
-            posterUrl = match.posterUrl;
+          if (match) {
+            if (!tmdbId && match.id) {
+              tmdbId = match.id;
+              tmdbUrl = `https://www.themoviedb.org/${type === 'tv' ? 'tv' : 'movie'}/${match.id}`;
+            }
+            if (!posterUrl && match.posterUrl) {
+              posterUrl = match.posterUrl;
+            }
             year = year || match.year;
             rating = rating || match.rating;
             if (match.country) {
@@ -2545,12 +2565,20 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
         }
       }
 
+      if (!tmdbUrl && tmdbId) {
+        tmdbUrl = `https://www.themoviedb.org/${type === 'tv' ? 'tv' : 'movie'}/${tmdbId}`;
+      } else if (!tmdbUrl) {
+        tmdbUrl = `https://www.themoviedb.org/search?query=${encodeURIComponent(movieTitle)}`;
+      }
+
       setMovieDetails(prev => ({
         ...prev,
         [movieTitle]: {
           title: movieTitle,
           rating,
           wikipediaUrl,
+          tmdbId,
+          tmdbUrl,
           year,
           country,
           posterUrl,

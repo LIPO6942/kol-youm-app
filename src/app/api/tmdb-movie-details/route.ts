@@ -128,6 +128,9 @@ export async function POST(req: NextRequest) {
       country: details.production_countries?.[0]?.name || (Array.isArray(details.origin_country) ? details.origin_country[0] : details.origin_country) || 'Inconnu',
       countryCode: details.production_countries?.[0]?.iso_3166_1 || (Array.isArray(details.origin_country) ? details.origin_country[0] : details.origin_country) || null,
       wikipediaUrl: wikipediaUrl,
+      tmdbUrl: details.id
+        ? `https://www.themoviedb.org/${type === 'tv' ? 'tv' : 'movie'}/${details.id}`
+        : `https://www.themoviedb.org/search?query=${encodeURIComponent(itemTitle)}`,
       actors: [],
       genres: details.genres?.map((g: any) => g.name) || [],
       posterUrl: details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : undefined,
