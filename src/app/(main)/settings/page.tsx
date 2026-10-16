@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat, Clapperboard, Film, History, Mail, ArrowRightLeft, RotateCcw, AlertCircle, AlertTriangle, Key } from 'lucide-react';
+import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat, Clapperboard, Film, History, Mail, ArrowRightLeft, RotateCcw, AlertCircle, AlertTriangle, Key, EyeOff } from 'lucide-react';
 import { findSimilarPlaceInZone, SimilarPlaceMatch } from '@/lib/place-matching-utils';
 import { updateCustomDishRules } from '@/lib/firebase/firestore';
 import { Badge } from '@/components/ui/badge';
@@ -82,6 +82,7 @@ interface ZoneData {
   categories: CategoryPlaces;
   specialties?: Record<string, string[]>;
   closedPlaces?: Record<string, ClosedPlaceInfo>;
+  ignoredPlaces?: string[];
 }
 
 interface PlacesDatabase {
@@ -803,12 +804,16 @@ export default function SettingsPage() {
     setIsScouting(true);
     try {
       const zoneCategories = getCategoriesForZone(selectedZone);
+      const currentZoneData = placesDatabase?.zones.find((z: ZoneData) => z.zone === selectedZone);
+      const ignoredPlaces = currentZoneData?.ignoredPlaces || [];
+
       const response = await fetch('/api/admin/scout-places', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           zone: selectedZone,
           zoneCategories,
+          ignoredPlaces,
           requesterEmail: user?.email,
           groqApiKey: effectiveKey || undefined,
         }),
@@ -889,8 +894,51 @@ export default function SettingsPage() {
     });
   };
 
-  const handleDismissDiscoveredPlace = (placeName: string) => {
+  const handleDismissDiscoveredPlace = async (placeName: string) => {
+    if (!scoutedZone) return;
     setDiscoveredPlaces(prev => prev.filter(p => p.name !== placeName));
+    try {
+      await fetch('/api/places-database-firestore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'ignorePlace',
+          zone: scoutedZone,
+          placeName: placeName.trim(),
+        }),
+      });
+      loadPlacesDatabase();
+      toast({
+        title: 'Lieu ignoré',
+        description: `« ${placeName} » ne sera plus reproposé pour ${scoutedZone}.`,
+      });
+    } catch (err) {
+      console.error('Error ignoring place:', err);
+    }
+  };
+
+  const handleUnignorePlace = async (zone: string, placeName: string) => {
+    try {
+      const res = await fetch('/api/places-database-firestore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'unignorePlace',
+          zone,
+          placeName: placeName.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadPlacesDatabase();
+        toast({
+          title: 'Lieu réautorisé ✓',
+          description: `« ${placeName} » peut à nouveau être proposé pour ${zone}.`,
+        });
+      }
+    } catch (err) {
+      console.error('Error unignoring place:', err);
+    }
   };
 
   const handleRemovePlaceFromEditing = (placeToRemove: string) => {
@@ -1737,7 +1785,7 @@ export default function SettingsPage() {
 
                                   <div className="flex items-center justify-between gap-2 pt-3 mt-2 border-t border-slate-100 dark:border-slate-800">
                                     <a
-                                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(candidate.name + ' ' + (scoutedZone || '') + ' Tunis')}`}
+                                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([candidate.name, candidate.address, scoutedZone, 'Tunisie'].filter(Boolean).join(' '))}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1 hover:underline"
@@ -2158,6 +2206,42 @@ export default function SettingsPage() {
                                                 </Button>
                                               </div>
                                             </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {/* Section des lieux ignorés par l'IA */}
+                                  {(() => {
+                                    const zoneData = placesDatabase?.zones.find((z: ZoneData) => z.zone === selectedZone);
+                                    const ignored = zoneData?.ignoredPlaces || [];
+                                    if (ignored.length === 0) return null;
+
+                                    return (
+                                      <div className="mt-6 pt-4 border-t border-dashed">
+                                        <div className="flex items-center justify-between mb-2.5">
+                                          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                            <EyeOff className="h-3.5 w-3.5 text-slate-500" />
+                                            Lieux ignorés par l'IA ({ignored.length})
+                                          </span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                          {ignored.map((ignoredName: string) => (
+                                            <TypedBadge
+                                              key={ignoredName}
+                                              variant="secondary"
+                                              className="pl-2.5 pr-1 gap-1.5 py-1 text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
+                                            >
+                                              <span className="line-through">{ignoredName}</span>
+                                              <button
+                                                onClick={() => handleUnignorePlace(selectedZone, ignoredName)}
+                                                className="hover:text-emerald-600 rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-950 p-1 transition-colors"
+                                                title="Réautoriser ce lieu (l'IA pourra à nouveau le proposer)"
+                                              >
+                                                <RotateCcw className="h-3 w-3" />
+                                              </button>
+                                            </TypedBadge>
                                           ))}
                                         </div>
                                       </div>

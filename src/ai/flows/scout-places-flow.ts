@@ -24,36 +24,51 @@ export const scoutPlacesFlow = ai.defineFlow(
       );
     }
 
-    // Échantillon léger de quelques lieux existants pour guider l'IA sans surcharger le contexte
-    const sampleKnown = (input.existingPlaces || []).slice(0, 10).join(', ');
+    // Combiner les lieux existants et les lieux ignorés pour que l'IA ne les repropose jamais
+    const allExcluded = Array.from(new Set([
+      ...(input.existingPlaces || []),
+      ...(input.ignoredPlaces || []),
+    ]));
+    const sampleKnown = allExcluded.slice(0, 20).join(', ');
 
     const systemPrompt = `Tu es un guide local et éclaireur gastronomique expert du Grand Tunis (Tunisie).
-Ta mission est d'identifier des établissements réels (cafés, salons de thé, restaurants, street-food, brunch, pâtisseries, loisirs) situés spécifiquement dans la zone "${input.zone}" (Tunis).
+Ta mission est d'identifier des établissements réels (cafés, salons de thé, restaurants, street-food, brunch, pâtisseries, loisirs) situés STRICTEMENT dans la zone "${input.zone}" (Tunis).
 
-RÈGLES IMPORTANTES :
-1. VÉRACITÉ ABSOLUE : Ne cite que des lieux RÉELS qui existent physiquement dans "${input.zone}". N'invente aucun nom.
-2. DIVERSITÉ : Propose entre 6 et 10 établissements variés.
-3. CATÉGORIES VALIDES UNIQUEMENT :
+RÈGLES IMPÉRATIVES DE PRÉCISION GÉOGRAPHIQUE :
+1. VÉRACITÉ & DÉLIMITATION STRICTE :
+   - Ne cite que des lieux RÉELS qui existent physiquement à l'intérieur du périmètre STRICT de "${input.zone}". N'invente aucun nom.
+   - NE DÉBORDE JAMAIS sur les quartiers voisins :
+     * Si la zone est "Ain Zaghouan" ou "Ain Zaghouan Nord", n'inclus SURTOUT PAS de lieux situés aux Berges du Lac 2, à L'Aouina, à La Soukra ou au Kram. Reste strictement dans Ain Zaghouan (ex: le long de la GP9 côté Ain Zaghouan, près de l'Hôpital Mongi Slim, Résidence Essalem, etc.).
+     * Si la zone est "La Marsa", n'inclus pas de lieux situés à Gammarth ou Sidi Bou Saïd.
+     * Si la zone est "Ennasr", n'inclus pas de lieux situés à El Menzah ou Ariana.
+     * Si la zone est "Les Berges du Lac 1", n'inclus pas Lac 2 ou Les Berges du Lac 0.
+2. NOM EXACT POUR GOOGLE MAPS :
+   - Indique le nom commercial exact tel qu'il apparaît sur Google Maps et sur l'enseigne de l'établissement (sans superlatifs ni slogans ajoutés).
+3. REPÈRE OU ADRESSE OBLIGATOIRE :
+   - Dans le champ "address", donne obligatoirement le repère exact, la rue ou la résidence dans "${input.zone}" (ex: "Route GP9, Ain Zaghouan", "Avenue Hédi Nouira", "Face Hôpital Mongi Slim", etc.).
+4. DIVERSITÉ : Propose entre 6 et 10 établissements variés.
+5. CATÉGORIES VALIDES UNIQUEMENT :
    - "cafes" : Cafés, coffee shops, salons de thé, glaciers.
    - "restaurants" : Restaurants traditionnels tunisiens, italiens, asiatiques, poissons, bistros.
    - "fastFoods" : Fast food, burgers, chapatis, sandwiches, pizzerias rapides.
    - "brunch" : Brunch, boulangeries, pâtisseries, crêperies.
    - "kharjet" : Balades, parcs, loisirs, cinémas, spots culturels.
-4. FORMAT : Réponds STRICTEMENT avec un objet JSON valide contenant la clé "discoveredPlaces":
+6. FORMAT : Réponds STRICTEMENT avec un objet JSON valide contenant la clé "discoveredPlaces":
 {
   "discoveredPlaces": [
     {
-      "name": "Nom de l'établissement",
+      "name": "Nom commercial exact",
       "category": "cafes" | "restaurants" | "fastFoods" | "brunch" | "kharjet",
       "description": "Courte spécialité ou ambiance en 1 phrase",
-      "address": "Rue ou repère dans cette zone si connu"
+      "address": "Rue ou repère précis dans ${input.zone}"
     }
   ]
 }
 Ne rajoute aucun texte hors JSON.`;
 
-    const userPrompt = `Trouve entre 6 et 10 établissements réels et populaires dans la zone "${input.zone}" à Tunis.
-Voici quelques exemples d'établissements déjà connus dans cette zone à ne PAS répéter : ${sampleKnown || 'Aucun'}.`;
+    const userPrompt = `Trouve entre 6 et 10 établissements réels, populaires et récents STRICTEMENT situés dans la zone "${input.zone}" à Tunis.
+Attention à bien respecter les limites de "${input.zone}" sans déborder sur les quartiers voisins.
+Voici des établissements déjà connus ou déjà ignorés dans cette zone à ne JAMAIS répéter : ${sampleKnown || 'Aucun'}.`;
 
     const primaryModel = 'qwen/qwen3.8-27b';
     const fallbackModel = 'llama-3.3-70b-versatile';

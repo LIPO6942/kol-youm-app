@@ -54,6 +54,7 @@ interface ZoneData {
   categories: CategoryPlaces;
   specialties?: Record<string, string[]>;
   closedPlaces?: Record<string, ClosedPlaceInfo>;
+  ignoredPlaces?: string[];
 }
 
 interface PlacesDatabase {
@@ -97,7 +98,8 @@ export async function GET() {
           cinemas: data.cinemas || []
         },
         specialties: data.specialties || {},
-        closedPlaces: data.closedPlaces || {}
+        closedPlaces: data.closedPlaces || {},
+        ignoredPlaces: data.ignoredPlaces || []
       } as ZoneData;
     });
 
@@ -595,6 +597,66 @@ export async function POST(request: NextRequest) {
         success: true,
         message: `La zone "${zone}" et tous ses lieux ont été définitivement supprimés`
       });
+    }
+
+    if (action === 'ignorePlace') {
+      const targetPlace = (bodyPlaceName || '').trim();
+      if (!zone || !targetPlace) {
+        return NextResponse.json({ success: false, error: 'Zone et placeName sont requis' }, { status: 400 });
+      }
+
+      const zoneId = zone
+        .replace(/\//g, '-')
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '_')
+        .toLowerCase();
+
+      const zoneRef = doc(db, 'zones', zoneId);
+      const zoneDoc = await getDoc(zoneRef);
+
+      if (zoneDoc.exists()) {
+        const zoneData = zoneDoc.data();
+        const currentIgnored: string[] = zoneData.ignoredPlaces || [];
+        if (!currentIgnored.some(p => p.toLowerCase() === targetPlace.toLowerCase())) {
+          currentIgnored.push(targetPlace);
+        }
+        await updateDoc(zoneRef, { ignoredPlaces: currentIgnored });
+      } else {
+        await setDoc(zoneRef, {
+          zone,
+          ignoredPlaces: [targetPlace],
+        }, { merge: true });
+      }
+
+      console.log(`Lieu ignoré enregistré: "${targetPlace}" pour la zone "${zoneId}"`);
+      return NextResponse.json({ success: true, ignoredPlace: targetPlace });
+    }
+
+    if (action === 'unignorePlace') {
+      const targetPlace = (bodyPlaceName || '').trim();
+      if (!zone || !targetPlace) {
+        return NextResponse.json({ success: false, error: 'Zone et placeName sont requis' }, { status: 400 });
+      }
+
+      const zoneId = zone
+        .replace(/\//g, '-')
+        .replace(/[^\w\s-]/g, '')
+        .replace(/\s+/g, '_')
+        .toLowerCase();
+
+      const zoneRef = doc(db, 'zones', zoneId);
+      const zoneDoc = await getDoc(zoneRef);
+
+      if (zoneDoc.exists()) {
+        const zoneData = zoneDoc.data();
+        const currentIgnored: string[] = (zoneData.ignoredPlaces || []).filter(
+          (p: string) => p.toLowerCase() !== targetPlace.toLowerCase()
+        );
+        await updateDoc(zoneRef, { ignoredPlaces: currentIgnored });
+      }
+
+      console.log(`Lieu réhabilité (retiré des ignorés): "${targetPlace}" pour la zone "${zoneId}"`);
+      return NextResponse.json({ success: true, unignoredPlace: targetPlace });
     }
 
     return NextResponse.json({ success: true });
