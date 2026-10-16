@@ -17,7 +17,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat, Clapperboard, Film, History, Mail, ArrowRightLeft, RotateCcw, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat, Clapperboard, Film, History, Mail, ArrowRightLeft, RotateCcw, AlertCircle, AlertTriangle } from 'lucide-react';
+import { findSimilarPlaceInZone, SimilarPlaceMatch } from '@/lib/place-matching-utils';
 import { updateCustomDishRules } from '@/lib/firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 const TypedBadge = Badge as any;
@@ -269,6 +270,17 @@ export default function SettingsPage() {
   const [isSubmittingReplacement, setIsSubmittingReplacement] = useState(false);
   const [zoneToDelete, setZoneToDelete] = useState<string | null>(null);
   const [isDeletingZone, setIsDeletingZone] = useState<boolean>(false);
+
+  // Avertissement de doublon / lieu similaire existant
+  const [duplicateWarning, setDuplicateWarning] = useState<{
+    match: SimilarPlaceMatch;
+    pendingAdd: {
+      zone: string;
+      category: string;
+      placeName: string;
+      isEditingMode?: boolean;
+    };
+  } | null>(null);
 
   const CUISINE_OPTIONS = [
     'Tunisien', 'Oriental', 'Italien', 'Américain', 'Français',
@@ -655,15 +667,36 @@ export default function SettingsPage() {
                     lower;
   };
 
-  const handleAddPlaceToZoneCategory = (zone: string, category: string) => {
-    console.log('handleAddPlaceToZoneCategory appelé avec:', { zone, category, newPlaceName });
+  const handleAddPlaceToZoneCategory = (zone: string, category: string, force: boolean = false) => {
+    console.log('handleAddPlaceToZoneCategory appelé avec:', { zone, category, newPlaceName, force });
     if (!newPlaceName || !newPlaceName.trim()) {
       console.log('newPlaceName est vide, annulation');
       return;
     }
 
+    const trimmedPlaceName = newPlaceName.trim();
+
+    // Détection d'un lieu similaire déjà existant dans cette zone
+    if (!force) {
+      const zoneCategories = getCategoriesForZone(zone);
+      const similarMatch = findSimilarPlaceInZone(trimmedPlaceName, zoneCategories as any, category);
+
+      if (similarMatch) {
+        setDuplicateWarning({
+          match: similarMatch,
+          pendingAdd: {
+            zone,
+            category,
+            placeName: trimmedPlaceName,
+            isEditingMode: false,
+          },
+        });
+        return;
+      }
+    }
+
     const currentPlaces = getPlacesForZoneAndCategory(zone, category);
-    const updatedPlaces = [...currentPlaces, newPlaceName.trim()];
+    const updatedPlaces = [...currentPlaces, trimmedPlaceName];
 
     console.log('Mise à jour des lieux:', { currentPlaces: currentPlaces.length, updatedPlaces: updatedPlaces.length });
 
@@ -688,10 +721,55 @@ export default function SettingsPage() {
     handleUpdateZoneCategory(zone, editedPlaces, normalizeCategoryForAPI(category));
   };
 
-  const handleAddPlaceToEditing = () => {
+  const handleAddPlaceToEditing = (force: boolean = false) => {
     if (!newPlaceName || !newPlaceName.trim()) return;
-    setEditedPlaces([...editedPlaces, newPlaceName.trim()]);
+    const trimmedPlaceName = newPlaceName.trim();
+
+    if (!force && selectedZone) {
+      const zoneCategories = getCategoriesForZone(selectedZone);
+      const activeCategories = {
+        ...zoneCategories,
+        [normalizeCategoryForAPI(selectedCategory)]: editedPlaces,
+      };
+      const similarMatch = findSimilarPlaceInZone(trimmedPlaceName, activeCategories as any, selectedCategory);
+
+      if (similarMatch) {
+        setDuplicateWarning({
+          match: similarMatch,
+          pendingAdd: {
+            zone: selectedZone,
+            category: selectedCategory,
+            placeName: trimmedPlaceName,
+            isEditingMode: true,
+          },
+        });
+        return;
+      }
+    }
+
+    setEditedPlaces([...editedPlaces, trimmedPlaceName]);
     setNewPlaceName(null);
+  };
+
+  const handleConfirmDuplicateAdd = () => {
+    if (!duplicateWarning) return;
+    const { zone, category, placeName, isEditingMode } = duplicateWarning.pendingAdd;
+
+    if (isEditingMode) {
+      setEditedPlaces(prev => [...prev, placeName]);
+      setNewPlaceName(null);
+    } else {
+      const currentPlaces = getPlacesForZoneAndCategory(zone, category);
+      const updatedPlaces = [...currentPlaces, placeName];
+      handleUpdateZoneCategory(zone, updatedPlaces, normalizeCategoryForAPI(category));
+      setNewPlaceName(null);
+    }
+
+    setDuplicateWarning(null);
+  };
+
+  const handleCancelDuplicateAdd = () => {
+    setDuplicateWarning(null);
   };
 
   const handleRemovePlaceFromEditing = (placeToRemove: string) => {
@@ -2195,6 +2273,91 @@ export default function SettingsPage() {
                   Supprimer définitivement la zone
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal d'avertissement de doublon / lieu similaire existant */}
+      <Dialog open={!!duplicateWarning} onOpenChange={(open) => !open && handleCancelDuplicateAdd()}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-amber-700 dark:text-amber-400">
+                  Lieu similaire déjà présent dans cette zone
+                </DialogTitle>
+                <DialogDescription className="text-xs mt-0.5">
+                  Zone concernée : <strong className="text-foreground">{duplicateWarning?.pendingAdd.zone}</strong>
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {duplicateWarning && (
+            <div className="py-2 space-y-3">
+              <div className="p-3.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 text-xs space-y-2.5">
+                <p className="text-muted-foreground">
+                  Un établissement portant un nom presque identique existe déjà dans cette zone :
+                </p>
+
+                <div className="grid grid-cols-1 gap-2 pt-1">
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-amber-900/50">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground">Lieu existant</span>
+                      <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                        {duplicateWarning.match.existingName}
+                      </span>
+                    </div>
+                    <TypedBadge variant="secondary" className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200 border-none">
+                      {duplicateWarning.match.categoryDisplayName}
+                    </TypedBadge>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-900/40">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground">Nouveau lieu que vous ajoutez</span>
+                      <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                        {duplicateWarning.pendingAdd.placeName}
+                      </span>
+                    </div>
+                    <TypedBadge variant="outline" className="text-xs border-blue-200 text-blue-600">
+                      {getCategoryDisplayName(duplicateWarning.pendingAdd.category)}
+                    </TypedBadge>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-amber-800 dark:text-amber-300 flex items-center gap-1.5 pt-1">
+                  <span className="font-semibold">Détection :</span> {duplicateWarning.match.reason}
+                  {!duplicateWarning.match.isSameCategory && (
+                    <span className="italic">
+                      (déjà présent dans une autre catégorie de la même zone)
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground text-center">
+                Voulez-vous quand même valider et ajouter ce lieu ou annuler ?
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={handleCancelDuplicateAdd}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleConfirmDuplicateAdd}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-medium gap-1.5"
+            >
+              Valider et ajouter quand même
             </Button>
           </DialogFooter>
         </DialogContent>
