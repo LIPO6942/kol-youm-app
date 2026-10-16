@@ -1548,13 +1548,13 @@ export default function SettingsPage() {
                       >
                         {isScouting ? (
                           <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin text-amber-600" />
-                            Recherche {getCategoryDisplayName(selectedCategory || 'cafes')}...
+                            <Loader2 className="mr-1.5 h-4 w-4 animate-spin text-amber-600" />
+                            Recherche...
                           </>
                         ) : (
                           <>
-                            <Sparkles className="mr-2 h-4 w-4 text-amber-600" />
-                            Découvrir des {getCategoryDisplayName(selectedCategory || 'cafes').toLowerCase()} {serperApiKey ? '(Google Maps)' : '(Recherche)'}
+                            <Sparkles className="mr-1.5 h-4 w-4 text-amber-600" />
+                            {serperApiKey ? 'Découvrir (Maps)' : 'Découvrir (IA)'}
                           </>
                         )}
                       </Button>
@@ -1823,22 +1823,22 @@ export default function SettingsPage() {
                                       <MapPin className="h-3 w-3" />
                                       Vérifier Maps ↗
                                     </a>
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex flex-col gap-1 items-end shrink-0">
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleAddDiscoveredPlace(candidate)}
+                                        className="h-6 px-2.5 text-xs bg-amber-600 hover:bg-amber-700 text-white font-medium justify-center w-full"
+                                      >
+                                        <Plus className="h-3 w-3 mr-1" />
+                                        Ajouter
+                                      </Button>
                                       <Button
                                         size="sm"
                                         variant="ghost"
                                         onClick={() => handleDismissDiscoveredPlace(candidate.name)}
-                                        className="h-7 px-2 text-xs text-muted-foreground hover:text-red-600"
+                                        className="h-5 px-2 text-[11px] text-muted-foreground hover:text-red-600 justify-center w-full"
                                       >
                                         Ignorer
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        onClick={() => handleAddDiscoveredPlace(candidate)}
-                                        className="h-7 px-3 text-xs bg-amber-600 hover:bg-amber-700 text-white font-medium"
-                                      >
-                                        <Plus className="h-3 w-3 mr-1" />
-                                        Ajouter
                                       </Button>
                                     </div>
                                   </div>
