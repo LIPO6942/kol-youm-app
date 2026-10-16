@@ -223,6 +223,8 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const ADMIN_EMAIL = 'moslem.gouia@gmail.com';
+  const isAdmin = user?.email?.toLowerCase().trim() === ADMIN_EMAIL;
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'tfarrej' | 'khrouj'>('profile');
   const [tfarrejSettings, setTfarrejSettings] = useState<TfarrejSettings>({
@@ -281,6 +283,16 @@ export default function SettingsPage() {
       isEditingMode?: boolean;
     };
   } | null>(null);
+
+  // État de recherche Gemini Scout (Admin uniquement)
+  const [isScouting, setIsScouting] = useState(false);
+  const [discoveredPlaces, setDiscoveredPlaces] = useState<Array<{
+    name: string;
+    category: string;
+    description: string;
+    address?: string;
+  }>>([]);
+  const [scoutedZone, setScoutedZone] = useState<string>('');
 
   const CUISINE_OPTIONS = [
     'Tunisien', 'Oriental', 'Italien', 'Américain', 'Français',
@@ -770,6 +782,71 @@ export default function SettingsPage() {
 
   const handleCancelDuplicateAdd = () => {
     setDuplicateWarning(null);
+  };
+
+  // Handlers pour l'éclaireur Gemini (Admin moslem.gouia@gmail.com)
+  const handleScoutZone = async () => {
+    if (!selectedZone || !isAdmin) return;
+    setIsScouting(true);
+    try {
+      const zoneCategories = getCategoriesForZone(selectedZone);
+      const response = await fetch('/api/admin/scout-places', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          zone: selectedZone,
+          zoneCategories,
+          requesterEmail: user?.email,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setDiscoveredPlaces(data.discoveredPlaces || []);
+        setScoutedZone(selectedZone);
+        if ((data.discoveredPlaces || []).length === 0) {
+          toast({
+            title: 'Aucun nouveau lieu détecté',
+            description: `Tous les établissements connus pour ${selectedZone} semblent déjà enregistrés !`,
+          });
+        } else {
+          toast({
+            title: 'Recherche IA terminée !',
+            description: `${data.discoveredPlaces.length} nouveau(x) lieu(x) détecté(s) pour ${selectedZone}.`,
+          });
+        }
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Erreur recherche IA',
+          description: data.error || 'Impossible de chercher de nouveaux lieux.',
+        });
+      }
+    } catch (e) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur réseau',
+        description: 'Impossible de contacter le service de recherche IA.',
+      });
+    } finally {
+      setIsScouting(false);
+    }
+  };
+
+  const handleAddDiscoveredPlace = (candidate: { name: string; category: string }) => {
+    if (!scoutedZone) return;
+    const currentPlaces = getPlacesForZoneAndCategory(scoutedZone, candidate.category);
+    const updatedPlaces = [...currentPlaces, candidate.name.trim()];
+    handleUpdateZoneCategory(scoutedZone, updatedPlaces, normalizeCategoryForAPI(candidate.category));
+    setDiscoveredPlaces(prev => prev.filter(p => p.name !== candidate.name));
+    toast({
+      title: 'Lieu ajouté ✓',
+      description: `« ${candidate.name} » a été ajouté à ${scoutedZone} (${getCategoryDisplayName(candidate.category)})`,
+    });
+  };
+
+  const handleDismissDiscoveredPlace = (placeName: string) => {
+    setDiscoveredPlaces(prev => prev.filter(p => p.name !== placeName));
   };
 
   const handleRemovePlaceFromEditing = (placeToRemove: string) => {
@@ -1339,6 +1416,28 @@ export default function SettingsPage() {
                   <p className="text-sm text-muted-foreground">Administrez tous les lieux du système IA</p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  {isAdmin && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleScoutZone}
+                      disabled={isScouting || !selectedZone}
+                      className="border-amber-300 bg-amber-50/70 hover:bg-amber-100/80 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800"
+                      title={selectedZone ? `Chercher de nouveaux lieux avec Gemini dans ${selectedZone}` : 'Sélectionnez d’abord une zone'}
+                    >
+                      {isScouting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin text-amber-600" />
+                          Recherche Gemini ({selectedZone})...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="mr-2 h-4 w-4 text-amber-600" />
+                          Découvrir des lieux (Gemini)
+                        </>
+                      )}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -1522,6 +1621,98 @@ export default function SettingsPage() {
                           </Select>
                         </div>
                       </div>
+
+                      {/* ── Section Découvertes IA Gemini (Admin uniquement) ── */}
+                      {isAdmin && discoveredPlaces.length > 0 && (
+                        <Card className="border-amber-300 dark:border-amber-800 bg-gradient-to-br from-amber-50/60 via-background to-orange-50/30 dark:from-amber-950/20 dark:via-background dark:to-orange-950/10 shadow-sm animate-in fade-in duration-300 mb-6">
+                          <CardHeader className="pb-3 border-b border-amber-200/50 dark:border-amber-900/30">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div className="flex items-center gap-2.5">
+                                <div className="h-8 w-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-600">
+                                  <Sparkles className="h-4 w-4" />
+                                </div>
+                                <div>
+                                  <CardTitle className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                                    Nouveaux lieux détectés par Gemini pour « {scoutedZone} »
+                                  </CardTitle>
+                                  <CardDescription className="text-xs">
+                                    {discoveredPlaces.length} proposition(s) prête(s) à être ajoutée(s) ou rejetée(s).
+                                  </CardDescription>
+                                </div>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setDiscoveredPlaces([])}
+                                className="text-xs text-muted-foreground hover:text-foreground h-8"
+                              >
+                                Fermer la liste
+                              </Button>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="pt-4 space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {discoveredPlaces.map((candidate, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex flex-col justify-between p-3.5 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-white dark:bg-slate-900 shadow-xs hover:border-amber-400 transition-colors"
+                                >
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="font-bold text-sm text-foreground">{candidate.name}</span>
+                                      <TypedBadge variant="secondary" className="text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 border-none shrink-0">
+                                        {getCategoryDisplayName(candidate.category)}
+                                      </TypedBadge>
+                                    </div>
+                                    {candidate.description && (
+                                      <p className="text-xs text-muted-foreground line-clamp-2">
+                                        {candidate.description}
+                                      </p>
+                                    )}
+                                    {candidate.address && (
+                                      <p className="text-[11px] text-slate-500 flex items-center gap-1">
+                                        <MapPin className="h-3 w-3 shrink-0" />
+                                        <span className="truncate">{candidate.address}</span>
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center justify-between gap-2 pt-3 mt-2 border-t border-slate-100 dark:border-slate-800">
+                                    <a
+                                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(candidate.name + ' ' + (scoutedZone || '') + ' Tunis')}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 flex items-center gap-1 hover:underline"
+                                      title="Vérifier sur Google Maps"
+                                    >
+                                      <MapPin className="h-3 w-3" />
+                                      Vérifier Maps ↗
+                                    </a>
+                                    <div className="flex items-center gap-1.5">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleDismissDiscoveredPlace(candidate.name)}
+                                        className="h-7 px-2 text-xs text-muted-foreground hover:text-red-600"
+                                      >
+                                        Ignorer
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleAddDiscoveredPlace(candidate)}
+                                        className="h-7 px-3 text-xs bg-amber-600 hover:bg-amber-700 text-white font-medium"
+                                      >
+                                        <Plus className="h-3 w-3 mr-1" />
+                                        Ajouter
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
 
                       {/* Statistiques */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
