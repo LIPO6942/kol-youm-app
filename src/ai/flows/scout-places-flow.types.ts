@@ -2,6 +2,7 @@ import { z } from 'genkit';
 
 export const ScoutPlacesInputSchema = z.object({
   zone: z.string().describe('The zone in Greater Tunis to scout, e.g. "La Marsa", "Ennasr", "Carthage".'),
+  category: z.string().optional().describe('Target category, e.g. "cafes", "restaurants", "fastFoods", "brunch", "kharjet".'),
   existingPlaces: z.array(z.string()).describe('List of places already registered in this zone to exclude.'),
   ignoredPlaces: z.array(z.string()).optional().describe('List of places explicitly dismissed/ignored by the admin to exclude.'),
   groqApiKey: z.string().optional().describe('Optional Groq API key provided by admin.'),

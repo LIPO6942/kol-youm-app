@@ -9,7 +9,7 @@ const ADMIN_EMAIL = 'moslem.gouia@gmail.com';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { zone, zoneCategories, requesterEmail, groqApiKey, ignoredPlaces } = body;
+    const { zone, zoneCategories, category, requesterEmail, groqApiKey, ignoredPlaces } = body;
 
     // Contrôle d'accès strict : uniquement moslem.gouia@gmail.com
     if (!requesterEmail || requesterEmail.toLowerCase().trim() !== ADMIN_EMAIL) {
@@ -44,13 +44,14 @@ export async function POST(request: NextRequest) {
       ? ignoredPlaces.filter(p => typeof p === 'string' && p.trim())
       : [];
 
-    console.log(`[API /admin/scout-places] Request for zone: "${zone}", existing: ${existingPlacesList.length}, ignored: ${ignoredList.length}`);
+    console.log(`[API /admin/scout-places] Request for zone: "${zone}", category: "${category}", existing: ${existingPlacesList.length}, ignored: ${ignoredList.length}`);
 
     // Appel à l'éclaireur Groq (Qwen 3.8 / Llama 3.3)
     let result;
     try {
       result = await scoutPlaces({
         zone: zone.trim(),
+        category: typeof category === 'string' ? category.trim() : undefined,
         existingPlaces: existingPlacesList,
         ignoredPlaces: ignoredList,
         groqApiKey: typeof groqApiKey === 'string' ? groqApiKey.trim() : undefined,

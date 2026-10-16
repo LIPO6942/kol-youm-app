@@ -813,6 +813,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           zone: selectedZone,
           zoneCategories,
+          category: selectedCategory,
           ignoredPlaces,
           requesterEmail: user?.email,
           groqApiKey: effectiveKey || undefined,
@@ -823,22 +824,23 @@ export default function SettingsPage() {
       if (data.success) {
         setDiscoveredPlaces(data.discoveredPlaces || []);
         setScoutedZone(selectedZone);
+        const catLabel = getCategoryDisplayName(selectedCategory);
         if ((data.discoveredPlaces || []).length === 0) {
           if (data.rawCount && data.rawCount > 0) {
             toast({
               title: 'Aucune nouveauté',
-              description: `${data.rawCount} établissement(s) analysé(s) par Groq (Qwen 3.8), mais ils sont déjà tous répertoriés dans ${selectedZone}.`,
+              description: `${data.rawCount} établissement(s) analysé(s) par Groq (Qwen 3.8), mais ils sont déjà tous répertoriés dans ${selectedZone} (${catLabel}).`,
             });
           } else {
             toast({
               title: 'Aucun lieu détecté',
-              description: `Groq n’a pas trouvé de nouveaux établissements non enregistrés pour ${selectedZone}.`,
+              description: `Groq n’a pas trouvé de nouveaux ${catLabel.toLowerCase()} non enregistrés pour ${selectedZone}.`,
             });
           }
         } else {
           toast({
             title: 'Recherche IA terminée !',
-            description: `${data.discoveredPlaces.length} nouveau(x) lieu(x) détecté(s) par Groq pour ${selectedZone}.`,
+            description: `${data.discoveredPlaces.length} nouveau(x) ${catLabel.toLowerCase()} détecté(s) par Groq pour ${selectedZone}.`,
           });
         }
       } else {
@@ -1516,17 +1518,17 @@ export default function SettingsPage() {
                         onClick={() => handleScoutZone()}
                         disabled={isScouting || !selectedZone}
                         className="border-amber-300 bg-amber-50/70 hover:bg-amber-100/80 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800"
-                        title={selectedZone ? `Chercher de nouveaux lieux dans ${selectedZone} avec Groq (Qwen 3.8)` : 'Sélectionnez d’abord une zone'}
+                        title={selectedZone ? `Chercher des ${getCategoryDisplayName(selectedCategory || 'cafes').toLowerCase()} dans ${selectedZone} avec Groq (Qwen 3.8)` : 'Sélectionnez d’abord une zone'}
                       >
                         {isScouting ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin text-amber-600" />
-                            Recherche Groq ({selectedZone})...
+                            Recherche {getCategoryDisplayName(selectedCategory || 'cafes')}...
                           </>
                         ) : (
                           <>
                             <Sparkles className="mr-2 h-4 w-4 text-amber-600" />
-                            Découvrir des lieux (Groq)
+                            Découvrir des {getCategoryDisplayName(selectedCategory || 'cafes').toLowerCase()} (Groq)
                           </>
                         )}
                       </Button>
@@ -1739,7 +1741,7 @@ export default function SettingsPage() {
                                 </div>
                                 <div>
                                   <CardTitle className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                                    Nouveaux lieux détectés par Groq pour « {scoutedZone} »
+                                    Nouveaux {getCategoryDisplayName(selectedCategory).toLowerCase()} détectés par Groq pour « {scoutedZone} »
                                   </CardTitle>
                                   <CardDescription className="text-xs">
                                     {discoveredPlaces.length} proposition(s) prête(s) à être ajoutée(s) ou rejetée(s).
