@@ -805,10 +805,17 @@ export default function SettingsPage() {
         setDiscoveredPlaces(data.discoveredPlaces || []);
         setScoutedZone(selectedZone);
         if ((data.discoveredPlaces || []).length === 0) {
-          toast({
-            title: 'Aucun nouveau lieu détecté',
-            description: `Tous les établissements connus pour ${selectedZone} semblent déjà enregistrés !`,
-          });
+          if (data.rawCount && data.rawCount > 0) {
+            toast({
+              title: 'Aucune nouveauté',
+              description: `${data.rawCount} établissement(s) analysé(s) par Gemini, mais ils sont déjà tous répertoriés dans ${selectedZone}.`,
+            });
+          } else {
+            toast({
+              title: 'Aucun lieu détecté',
+              description: `Gemini n’a pas trouvé de nouveaux établissements non enregistrés pour ${selectedZone}.`,
+            });
+          }
         } else {
           toast({
             title: 'Recherche IA terminée !',

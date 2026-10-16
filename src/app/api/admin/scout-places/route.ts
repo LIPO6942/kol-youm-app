@@ -40,34 +40,63 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    console.log(`[API /admin/scout-places] Request for zone: "${zone}", existing count: ${existingPlacesList.length}`);
+
     // Appel à l'éclaireur Gemini
-    const result = await scoutPlaces({
-      zone: zone.trim(),
-      existingPlaces: existingPlacesList,
-    });
+    let result;
+    try {
+      result = await scoutPlaces({
+        zone: zone.trim(),
+        existingPlaces: existingPlacesList,
+      });
+      console.log(`[API /admin/scout-places] Scout returned ${result?.discoveredPlaces?.length || 0} candidates`);
+    } catch (flowErr: any) {
+      console.error('[API /admin/scout-places] Scout flow failed:', flowErr);
+      return NextResponse.json(
+        {
+          success: false,
+          error: flowErr?.message || 'Erreur lors de l’appel à Gemini',
+          debugInfo: {
+            hasGeminiKey: !!process.env.GEMINI_API_KEY,
+            hasGoogleKey: !!process.env.GOOGLE_GENAI_API_KEY,
+            hasGoogleApiKey: !!process.env.GOOGLE_API_KEY,
+          },
+        },
+        { status: 500 }
+      );
+    }
+
+    const rawCandidates = result?.discoveredPlaces || [];
+    console.log('[API /admin/scout-places] Raw candidates from AI:', rawCandidates);
 
     // Filtrage secondaire automatique avec notre algorithme de similarité
     // Élimine toute suggestion qui ressemble à un lieu existant (même mal orthographié)
-    const validPlaces = (result.discoveredPlaces || []).filter((candidate) => {
+    const validPlaces = rawCandidates.filter((candidate) => {
       if (!candidate.name || !candidate.name.trim()) return false;
       const isDuplicate = findSimilarPlaceInZone(
         candidate.name.trim(),
         zoneCategories || {}
       );
+      if (isDuplicate) {
+        console.log(`[API /admin/scout-places] Filtered duplicate: "${candidate.name}" matched with "${isDuplicate.existingName}" (${isDuplicate.reason})`);
+      }
       return !isDuplicate;
     });
+
+    console.log(`[API /admin/scout-places] Returning ${validPlaces.length} valid places out of ${rawCandidates.length} raw candidates`);
 
     return NextResponse.json({
       success: true,
       zone: zone.trim(),
+      rawCount: rawCandidates.length,
       discoveredPlaces: validPlaces,
     });
   } catch (error: any) {
-    console.error('[API /admin/scout-places] Error:', error);
+    console.error('[API /admin/scout-places] General error:', error);
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || 'Erreur lors de la recherche de nouveaux lieux',
+        error: error?.message || 'Erreur interne du serveur',
       },
       { status: 500 }
     );
