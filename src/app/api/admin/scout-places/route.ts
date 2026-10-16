@@ -9,7 +9,7 @@ const ADMIN_EMAIL = 'moslem.gouia@gmail.com';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { zone, zoneCategories, requesterEmail } = body;
+    const { zone, zoneCategories, requesterEmail, groqApiKey } = body;
 
     // Contrôle d'accès strict : uniquement moslem.gouia@gmail.com
     if (!requesterEmail || requesterEmail.toLowerCase().trim() !== ADMIN_EMAIL) {
@@ -42,25 +42,21 @@ export async function POST(request: NextRequest) {
 
     console.log(`[API /admin/scout-places] Request for zone: "${zone}", existing count: ${existingPlacesList.length}`);
 
-    // Appel à l'éclaireur Gemini
+    // Appel à l'éclaireur Groq (Llama 3.3 70B)
     let result;
     try {
       result = await scoutPlaces({
         zone: zone.trim(),
         existingPlaces: existingPlacesList,
+        groqApiKey: typeof groqApiKey === 'string' ? groqApiKey.trim() : undefined,
       });
-      console.log(`[API /admin/scout-places] Scout returned ${result?.discoveredPlaces?.length || 0} candidates`);
+      console.log(`[API /admin/scout-places] Groq returned ${result?.discoveredPlaces?.length || 0} candidates`);
     } catch (flowErr: any) {
       console.error('[API /admin/scout-places] Scout flow failed:', flowErr);
       return NextResponse.json(
         {
           success: false,
-          error: flowErr?.message || 'Erreur lors de l’appel à Gemini',
-          debugInfo: {
-            hasGeminiKey: !!process.env.GEMINI_API_KEY,
-            hasGoogleKey: !!process.env.GOOGLE_GENAI_API_KEY,
-            hasGoogleApiKey: !!process.env.GOOGLE_API_KEY,
-          },
+          error: flowErr?.message || 'Erreur lors de la recherche avec Groq',
         },
         { status: 500 }
       );

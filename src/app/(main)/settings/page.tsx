@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat, Clapperboard, Film, History, Mail, ArrowRightLeft, RotateCcw, AlertCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat, Clapperboard, Film, History, Mail, ArrowRightLeft, RotateCcw, AlertCircle, AlertTriangle, Key } from 'lucide-react';
 import { findSimilarPlaceInZone, SimilarPlaceMatch } from '@/lib/place-matching-utils';
 import { updateCustomDishRules } from '@/lib/firebase/firestore';
 import { Badge } from '@/components/ui/badge';
@@ -284,7 +284,7 @@ export default function SettingsPage() {
     };
   } | null>(null);
 
-  // État de recherche Gemini Scout (Admin uniquement)
+  // État de recherche Groq Scout (Admin uniquement)
   const [isScouting, setIsScouting] = useState(false);
   const [discoveredPlaces, setDiscoveredPlaces] = useState<Array<{
     name: string;
@@ -293,6 +293,17 @@ export default function SettingsPage() {
     address?: string;
   }>>([]);
   const [scoutedZone, setScoutedZone] = useState<string>('');
+  const [groqApiKey, setGroqApiKey] = useState<string>('');
+  const [showGroqKeyModal, setShowGroqKeyModal] = useState<boolean>(false);
+  const [groqKeyInput, setGroqKeyInput] = useState<string>('');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedKey = localStorage.getItem('kolyoum_groq_api_key') || '';
+      setGroqApiKey(savedKey);
+      setGroqKeyInput(savedKey);
+    }
+  }, []);
 
   const CUISINE_OPTIONS = [
     'Tunisien', 'Oriental', 'Italien', 'Américain', 'Français',
@@ -784,9 +795,11 @@ export default function SettingsPage() {
     setDuplicateWarning(null);
   };
 
-  // Handlers pour l'éclaireur Gemini (Admin moslem.gouia@gmail.com)
-  const handleScoutZone = async () => {
+  // Handlers pour l'éclaireur Groq (Admin moslem.gouia@gmail.com)
+  const handleScoutZone = async (overrideKey?: string) => {
     if (!selectedZone || !isAdmin) return;
+    const effectiveKey = overrideKey || groqApiKey || (typeof window !== 'undefined' ? localStorage.getItem('kolyoum_groq_api_key') : '') || '';
+
     setIsScouting(true);
     try {
       const zoneCategories = getCategoriesForZone(selectedZone);
@@ -797,6 +810,7 @@ export default function SettingsPage() {
           zone: selectedZone,
           zoneCategories,
           requesterEmail: user?.email,
+          groqApiKey: effectiveKey || undefined,
         }),
       });
 
@@ -808,35 +822,58 @@ export default function SettingsPage() {
           if (data.rawCount && data.rawCount > 0) {
             toast({
               title: 'Aucune nouveauté',
-              description: `${data.rawCount} établissement(s) analysé(s) par Gemini, mais ils sont déjà tous répertoriés dans ${selectedZone}.`,
+              description: `${data.rawCount} établissement(s) analysé(s) par Groq (Qwen 3.8), mais ils sont déjà tous répertoriés dans ${selectedZone}.`,
             });
           } else {
             toast({
               title: 'Aucun lieu détecté',
-              description: `Gemini n’a pas trouvé de nouveaux établissements non enregistrés pour ${selectedZone}.`,
+              description: `Groq n’a pas trouvé de nouveaux établissements non enregistrés pour ${selectedZone}.`,
             });
           }
         } else {
           toast({
             title: 'Recherche IA terminée !',
-            description: `${data.discoveredPlaces.length} nouveau(x) lieu(x) détecté(s) pour ${selectedZone}.`,
+            description: `${data.discoveredPlaces.length} nouveau(x) lieu(x) détecté(s) par Groq pour ${selectedZone}.`,
           });
         }
       } else {
+        if (data.error && data.error.toLowerCase().includes('clé api groq manquante')) {
+          setShowGroqKeyModal(true);
+        }
         toast({
           variant: 'destructive',
-          title: 'Erreur recherche IA',
+          title: 'Recherche Groq',
           description: data.error || 'Impossible de chercher de nouveaux lieux.',
         });
       }
-    } catch (e) {
+    } catch (e: any) {
       toast({
         variant: 'destructive',
         title: 'Erreur réseau',
-        description: 'Impossible de contacter le service de recherche IA.',
+        description: e?.message || 'Impossible de contacter le service de recherche.',
       });
     } finally {
       setIsScouting(false);
+    }
+  };
+
+  const handleSaveGroqKey = () => {
+    const trimmed = groqKeyInput.trim();
+    setGroqApiKey(trimmed);
+    if (typeof window !== 'undefined') {
+      if (trimmed) {
+        localStorage.setItem('kolyoum_groq_api_key', trimmed);
+      } else {
+        localStorage.removeItem('kolyoum_groq_api_key');
+      }
+    }
+    setShowGroqKeyModal(false);
+    toast({
+      title: 'Clé Groq enregistrée ✓',
+      description: 'Votre clé API Groq a été mémorisée pour cet appareil.',
+    });
+    if (selectedZone && trimmed) {
+      handleScoutZone(trimmed);
     }
   };
 
@@ -1424,26 +1461,40 @@ export default function SettingsPage() {
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   {isAdmin && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleScoutZone}
-                      disabled={isScouting || !selectedZone}
-                      className="border-amber-300 bg-amber-50/70 hover:bg-amber-100/80 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800"
-                      title={selectedZone ? `Chercher de nouveaux lieux avec Gemini dans ${selectedZone}` : 'Sélectionnez d’abord une zone'}
-                    >
-                      {isScouting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin text-amber-600" />
-                          Recherche Gemini ({selectedZone})...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="mr-2 h-4 w-4 text-amber-600" />
-                          Découvrir des lieux (Gemini)
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleScoutZone()}
+                        disabled={isScouting || !selectedZone}
+                        className="border-amber-300 bg-amber-50/70 hover:bg-amber-100/80 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800"
+                        title={selectedZone ? `Chercher de nouveaux lieux dans ${selectedZone} avec Groq (Qwen 3.8)` : 'Sélectionnez d’abord une zone'}
+                      >
+                        {isScouting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin text-amber-600" />
+                            Recherche Groq ({selectedZone})...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="mr-2 h-4 w-4 text-amber-600" />
+                            Découvrir des lieux (Groq)
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setGroqKeyInput(groqApiKey);
+                          setShowGroqKeyModal(true);
+                        }}
+                        className="h-8 px-2 text-amber-800 hover:text-amber-950 hover:bg-amber-100/60 dark:text-amber-200"
+                        title="Configurer la clé API Groq (gratuite)"
+                      >
+                        <Key className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   )}
                   <Button
                     variant="outline"
@@ -1640,7 +1691,7 @@ export default function SettingsPage() {
                                 </div>
                                 <div>
                                   <CardTitle className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                                    Nouveaux lieux détectés par Gemini pour « {scoutedZone} »
+                                    Nouveaux lieux détectés par Groq pour « {scoutedZone} »
                                   </CardTitle>
                                   <CardDescription className="text-xs">
                                     {discoveredPlaces.length} proposition(s) prête(s) à être ajoutée(s) ou rejetée(s).
@@ -2556,6 +2607,58 @@ export default function SettingsPage() {
               className="bg-amber-600 hover:bg-amber-700 text-white font-medium gap-1.5"
             >
               Valider et ajouter quand même
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialogue Configuration Clé Groq (Admin) */}
+      <Dialog open={showGroqKeyModal} onOpenChange={setShowGroqKeyModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <Key className="h-4 w-4 text-amber-600" />
+              Configuration Clé API Groq (Gratuite)
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground pt-1">
+              Pour découvrir de nouveaux lieux avec le modèle <strong>Qwen 3.8 (27B)</strong> sur Groq sans limitation, renseignez votre clé Groq.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Clé API Groq (commençant par gsk_...)</Label>
+              <Input
+                type="password"
+                placeholder="gsk_..."
+                value={groqKeyInput}
+                onChange={(e) => setGroqKeyInput(e.target.value)}
+                className="font-mono text-xs"
+              />
+            </div>
+
+            <div className="p-3 bg-amber-500/10 border border-amber-200/60 dark:border-amber-900/40 rounded-lg text-xs space-y-1">
+              <p className="font-medium text-amber-900 dark:text-amber-200">
+                ⚡ 100% Gratuit, sans carte bancaire :
+              </p>
+              <p className="text-muted-foreground">
+                1. Allez sur <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-semibold">console.groq.com/keys ↗</a><br />
+                2. Connectez-vous avec Google ou GitHub<br />
+                3. Cliquez sur « Create API Key » et collez-la ici.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowGroqKeyModal(false)}>
+              Annuler
+            </Button>
+            <Button
+              onClick={handleSaveGroqKey}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
+              disabled={!groqKeyInput.trim()}
+            >
+              Enregistrer et Découvrir
             </Button>
           </DialogFooter>
         </DialogContent>
