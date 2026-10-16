@@ -15,17 +15,80 @@ export const scoutPlacesFlow = ai.defineFlow(
     outputSchema: ScoutPlacesOutputSchema,
   },
   async (input) => {
-    // Clé Groq depuis l'input (saisie Admin) ou depuis l'environnement .env.local
-    const groqApiKey = input.groqApiKey?.trim() || process.env.GROQ_API_KEY?.trim();
-
-    if (!groqApiKey) {
-      throw new Error(
-        "Clé API Groq manquante. Renseignez votre clé gratuite (commençant par 'gsk_') dans l'espace Admin ou dans votre fichier .env.local (GROQ_API_KEY=gsk_...). Obtenez une clé en 30s sur https://console.groq.com sans carte bancaire."
-      );
-    }
-
     // Normalisation de la catégorie cible
     const targetCat = input.category ? String(input.category).trim() : 'cafes';
+    const serperApiKey = input.serperApiKey?.trim() || process.env.SERPER_API_KEY?.trim();
+    const groqApiKey = input.groqApiKey?.trim() || process.env.GROQ_API_KEY?.trim();
+
+    // 1. Priorité 1 : Serper.dev Google Maps Places API (Données réelles Google Maps, 0% hallucination)
+    if (serperApiKey) {
+      try {
+        console.log(`[Scout Places Flow] Querying Serper.dev Google Maps Places for "${input.zone}" (${targetCat})...`);
+        const catKeywords: Record<string, string> = {
+          cafes: 'cafés salons de thé coffee shop',
+          restaurants: 'restaurants',
+          fastFoods: 'fast-food burgers pizzerias chapatis',
+          brunch: 'brunch pâtisserie petit déjeuner',
+          kharjet: 'activités loisirs sorties parcs',
+        };
+        const catQuery = catKeywords[targetCat] || targetCat;
+        const searchQuery = `${catQuery} ${input.zone} Tunis`;
+
+        const serperRes = await fetch('https://google.serper.dev/places', {
+          method: 'POST',
+          headers: {
+            'X-API-KEY': serperApiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            q: searchQuery,
+            location: `${input.zone}, Tunis, Tunisia`,
+            gl: 'tn',
+            hl: 'fr',
+          }),
+        });
+
+        if (serperRes.ok) {
+          const serperData = await serperRes.json();
+          const rawPlaces = Array.isArray(serperData?.places) ? serperData.places : [];
+          console.log(`[Scout Places Flow] Serper returned ${rawPlaces.length} places from Google Maps`);
+
+          if (rawPlaces.length > 0) {
+            const mappedPlaces = rawPlaces
+              .filter((p: any) => p && typeof p.title === 'string' && p.title.trim().length > 0)
+              .map((p: any) => {
+                const parts: string[] = [];
+                if (p.category) parts.push(p.category);
+                if (p.rating) parts.push(`Note Google: ${p.rating}★ (${p.ratingCount || 0} avis)`);
+                const desc = parts.join(' · ') || `Fiche Google Maps dans ${input.zone}`;
+
+                return {
+                  name: p.title.trim(),
+                  category: targetCat as 'cafes' | 'restaurants' | 'fastFoods' | 'brunch' | 'kharjet',
+                  description: desc,
+                  address: p.address ? p.address.trim() : `${input.zone}, Tunis`,
+                };
+              });
+
+            if (mappedPlaces.length > 0) {
+              console.log(`[Scout Places Flow] Successfully returning ${mappedPlaces.length} real Google Maps places from Serper.dev!`);
+              return { discoveredPlaces: mappedPlaces };
+            }
+          }
+        } else {
+          const errText = await serperRes.text();
+          console.warn('[Scout Places Flow] Serper API error:', serperRes.status, errText);
+        }
+      } catch (serperErr) {
+        console.warn('[Scout Places Flow] Serper fetch failed, falling back to Groq:', serperErr);
+      }
+    }
+
+    if (!groqApiKey && !serperApiKey) {
+      throw new Error(
+        "Clé API manquante. Renseignez votre clé gratuite Serper.dev (2500 requêtes Google Maps gratuites sur https://serper.dev) ou votre clé Groq dans l'espace Admin."
+      );
+    }
     const categoryInstructions: Record<string, string> = {
       cafes: 'Tu dois identifier UNIQUEMENT des Cafés, Salons de thé, Coffee shops ou Glaciers. N’inclus STRICTEMENT AUCUN restaurant, fast-food, pizzeria ou boulangerie.',
       restaurants: 'Tu dois identifier UNIQUEMENT des Restaurants (traditionnels tunisiens, poissons, italiens, bistros). N’inclus STRICTEMENT AUCUN café simple ni fast-food.',

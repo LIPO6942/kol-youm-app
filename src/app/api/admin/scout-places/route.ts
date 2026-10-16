@@ -9,7 +9,7 @@ const ADMIN_EMAIL = 'moslem.gouia@gmail.com';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { zone, zoneCategories, category, requesterEmail, groqApiKey, ignoredPlaces } = body;
+    const { zone, zoneCategories, category, requesterEmail, serperApiKey, groqApiKey, ignoredPlaces } = body;
 
     // Contrôle d'accès strict : uniquement moslem.gouia@gmail.com
     if (!requesterEmail || requesterEmail.toLowerCase().trim() !== ADMIN_EMAIL) {
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`[API /admin/scout-places] Request for zone: "${zone}", category: "${category}", existing: ${existingPlacesList.length}, ignored: ${ignoredList.length}`);
 
-    // Appel à l'éclaireur Groq (Qwen 3.8 / Llama 3.3)
+    // Appel à l'éclaireur (Serper Google Maps Places / Groq)
     let result;
     try {
       result = await scoutPlaces({
@@ -54,9 +54,10 @@ export async function POST(request: NextRequest) {
         category: typeof category === 'string' ? category.trim() : undefined,
         existingPlaces: existingPlacesList,
         ignoredPlaces: ignoredList,
+        serperApiKey: typeof serperApiKey === 'string' ? serperApiKey.trim() : undefined,
         groqApiKey: typeof groqApiKey === 'string' ? groqApiKey.trim() : undefined,
       });
-      console.log(`[API /admin/scout-places] Groq returned ${result?.discoveredPlaces?.length || 0} candidates`);
+      console.log(`[API /admin/scout-places] Scout returned ${result?.discoveredPlaces?.length || 0} candidates`);
     } catch (flowErr: any) {
       console.error('[API /admin/scout-places] Scout flow failed:', flowErr);
       return NextResponse.json(

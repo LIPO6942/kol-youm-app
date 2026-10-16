@@ -294,15 +294,20 @@ export default function SettingsPage() {
     address?: string;
   }>>([]);
   const [scoutedZone, setScoutedZone] = useState<string>('');
+  const [serperApiKey, setSerperApiKey] = useState<string>('');
+  const [serperKeyInput, setSerperKeyInput] = useState<string>('');
   const [groqApiKey, setGroqApiKey] = useState<string>('');
-  const [showGroqKeyModal, setShowGroqKeyModal] = useState<boolean>(false);
   const [groqKeyInput, setGroqKeyInput] = useState<string>('');
+  const [showGroqKeyModal, setShowGroqKeyModal] = useState<boolean>(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedKey = localStorage.getItem('kolyoum_groq_api_key') || '';
-      setGroqApiKey(savedKey);
-      setGroqKeyInput(savedKey);
+      const savedSerperKey = localStorage.getItem('kolyoum_serper_api_key') || '';
+      setSerperApiKey(savedSerperKey);
+      setSerperKeyInput(savedSerperKey);
+      const savedGroqKey = localStorage.getItem('kolyoum_groq_api_key') || '';
+      setGroqApiKey(savedGroqKey);
+      setGroqKeyInput(savedGroqKey);
     }
   }, []);
 
@@ -796,10 +801,16 @@ export default function SettingsPage() {
     setDuplicateWarning(null);
   };
 
-  // Handlers pour l'éclaireur Groq (Admin moslem.gouia@gmail.com)
-  const handleScoutZone = async (overrideKey?: string) => {
+  // Handlers pour l'éclaireur Google Maps / Serper / Groq (Admin moslem.gouia@gmail.com)
+  const handleScoutZone = async (overrideKeys?: { serper?: string; groq?: string }) => {
     if (!selectedZone || !isAdmin) return;
-    const effectiveKey = overrideKey || groqApiKey || (typeof window !== 'undefined' ? localStorage.getItem('kolyoum_groq_api_key') : '') || '';
+    const effectiveSerper = overrideKeys?.serper ?? serperApiKey ?? (typeof window !== 'undefined' ? localStorage.getItem('kolyoum_serper_api_key') : '') ?? '';
+    const effectiveGroq = overrideKeys?.groq ?? groqApiKey ?? (typeof window !== 'undefined' ? localStorage.getItem('kolyoum_groq_api_key') : '') ?? '';
+
+    if (!effectiveSerper && !effectiveGroq) {
+      setShowGroqKeyModal(true);
+      return;
+    }
 
     setIsScouting(true);
     try {
@@ -816,7 +827,8 @@ export default function SettingsPage() {
           category: selectedCategory,
           ignoredPlaces,
           requesterEmail: user?.email,
-          groqApiKey: effectiveKey || undefined,
+          serperApiKey: effectiveSerper.trim() || undefined,
+          groqApiKey: effectiveGroq.trim() || undefined,
         }),
       });
 
@@ -825,31 +837,33 @@ export default function SettingsPage() {
         setDiscoveredPlaces(data.discoveredPlaces || []);
         setScoutedZone(selectedZone);
         const catLabel = getCategoryDisplayName(selectedCategory);
+        const engineLabel = effectiveSerper ? 'Google Maps (Serper)' : 'Groq (Qwen)';
+
         if ((data.discoveredPlaces || []).length === 0) {
           if (data.rawCount && data.rawCount > 0) {
             toast({
               title: 'Aucune nouveauté',
-              description: `${data.rawCount} établissement(s) analysé(s) par Groq (Qwen 3.8), mais ils sont déjà tous répertoriés dans ${selectedZone} (${catLabel}).`,
+              description: `${data.rawCount} établissement(s) analysé(s) via ${engineLabel}, mais ils sont déjà tous répertoriés dans ${selectedZone} (${catLabel}).`,
             });
           } else {
             toast({
               title: 'Aucun lieu détecté',
-              description: `Groq n’a pas trouvé de nouveaux ${catLabel.toLowerCase()} non enregistrés pour ${selectedZone}.`,
+              description: `Aucun nouveau ${catLabel.toLowerCase()} non enregistré n'a été trouvé pour ${selectedZone}.`,
             });
           }
         } else {
           toast({
-            title: 'Recherche IA terminée !',
-            description: `${data.discoveredPlaces.length} nouveau(x) ${catLabel.toLowerCase()} détecté(s) par Groq pour ${selectedZone}.`,
+            title: 'Recherche terminée !',
+            description: `${data.discoveredPlaces.length} nouveau(x) ${catLabel.toLowerCase()} réel(s) trouvé(s) via ${engineLabel} pour ${selectedZone}.`,
           });
         }
       } else {
-        if (data.error && data.error.toLowerCase().includes('clé api groq manquante')) {
+        if (data.error && (data.error.toLowerCase().includes('clé api manquante') || data.error.toLowerCase().includes('clé api groq'))) {
           setShowGroqKeyModal(true);
         }
         toast({
           variant: 'destructive',
-          title: 'Recherche Groq',
+          title: 'Recherche de lieux',
           description: data.error || 'Impossible de chercher de nouveaux lieux.',
         });
       }
@@ -864,23 +878,35 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSaveGroqKey = () => {
-    const trimmed = groqKeyInput.trim();
-    setGroqApiKey(trimmed);
+  const handleSaveApiKeys = () => {
+    const trimmedSerper = serperKeyInput.trim();
+    const trimmedGroq = groqKeyInput.trim();
+
+    setSerperApiKey(trimmedSerper);
+    setGroqApiKey(trimmedGroq);
+
     if (typeof window !== 'undefined') {
-      if (trimmed) {
-        localStorage.setItem('kolyoum_groq_api_key', trimmed);
+      if (trimmedSerper) {
+        localStorage.setItem('kolyoum_serper_api_key', trimmedSerper);
+      } else {
+        localStorage.removeItem('kolyoum_serper_api_key');
+      }
+
+      if (trimmedGroq) {
+        localStorage.setItem('kolyoum_groq_api_key', trimmedGroq);
       } else {
         localStorage.removeItem('kolyoum_groq_api_key');
       }
     }
+
     setShowGroqKeyModal(false);
     toast({
-      title: 'Clé Groq enregistrée ✓',
-      description: 'Votre clé API Groq a été mémorisée pour cet appareil.',
+      title: 'Clés enregistrées ✓',
+      description: 'Vos paramètres de recherche ont été enregistrés pour cet appareil.',
     });
-    if (selectedZone && trimmed) {
-      handleScoutZone(trimmed);
+
+    if (selectedZone && (trimmedSerper || trimmedGroq)) {
+      handleScoutZone({ serper: trimmedSerper, groq: trimmedGroq });
     }
   };
 
@@ -1518,7 +1544,7 @@ export default function SettingsPage() {
                         onClick={() => handleScoutZone()}
                         disabled={isScouting || !selectedZone}
                         className="border-amber-300 bg-amber-50/70 hover:bg-amber-100/80 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800"
-                        title={selectedZone ? `Chercher des ${getCategoryDisplayName(selectedCategory || 'cafes').toLowerCase()} dans ${selectedZone} avec Groq (Qwen 3.8)` : 'Sélectionnez d’abord une zone'}
+                        title={selectedZone ? `Découvrir les ${getCategoryDisplayName(selectedCategory || 'cafes').toLowerCase()} réels dans ${selectedZone} via Google Maps` : 'Sélectionnez d’abord une zone'}
                       >
                         {isScouting ? (
                           <>
@@ -1528,7 +1554,7 @@ export default function SettingsPage() {
                         ) : (
                           <>
                             <Sparkles className="mr-2 h-4 w-4 text-amber-600" />
-                            Découvrir des {getCategoryDisplayName(selectedCategory || 'cafes').toLowerCase()} (Groq)
+                            Découvrir des {getCategoryDisplayName(selectedCategory || 'cafes').toLowerCase()} {serperApiKey ? '(Google Maps)' : '(Recherche)'}
                           </>
                         )}
                       </Button>
@@ -1536,11 +1562,12 @@ export default function SettingsPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
+                          setSerperKeyInput(serperApiKey);
                           setGroqKeyInput(groqApiKey);
                           setShowGroqKeyModal(true);
                         }}
                         className="h-8 px-2 text-amber-800 hover:text-amber-950 hover:bg-amber-100/60 dark:text-amber-200"
-                        title="Configurer la clé API Groq (gratuite)"
+                        title="Configurer les clés de recherche (Serper Google Maps / Groq)"
                       >
                         <Key className="h-3.5 w-3.5" />
                       </Button>
@@ -1741,7 +1768,7 @@ export default function SettingsPage() {
                                 </div>
                                 <div>
                                   <CardTitle className="text-sm font-bold text-amber-900 dark:text-amber-200">
-                                    Nouveaux {getCategoryDisplayName(selectedCategory).toLowerCase()} détectés par Groq pour « {scoutedZone} »
+                                    Nouveaux {getCategoryDisplayName(selectedCategory).toLowerCase()} trouvés pour « {scoutedZone} »
                                   </CardTitle>
                                   <CardDescription className="text-xs">
                                     {discoveredPlaces.length} proposition(s) prête(s) à être ajoutée(s) ou rejetée(s).
@@ -2698,39 +2725,59 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialogue Configuration Clé Groq (Admin) */}
+      {/* Dialogue Configuration Clés de Recherche (Serper & Groq) */}
       <Dialog open={showGroqKeyModal} onOpenChange={setShowGroqKeyModal}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base font-bold">
               <Key className="h-4 w-4 text-amber-600" />
-              Configuration Clé API Groq (Gratuite)
+              Recherche de Lieux : Configuration API
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground pt-1">
-              Pour découvrir de nouveaux lieux avec le modèle <strong>Qwen 3.8 (27B)</strong> sur Groq sans limitation, renseignez votre clé Groq.
+              Pour rechercher de <strong>vrais établissements Google Maps</strong> sans aucune hallucination, nous utilisons l'API Google Maps Serper.dev.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Clé API Groq (commençant par gsk_...)</Label>
+          <div className="space-y-4 py-2">
+            {/* Option 1: Serper.dev (Recommandé) */}
+            <div className="space-y-1.5 p-3 rounded-lg bg-emerald-500/10 border border-emerald-300/50 dark:border-emerald-800/40">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+                  Clé Serper.dev (Google Maps Réel) ⭐
+                </Label>
+                <span className="text-[10px] bg-emerald-200 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 px-1.5 py-0.5 rounded font-semibold">
+                  0% hallucination
+                </span>
+              </div>
+              <Input
+                type="password"
+                placeholder="Collez votre clé Serper ici..."
+                value={serperKeyInput}
+                onChange={(e) => setSerperKeyInput(e.target.value)}
+                className="font-mono text-xs bg-white dark:bg-slate-900"
+              />
+              <p className="text-[11px] text-muted-foreground pt-1">
+                ⚡ <strong>2 500 requêtes gratuites (sans carte bancaire)</strong> :<br />
+                1. Connectez-vous sur <a href="https://serper.dev" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-semibold">serper.dev ↗</a> avec Google<br />
+                2. Copiez votre clé sur le tableau de bord et collez-la ci-dessus.
+              </p>
+            </div>
+
+            {/* Option 2: Groq (Fallback) */}
+            <div className="space-y-1.5 p-3 rounded-lg bg-slate-500/5 border border-slate-200 dark:border-slate-800">
+              <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Clé API Groq (Fallback IA optionnel)
+              </Label>
               <Input
                 type="password"
                 placeholder="gsk_..."
                 value={groqKeyInput}
                 onChange={(e) => setGroqKeyInput(e.target.value)}
-                className="font-mono text-xs"
+                className="font-mono text-xs bg-white dark:bg-slate-900"
               />
-            </div>
-
-            <div className="p-3 bg-amber-500/10 border border-amber-200/60 dark:border-amber-900/40 rounded-lg text-xs space-y-1">
-              <p className="font-medium text-amber-900 dark:text-amber-200">
-                ⚡ 100% Gratuit, sans carte bancaire :
-              </p>
-              <p className="text-muted-foreground">
-                1. Allez sur <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-semibold">console.groq.com/keys ↗</a><br />
-                2. Connectez-vous avec Google ou GitHub<br />
-                3. Cliquez sur « Create API Key » et collez-la ici.
+              <p className="text-[11px] text-muted-foreground">
+                Gratuit sur <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">console.groq.com/keys ↗</a>.
               </p>
             </div>
           </div>
@@ -2740,11 +2787,11 @@ export default function SettingsPage() {
               Annuler
             </Button>
             <Button
-              onClick={handleSaveGroqKey}
+              onClick={handleSaveApiKeys}
               className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
-              disabled={!groqKeyInput.trim()}
+              disabled={!serperKeyInput.trim() && !groqKeyInput.trim()}
             >
-              Enregistrer et Découvrir
+              Enregistrer et Lancer
             </Button>
           </DialogFooter>
         </DialogContent>
