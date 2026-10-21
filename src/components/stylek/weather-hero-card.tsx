@@ -75,8 +75,8 @@ export function WeatherHeroCard({
     const targetDate = activeDayWeather.date;
     const cached = getCachedDailyOutfit(targetDate, gender);
 
-    // Schema v3 includes packshots & alternativeOutfit
-    if (cached && cached.recommendation?.lifestyleReflexes && (cached as any).v === 3) {
+    // Schema v4 includes 4 packshots (including accessories) & weekday posé footwear
+    if (cached && cached.recommendation?.lifestyleReflexes && (cached as any).v === 4) {
       setCurrentRecommendation(cached.recommendation);
       setVariationIndex(cached.variationIndex || 0);
       onApplyOutfit(cached.recommendation.outfit, {
@@ -100,7 +100,7 @@ export function WeatherHeroCard({
         recommendation: fresh,
         savedAt: Date.now(),
         variationIndex: 0,
-        v: 3,
+        v: 4,
       };
       saveCachedDailyOutfit(targetDate, gender, payload);
 
@@ -134,7 +134,7 @@ export function WeatherHeroCard({
       recommendation: fresh,
       savedAt: Date.now(),
       variationIndex: nextIndex,
-      v: 3,
+      v: 4,
     };
     saveCachedDailyOutfit(activeDayWeather.date, gender, payload);
 

@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { 
   Sun, 
   CloudSun, 
@@ -15,6 +14,7 @@ import {
   SlidersHorizontal,
   Shirt,
   Umbrella,
+  Glasses,
   Layers,
   Footprints,
   Sparkle
@@ -48,8 +48,6 @@ export function LookbookBoard({
   onToggleCustomForm,
   isCustomFormOpen,
 }: LookbookBoardProps) {
-  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
-
   const renderWeatherIcon = (iconType: DayWeather['weatherIconType'], className: string) => {
     switch (iconType) {
       case 'sun':
@@ -71,10 +69,9 @@ export function LookbookBoard({
 
   const reflexes = recommendation.lifestyleReflexes;
 
-  // Extract short summary for main outfit
-  const mainTop = recommendation.packshots?.[0]?.label || 'Haut chic';
-  const mainBottom = recommendation.packshots?.[1]?.label || 'Bas assorti';
-  const mainBadgeLabel = `${mainTop} + ${mainBottom.toLowerCase()}`;
+  // Indice Lunettes de soleil : recommandé par temps ensoleillé ou clair sans forte pluie
+  const isSunny = weather.weatherIconType === 'sun' || weather.weatherIconType === 'cloud-sun';
+  const needsGlasses = isSunny && weather.precipitationProbMax < 40;
 
   return (
     <div className="space-y-4 max-w-3xl mx-auto w-full">
@@ -163,9 +160,9 @@ export function LookbookBoard({
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. LA PHOTO DU LOOK EN PLEIN CADRE (100% VISIBLE, AUCUNE PIÈCE DESSUS)    */}
+      {/* 2. LA PHOTO DU LOOK EN PLEIN CADRE (100% VISIBLE, AUCUNE BANNIÈRE EN BAS) */}
       {/* ========================================================================= */}
-      <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-secondary/80 shadow-2xl aspect-[3/4] sm:aspect-[4/5] md:aspect-[3/4] w-full flex flex-col justify-between group">
+      <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-secondary/80 shadow-2xl aspect-[3/4] sm:aspect-[4/5] md:aspect-[3/4] w-full flex flex-col justify-start group">
         
         {/* Full-bleed Model Photo */}
         <div className="absolute inset-0 z-0">
@@ -177,9 +174,8 @@ export function LookbookBoard({
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-102"
           />
 
-          {/* Gradients légers pour la lisibilité des badges en haut et en bas */}
-          <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
-          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
+          {/* Dégradé supérieur léger pour la lisibilité de la météo */}
+          <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />
         </div>
 
         {/* ÉLÉMENTS MÉTÉO INCRUSTÉS EN HAUT À DROITE DE LA PHOTO */}
@@ -208,7 +204,7 @@ export function LookbookBoard({
             {/* Séparateur discret */}
             <div className="h-6 w-px bg-white/20 mx-0.5" />
 
-            {/* % de pluie & INDICE PARAPLUIE À CÔTÉ (icône parapluie ou parapluie barré) */}
+            {/* % de pluie & INDICES PARAPLUIE & LUNETTES */}
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-semibold text-blue-200">
                 💧 {weather.precipitationProbMax}%
@@ -232,31 +228,32 @@ export function LookbookBoard({
                   <span className="absolute w-4 h-[1.5px] bg-rose-400/90 -rotate-45 rounded-full pointer-events-none" />
                 </div>
               )}
-            </div>
-          </div>
-        </div>
 
-        {/* BAS DE LA PHOTO : Titre du Look & Note Styliste */}
-        <div className="relative z-10 p-3.5 sm:p-5">
-          <div className="rounded-2xl bg-black/65 backdrop-blur-md p-3 sm:p-3.5 text-white border border-white/15 shadow-xl flex items-center justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <h3 className="text-xs sm:text-sm font-extrabold tracking-tight text-white capitalize truncate">
-                {mainBadgeLabel}
-              </h3>
-              <p className="text-[11px] text-amber-300/90 italic font-serif truncate mt-0.5">
-                "{recommendation.signatureQuote || 'Simple, élégant, efficace.'}"
-              </p>
-            </div>
-
-            <div className="text-[10.5px] text-white/60 shrink-0 font-medium hidden sm:block">
-              {recommendation.outfit.suggestionText.replace(/^Look\s+.*?:/i, '').slice(0, 50)}...
+              {/* Indice Lunettes : lunettes de soleil si ensoleillé, sinon lunettes barrées */}
+              {needsGlasses ? (
+                <div 
+                  className="p-1 rounded-md bg-amber-500/25 text-amber-200 border border-amber-400/30 shadow-xs flex items-center justify-center"
+                  title="Soleil / luminosité : lunettes de soleil conseillées"
+                >
+                  <Glasses className="h-3.5 w-3.5 text-amber-300" />
+                </div>
+              ) : (
+                <div 
+                  className="p-1 rounded-md bg-white/15 text-white/60 border border-white/20 shadow-xs relative flex items-center justify-center"
+                  title="Ciel couvert ou pluie : pas besoin de lunettes de soleil"
+                >
+                  <Glasses className="h-3.5 w-3.5 text-white/50" />
+                  {/* Barre diagonale barrant les lunettes */}
+                  <span className="absolute w-4 h-[1.5px] bg-rose-400/90 -rotate-45 rounded-full pointer-events-none" />
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. EN DESSOUS DE LA PHOTO : LES PIÈCES EN FORMAT 2×2 AVEC CODES COULEUR   */}
+      {/* 3. EN DESSOUS DE LA PHOTO : LES PIÈCES EN FORMAT 2×2                      */}
       {/* ========================================================================= */}
       <div className="rounded-3xl border border-primary/20 bg-card p-4 sm:p-5 shadow-sm space-y-3.5">
         <div className="flex items-center justify-between pb-1 border-b border-border/40">
@@ -265,7 +262,7 @@ export function LookbookBoard({
             Les pièces de la tenue (Format 2×2)
           </span>
           <span className="text-[11px] text-muted-foreground font-medium">
-            Packshots & Nuancier
+            Packshots studio
           </span>
         </div>
 
@@ -338,45 +335,25 @@ export function LookbookBoard({
             </div>
           </div>
 
-          {/* CASE 4 : ACCESSOIRES + CODES COULEURS */}
-          <div className="rounded-2xl bg-muted/40 border border-border/60 p-2.5 sm:p-3 flex flex-col justify-between shadow-2xs space-y-2">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-primary block text-center pb-1 border-b border-border/40">
-                Harmonie & Codes Couleurs
-              </span>
-
-              {/* Nuancier des 4 couleurs avec codes HEX */}
-              <div className="grid grid-cols-2 gap-1.5 pt-2">
-                {recommendation.colorPalette?.map((color, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-1.5 p-1 rounded-lg bg-background/80 border border-border/50 shadow-2xs"
-                  >
-                    <div
-                      className="w-4 h-4 rounded-full border border-black/15 dark:border-white/20 shrink-0 shadow-2xs"
-                      style={{ backgroundColor: color.hex }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <span className="text-[10px] font-semibold text-foreground block leading-tight truncate">
-                        {color.name}
-                      </span>
-                      <span className="text-[8.5px] font-mono text-muted-foreground block leading-none">
-                        {color.hex}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* CASE 4 : ACCESSOIRES (SANS CODES COULEURS) */}
+          <div className="group rounded-2xl bg-muted/40 hover:bg-muted/60 border border-border/60 p-2.5 sm:p-3 flex flex-col items-center justify-between transition-all shadow-2xs">
+            <div className="relative w-full aspect-square max-w-[140px] rounded-xl overflow-hidden bg-white dark:bg-slate-900 border border-border/50 shadow-xs">
+              {recommendation.packshots?.[3] && (
+                <GeneratedOutfitImage
+                  description={recommendation.packshots[3].query}
+                  gender={gender}
+                  category="accessoires"
+                  objectFit="contain"
+                />
+              )}
             </div>
-
-            {/* Accessoires conseillés */}
-            <div className="pt-1.5 border-t border-border/40 text-center">
-              <span className="text-[9.5px] uppercase font-bold text-muted-foreground block">
+            <div className="mt-2 text-center w-full">
+              <span className="text-[11px] font-bold text-foreground block truncate">
+                {recommendation.packshots?.[3]?.label || 'Accessoires'}
+              </span>
+              <span className="inline-block mt-0.5 text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
                 Accessoires
               </span>
-              <p className="text-[10.5px] font-medium text-foreground/90 line-clamp-2 leading-tight mt-0.5">
-                {recommendation.outfit.accessoires.split('+')[0].trim()}
-              </p>
             </div>
           </div>
 
