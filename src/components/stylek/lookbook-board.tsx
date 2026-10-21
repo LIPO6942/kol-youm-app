@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import type { DayWeather } from '@/lib/weather/open-meteo';
 import type { StylistRecommendationResult } from '@/lib/stylek/stylist-rules';
 import { GeneratedOutfitImage } from './generated-outfit-image';
@@ -78,11 +77,97 @@ export function LookbookBoard({
   const mainBadgeLabel = `${mainTop} + ${mainBottom.toLowerCase()}`;
 
   return (
-    <div className="space-y-4">
-      {/* HERO MAGAZINE CARD: Full Photo with Weather HUD & 2x2 Floating Pieces */}
-      <div className="relative overflow-hidden rounded-3xl border border-primary/25 bg-secondary/80 shadow-2xl min-h-[640px] sm:min-h-[700px] lg:min-h-[760px] flex flex-col justify-between group">
+    <div className="space-y-4 max-w-3xl mx-auto w-full">
+      {/* ========================================================================= */}
+      {/* 1. HORS CADRE PHOTO (EN DESSUS) : "Ta tenue du jour" + Date & Lieu + Actions */}
+      {/* ========================================================================= */}
+      <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-r from-card via-card/95 to-primary/10 p-3.5 sm:p-4 shadow-xs backdrop-blur-md">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Gauche : Mention "Ta tenue du jour" + Lieu & Date (Hors photo) */}
+          <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+            {/* Mention "Ta tenue du jour" */}
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#182a44] dark:bg-[#0f1d30] text-white text-xs font-serif italic border border-white/20 shadow-sm">
+              <Sparkle className="h-3.5 w-3.5 text-amber-300" />
+              Ta tenue du jour
+            </span>
+
+            {/* Lieu et Date */}
+            <div className="flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-background/80 border border-border/60 text-foreground text-xs font-medium shadow-2xs">
+              <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span className="font-semibold">{weather.cityName}</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-muted-foreground">{weather.formattedDate}</span>
+            </div>
+          </div>
+
+          {/* Droite : Switcher Jour, Autre inspiration, Personnaliser */}
+          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+            {/* Day Switcher */}
+            <div className="flex items-center bg-muted/60 p-0.5 rounded-xl border border-border/40">
+              <button
+                type="button"
+                onClick={() => onSelectDay('today')}
+                className={cn(
+                  'px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5',
+                  selectedDay === 'today'
+                    ? 'bg-background text-foreground shadow-xs font-semibold'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Calendar className="h-3 w-3" />
+                <span>Aujourd'hui</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onSelectDay('tomorrow')}
+                className={cn(
+                  'px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center space-x-1.5',
+                  selectedDay === 'tomorrow'
+                    ? 'bg-primary text-primary-foreground shadow-xs font-semibold'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Sparkles className="h-3 w-3" />
+                <span>Demain ✨</span>
+              </button>
+            </div>
+
+            {/* Bouton Autre inspiration */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onRegenerate}
+              disabled={isRegenerating}
+              className="text-xs h-8 border-border/70 hover:bg-secondary/70 gap-1.5"
+            >
+              <RotateCcw className={cn('h-3.5 w-3.5', isRegenerating && 'animate-spin')} />
+              <span className="hidden sm:inline">Autre inspiration</span>
+            </Button>
+
+            {/* Bouton Personnaliser */}
+            {onToggleCustomForm && (
+              <Button
+                size="sm"
+                variant={isCustomFormOpen ? "secondary" : "ghost"}
+                onClick={onToggleCustomForm}
+                className="text-xs h-8 text-muted-foreground hover:text-foreground gap-1.5"
+                title="Personnaliser une occasion spécifique"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <span className="hidden md:inline">Personnaliser</span>
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 2. LA PHOTO DU LOOK EN PLEIN CADRE (100% VISIBLE, AUCUNE PIÈCE DESSUS)    */}
+      {/* ========================================================================= */}
+      <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-secondary/80 shadow-2xl aspect-[3/4] sm:aspect-[4/5] md:aspect-[3/4] w-full flex flex-col justify-between group">
         
-        {/* 1. BACKGROUND FULL-BLEED MODEL PHOTO */}
+        {/* Full-bleed Model Photo */}
         <div className="absolute inset-0 z-0">
           <GeneratedOutfitImage
             description={`${recommendation.outfit.haut}, ${recommendation.outfit.bas}, ${recommendation.outfit.chaussures}`}
@@ -92,283 +177,254 @@ export function LookbookBoard({
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-102"
           />
 
-          {/* Cinematic lighting gradients to ensure all overlay texts & badges are crystal clear */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/65 pointer-events-none" />
-          <div className="absolute inset-0 bg-radial-at-c from-transparent via-transparent to-black/40 pointer-events-none" />
+          {/* Gradients légers pour la lisibilité des badges en haut et en bas */}
+          <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/80 to-transparent pointer-events-none" />
         </div>
 
-        {/* 2. TOP WEATHER & LOCATION HUD (GLASSMORPHIC OVERLAY ON PHOTO) */}
-        <div className="relative z-10 p-3.5 sm:p-5 flex flex-wrap items-center justify-between gap-2.5">
-          {/* Top-Left: Location, Date & Day Pace */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Title Badge */}
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-serif italic border border-white/20 shadow-lg">
-              <Sparkle className="h-3.5 w-3.5 text-amber-300" />
-              Ta tenue du jour
-            </span>
-
-            {/* City & Date Glass Pill */}
-            <div className="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/15 text-white/90 text-xs font-medium shadow-md">
-              <MapPin className="h-3 w-3 text-primary" />
-              <span>{weather.cityName}</span>
-              <span className="text-white/40">·</span>
-              <span>{weather.formattedDate}</span>
+        {/* ÉLÉMENTS MÉTÉO INCRUSTÉS EN HAUT À DROITE DE LA PHOTO */}
+        <div className="relative z-10 p-3.5 sm:p-5 flex justify-end">
+          <div className="flex items-center space-x-2.5 px-3.5 py-2 rounded-2xl bg-black/60 backdrop-blur-md border border-white/20 text-white shadow-xl">
+            {/* Icône météo */}
+            <div className="p-1 rounded-lg bg-white/10 flex items-center justify-center">
+              {renderWeatherIcon(weather.weatherIconType, 'h-5 w-5')}
             </div>
 
-            <Badge 
-              variant="outline" 
-              className="bg-black/50 backdrop-blur-md text-white border-white/20 text-[10px] px-2.5 py-0.5 rounded-full font-semibold shadow-md"
-            >
-              {recommendation.dayPace === 'Semaine' ? '📅 Semaine : Posé Chic' : '🌴 Weekend : Décontracté'}
-            </Badge>
-          </div>
-
-          {/* Top-Right: Weather Condition & Temperature Glass Pill */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center space-x-2 px-3.5 py-1.5 rounded-2xl bg-black/60 backdrop-blur-md border border-white/20 text-white shadow-xl">
-              <div className="p-1 rounded-lg bg-white/10 flex items-center justify-center">
-                {renderWeatherIcon(weather.weatherIconType, 'h-4 w-4')}
-              </div>
-              <div className="flex flex-col">
-                <div className="flex items-baseline space-x-1">
-                  <span className="text-base sm:text-lg font-black tracking-tight font-headline text-white leading-none">
-                    {weather.tempMax}°C
-                  </span>
-                  <span className="text-[10px] text-white/70 font-medium capitalize">
-                    {weather.weatherLabel}
-                  </span>
-                </div>
-                <span className="text-[9.5px] text-white/60 leading-none">
-                  Ressenti {weather.tempApparentMax}°C · Min {weather.tempMin}°C
+            {/* Température & Condition */}
+            <div className="flex flex-col">
+              <div className="flex items-baseline space-x-1.5">
+                <span className="text-lg sm:text-xl font-black tracking-tight font-headline text-white leading-none">
+                  {weather.tempMax}°C
+                </span>
+                <span className="text-[11px] text-white/80 font-medium capitalize">
+                  {weather.weatherLabel}
                 </span>
               </div>
-            </div>
-
-            {weather.precipitationProbMax >= 20 && (
-              <span className="text-[10px] px-2.5 py-1 rounded-full bg-blue-500/30 backdrop-blur-md text-blue-200 font-semibold border border-blue-400/30 shadow-md">
-                💧 {weather.precipitationProbMax}% pluie
+              <span className="text-[9.5px] text-white/60 leading-none mt-0.5">
+                Ressenti {weather.tempApparentMax}°C · Min {weather.tempMin}°C
               </span>
-            )}
-          </div>
-        </div>
+            </div>
 
-        {/* 3. MIDDLE AREA: FLOATING 2x2 GRID OF GARMENT PIECES OVER THE PHOTO */}
-        <div className="relative z-10 px-3.5 sm:px-5 flex flex-col lg:flex-row items-end justify-between gap-4 my-auto">
-          {/* Left spacer / lifestyle reflexes badge (desktop) */}
-          <div className="hidden lg:flex flex-col space-y-2 max-w-xs self-center">
-            {reflexes && (
-              <div className="rounded-2xl bg-black/55 backdrop-blur-md border border-white/15 p-3.5 text-white space-y-2 shadow-2xl">
-                <span className="text-[10.5px] font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
-                  <Sparkles className="h-3 w-3 text-amber-300" />
-                  Réflexes du jour
-                </span>
-                <div className="space-y-1.5 text-[11px] text-white/90">
-                  <p className="flex items-start gap-1.5 leading-snug">
-                    <span className="shrink-0">{reflexes.umbrella.needed ? '🌂' : '☀️'}</span>
-                    <span className={reflexes.umbrella.needed ? 'text-blue-300 font-semibold' : ''}>
-                      {reflexes.umbrella.text}
-                    </span>
-                  </p>
-                  <p className="flex items-start gap-1.5 leading-snug">
-                    <span className="shrink-0">🧥</span>
-                    <span>{reflexes.layering}</span>
-                  </p>
-                  <p className="flex items-start gap-1.5 leading-snug">
-                    <span className="shrink-0">👞</span>
-                    <span>{reflexes.shoesAlert}</span>
-                  </p>
-                  <p className="flex items-start gap-1.5 leading-snug text-[10.5px] italic text-white/80">
-                    <span className="shrink-0">✨</span>
-                    <span>{reflexes.fragranceNotes}</span>
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
+            {/* Séparateur discret */}
+            <div className="h-6 w-px bg-white/20 mx-0.5" />
 
-          {/* RIGHT: FLOATING 2x2 PIECES GRID */}
-          <div className="w-full sm:w-auto max-w-[320px] rounded-2xl bg-black/60 backdrop-blur-md border border-white/20 p-3 shadow-2xl space-y-2">
-            <div className="flex items-center justify-between pb-1 border-b border-white/10">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-white/80 flex items-center gap-1">
-                <Shirt className="h-3 w-3 text-primary" />
-                Les pièces de la tenue
+            {/* % de pluie & INDICE PARAPLUIE À CÔTÉ (icône parapluie ou parapluie barré) */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-semibold text-blue-200">
+                💧 {weather.precipitationProbMax}%
               </span>
-              <span className="text-[9px] text-white/60 font-medium">Format 2×2</span>
-            </div>
 
-            {/* 2x2 Grid */}
-            <div className="grid grid-cols-2 gap-2">
-              {/* Case 1: Haut */}
-              <div className="flex flex-col items-center bg-white/95 dark:bg-slate-900/95 rounded-xl p-1.5 border border-white/30 shadow-md transition-transform hover:scale-102">
-                <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-white">
-                  {recommendation.packshots?.[0] && (
-                    <GeneratedOutfitImage
-                      description={recommendation.packshots[0].query}
-                      gender={gender}
-                      category="haut"
-                      objectFit="contain"
-                    />
-                  )}
-                </div>
-                <span className="text-[10px] font-bold text-slate-800 dark:text-slate-100 mt-1 text-center line-clamp-1 max-w-[110px]">
-                  {recommendation.packshots?.[0]?.label || 'Haut'}
-                </span>
-                <span className="text-[8.5px] uppercase font-semibold text-slate-500 tracking-wider">Haut</span>
-              </div>
-
-              {/* Case 2: Bas */}
-              <div className="flex flex-col items-center bg-white/95 dark:bg-slate-900/95 rounded-xl p-1.5 border border-white/30 shadow-md transition-transform hover:scale-102">
-                <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-white">
-                  {recommendation.packshots?.[1] && (
-                    <GeneratedOutfitImage
-                      description={recommendation.packshots[1].query}
-                      gender={gender}
-                      category="bas"
-                      objectFit="contain"
-                    />
-                  )}
-                </div>
-                <span className="text-[10px] font-bold text-slate-800 dark:text-slate-100 mt-1 text-center line-clamp-1 max-w-[110px]">
-                  {recommendation.packshots?.[1]?.label || 'Bas'}
-                </span>
-                <span className="text-[8.5px] uppercase font-semibold text-slate-500 tracking-wider">Bas</span>
-              </div>
-
-              {/* Case 3: Chaussures */}
-              <div className="flex flex-col items-center bg-white/95 dark:bg-slate-900/95 rounded-xl p-1.5 border border-white/30 shadow-md transition-transform hover:scale-102">
-                <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-white">
-                  {recommendation.packshots?.[2] && (
-                    <GeneratedOutfitImage
-                      description={recommendation.packshots[2].query}
-                      gender={gender}
-                      category="chaussures"
-                      objectFit="contain"
-                    />
-                  )}
-                </div>
-                <span className="text-[10px] font-bold text-slate-800 dark:text-slate-100 mt-1 text-center line-clamp-1 max-w-[110px]">
-                  {recommendation.packshots?.[2]?.label || 'Chaussures'}
-                </span>
-                <span className="text-[8.5px] uppercase font-semibold text-slate-500 tracking-wider">Chaussures</span>
-              </div>
-
-              {/* Case 4: Accessoires + Palette de couleurs */}
-              <div className="flex flex-col justify-between items-center bg-black/60 dark:bg-black/80 rounded-xl p-2 border border-white/20 shadow-md text-white text-center">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-amber-300 block">
-                  Couleurs & Détails
-                </span>
-
-                {/* Palette 4 pastilles */}
-                <div className="flex items-center justify-center gap-1.5 my-1">
-                  {recommendation.colorPalette?.map((color, i) => (
-                    <div
-                      key={i}
-                      className="relative group/swatch cursor-pointer"
-                      onMouseEnter={() => setActiveTooltip(color.name)}
-                      onMouseLeave={() => setActiveTooltip(null)}
-                    >
-                      <div
-                        className="w-5 h-5 rounded-full border border-white/30 shadow-xs transition-transform hover:scale-115 ring-1 ring-white/20"
-                        style={{ backgroundColor: color.hex }}
-                      />
-                      {activeTooltip === color.name && (
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-1.5 py-0.5 rounded bg-black/90 text-white text-[8px] font-medium whitespace-nowrap shadow-md z-30 pointer-events-none">
-                          {color.name}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Accessoire text snippet */}
-                <span className="text-[9.5px] text-white/85 line-clamp-2 leading-tight">
-                  {recommendation.outfit.accessoires.split('+')[0].trim()}
-                </span>
-                <span className="text-[8px] uppercase font-semibold text-white/50 tracking-wider mt-0.5">Accessoires</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 4. BOTTOM OVERLAY: LOOK TITLE, QUOTE & ACTIONS */}
-        <div className="relative z-10 p-3.5 sm:p-5 space-y-2.5">
-          <div className="rounded-2xl bg-black/65 backdrop-blur-md p-3 sm:p-4 text-white border border-white/15 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="space-y-1 min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm sm:text-base font-extrabold tracking-tight text-white capitalize truncate">
-                  {mainBadgeLabel}
-                </h3>
-                <span className="text-white/40 hidden sm:inline">·</span>
-                <span className="text-xs text-amber-300/90 italic font-serif hidden sm:inline">
-                  "{recommendation.signatureQuote || 'Simple, élégant, efficace.'}"
-                </span>
-              </div>
-              <p className="text-xs text-white/80 line-clamp-2 font-light">
-                {recommendation.outfit.suggestionText.replace(/^Look\s+.*?:/i, '').trim()}
-              </p>
-            </div>
-
-            {/* Bottom Actions: Day Switcher, Autre inspiration, Personnaliser */}
-            <div className="flex items-center gap-2 shrink-0 self-start md:self-center">
-              {/* Day Switcher */}
-              <div className="flex items-center bg-white/10 p-0.5 rounded-xl border border-white/15">
-                <button
-                  type="button"
-                  onClick={() => onSelectDay('today')}
-                  className={cn(
-                    'px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center space-x-1',
-                    selectedDay === 'today'
-                      ? 'bg-white text-slate-900 shadow-xs font-semibold'
-                      : 'text-white/80 hover:text-white'
-                  )}
+              {/* Indice Parapluie : parapluie si nécessaire, sinon parapluie barré */}
+              {reflexes?.umbrella.needed ? (
+                <div 
+                  className="p-1 rounded-md bg-blue-500/30 text-blue-200 border border-blue-400/30 shadow-xs flex items-center justify-center"
+                  title={reflexes.umbrella.text}
                 >
-                  <Calendar className="h-3 w-3" />
-                  <span>Aujourd'hui</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => onSelectDay('tomorrow')}
-                  className={cn(
-                    'px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center space-x-1',
-                    selectedDay === 'tomorrow'
-                      ? 'bg-primary text-primary-foreground shadow-xs font-semibold'
-                      : 'text-white/80 hover:text-white'
-                  )}
+                  <Umbrella className="h-3.5 w-3.5 text-blue-300" />
+                </div>
+              ) : (
+                <div 
+                  className="p-1 rounded-md bg-white/15 text-white/60 border border-white/20 shadow-xs relative flex items-center justify-center"
+                  title="Temps sec : pas besoin de parapluie"
                 >
-                  <Sparkles className="h-3 w-3" />
-                  <span>Demain ✨</span>
-                </button>
-              </div>
-
-              {/* Autre inspiration */}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onRegenerate}
-                disabled={isRegenerating}
-                className="text-xs h-8 bg-white/10 hover:bg-white/20 text-white border-white/20 gap-1.5"
-              >
-                <RotateCcw className={cn('h-3.5 w-3.5', isRegenerating && 'animate-spin')} />
-                <span className="hidden sm:inline">Autre inspiration</span>
-              </Button>
-
-              {/* Personnaliser */}
-              {onToggleCustomForm && (
-                <Button
-                  size="sm"
-                  variant={isCustomFormOpen ? "secondary" : "ghost"}
-                  onClick={onToggleCustomForm}
-                  className="text-xs h-8 text-white/90 hover:text-white hover:bg-white/15 gap-1.5"
-                  title="Personnaliser une occasion spécifique"
-                >
-                  <SlidersHorizontal className="h-3.5 w-3.5" />
-                  <span className="hidden md:inline">Personnaliser</span>
-                </Button>
+                  <Umbrella className="h-3.5 w-3.5 text-white/50" />
+                  {/* Barre diagonale barrant le parapluie */}
+                  <span className="absolute w-4 h-[1.5px] bg-rose-400/90 -rotate-45 rounded-full pointer-events-none" />
+                </div>
               )}
             </div>
           </div>
         </div>
+
+        {/* BAS DE LA PHOTO : Titre du Look & Note Styliste */}
+        <div className="relative z-10 p-3.5 sm:p-5">
+          <div className="rounded-2xl bg-black/65 backdrop-blur-md p-3 sm:p-3.5 text-white border border-white/15 shadow-xl flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-xs sm:text-sm font-extrabold tracking-tight text-white capitalize truncate">
+                {mainBadgeLabel}
+              </h3>
+              <p className="text-[11px] text-amber-300/90 italic font-serif truncate mt-0.5">
+                "{recommendation.signatureQuote || 'Simple, élégant, efficace.'}"
+              </p>
+            </div>
+
+            <div className="text-[10.5px] text-white/60 shrink-0 font-medium hidden sm:block">
+              {recommendation.outfit.suggestionText.replace(/^Look\s+.*?:/i, '').slice(0, 50)}...
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 3. EN DESSOUS DE LA PHOTO : LES PIÈCES EN FORMAT 2×2 AVEC CODES COULEUR   */}
+      {/* ========================================================================= */}
+      <div className="rounded-3xl border border-primary/20 bg-card p-4 sm:p-5 shadow-sm space-y-3.5">
+        <div className="flex items-center justify-between pb-1 border-b border-border/40">
+          <span className="text-xs font-bold tracking-tight text-foreground flex items-center gap-1.5 uppercase">
+            <Shirt className="h-3.5 w-3.5 text-primary" />
+            Les pièces de la tenue (Format 2×2)
+          </span>
+          <span className="text-[11px] text-muted-foreground font-medium">
+            Packshots & Nuancier
+          </span>
+        </div>
+
+        {/* GRILLE 2×2 PARFAITE EN DESSOUS DE LA PHOTO */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          
+          {/* CASE 1 : HAUT */}
+          <div className="group rounded-2xl bg-muted/40 hover:bg-muted/60 border border-border/60 p-2.5 sm:p-3 flex flex-col items-center justify-between transition-all shadow-2xs">
+            <div className="relative w-full aspect-square max-w-[140px] rounded-xl overflow-hidden bg-white dark:bg-slate-900 border border-border/50 shadow-xs">
+              {recommendation.packshots?.[0] && (
+                <GeneratedOutfitImage
+                  description={recommendation.packshots[0].query}
+                  gender={gender}
+                  category="haut"
+                  objectFit="contain"
+                />
+              )}
+            </div>
+            <div className="mt-2 text-center w-full">
+              <span className="text-[11px] font-bold text-foreground block truncate">
+                {recommendation.packshots?.[0]?.label || 'Haut'}
+              </span>
+              <span className="inline-block mt-0.5 text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                Haut
+              </span>
+            </div>
+          </div>
+
+          {/* CASE 2 : BAS */}
+          <div className="group rounded-2xl bg-muted/40 hover:bg-muted/60 border border-border/60 p-2.5 sm:p-3 flex flex-col items-center justify-between transition-all shadow-2xs">
+            <div className="relative w-full aspect-square max-w-[140px] rounded-xl overflow-hidden bg-white dark:bg-slate-900 border border-border/50 shadow-xs">
+              {recommendation.packshots?.[1] && (
+                <GeneratedOutfitImage
+                  description={recommendation.packshots[1].query}
+                  gender={gender}
+                  category="bas"
+                  objectFit="contain"
+                />
+              )}
+            </div>
+            <div className="mt-2 text-center w-full">
+              <span className="text-[11px] font-bold text-foreground block truncate">
+                {recommendation.packshots?.[1]?.label || 'Bas'}
+              </span>
+              <span className="inline-block mt-0.5 text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                Bas
+              </span>
+            </div>
+          </div>
+
+          {/* CASE 3 : CHAUSSURES */}
+          <div className="group rounded-2xl bg-muted/40 hover:bg-muted/60 border border-border/60 p-2.5 sm:p-3 flex flex-col items-center justify-between transition-all shadow-2xs">
+            <div className="relative w-full aspect-square max-w-[140px] rounded-xl overflow-hidden bg-white dark:bg-slate-900 border border-border/50 shadow-xs">
+              {recommendation.packshots?.[2] && (
+                <GeneratedOutfitImage
+                  description={recommendation.packshots[2].query}
+                  gender={gender}
+                  category="chaussures"
+                  objectFit="contain"
+                />
+              )}
+            </div>
+            <div className="mt-2 text-center w-full">
+              <span className="text-[11px] font-bold text-foreground block truncate">
+                {recommendation.packshots?.[2]?.label || 'Chaussures'}
+              </span>
+              <span className="inline-block mt-0.5 text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                Chaussures
+              </span>
+            </div>
+          </div>
+
+          {/* CASE 4 : ACCESSOIRES + CODES COULEURS */}
+          <div className="rounded-2xl bg-muted/40 border border-border/60 p-2.5 sm:p-3 flex flex-col justify-between shadow-2xs space-y-2">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-primary block text-center pb-1 border-b border-border/40">
+                Harmonie & Codes Couleurs
+              </span>
+
+              {/* Nuancier des 4 couleurs avec codes HEX */}
+              <div className="grid grid-cols-2 gap-1.5 pt-2">
+                {recommendation.colorPalette?.map((color, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-1.5 p-1 rounded-lg bg-background/80 border border-border/50 shadow-2xs"
+                  >
+                    <div
+                      className="w-4 h-4 rounded-full border border-black/15 dark:border-white/20 shrink-0 shadow-2xs"
+                      style={{ backgroundColor: color.hex }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-semibold text-foreground block leading-tight truncate">
+                        {color.name}
+                      </span>
+                      <span className="text-[8.5px] font-mono text-muted-foreground block leading-none">
+                        {color.hex}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Accessoires conseillés */}
+            <div className="pt-1.5 border-t border-border/40 text-center">
+              <span className="text-[9.5px] uppercase font-bold text-muted-foreground block">
+                Accessoires
+              </span>
+              <p className="text-[10.5px] font-medium text-foreground/90 line-clamp-2 leading-tight mt-0.5">
+                {recommendation.outfit.accessoires.split('+')[0].trim()}
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+        {/* 4. BLOC RÉFLEXES PRATIQUES DU JOUR (VESTE, CHAUSSURES, PARFUM) */}
+        {reflexes && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-border/40 text-xs">
+            {/* Veste & Couches */}
+            <div className="p-2 rounded-xl bg-muted/30 border border-border/40 flex items-start space-x-2">
+              <div className="p-1 rounded-md bg-primary/10 text-primary shrink-0 mt-0.5">
+                <Layers className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[9.5px] uppercase font-bold text-muted-foreground block leading-none mb-0.5">Veste & Couches</span>
+                <span className="text-[10.5px] text-foreground/90 leading-tight block">
+                  {reflexes.layering}
+                </span>
+              </div>
+            </div>
+
+            {/* Chaussures & Sol */}
+            <div className="p-2 rounded-xl bg-muted/30 border border-border/40 flex items-start space-x-2">
+              <div className="p-1 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+                <Footprints className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[9.5px] uppercase font-bold text-muted-foreground block leading-none mb-0.5">Sol & Chaussures</span>
+                <span className="text-[10.5px] text-foreground/90 leading-tight block">
+                  {reflexes.shoesAlert}
+                </span>
+              </div>
+            </div>
+
+            {/* Parfum */}
+            <div className="p-2 rounded-xl bg-muted/30 border border-border/40 flex items-start space-x-2">
+              <div className="p-1 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5">
+                <Sparkles className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-[9.5px] uppercase font-bold text-purple-600 dark:text-purple-400 block leading-none mb-0.5">Parfum</span>
+                <span className="text-[10.5px] italic text-muted-foreground leading-tight block">
+                  {reflexes.fragranceNotes}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
