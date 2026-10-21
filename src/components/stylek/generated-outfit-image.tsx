@@ -8,15 +8,27 @@ import { generateOutfitImage } from '@/ai/flows/generate-outfit-image-ai';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
-export const GeneratedOutfitImage = ({ description, gender }: { description: string; gender?: 'Homme' | 'Femme' }) => {
+export const GeneratedOutfitImage = ({
+  description,
+  gender,
+  category = 'model',
+  className = '',
+  objectFit = 'cover',
+}: {
+  description: string;
+  gender?: 'Homme' | 'Femme';
+  category?: 'model' | 'haut' | 'bas' | 'chaussures' | 'accessoire' | string;
+  className?: string;
+  objectFit?: 'cover' | 'contain';
+}) => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   const { toast } = useToast();
 
-  const getCacheKey = useCallback((desc: string, g?: string) => {
+  const getCacheKey = useCallback((desc: string, g?: string, cat?: string) => {
     const clean = desc.slice(0, 45).replace(/[^a-zA-Z0-9]/g, '_');
-    return `kolyoum_outfit_img_${g || 'all'}_${clean}`;
+    return `kolyoum_outfit_img_${cat || 'model'}_${g || 'all'}_${clean}`;
   }, []);
 
   const handleAiError = useCallback((error: any) => {
@@ -46,7 +58,7 @@ export const GeneratedOutfitImage = ({ description, gender }: { description: str
   const generate = useCallback(async (forceRefresh = false) => {
     if (!description) return;
 
-    const cacheKey = getCacheKey(description, gender);
+    const cacheKey = getCacheKey(description, gender, category);
 
     // Vérifier le cache local pour réutilisation immédiate
     if (!forceRefresh && typeof window !== 'undefined') {
@@ -68,7 +80,7 @@ export const GeneratedOutfitImage = ({ description, gender }: { description: str
     setImageUrl(null);
 
     try {
-      const result = await generateOutfitImage({ itemDescription: description, gender });
+      const result = await generateOutfitImage({ itemDescription: description, gender, category });
       setImageUrl(result.imageDataUri);
 
       // Sauvegarder dans le cache local
@@ -85,7 +97,7 @@ export const GeneratedOutfitImage = ({ description, gender }: { description: str
     } finally {
       setIsLoading(false);
     }
-  }, [description, gender, getCacheKey, handleAiError]);
+  }, [description, gender, category, getCacheKey, handleAiError]);
 
   useEffect(() => {
     generate(false);
@@ -93,18 +105,19 @@ export const GeneratedOutfitImage = ({ description, gender }: { description: str
 
   if (isLoading) {
     return (
-      <div className="absolute inset-0 bg-secondary/50 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="absolute inset-0 bg-secondary/50 flex flex-col items-center justify-center p-3 text-center">
+        <Loader2 className="h-7 w-7 animate-spin text-primary" />
+        <span className="text-[10px] text-muted-foreground mt-2 font-medium">Génération visuelle...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="absolute inset-0 bg-secondary/50 flex flex-col items-center justify-center text-center p-4">
-        <XCircle className="h-8 w-8 text-destructive mx-auto" />
-        <p className="text-xs text-muted-foreground mt-2">Erreur Image</p>
-        <Button variant="ghost" size="sm" className="mt-2 text-xs h-auto" onClick={generate}>
+      <div className="absolute inset-0 bg-secondary/50 flex flex-col items-center justify-center text-center p-3">
+        <XCircle className="h-6 w-6 text-destructive mx-auto" />
+        <p className="text-[11px] text-muted-foreground mt-1 font-medium">Visuel indisponible</p>
+        <Button variant="outline" size="sm" className="mt-2 text-[10px] h-6 px-2.5 rounded-lg" onClick={() => generate(true)}>
           Réessayer
         </Button>
       </div>
@@ -112,7 +125,16 @@ export const GeneratedOutfitImage = ({ description, gender }: { description: str
   }
 
   if (imageUrl) {
-    return <Image src={imageUrl} alt="Tenue suggérée" fill className="object-cover" />;
+    return (
+      <Image
+        src={imageUrl}
+        alt={description}
+        fill
+        sizes="(max-width: 768px) 100vw, 500px"
+        className={objectFit === 'contain' ? `object-contain p-2 ${className}` : `object-cover ${className}`}
+        unoptimized
+      />
+    );
   }
 
   return null;

@@ -244,11 +244,19 @@ export default function OutfitSuggester() {
     setCurrentPhotoConstraints(null);
   };
 
-  const handleScrollToForm = () => {
-    const formEl = document.getElementById('stylek-manual-form');
-    if (formEl) {
-      formEl.scrollIntoView({ behavior: 'smooth' });
-    }
+  const [showCustomSection, setShowCustomSection] = useState(false);
+
+  const handleToggleCustomSection = () => {
+    setShowCustomSection(prev => {
+      const next = !prev;
+      if (next) {
+        setTimeout(() => {
+          const formEl = document.getElementById('stylek-manual-form');
+          if (formEl) formEl.scrollIntoView({ behavior: 'smooth' });
+        }, 150);
+      }
+      return next;
+    });
   };
 
   return (
@@ -257,29 +265,57 @@ export default function OutfitSuggester() {
         gender={userProfile?.gender || 'Homme'}
         wardrobe={userProfile?.wardrobe || []}
         onApplyOutfit={handleApplyDailyWeatherOutfit}
-        onScrollToForm={handleScrollToForm}
+        onScrollToForm={handleToggleCustomSection}
+        isCustomFormOpen={showCustomSection}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        <Card id="stylek-manual-form" className="scroll-mt-6">
-          <OutfitForm
-            isLoading={isGenerating}
-            onSuggestOutfit={getSuggestion}
-          />
-        </Card>
-
-        <Card className="min-h-[600px] flex flex-col justify-center items-center sticky top-24">
-          <OutfitDisplay
-            isLoading={isGenerating}
-            suggestion={suggestion}
-            photoSuggestion={photoSuggestion}
-            gender={userProfile?.gender}
-            onRegeneratePart={handleRegeneratePhotoPart}
-            regeneratingPart={regeneratingPart}
-            baseItemPhoto={baseItemPhoto}
-          />
-        </Card>
+      {/* Bouton discret pour déplier/replier le styliste sur mesure si non ouvert */}
+      <div className="flex justify-center pt-1">
+        <button
+          type="button"
+          onClick={handleToggleCustomSection}
+          className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-xl bg-muted/40 hover:bg-muted/70 border border-border/50"
+        >
+          <span>{showCustomSection ? "▲ Masquer la personnalisation avancée" : "▼ Besoin d'une tenue pour un événement précis ? (Mariage, Réunion, Soirée...)"}</span>
+        </button>
       </div>
+
+      {showCustomSection && (
+        <div className="animate-in fade-in-50 duration-300 space-y-4 pt-2">
+          <div className="text-center space-y-1">
+            <h2 className="text-lg sm:text-xl font-bold font-headline text-foreground">
+              Styliste sur-mesure pour occasion spécifique
+            </h2>
+            <p className="text-xs text-muted-foreground max-w-lg mx-auto">
+              Précisez vos contraintes ou sélectionnez une pièce de votre dressing pour composer une tenue personnalisée.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            <Card id="stylek-manual-form" className="scroll-mt-6">
+              <OutfitForm
+                isLoading={isGenerating}
+                onSuggestOutfit={(input) => {
+                  setShowCustomSection(true);
+                  getSuggestion(input);
+                }}
+              />
+            </Card>
+
+            <Card className="min-h-[500px] flex flex-col justify-center items-center sticky top-24">
+              <OutfitDisplay
+                isLoading={isGenerating}
+                suggestion={suggestion}
+                photoSuggestion={photoSuggestion}
+                gender={userProfile?.gender}
+                onRegeneratePart={handleRegeneratePhotoPart}
+                regeneratingPart={regeneratingPart}
+                baseItemPhoto={baseItemPhoto}
+              />
+            </Card>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

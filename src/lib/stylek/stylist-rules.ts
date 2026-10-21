@@ -13,8 +13,24 @@ export interface LifestyleReflexes {
   fragranceNotes: string;
 }
 
+export interface ColorSwatch {
+  name: string;
+  hex: string;
+}
+
+export interface PackshotItem {
+  type: 'haut' | 'bas' | 'chaussures';
+  label: string;
+  query: string;
+}
+
 export interface StylistRecommendationResult {
   outfit: SuggestOutfitOutput;
+  alternativeOutfit: SuggestOutfitOutput;
+  packshots: PackshotItem[];
+  colorPalette: ColorSwatch[];
+  alternativeLabel: string;
+  signatureQuote: string;
   thermalBracket: ThermalBracket;
   dayPace: DayPace;
   occasion: DefaultOccasion;
@@ -143,6 +159,20 @@ const OUTFIT_MATRIX: Record<
     Doux: {
       'Posé Chic': [
         {
+          haut: 'Chemise blanche en popeline ou lin léger avec col ouvert et manches retroussées',
+          bas: 'Pantalon chino ajusté bleu marine avec ceinture en cuir sobre',
+          chaussures: 'Baskets basses épurées en cuir blanc lisse',
+          accessoires: 'Montre sobre en cuir et lunettes de soleil solaires',
+          pitch: 'L’élégance méditerranéenne intemporelle : netteté du blanc et profondeur du marine.',
+        },
+        {
+          haut: 'Polo ajusté bleu marine en piqué de coton col classique boutonné',
+          bas: 'Pantalon chino beige sable bien coupé',
+          chaussures: 'Baskets basses blanches épurées ou mocassins souples',
+          accessoires: 'Montre sportive chic et lunettes solaires',
+          pitch: 'Alternative simple et moderne : polo marine structuré et chino beige lumineux.',
+        },
+        {
           haut: 'Surchemise texturée en coton ou veste casual souple sur t-shirt uni de qualité ou polo en maille',
           bas: 'Pantalon chino léger beige ou jean brut bien coupé',
           chaussures: 'Tennis épurées en cuir blanc ou mocassins souples en daim',
@@ -151,6 +181,13 @@ const OUTFIT_MATRIX: Record<
         },
       ],
       'Décontracté / Sport': [
+        {
+          haut: 'Polo bleu marine ou chemise en lin blanc décontractée',
+          bas: 'Pantalon chino beige sable ou jean clair coupe droite',
+          chaussures: 'Baskets blanches en cuir ou toile soignée',
+          accessoires: 'Casquette sobre et lunettes de soleil',
+          pitch: 'Légèreté et fraîcheur casual pour une journée détendue.',
+        },
         {
           haut: 'Polo en piqué de coton ou t-shirt col rond avec chemise ouverte en lin',
           bas: 'Bermuda chic en toile ou jean léger en denim clair',
@@ -163,14 +200,28 @@ const OUTFIT_MATRIX: Record<
     Chaud: {
       'Posé Chic': [
         {
-          haut: 'Chemise en lin respirant manches retroussées ou polo col ouvert soyeux',
-          bas: 'Pantalon en lin mélangé fluide écru ou beige clair',
-          chaussures: 'Mocassins légers sans chaussettes visibles ou derbies perforées',
+          haut: 'Chemise en lin blanc respirant col ouvert manches retroussées',
+          bas: 'Pantalon chino bleu marine léger ou pantalon en lin fluide',
+          chaussures: 'Baskets blanches ultra-légères ou mocassins en cuir souple',
           accessoires: 'Lunettes de soleil solaires et montre estivale',
-          pitch: 'Rester impeccable et distingué même sous les fortes chaleurs.',
+          pitch: 'L’accord parfait entre fraîcheur estivale et distinction naturelle.',
+        },
+        {
+          haut: 'Polo bleu marine respirant ou polo crème en piqué aéré',
+          bas: 'Pantalon chino beige clair en toile fine',
+          chaussures: 'Tennis blanches épurées ou espadrilles en cuir suède',
+          accessoires: 'Lunettes de soleil et montre sobre',
+          pitch: 'L’alternative estivale sobre : maintien du polo et légèreté du chino sable.',
         },
       ],
       'Décontracté / Sport': [
+        {
+          haut: 'Polo léger ou t-shirt en coton aéré de belle facture',
+          bas: 'Bermuda chino soigné beige ou short en toile marine',
+          chaussures: 'Baskets blanches en toile respirante ou sandales en cuir',
+          accessoires: 'Lunettes UV400 et casquette respirante',
+          pitch: 'Confort thermique et silhouette soignée pour affronter la chaleur.',
+        },
         {
           haut: 'T-shirt respirant en coton bio léger ou débardeur structuré',
           bas: 'Bermuda en lin décontracté ou short de bain urbain',
@@ -246,11 +297,18 @@ const OUTFIT_MATRIX: Record<
     Doux: {
       'Posé Chic': [
         {
-          haut: 'Chemisier fluide en popeline ou blouse satinée avec blazer fluide sans doublure',
-          bas: 'Pantalon fluide en lin mélangé ou jupe plissée soleil',
-          chaussures: 'Mules élégantes en cuir ou slingbacks à petit talon',
-          accessoires: 'Sac cabas en cuir tressé et lunettes de soleil tendance',
-          pitch: 'Légèreté, mouvements fluides et distinction sous la douceur printanière.',
+          haut: 'Chemisier blanc fluide en popeline ou blouse soyeuse col V',
+          bas: 'Pantalon chino ajusté marine ou pantalon fluide beige ceinturé',
+          chaussures: 'Sneakers blanches épurées en cuir ou mocassins souples',
+          accessoires: 'Sac bandoulière en cuir et lunettes de soleil',
+          pitch: 'Élégance méditerranéenne lumineuse : la netteté du chemisier blanc et l’aisance du chino.',
+        },
+        {
+          haut: 'Top en maille fine beige ou polo col zippé terracotta',
+          bas: 'Pantalon carotte blanc cassé ou jean droit fluide',
+          chaussures: 'Mules élégantes en cuir ou sandales plates dorées',
+          accessoires: 'Bijoux discrets et lunettes solaires',
+          pitch: 'Alternative douce et épurée : teintes chaudes et coupe décontractée chic.',
         },
       ],
       'Décontracté / Sport': [
@@ -261,16 +319,30 @@ const OUTFIT_MATRIX: Record<
           accessoires: 'Panier en osier moderne et lunettes de soleil',
           pitch: 'Douceur et insouciance pour une belle journée ensoleillée.',
         },
+        {
+          haut: 'Blouse légère en lin et gilet fin',
+          bas: 'Pantalon chino beige ou short fluide ceinturé',
+          chaussures: 'Sneakers blanches ou espadrilles',
+          accessoires: 'Lunettes de soleil et tote bag',
+          pitch: 'Style décontracté et naturel sous une météo agréable.',
+        },
       ],
     },
     Chaud: {
       'Posé Chic': [
         {
-          haut: 'Robe chemise ceinturée en lin fluide ou top sans manches en soie sur pantalon palazzo',
-          bas: 'Pantalon large palazzo fluide ultra-léger (si ensemble) ou robe longue',
+          haut: 'Robe chemise ceinturée en lin blanc ou top sans manches en soie sur pantalon palazzo',
+          bas: 'Pantalon large palazzo fluide ultra-léger ou pantalon en lin écru',
           chaussures: 'Sandales compensées en cuir ou mules fines dorées',
           accessoires: 'Chapeau de paille stylisé et solaires oversize',
           pitch: 'Fraîcheur royale et féminité affirmée pour résister à la chaleur.',
+        },
+        {
+          haut: 'Top fluide en satin beige ou blouse sans manches marine',
+          bas: 'Jupe midi portefeuille fluide ou pantalon en gaze de coton',
+          chaussures: 'Sandales plates en cuir naturel',
+          accessoires: 'Lunettes de soleil et sac en raphia',
+          pitch: 'Alternative estivale légère et raffinée, idéale pour les journées très ensoleillées.',
         },
       ],
       'Décontracté / Sport': [
@@ -281,10 +353,130 @@ const OUTFIT_MATRIX: Record<
           accessoires: 'Lunettes de soleil cat-eye et sac bandoulière en raphia',
           pitch: 'L’été au naturel : respirant, éclatant et agréable à porter.',
         },
+        {
+          haut: 'Débardeur col carré en coton côtelé',
+          bas: 'Bermuda chic en lin ou jupe boutonnée',
+          chaussures: 'Sandales ouvertes en cuir ou sneakers en toile respirante',
+          accessoires: 'Casquette en toile et lunettes solaires',
+          pitch: 'Décontraction fraîche et dynamique pour profiter du grand air.',
+        },
       ],
     },
   },
 };
+
+function extractPackshot(itemDesc: string, type: 'haut' | 'bas' | 'chaussures'): PackshotItem {
+  const lower = itemDesc.toLowerCase();
+  if (type === 'haut') {
+    if (lower.includes('chemise') && (lower.includes('blanc') || lower.includes('blanche'))) {
+      return { type: 'haut', label: 'Chemise blanche', query: 'white crisp button-down dress shirt folded' };
+    }
+    if (lower.includes('polo') && (lower.includes('marine') || lower.includes('bleu'))) {
+      return { type: 'haut', label: 'Polo bleu marine', query: 'navy blue polo shirt folded' };
+    }
+    if (lower.includes('polo')) {
+      return { type: 'haut', label: 'Polo en piqué', query: 'classic polo shirt folded' };
+    }
+    if (lower.includes('chemise') && (lower.includes('bleu') || lower.includes('ciel'))) {
+      return { type: 'haut', label: 'Chemise bleu clair', query: 'light blue button-down shirt folded' };
+    }
+    if (lower.includes('chemise')) {
+      return { type: 'haut', label: 'Chemise élégante', query: 'tailored button-down dress shirt folded' };
+    }
+    if (lower.includes('pull') || lower.includes('maille')) {
+      return { type: 'haut', label: 'Pull en maille fine', query: 'fine knit crewneck sweater folded' };
+    }
+    if (lower.includes('manteau') || lower.includes('caban')) {
+      return { type: 'haut', label: 'Manteau structuré', query: 'wool coat flat lay' };
+    }
+    if (lower.includes('blazer') || lower.includes('veste')) {
+      return { type: 'haut', label: 'Veste de saison', query: 'tailored blazer jacket flat lay' };
+    }
+    return { type: 'haut', label: 'Haut de saison', query: `${itemDesc.split(',')[0].slice(0, 30)} flat lay` };
+  }
+
+  if (type === 'bas') {
+    if (lower.includes('marine') || lower.includes('bleu marine')) {
+      return { type: 'bas', label: 'Chino bleu marine', query: 'navy blue tailored chino trousers folded' };
+    }
+    if (lower.includes('beige') || lower.includes('sable') || lower.includes('écru')) {
+      return { type: 'bas', label: 'Chino beige sable', query: 'sand beige chino trousers folded' };
+    }
+    if (lower.includes('gris') || lower.includes('anthracite') || lower.includes('flanelle')) {
+      return { type: 'bas', label: 'Pantalon gris', query: 'charcoal grey trousers folded' };
+    }
+    if (lower.includes('jean') || lower.includes('denim')) {
+      return { type: 'bas', label: 'Jean brut soigné', query: 'dark blue denim jeans folded' };
+    }
+    return { type: 'bas', label: 'Pantalon chino', query: 'tailored chino pants folded' };
+  }
+
+  // Chaussures
+  if (lower.includes('blanc') || lower.includes('blanche') || lower.includes('basket') || lower.includes('sneaker') || lower.includes('tennis')) {
+    return { type: 'chaussures', label: 'Baskets blanches', query: 'clean minimalist white leather sneakers side view' };
+  }
+  if (lower.includes('mocassin')) {
+    return { type: 'chaussures', label: 'Mocassins en cuir', query: 'classic brown leather loafer shoes side view' };
+  }
+  if (lower.includes('derbie') || lower.includes('derby') || lower.includes('soulier')) {
+    return { type: 'chaussures', label: 'Derbies en cuir', query: 'classic leather derby shoes side view' };
+  }
+  if (lower.includes('bottine') || lower.includes('chelsea') || lower.includes('botte')) {
+    return { type: 'chaussures', label: 'Bottines chelsea', query: 'leather chelsea boots side view' };
+  }
+  return { type: 'chaussures', label: 'Chaussures soignées', query: 'classic leather dress sneakers side view' };
+}
+
+function getHarmoniousPalette(hautDesc: string, basDesc: string): ColorSwatch[] {
+  const text = `${hautDesc} ${basDesc}`.toLowerCase();
+  if (text.includes('marine') || text.includes('bleu')) {
+    return [
+      { name: 'Blanc pur', hex: '#FFFFFF' },
+      { name: 'Sable clair', hex: '#D6C3A5' },
+      { name: 'Bleu marine', hex: '#1C2942' },
+      { name: 'Gris charbon', hex: '#3E424B' },
+    ];
+  }
+  if (text.includes('camel') || text.includes('marron') || text.includes('beige')) {
+    return [
+      { name: 'Écru crème', hex: '#FDFBF7' },
+      { name: 'Beige camel', hex: '#C29B6B' },
+      { name: 'Gris perle', hex: '#9CA3AF' },
+      { name: 'Noir profond', hex: '#1F2937' },
+    ];
+  }
+  return [
+    { name: 'Blanc lin', hex: '#FAFAF9' },
+    { name: 'Beige naturel', hex: '#E2D9CC' },
+    { name: 'Bleu nuit', hex: '#1E293B' },
+    { name: 'Anthracite', hex: '#475569' },
+  ];
+}
+
+function getAlternativeLabel(altHaut: string, altBas: string): string {
+  const h = altHaut.toLowerCase();
+  const b = altBas.toLowerCase();
+  let hautLabel = 'Haut alternatif';
+  let basLabel = 'chino beige';
+
+  if (h.includes('polo') && (h.includes('marine') || h.includes('bleu'))) hautLabel = 'Polo bleu marine';
+  else if (h.includes('polo') && (h.includes('charbon') || h.includes('gris') || h.includes('noir'))) hautLabel = 'Polo charbon';
+  else if (h.includes('polo') && (h.includes('crème') || h.includes('blanc') || h.includes('beige'))) hautLabel = 'Polo crème';
+  else if (h.includes('polo')) hautLabel = 'Polo en piqué';
+  else if (h.includes('chemise') && (h.includes('bleu') || h.includes('ciel'))) hautLabel = 'Chemise bleu clair';
+  else if (h.includes('chemise')) hautLabel = 'Chemise soignée';
+  else if (h.includes('blazer') || h.includes('veste')) hautLabel = 'Blazer moderne';
+  else if (h.includes('pull')) hautLabel = 'Pull fin';
+  else if (h.includes('top')) hautLabel = 'Top soyeux';
+
+  if (b.includes('beige') || b.includes('sable')) basLabel = 'chino beige';
+  else if (b.includes('marine') || b.includes('bleu')) basLabel = 'chino marine';
+  else if (b.includes('gris') || b.includes('anthracite')) basLabel = 'chino gris';
+  else if (b.includes('jean') || b.includes('denim')) basLabel = 'jean foncé';
+  else basLabel = 'pantalon ajusté';
+
+  return `${hautLabel} + ${basLabel}`;
+}
 
 /**
  * Generate intelligent recommendation based on weather, day of week, gender and wardrobe
@@ -302,6 +494,10 @@ export function buildStylistRecommendation(params: {
   const options = OUTFIT_MATRIX[genderKey][thermalBracket][defaultOccasion];
   const index = Math.abs(params.variationIndex || 0) % options.length;
   const selectedTemplate = options[index];
+
+  // Alternative template: next index in the array
+  const altIndex = (index + 1) % options.length;
+  const alternativeTemplate = options[altIndex] || selectedTemplate;
 
   const hasRain = params.weather.precipitationProbMax >= 40 || params.weather.weatherCode >= 50;
   const hasWind = params.weather.windSpeedMax >= 30;
@@ -578,6 +774,36 @@ export function buildStylistRecommendation(params: {
 
   const suggestionText = `Look ${defaultOccasion} pensé pour ${(params.weather.dayName || '').toLowerCase()} (${params.weather.tempMax}°C, ${(params.weather.weatherLabel || '').toLowerCase()}) : ${selectedTemplate.pitch}`;
 
+  // Alternative look adaptations
+  let altHaut = alternativeTemplate.haut;
+  let altBas = alternativeTemplate.bas;
+  let altChaussures = alternativeTemplate.chaussures;
+  let altAccessoires = alternativeTemplate.accessoires;
+  if (hasRain) {
+    altAccessoires = `${altAccessoires} + Parapluie compact`;
+    if (!altHaut.toLowerCase().includes('imperméable') && !altHaut.toLowerCase().includes('trench')) {
+      altHaut = `${altHaut} (veste imperméable légère)`;
+    }
+  }
+
+  const alternativeOutfit: SuggestOutfitOutput = {
+    haut: altHaut,
+    bas: altBas,
+    chaussures: altChaussures,
+    accessoires: altAccessoires,
+    suggestionText: `Alternative ${defaultOccasion} : ${alternativeTemplate.pitch}`,
+  };
+
+  const packshots: PackshotItem[] = [
+    extractPackshot(haut, 'haut'),
+    extractPackshot(bas, 'bas'),
+    extractPackshot(chaussures, 'chaussures'),
+  ];
+
+  const colorPalette = getHarmoniousPalette(haut, bas);
+  const alternativeLabel = getAlternativeLabel(altHaut, altBas);
+  const signatureQuote = "Simple, élégant, efficace.";
+
   return {
     outfit: {
       haut,
@@ -586,6 +812,11 @@ export function buildStylistRecommendation(params: {
       accessoires,
       suggestionText,
     },
+    alternativeOutfit,
+    packshots,
+    colorPalette,
+    alternativeLabel,
+    signatureQuote,
     thermalBracket,
     dayPace,
     occasion: defaultOccasion,

@@ -19,21 +19,31 @@ export async function POST(request: Request) {
             }, { status: 500 });
         }
 
-        // Amélioration du prompt selon la catégorie pour éviter les portraits et se concentrer sur l'objet
-        let focusInstruction = 'one single clothing item, studio shot, isolated on white background';
+        // Amélioration du prompt selon la catégorie (modèle en pied ou objet packshot isolé)
         const cat = category?.toLowerCase() || '';
+        let focusInstruction = 'one single clothing item, studio shot, isolated on white background';
+        let negativePrompt = "multiple items, collage, grid, many objects, collection, rack, shelf, store, blurry, watermark, text, human body, face, head, feet, hands, model, split view, triptych, two objects";
+        let enhancedPrompt = '';
 
-        if (cat.includes('chaussure')) {
+        if (cat.includes('model') || cat.includes('full')) {
+            const modelSubject = gender === 'Femme'
+                ? 'Full-length fashion editorial photograph of an elegant stylish Mediterranean woman model'
+                : 'Full-length fashion editorial photograph of a handsome stylish Mediterranean man model';
+            focusInstruction = `${modelSubject} standing outdoors on a scenic seaside stone promenade, natural Mediterranean golden hour sunlight, full shot head to toe, authentic realistic photography, fashion magazine lookbook style`;
+            enhancedPrompt = `${focusInstruction}, wearing ${prompt}. Sharp focus, clean background, 8k resolution, highly detailed realistic textures`;
+            negativePrompt = "cartoon, 3d render, anime, illustration, deformed body, extra limbs, bad anatomy, distorted face, cropped head, cropped feet, blurry, low resolution, watermark, text, plastic skin";
+        } else if (cat.includes('chaussure')) {
             focusInstruction = 'one single pair of shoes, side view, macro shot, isolated on pure white background, no box, no human feet';
+            enhancedPrompt = `${focusInstruction}. ${prompt}, ${gender === 'Femme' ? "women style" : "men style"}, high resolution, professional commercial photography, clean studio lighting`;
         } else if (cat.includes('accessoire')) {
             focusInstruction = 'one single accessory object only, macro shot, isolated on pure white background, centered';
+            enhancedPrompt = `${focusInstruction}. ${prompt}, ${gender === 'Femme' ? "women style" : "men style"}, high resolution, professional commercial photography, clean studio lighting`;
         } else if (cat.includes('haut') || cat.includes('bas')) {
-            focusInstruction = 'one single garment only, flat lay photography, ghost mannequin, isolated on white background, no person, centered';
+            focusInstruction = 'one single garment only, flat lay photography, ghost mannequin, isolated on pure white background, no person, centered';
+            enhancedPrompt = `${focusInstruction}. ${prompt}, ${gender === 'Femme' ? "women style" : "men style"}, high resolution, professional commercial photography, clean studio lighting`;
+        } else {
+            enhancedPrompt = `${focusInstruction}. ${prompt}, ${gender === 'Femme' ? "women style" : "men style"}, high resolution, professional commercial photography, clean studio lighting`;
         }
-
-        const negativePrompt = "multiple items, collage, grid, many objects, collection, rack, shelf, store, blurry, watermark, text, human body, face, head, feet, hands, model, split view, triptych, two objects";
-        // FOCUS INSTRUCTION FIRST: Cloudflare AI model pays more attention to the beginning of the prompt.
-        const enhancedPrompt = `${focusInstruction}. ${prompt}, ${gender === 'Femme' ? "women style" : "men style"}, high resolution, professional commercial photography, clean studio lighting`;
 
         console.log('Generating with Cloudflare Workers AI (Targeted):', enhancedPrompt);
 

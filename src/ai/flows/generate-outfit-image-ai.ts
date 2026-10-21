@@ -6,7 +6,10 @@
 import { GenerateOutfitImageInputSchema, GenerateOutfitImageOutputSchema, type GenerateOutfitImageInput, type GenerateOutfitImageOutput } from './generate-outfit-image.types';
 
 export async function generateOutfitImage(input: GenerateOutfitImageInput): Promise<GenerateOutfitImageOutput> {
-    const cleanDesc = input.itemDescription.replace(/N\/A/g, '').split(/ ou | or |,/i)[0].trim();
+    const isFullModel = input.category === 'model' || input.category === 'full_look';
+    const cleanDesc = isFullModel
+        ? input.itemDescription.replace(/N\/A/g, '').replace(/Look\s+.*?:/i, '').trim()
+        : input.itemDescription.replace(/N\/A/g, '').split(/ ou | or |,/i)[0].trim();
 
     try {
         console.log('Appel Cloudflare AI pour :', cleanDesc);
