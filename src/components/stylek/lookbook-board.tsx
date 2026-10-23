@@ -253,13 +253,13 @@ export function LookbookBoard({
       </div>
 
       {/* ========================================================================= */}
-      {/* 3. EN DESSOUS DE LA PHOTO : LES PIÈCES EN FORMAT 2×2                      */}
+      {/* 3. EN DESSOUS DE LA PHOTO : LES PIÈCES DE LA TENUE                       */}
       {/* ========================================================================= */}
       <div className="rounded-3xl border border-primary/20 bg-card p-4 sm:p-5 shadow-sm space-y-3.5">
         <div className="flex items-center justify-between pb-1 border-b border-border/40">
           <span className="text-xs font-bold tracking-tight text-foreground flex items-center gap-1.5 uppercase">
             <Shirt className="h-3.5 w-3.5 text-primary" />
-            Les pièces de la tenue (Format 2×2)
+            Les pièces de la tenue
           </span>
           <span className="text-[11px] text-muted-foreground font-medium">
             Packshots studio

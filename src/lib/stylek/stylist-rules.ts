@@ -91,18 +91,32 @@ const OUTFIT_MATRIX: Record<
     Froid: {
       'Posé Chic': [
         {
-          haut: 'Manteau en laine structuré camel ou anthracite sur pull col roulé en mérinos écru',
-          bas: 'Pantalon en flanelle ou chino épais gris anthracite',
-          chaussures: 'Bottines chelsea en cuir lisse noir ou marron ciré',
-          accessoires: 'Écharpe douce en cachemire marine et montre sobre en cuir',
+          haut: 'Manteau en laine structuré camel sur pull col roulé en mérinos écru',
+          bas: 'Pantalon en flanelle gris anthracite bien coupé',
+          chaussures: 'Bottines chelsea en cuir lisse noir ciré',
+          accessoires: 'Écharpe douce en cachemire marine',
           pitch: 'Une élégance statutaire pour braver le froid avec prestance.',
         },
         {
           haut: 'Caban en laine marine sur chemise oxford bleu clair et cardigan boutonné en maille',
-          bas: 'Pantalon chino ajusté beige foncé ou pantalon tailleur chaud',
+          bas: 'Pantalon chino épais beige foncé ajusté',
           chaussures: 'Derbies en cuir marron foncé semelle commando',
-          accessoires: 'Gants en cuir fin et écharpe à motifs discrets',
+          accessoires: 'Gants en cuir souple marron doublés',
           pitch: 'L’accord parfait entre chaleur enveloppante et distinction professionnelle.',
+        },
+        {
+          haut: 'Manteau droit anthracite sur pull fin col rond bordeaux et col chemise',
+          bas: 'Pantalon tailleur chaud marine en drap de laine',
+          chaussures: 'Bottines chelsea en cuir marron ciré',
+          accessoires: 'Montre sobre en cuir noir avec cadran épuré',
+          pitch: 'Contraste raffiné et silhouette structurée taillée pour l\'hiver actif.',
+        },
+        {
+          haut: 'Parka de ville ceinturée marine sur blazer en laine et pull col cheminée',
+          bas: 'Pantalon chino gris perle en flanelle douce',
+          chaussures: 'Derbies habillées en cuir lisse bordeaux',
+          accessoires: 'Sacoche en cuir soigné ou porte-documents',
+          pitch: 'Confort thermique moderne et allure d\'affaires impeccable.',
         },
       ],
       'Décontracté / Sport': [
@@ -120,23 +134,51 @@ const OUTFIT_MATRIX: Record<
           accessoires: 'Sac à dos technique et gants tactiles',
           pitch: 'Une tenue robuste et isolante pour profiter de ses sorties sans frissonner.',
         },
+        {
+          haut: 'Blouson aviateur doublé sherpa sur pull en maille torsadée',
+          bas: 'Jean brut délavé coupe droite',
+          chaussures: 'Boots montantes en cuir nubuck',
+          accessoires: 'Écharpe en laine côtelée',
+          pitch: 'Esprit baroudeur urbain chaleureux pour le plein air.',
+        },
       ],
     },
     Frais: {
       'Posé Chic': [
         {
-          haut: 'Trench-coat mi-saison ou veste surchemise en laine sur pull col rond fin en mérinos',
-          bas: 'Pantalon chino ajusté beige ou pantalon à pinces souple gris chiné',
-          chaussures: 'Mocassins en daim noisette ou derbies habillées en cuir',
-          accessoires: 'Écharpe légère en gaze de coton et montre fine',
+          haut: 'Trench-coat mi-saison beige sur pull col rond fin en mérinos marine',
+          bas: 'Pantalon chino ajusté beige sable',
+          chaussures: 'Mocassins en daim noisette',
+          accessoires: 'Écharpe légère en gaze de coton marine',
           pitch: 'Le parfait équilibre du layering pour la mi-saison : facile à adapter entre matin et après-midi.',
         },
         {
-          haut: 'Blazer en maille ou veste en velours côtelé sur chemise habillée col boutonné',
-          bas: 'Pantalon en toile gabardine marine ou pantalon habillé',
-          chaussures: 'Derbies en cuir ciré ou mocassins penny loafers',
-          accessoires: 'Ceinture en cuir assortie et pochette sobre',
-          pitch: 'Une allure travaillée et soignée, pensée pour les journées actives et les rendez-vous.',
+          haut: 'Blazer droit structuré en maille sur chemise habillée col boutonné bleu clair',
+          bas: 'Pantalon en toile gabardine bleu marine',
+          chaussures: 'Derbies en cuir ciré marron',
+          accessoires: 'Ceinture en cuir surpiqué assortie aux souliers',
+          pitch: 'Une allure travaillée et soignée, pensée pour les rendez-vous professionnels.',
+        },
+        {
+          haut: 'Surchemise texturée en flanelle fine olive sur t-shirt col rond écru en coton épais',
+          bas: 'Pantalon chino ajusté gris anthracite',
+          chaussures: 'Mocassins penny loafers en daim chocolat',
+          accessoires: 'Sacoche bandoulière en cuir souple',
+          pitch: 'Nuances automnales subtiles et confort posé pour les journées dynamiques.',
+        },
+        {
+          haut: 'Veste légère mi-saison marine sur pull col V fin en coton-cachemire gris',
+          bas: 'Pantalon chino beige mastic ou écru',
+          chaussures: 'Derbies habillées en cuir cognac',
+          accessoires: 'Montre sobre en cuir avec boîtier fin',
+          pitch: 'Équilibre classique intemporel et clarté des tons pour une présence nette.',
+        },
+        {
+          haut: 'Cardigan boutonné en maille milano sur chemise blanche en popeline',
+          bas: 'Pantalon tailleur souple à pinces marine',
+          chaussures: 'Mocassins en cuir lisse chocolat',
+          accessoires: 'Ceinture en cuir tressé soignée',
+          pitch: 'Sophistication discrète et souplesse de mouvement tout au long de la journée.',
         },
       ],
       'Décontracté / Sport': [
@@ -154,30 +196,51 @@ const OUTFIT_MATRIX: Record<
           accessoires: 'Sac bandoulière minimaliste',
           pitch: 'Un look dynamique et pratique pour bouger tout le weekend.',
         },
+        {
+          haut: 'Veste de travail en denim brut sur pull marin à rayures',
+          bas: 'Pantalon chino décontracté camel',
+          chaussures: 'Baskets basses rétro en cuir',
+          accessoires: 'Bonnet fin en coton doux',
+          pitch: 'Allure casual authentique et décontractée pour le weekend.',
+        },
       ],
     },
     Doux: {
       'Posé Chic': [
         {
-          haut: 'Chemise blanche en popeline ou lin soigné avec col ouvert et manches retroussées',
-          bas: 'Pantalon chino ajusté bleu marine avec ceinture en cuir sobre',
-          chaussures: 'Mocassins en cuir souple marron ou derbies habillées',
-          accessoires: 'Montre sobre en cuir et lunettes de soleil solaires',
+          haut: 'Chemise blanche en popeline col italien soigné manches légèrement retroussées',
+          bas: 'Pantalon chino ajusté bleu marine',
+          chaussures: 'Mocassins en cuir souple marron cognac',
+          accessoires: 'Montre sobre en cuir avec détails soignés',
           pitch: 'L’élégance méditerranéenne intemporelle : netteté du blanc, chino marine et souliers en cuir.',
         },
         {
-          haut: 'Polo ajusté bleu marine en piqué de coton col classique boutonné',
+          haut: 'Polo ajusté bleu marine en piqué de coton mercerisé col boutonné',
           bas: 'Pantalon chino beige sable bien coupé',
-          chaussures: 'Mocassins penny loafers en daim souple ou derbies en cuir',
-          accessoires: 'Montre sportive chic et lunettes solaires',
-          pitch: 'Allure posée et moderne : polo marine structuré, chino beige et mocassins soignés.',
+          chaussures: 'Mocassins penny loafers en daim noisette',
+          accessoires: 'Ceinture en cuir surpiqué marron assortie',
+          pitch: 'Allure posée et moderne : polo marine structuré, chino sable et mocassins en daim.',
         },
         {
-          haut: 'Surchemise texturée en coton ou veste casual souple sur chemise en popeline',
-          bas: 'Pantalon chino léger beige ou pantalon habillé bien coupé',
-          chaussures: 'Mocassins souples en daim noisette ou derbies en cuir',
-          accessoires: 'Montre sobre en cuir et lunettes de soleil',
-          pitch: 'Une allure posée, moderne et soignée pour les journées actives.',
+          haut: 'Surchemise casual chic texturée écru ou olive sur t-shirt clair respirant',
+          bas: 'Pantalon chino ajusté gris anthracite',
+          chaussures: 'Derbies en cuir ciré marron foncé',
+          accessoires: 'Sacoche en cuir soigné ou besace urbaine',
+          pitch: 'Une allure posée contemporaine qui mixe textures fluides et souliers de caractère.',
+        },
+        {
+          haut: 'Chemise bleu ciel en lin et coton col ouvert',
+          bas: 'Pantalon chino ajusté beige clair ou écru',
+          chaussures: 'Mocassins en cuir marron glacé',
+          accessoires: 'Lunettes solaires au design soigné',
+          pitch: 'Luminosité naturelle et distinction décontractée par temps doux et clair.',
+        },
+        {
+          haut: 'Pull fin col rond en fil d\'Écosse terracotta ou marine sur col chemise',
+          bas: 'Pantalon chino bleu nuit coupe droite ajustée',
+          chaussures: 'Derbies habillées en cuir bordeaux ou cognac',
+          accessoires: 'Ceinture en cuir tressé de belle facture',
+          pitch: 'Richesse des nuances chaudes et prestance assurée du matin au soir.',
         },
       ],
       'Décontracté / Sport': [
@@ -195,23 +258,44 @@ const OUTFIT_MATRIX: Record<
           accessoires: 'Casquette et lunettes de soleil',
           pitch: 'La décontraction absolue sous un temps agréable et ensoleillé.',
         },
+        {
+          haut: 'T-shirt rayé marin en coton lourd avec surchemise légère en chambray',
+          bas: 'Pantalon chino beige décontracté',
+          chaussures: 'Sneakers blanches minimalistes',
+          accessoires: 'Lunettes solaires sport chic',
+          pitch: 'Allure fraîche et intemporelle pour profiter du grand air.',
+        },
       ],
     },
     Chaud: {
       'Posé Chic': [
         {
           haut: 'Chemise en lin blanc respirant col ouvert manches retroussées',
-          bas: 'Pantalon chino bleu marine léger ou pantalon en lin fluide',
-          chaussures: 'Mocassins légers en cuir souple respirant sans chaussettes visibles ou derbies perforées',
-          accessoires: 'Lunettes de soleil solaires et montre estivale',
+          bas: 'Pantalon chino bleu marine en toile ultra-légère',
+          chaussures: 'Mocassins légers en cuir souple marron',
+          accessoires: 'Montre estivale en cuir fin',
           pitch: 'L’accord parfait entre fraîcheur estivale et distinction naturelle posée.',
         },
         {
-          haut: 'Polo bleu marine respirant ou polo crème en piqué aéré',
+          haut: 'Polo respirant crème ou sable en maille piquée aérée',
           bas: 'Pantalon chino beige clair en toile fine',
-          chaussures: 'Mocassins penny loafers en daim noisette ou souliers légers en cuir',
-          accessoires: 'Lunettes de soleil et montre sobre',
-          pitch: 'L’élégance estivale sobre : maintien du polo, légèreté du chino sable et mocassins en cuir.',
+          chaussures: 'Mocassins penny loafers en daim noisette',
+          accessoires: 'Ceinture en cuir tressé estivale',
+          pitch: 'L’élégance sobre ton sur ton : légèreté du lin et souliers en daim aérés.',
+        },
+        {
+          haut: 'Chemise en chambray bleu azur col mao ou boutonné fluide',
+          bas: 'Pantalon chino blanc cassé en coton léger',
+          chaussures: 'Mocassins légers en cuir perforé respirant',
+          accessoires: 'Lunettes solaires avec verres polarisés',
+          pitch: 'Clarté estivale éclatante et coupe claire pour affronter la chaleur avec panache.',
+        },
+        {
+          haut: 'Polo marine respirant col classique fin',
+          bas: 'Pantalon chino fluide gris perle ultra-léger',
+          chaussures: 'Derbies légères en cuir souple déstructuré',
+          accessoires: 'Sacoche légère en cuir naturel',
+          pitch: 'Sobriété élégante et confort thermique sans compromis sur l\'allure posée.',
         },
       ],
       'Décontracté / Sport': [
@@ -229,25 +313,46 @@ const OUTFIT_MATRIX: Record<
           accessoires: 'Lunettes UV400 et casquette respirante',
           pitch: 'Fraîcheur, légèreté et style pour profiter du grand soleil.',
         },
+        {
+          haut: 'Chemise en lin délavée manches courtes col cubain',
+          bas: 'Bermuda chino fluide vert sauge',
+          chaussures: 'Espadrilles traditionnelles soignées',
+          accessoires: 'Lunettes solaires et chapeau panama',
+          pitch: 'Esprit riviera ensoleillé et décontraction estivale chic.',
+        },
       ],
     },
   },
-    Femme: {
+  Femme: {
     Froid: {
       'Posé Chic': [
         {
-          haut: 'Manteau long ceinturé en laine mélangée sur pull col roulé doux en cachemire',
-          bas: 'Pantalon tailleur à pinces en drap de laine ou jupe midi avec collants thermiques',
-          chaussures: 'Bottines à talon bloc en cuir lisse ou bottes cavalières montantes',
-          accessoires: 'Écharpe plaid moelleuse en maille et sac à main structuré',
+          haut: 'Manteau long ceinturé en laine mélangée camel sur pull col roulé doux en cachemire écru',
+          bas: 'Pantalon tailleur à pinces en drap de laine anthracite',
+          chaussures: 'Bottines à talon bloc en cuir lisse noir',
+          accessoires: 'Écharpe plaid moelleuse en maille cachemire',
           pitch: 'Silhouette longiligne et chaleureuse pour un look impeccable par temps froid.',
         },
         {
           haut: 'Veste blazer oversize en tweed sur blouse en soie et sous-pull fin',
-          bas: 'Pantalon palazzo en velours ou pantalon fluide chaud',
-          chaussures: 'Bottines chelsea en cuir lisse ou bottines habillées',
-          accessoires: 'Gants en cuir souple et sac en cuir structuré',
+          bas: 'Pantalon palazzo chaud en velours côtelé marine',
+          chaussures: 'Bottines chelsea en cuir lisse soigné',
+          accessoires: 'Sac en cuir structuré porté main',
           pitch: 'Le raffinement du velours et du tweed adapté aux journées les plus fraîches.',
+        },
+        {
+          haut: 'Manteau droit en drap de laine marine sur pull col montant terracotta',
+          bas: 'Pantalon tailleur droit ceinturé beige foncé',
+          chaussures: 'Bottines habillées en cuir bordeaux',
+          accessoires: 'Gants en cuir souple doublés soie',
+          pitch: 'Harmonie des tons d\'hiver et coupe tailleur d\'une élégance impeccable.',
+        },
+        {
+          haut: 'Caban long en laine écru sur pull en mérinos fin gris chiné',
+          bas: 'Pantalon droit en drap de laine noir',
+          chaussures: 'Bottines chelsea en cuir noir ciré',
+          accessoires: 'Sac bandoulière en cuir grainé',
+          pitch: 'Épure graphique et confort isolant pour traverser la journée avec assurance.',
         },
       ],
       'Décontracté / Sport': [
@@ -258,23 +363,51 @@ const OUTFIT_MATRIX: Record<
           accessoires: 'Bonnet en maille torsadée et grand sac cabas souple',
           pitch: 'Confort doudoune et style décontracté pour un weekend cosy.',
         },
+        {
+          haut: 'Parka doublée sherpa sur pull col camionneur en maille épaisse',
+          bas: 'Jean droit confortable brut',
+          chaussures: 'Boots montantes casual à lacets',
+          accessoires: 'Écharpe enveloppante en laine',
+          pitch: 'Protection et décontraction pour les promenades vivifiantes.',
+        },
       ],
     },
     Frais: {
       'Posé Chic': [
         {
-          haut: 'Trench-coat fluide mi-long sur chemisier en crêpe et gilet en maille fine',
-          bas: 'Pantalon carotte ceinturé ou jupe trapèze midi en simili-cuir',
-          chaussures: 'Mocassins vernis à mors doré ou bottines mi-saison en daim',
-          accessoires: 'Foulard soyeux autour du cou et sac bandoulière élégant',
+          haut: 'Trench-coat fluide mi-long sur chemisier en crêpe blanc et gilet fin',
+          bas: 'Pantalon carotte ceinturé beige ou jupe midi fluide',
+          chaussures: 'Mocassins vernis à mors doré',
+          accessoires: 'Foulard soyeux autour du cou',
           pitch: 'L’archétype de la parisienne chic : superposition fluide adaptée aux 15°C.',
         },
         {
-          haut: 'Blazer droit moderne sur pull col bateau en coton soyeux',
-          bas: 'Pantalon droit fluide habillé ou pantalon 7/8ème bien coupé',
-          chaussures: 'Babies à talon modéré ou mocassins élégants en cuir souple',
-          accessoires: 'Bijoux dorés discrets et sac à main structuré',
+          haut: 'Blazer droit moderne sur pull col bateau en coton soyeux marine',
+          bas: 'Pantalon droit fluide habillé 7/8ème',
+          chaussures: 'Babies à talon modéré en cuir',
+          accessoires: 'Sac à main structuré en cuir',
           pitch: 'Une élégance posée et moderne, parfaite du bureau au café.',
+        },
+        {
+          haut: 'Veste ceinturée en maille milano sur chemisier col lavallière',
+          bas: 'Pantalon palazzo souple gris chiné',
+          chaussures: 'Mocassins élégants en daim chocolat',
+          accessoires: 'Montre sobre en cuir avec boîtier doré',
+          pitch: 'Lignes fluides et maintien parfait pour une présence raffinée.',
+        },
+        {
+          haut: 'Surchemise habillée ceinturée en laine fine sur top écru',
+          bas: 'Pantalon cigarette bleu marine',
+          chaussures: 'Derbies habillées en cuir verni',
+          accessoires: 'Ceinture en cuir fine assortie',
+          pitch: 'Allure architecturée et masculine-féminine parfaitement dosée.',
+        },
+        {
+          haut: 'Pull col cheminée fin en cachemire noisette sur veste de tailleur souple',
+          bas: 'Pantalon droit blanc cassé en toile dense',
+          chaussures: 'Bottines mi-saison en cuir souple',
+          accessoires: 'Sac bandoulière en cuir camel',
+          pitch: 'Douceur des teintes naturelles et chic intemporel pour la mi-saison.',
         },
       ],
       'Décontracté / Sport': [
@@ -292,23 +425,51 @@ const OUTFIT_MATRIX: Record<
           accessoires: 'Mini sac banane porté en travers et lunettes de soleil',
           pitch: 'Allure athleisure tendance pour un weekend dynamique et détendu.',
         },
+        {
+          haut: 'Cardigan oversize en maille moelleuse sur débardeur blanc',
+          bas: 'Jean flare décontracté',
+          chaussures: 'Baskets rétro basses en suède',
+          accessoires: 'Sac besace souple',
+          pitch: 'Confort bohème chic et décontraction souple pour le weekend.',
+        },
       ],
     },
     Doux: {
       'Posé Chic': [
         {
-          haut: 'Chemisier blanc fluide en popeline ou blouse soyeuse col V',
-          bas: 'Pantalon chino ajusté marine ou pantalon fluide beige ceinturé',
-          chaussures: 'Mocassins souples en cuir ou derbies vernies',
-          accessoires: 'Sac bandoulière en cuir et montre fine',
+          haut: 'Chemisier blanc fluide en popeline de coton col V soigné',
+          bas: 'Pantalon chino ajusté marine avec ceinture fine',
+          chaussures: 'Mocassins souples en cuir cognac',
+          accessoires: 'Montre fine en cuir avec cadran sobre',
           pitch: 'Élégance méditerranéenne lumineuse : la netteté du chemisier blanc et le raffinement des mocassins.',
         },
         {
-          haut: 'Top en maille fine beige ou blouse fluide terracotta',
+          haut: 'Blouse fluide terracotta ou beige sable avec col délicat',
           bas: 'Pantalon carotte blanc cassé ou pantalon habillé fluide',
-          chaussures: 'Mocassins élégants en daim ou mules habillées en cuir',
-          accessoires: 'Bijoux discrets et sac en cuir élégant',
+          chaussures: 'Mocassins élégants en daim noisette',
+          accessoires: 'Sac en cuir élégant porté épaule',
           pitch: 'Allure douce, posée et soignée : teintes chaleureuses et souliers en cuir.',
+        },
+        {
+          haut: 'Blazer léger en lin mélangé bleu pastel sur top en soie écru',
+          bas: 'Pantalon tailleur fluide 7/8ème marine',
+          chaussures: 'Derbies habillées en cuir ciré',
+          accessoires: 'Ceinture en cuir fine à boucle dorée',
+          pitch: 'Contraste subtil pastel et marine pour une allure de travail éclatante.',
+        },
+        {
+          haut: 'Chemisier en crêpe de soie vert sauge col classique',
+          bas: 'Pantalon fluide beige sable bien coupé',
+          chaussures: 'Mocassins souples en cuir bordeaux',
+          accessoires: 'Lunettes solaires élégantes',
+          pitch: 'Fraîcheur des nuances végétales et confort souverain sous une météo clémente.',
+        },
+        {
+          haut: 'Top en maille milano fine marine avec col bijou discret',
+          bas: 'Pantalon droit à pinces écru ou camel clair',
+          chaussures: 'Babies en cuir lisse à petit talon carré',
+          accessoires: 'Sac cabas en cuir souple',
+          pitch: 'Chic minimaliste et silhouette élancée parée pour les beaux jours.',
         },
       ],
       'Décontracté / Sport': [
@@ -326,13 +487,20 @@ const OUTFIT_MATRIX: Record<
           accessoires: 'Lunettes de soleil et tote bag',
           pitch: 'Style décontracté et naturel sous une météo agréable.',
         },
+        {
+          haut: 'Top marinière col bateau en coton doux',
+          bas: 'Pantalon chino blanc décontracté',
+          chaussures: 'Tennis rétro en toile',
+          accessoires: 'Sac en toile et lunettes solaires',
+          pitch: 'Esprit balnéaire et simplicité élégante sous le soleil.',
+        },
       ],
     },
     Chaud: {
       'Posé Chic': [
         {
           haut: 'Robe chemise ceinturée en lin blanc ou top sans manches en soie sur pantalon palazzo',
-          bas: 'Pantalon large palazzo fluide ultra-léger ou pantalon en lin écru',
+          bas: 'Pantalon large palazzo fluide ultra-léger en lin écru',
           chaussures: 'Mocassins légers en cuir perforé ou sandales habillées en cuir',
           accessoires: 'Chapeau de paille stylisé et sac structuré en cuir',
           pitch: 'Fraîcheur royale et féminité affirmée pour résister à la chaleur tout en restant posée.',
@@ -343,6 +511,20 @@ const OUTFIT_MATRIX: Record<
           chaussures: 'Sandales habillées en cuir ou babies légères en cuir',
           accessoires: 'Sac en cuir naturel et montre fine',
           pitch: 'Alternative estivale légère et raffinée, idéale pour les journées très ensoleillées.',
+        },
+        {
+          haut: 'Chemisier sans manches en lin bleu ciel avec boutons nacrés',
+          bas: 'Pantalon chino léger blanc pur',
+          chaussures: 'Mocassins souples en cuir perforé respirant',
+          accessoires: 'Lunettes solaires oversize',
+          pitch: 'Pureté immaculée et respirabilité totale pour braver les températures élevées.',
+        },
+        {
+          haut: 'Blouse en voile de coton terracotta sur pantalon fluide',
+          bas: 'Pantalon palazzo ultra-fluide sable',
+          chaussures: 'Sandales habillées en cuir cognac',
+          accessoires: 'Sac en cuir naturel tressé',
+          pitch: 'Élégance solaire et légèreté aérienne au cœur de l\'été.',
         },
       ],
       'Décontracté / Sport': [
@@ -360,6 +542,13 @@ const OUTFIT_MATRIX: Record<
           accessoires: 'Casquette en toile et lunettes solaires',
           pitch: 'Décontraction fraîche et dynamique pour profiter du grand air.',
         },
+        {
+          haut: 'Robe fluide à fines bretelles motif floral discret',
+          bas: 'Robe complète fluide légère',
+          chaussures: 'Sandales plates en cuir naturel',
+          accessoires: 'Sac panier en osier et solaires',
+          pitch: 'Légèreté absolue et féminité estivale pour les journées de forte chaleur.',
+        },
       ],
     },
   },
@@ -371,39 +560,72 @@ function extractPackshot(itemDesc: string, type: 'haut' | 'bas' | 'chaussures' |
     if (lower.includes('chemise') && (lower.includes('blanc') || lower.includes('blanche'))) {
       return { type: 'haut', label: 'Chemise blanche', query: 'white crisp button-down dress shirt folded' };
     }
+    if (lower.includes('chemise') && (lower.includes('bleu') || lower.includes('ciel') || lower.includes('chambray') || lower.includes('azur'))) {
+      return { type: 'haut', label: 'Chemise bleu ciel', query: 'light blue button-down shirt folded' };
+    }
+    if (lower.includes('chemise') && (lower.includes('lin') || lower.includes('fluide'))) {
+      return { type: 'haut', label: 'Chemise en lin', query: 'linen button-down shirt folded' };
+    }
+    if (lower.includes('chemise')) {
+      return { type: 'haut', label: 'Chemise habillée', query: 'tailored button-down dress shirt folded' };
+    }
     if (lower.includes('polo') && (lower.includes('marine') || lower.includes('bleu'))) {
       return { type: 'haut', label: 'Polo bleu marine', query: 'navy blue polo shirt folded' };
+    }
+    if (lower.includes('polo') && (lower.includes('crème') || lower.includes('blanc') || lower.includes('sable') || lower.includes('écru'))) {
+      return { type: 'haut', label: 'Polo crème sable', query: 'cream white polo shirt folded' };
     }
     if (lower.includes('polo')) {
       return { type: 'haut', label: 'Polo en piqué', query: 'classic polo shirt folded' };
     }
-    if (lower.includes('chemise') && (lower.includes('bleu') || lower.includes('ciel'))) {
-      return { type: 'haut', label: 'Chemise bleu clair', query: 'light blue button-down shirt folded' };
+    if (lower.includes('surchemise')) {
+      return { type: 'haut', label: 'Surchemise texturée', query: 'structured overshirt jacket folded' };
     }
-    if (lower.includes('chemise')) {
-      return { type: 'haut', label: 'Chemise élégante', query: 'tailored button-down dress shirt folded' };
+    if (lower.includes('blazer') || lower.includes('veste')) {
+      return { type: 'haut', label: 'Blazer tailleur', query: 'tailored blazer jacket flat lay' };
     }
-    if (lower.includes('pull') || lower.includes('maille')) {
+    if (lower.includes('pull') && (lower.includes('roulé') || lower.includes('cheminée') || lower.includes('montant'))) {
+      return { type: 'haut', label: 'Pull col montant', query: 'merino turtleneck sweater folded' };
+    }
+    if (lower.includes('pull') || lower.includes('maille') || lower.includes('cardigan')) {
       return { type: 'haut', label: 'Pull en maille fine', query: 'fine knit crewneck sweater folded' };
+    }
+    if (lower.includes('blouse') || lower.includes('chemisier')) {
+      return { type: 'haut', label: 'Blouse soyeuse', query: 'silk blouse folded' };
+    }
+    if (lower.includes('trench')) {
+      return { type: 'haut', label: 'Trench-coat', query: 'classic trench coat flat lay' };
     }
     if (lower.includes('manteau') || lower.includes('caban')) {
       return { type: 'haut', label: 'Manteau structuré', query: 'wool coat flat lay' };
     }
-    if (lower.includes('blazer') || lower.includes('veste')) {
-      return { type: 'haut', label: 'Veste de saison', query: 'tailored blazer jacket flat lay' };
+    if (lower.includes('doudoune') || lower.includes('parka')) {
+      return { type: 'haut', label: 'Parka de ville', query: 'warm winter parka flat lay' };
     }
     return { type: 'haut', label: 'Haut de saison', query: `${itemDesc.split(',')[0].slice(0, 30)} flat lay` };
   }
 
   if (type === 'bas') {
-    if (lower.includes('marine') || lower.includes('bleu marine')) {
+    if (lower.includes('marine') || lower.includes('bleu marine') || lower.includes('bleu nuit')) {
       return { type: 'bas', label: 'Chino bleu marine', query: 'navy blue tailored chino trousers folded' };
     }
-    if (lower.includes('beige') || lower.includes('sable') || lower.includes('écru')) {
+    if (lower.includes('beige') || lower.includes('sable') || lower.includes('mastic')) {
       return { type: 'bas', label: 'Chino beige sable', query: 'sand beige chino trousers folded' };
     }
     if (lower.includes('gris') || lower.includes('anthracite') || lower.includes('flanelle')) {
       return { type: 'bas', label: 'Pantalon gris', query: 'charcoal grey trousers folded' };
+    }
+    if (lower.includes('olive') || lower.includes('kaki')) {
+      return { type: 'bas', label: 'Chino olive', query: 'olive green tailored chino trousers folded' };
+    }
+    if (lower.includes('blanc') || lower.includes('écru') || lower.includes('cassé')) {
+      return { type: 'bas', label: 'Pantalon écru', query: 'off-white tailored trousers folded' };
+    }
+    if (lower.includes('palazzo') || lower.includes('large')) {
+      return { type: 'bas', label: 'Pantalon fluide', query: 'fluid wide leg trousers folded' };
+    }
+    if (lower.includes('jupe')) {
+      return { type: 'bas', label: 'Jupe fluide', query: 'elegant midi skirt folded' };
     }
     if (lower.includes('jean') || lower.includes('denim')) {
       return { type: 'bas', label: 'Jean brut soigné', query: 'dark blue denim jeans folded' };
@@ -412,6 +634,9 @@ function extractPackshot(itemDesc: string, type: 'haut' | 'bas' | 'chaussures' |
   }
 
   if (type === 'chaussures') {
+    if (lower.includes('mocassin') && (lower.includes('daim') || lower.includes('suède') || lower.includes('noisette') || lower.includes('chocolat'))) {
+      return { type: 'chaussures', label: 'Mocassins en daim', query: 'classic suede loafer shoes side view studio' };
+    }
     if (lower.includes('mocassin')) {
       return { type: 'chaussures', label: 'Mocassins en cuir', query: 'classic brown leather loafer shoes side view studio' };
     }
@@ -424,6 +649,9 @@ function extractPackshot(itemDesc: string, type: 'haut' | 'bas' | 'chaussures' |
     if (lower.includes('babies') || lower.includes('talon')) {
       return { type: 'chaussures', label: 'Souliers habillés', query: 'classic leather dress shoes side view studio' };
     }
+    if (lower.includes('mule')) {
+      return { type: 'chaussures', label: 'Mules en cuir', query: 'leather mules dress shoes side view studio' };
+    }
     if (lower.includes('sandale')) {
       return { type: 'chaussures', label: 'Sandales en cuir', query: 'elegant leather sandals side view studio' };
     }
@@ -433,23 +661,26 @@ function extractPackshot(itemDesc: string, type: 'haut' | 'bas' | 'chaussures' |
     return { type: 'chaussures', label: 'Souliers en cuir', query: 'classic leather dress shoes side view studio' };
   }
 
-  // Accessoires
-  if (lower.includes('montre')) {
-    return { type: 'accessoires', label: 'Montre sobre en cuir', query: 'minimalist leather watch isolated white background studio' };
+  // Accessoires : détection par priorité sémantique claire
+  if (lower.includes('sac') || lower.includes('porte-document') || lower.includes('pochette') || lower.includes('cabas') || lower.includes('besace') || lower.includes('sacoche')) {
+    return { type: 'accessoires', label: 'Sac en cuir soigné', query: 'stylish structured leather bag isolated white background studio' };
   }
   if (lower.includes('ceinture')) {
     return { type: 'accessoires', label: 'Ceinture en cuir', query: 'classic brown leather belt isolated white background studio' };
   }
-  if (lower.includes('sac') || lower.includes('pochette') || lower.includes('cabas')) {
-    return { type: 'accessoires', label: 'Sac en cuir soigné', query: 'stylish structured leather bag isolated white background studio' };
-  }
-  if (lower.includes('écharpe') || lower.includes('foulard')) {
+  if (lower.includes('écharpe') || lower.includes('foulard') || lower.includes('cachemire')) {
     return { type: 'accessoires', label: 'Écharpe élégante', query: 'fine folded cashmere scarf isolated white background studio' };
   }
   if (lower.includes('lunette') || lower.includes('solaire')) {
     return { type: 'accessoires', label: 'Lunettes solaires', query: 'stylish designer sunglasses isolated white background studio' };
   }
-  return { type: 'accessoires', label: 'Montre en cuir', query: 'classic leather watch isolated white background studio' };
+  if (lower.includes('gant')) {
+    return { type: 'accessoires', label: 'Gants en cuir', query: 'pair of elegant leather gloves isolated white background studio' };
+  }
+  if (lower.includes('montre')) {
+    return { type: 'accessoires', label: 'Montre sobre en cuir', query: 'minimalist leather watch isolated white background studio' };
+  }
+  return { type: 'accessoires', label: 'Ceinture en cuir', query: 'classic brown leather belt isolated white background studio' };
 }
 
 function getHarmoniousPalette(hautDesc: string, basDesc: string): ColorSwatch[] {
@@ -504,6 +735,18 @@ function getAlternativeLabel(altHaut: string, altBas: string): string {
 }
 
 /**
+ * Deterministic seed for calendar date to rotate outfits day-to-day
+ */
+export function getDateDaySeed(dateStr: string): number {
+  if (!dateStr) return 0;
+  const parts = dateStr.split('-').map(Number);
+  const year = parts[0] || 2026;
+  const month = parts[1] || 1;
+  const day = parts[2] || 1;
+  return year * 372 + month * 31 + day;
+}
+
+/**
  * Generate intelligent recommendation based on weather, day of week, gender and wardrobe
  */
 export function buildStylistRecommendation(params: {
@@ -517,10 +760,12 @@ export function buildStylistRecommendation(params: {
   const { dayPace, defaultOccasion } = getDayPace(params.weather.date);
 
   const options = OUTFIT_MATRIX[genderKey][thermalBracket][defaultOccasion];
-  const index = Math.abs(params.variationIndex || 0) % options.length;
+  const daySeed = getDateDaySeed(params.weather.date);
+  const vOffset = Math.abs(params.variationIndex || 0);
+  const index = (daySeed + vOffset) % options.length;
   const selectedTemplate = options[index];
 
-  // Alternative template: next index in the array
+  // Alternative template: next distinct index in the array
   const altIndex = (index + 1) % options.length;
   const alternativeTemplate = options[altIndex] || selectedTemplate;
 
