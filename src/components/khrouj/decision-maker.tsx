@@ -1069,6 +1069,14 @@ export default function DecisionMaker() {
           title: selectedCat === 'Kharjet' ? "✨ Kharja enregistrée !" : "Visite ajoutée",
           description: `${cleanedName} a été enregistré avec succès.`
         });
+        // Clean URL param before closing to prevent useEffect from re-opening the dialog
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          if (url.searchParams.get('open') === 'add-pepite') {
+            url.searchParams.delete('open');
+            window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+          }
+        }
         onOpenChange(false);
         setSelectedPlace("");
         setSearchQuery("");
