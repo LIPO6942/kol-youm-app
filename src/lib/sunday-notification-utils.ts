@@ -133,8 +133,8 @@ export async function fetchTmdbMovieForNotification(
   title: string,
   mediaType: 'movie' | 'tv' = 'movie'
 ): Promise<TmdbMovieInfo | null> {
-  const apiKey = process.env.TMDB_API_KEY;
-  const bearer = process.env.TMDB_BEARER || process.env.TMDB_READ_ACCESS_TOKEN;
+  const apiKey = process.env.TMDB_API_KEY || process.env.NEXT_PUBLIC_TMDB_API_KEY;
+  const bearer = process.env.TMDB_BEARER || process.env.TMDB_READ_ACCESS_TOKEN || process.env.NEXT_PUBLIC_TMDB_BEARER;
 
   const rawTitle = title.trim();
   if (!rawTitle) return null;
@@ -157,16 +157,16 @@ export async function fetchTmdbMovieForNotification(
     headers['Authorization'] = `Bearer ${bearer}`;
   }
 
-  const searchEndpoint = async (endpoint: 'movie' | 'tv' | 'multi', query: string) => {
+  const searchEndpoint = async (endpoint: 'movie' | 'tv' | 'multi', query: string, language: string = 'fr-FR') => {
     try {
       const url = new URL(`https://api.themoviedb.org/3/search/${endpoint}`);
       url.searchParams.set('query', query);
-      url.searchParams.set('language', 'fr-FR');
+      if (language) url.searchParams.set('language', language);
       url.searchParams.set('include_adult', 'false');
       if (apiKey) url.searchParams.set('api_key', apiKey);
 
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2000);
+      const timer = setTimeout(() => controller.abort(), 6000);
 
       const res = await fetch(url.toString(), {
         headers,
@@ -195,7 +195,7 @@ export async function fetchTmdbMovieForNotification(
       results = await searchEndpoint('multi', rawTitle);
     }
 
-    const first = results?.[0];
+    const first = results?.find((r: any) => r.poster_path) || results?.[0];
     if (!first) {
       return {
         title: rawTitle,
@@ -304,7 +304,7 @@ export function generateSundayMovieMessage(
 
   // 3. Image : On priorise le backdrop 16:9 pour les bannières push Web,
   // avec repli sur le poster vertical si absent.
-  const notificationImageUrl = movie.backdropUrl || movie.posterUrl;
+  const notificationImageUrl = movie.posterUrl || movie.backdropUrl;
 
   const tmdbLink = movie.tmdbUrl || (movie.id
     ? `https://www.themoviedb.org/${isSeries ? 'tv' : 'movie'}/${movie.id}`

@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
-import { 
-  X, Share2, Camera, Clapperboard, Award, Sparkles, MapPin, Film, Star, 
+import {
+  X, Share2, Camera, Clapperboard, Award, Sparkles, MapPin, Film, Star,
   Flame, Compass, Volume2, VolumeX, ChevronLeft, ChevronRight, Tv, Car,
   Swords, Trophy, ArrowUp, ArrowDown, Rocket, Minus, Check, Play, Pause
 } from 'lucide-react';
@@ -78,10 +78,10 @@ function CollageBackground({ posters }: { posters: string[] }) {
       {displayPosters.map((url, i) => {
         let finalUrl = url;
         if (!url.startsWith('http')) {
-           finalUrl = `https://image.tmdb.org/t/p/w500${url.startsWith('/') ? '' : '/'}${url}`;
+          finalUrl = `https://image.tmdb.org/t/p/w500${url.startsWith('/') ? '' : '/'}${url}`;
         }
         const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(finalUrl)}`;
-          
+
         return (
           <div key={i} className="relative w-full h-full overflow-hidden">
             <img
@@ -125,19 +125,19 @@ function Particles({ count = 30 }: { count?: number }) {
         <motion.div
           key={i}
           className="absolute w-1 h-1 bg-white rounded-full opacity-20 shadow-[0_0_8px_rgba(255,255,255,0.8)]"
-          initial={{ 
-            x: Math.random() * 100 + '%', 
+          initial={{
+            x: Math.random() * 100 + '%',
             y: '110%',
             scale: Math.random() * 1 + 0.5
           }}
-          animate={{ 
+          animate={{
             y: ['110%', '-10%'],
             x: (Math.random() * 100) + (Math.random() > 0.5 ? 5 : -5) + '%',
             opacity: [0, 0.4, 0.4, 0]
           }}
-          transition={{ 
-            duration: Math.random() * 8 + 8, 
-            repeat: Infinity, 
+          transition={{
+            duration: Math.random() * 8 + 8,
+            repeat: Infinity,
             ease: 'linear',
             delay: Math.random() * 10
           }}
@@ -455,30 +455,30 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
       setCinemaPosters(prev => prev.length === 0 ? prev : []);
       return;
     }
-    
+
     async function fetchCinemaPosters() {
       try {
         const titles = stats!.cinema!.movieTitles;
         const uniqueTitles = Array.from(new Set(titles));
         const posters: string[] = [];
-        
+
         await Promise.all(uniqueTitles.map(async (title) => {
           const res = await fetch(`/api/tmdb-search?q=${encodeURIComponent(title)}&type=movie`);
           const data = await res.json();
           if (data.results && data.results.length > 0) {
             const match = data.results.find((r: any) => r.posterUrl) || data.results[0];
             if (match?.posterUrl) {
-                posters.push(match.posterUrl);
+              posters.push(match.posterUrl);
             }
           }
         }));
-        
+
         setCinemaPosters(posters);
       } catch (e) {
         console.error('Failed to fetch cinema posters', e);
       }
     }
-    
+
     fetchCinemaPosters();
   }, [isOpen, stats?.cinema]);
 
@@ -496,10 +496,10 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
   ].filter(Boolean) as string[] : [];
 
   useEffect(() => {
-    if (isOpen) { 
-      setCurrentSlide(0); 
-      setProgress(0); 
-      setIsPaused(false); 
+    if (isOpen) {
+      setCurrentSlide(0);
+      setProgress(0);
+      setIsPaused(false);
       setActiveKharjetIdx(0);
       setActiveMomentyIdx(0);
     }
@@ -668,11 +668,10 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.15 }}
-                className={`p-2 rounded-full backdrop-blur-md border transition-transform active:scale-90 flex items-center gap-1.5 px-3 shadow-lg ${
-                  isPaused
+                className={`p-2 rounded-full backdrop-blur-md border transition-transform active:scale-90 flex items-center gap-1.5 px-3 shadow-lg ${isPaused
                     ? "bg-amber-500/25 hover:bg-amber-500/35 border-amber-400/60 text-amber-300"
                     : "bg-black/50 hover:bg-black/70 border-white/20 text-white"
-                }`}
+                  }`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsPaused((p) => !p);
@@ -862,16 +861,16 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                         <FloatingOrbs colors={['#78350f', '#92400e', '#b45309']} />
                       </>
                     )}
-                    
+
                     <motion.div variants={containerVariants} initial="hidden" animate="show" className="relative z-10 flex flex-col items-center text-center w-full px-2">
                       <motion.div variants={iconVariants} className="w-16 h-16 rounded-2xl bg-orange-500/20 border border-orange-400/30 backdrop-blur-md flex items-center justify-center shadow-[0_0_40px_rgba(249,115,22,0.3)] mb-3">
                         <Clapperboard className="w-8 h-8 text-orange-400" />
                       </motion.div>
-                      
+
                       <motion.p variants={itemVariants} className="text-[11px] uppercase tracking-[0.3em] text-orange-300 font-bold mb-1">
                         Sortie Grand Écran
                       </motion.p>
-                      
+
                       <motion.div variants={numberVariants} className="text-center mb-4">
                         <p className="text-5xl font-black text-white leading-none">
                           <CountUp to={stats.cinema.total} />
@@ -956,15 +955,15 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                   <SlideContainer key="kharjet" className="bg-gradient-to-tr from-emerald-950 via-teal-900 to-black">
                     <FloatingOrbs colors={['#059669', '#0d9488', '#0284c7']} />
                     <motion.div variants={containerVariants} initial="hidden" animate="show" className="relative z-10 flex flex-col items-center w-full px-2">
-                      
+
                       <motion.div variants={iconVariants} className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 backdrop-blur-md flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.3)] mb-2">
                         <Compass className="w-7 h-7 text-emerald-300" />
                       </motion.div>
-                      
+
                       <motion.p variants={itemVariants} className="text-[11px] uppercase tracking-[0.3em] text-emerald-300 font-bold mb-1">
                         Kharjet & Escapades
                       </motion.p>
-                      
+
                       <motion.div variants={numberVariants} className="text-center mb-2">
                         <p className="text-4xl font-black text-white leading-none">
                           <CountUp to={stats.kharjet.total} />
@@ -978,7 +977,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                       {allKharjetOutings.length > 0 && (
                         <motion.div variants={itemVariants} className="w-full flex flex-col items-center relative">
                           <div className="bg-white p-3 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] transform rotate-[-1deg] w-full max-w-[280px] pointer-events-auto flex flex-col">
-                            
+
                             {/* Photo (Momenty photo or Thematic photo) */}
                             {currentKharjet?.imageUrl ? (
                               <div className="relative aspect-[4/3] overflow-hidden bg-neutral-100 rounded-lg group">
@@ -1112,7 +1111,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                         <Clapperboard className="w-8 h-8 text-blue-400" />
                       </motion.div>
                       <motion.p variants={itemVariants} className="text-xs uppercase tracking-[0.3em] text-blue-300 font-bold mb-0.5">L'Instant Ciné</motion.p>
-                      
+
                       <motion.div variants={numberVariants} className="text-center mb-2">
                         <p className="text-5xl font-black text-white leading-none"><CountUp to={stats.movies.total} /></p>
                         <p className="text-white/60 text-[11px] uppercase tracking-wider font-semibold mt-0.5">films vus ce mois</p>
@@ -1208,13 +1207,12 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                               return (
                                 <div
                                   key={idx}
-                                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all ${
-                                    idx === 0
+                                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all ${idx === 0
                                       ? 'bg-amber-500/15 border-amber-400/40 text-amber-200 shadow-sm'
                                       : idx === 1
-                                      ? 'bg-slate-300/10 border-slate-300/25 text-slate-200'
-                                      : 'bg-amber-700/10 border-amber-600/20 text-amber-300/90'
-                                  }`}
+                                        ? 'bg-slate-300/10 border-slate-300/25 text-slate-200'
+                                        : 'bg-amber-700/10 border-amber-600/20 text-amber-300/90'
+                                    }`}
                                 >
                                   <div className="flex items-center gap-2 min-w-0">
                                     <span className="text-sm">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</span>
@@ -1383,12 +1381,12 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                     <CollageBackground posters={stats.movies.posters} />
                     <div className="absolute inset-0 bg-gradient-to-t from-purple-950/90 via-black/85 to-black/50 z-[1]" />
                     <FloatingOrbs colors={['#7c3aed', '#3b82f6', '#ec4899']} />
-                    
+
                     <motion.div variants={containerVariants} initial="hidden" animate="show" className="relative z-10 flex flex-col items-center w-full px-2">
                       <motion.div variants={iconVariants} className="w-14 h-14 rounded-2xl bg-purple-500/20 border border-purple-400/40 p-2.5 mb-2 backdrop-blur-md shadow-[0_0_35px_rgba(168,85,247,0.35)] flex items-center justify-center">
                         <Rocket className="w-8 h-8 text-purple-300" />
                       </motion.div>
-                      
+
                       <motion.div variants={itemVariants} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/40 text-purple-300 text-[10px] font-black uppercase tracking-widest mb-1 shadow-sm">
                         <Sparkles className="w-3 h-3 text-purple-300" /> Le Reclassement de Fin de Mois
                       </motion.div>
@@ -1410,13 +1408,12 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                               <motion.div
                                 key={idx}
                                 variants={itemVariants}
-                                className={`flex items-center justify-between p-2 rounded-xl border backdrop-blur-md ${
-                                  item.isNew
+                                className={`flex items-center justify-between p-2 rounded-xl border backdrop-blur-md ${item.isNew
                                     ? 'bg-gradient-to-r from-purple-500/20 to-blue-500/20 border-purple-400/50 shadow-[0_0_15px_rgba(168,85,247,0.25)]'
                                     : item.diff > 0
-                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-white'
-                                    : 'bg-white/5 border-white/10 text-white'
-                                }`}
+                                      ? 'bg-emerald-500/10 border-emerald-500/30 text-white'
+                                      : 'bg-white/5 border-white/10 text-white'
+                                  }`}
                               >
                                 <div className="flex items-center gap-2 min-w-0">
                                   <span className="w-5 font-black text-xs text-white/80">#{item.currentRank}</span>
@@ -1511,13 +1508,13 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                 {slides[currentSlide] === 'momenty' && (
                   <SlideContainer key="momenty" className="bg-neutral-950">
                     <FloatingOrbs colors={['#333', '#1e1b4b', '#0f172a']} />
-                    <motion.div 
+                    <motion.div
                       variants={containerVariants} initial="hidden" animate="show"
                       className="relative z-10 w-full px-4 flex flex-col items-center"
                     >
                       {/* Interactive Card for Momenty (si photos disponibles) */}
                       {currentMomenty ? (
-                        <motion.div 
+                        <motion.div
                           variants={iconVariants}
                           animate={{ rotate: [-0.5, 1, -1, 0.5] }}
                           transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
@@ -1562,7 +1559,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                               </div>
                             )}
                           </div>
-                          
+
                           <div className="pt-2 pb-0.5 flex flex-col gap-1 text-left">
                             <div className="flex items-center justify-between gap-1">
                               <p className="text-[#111] font-black text-sm leading-snug truncate">
@@ -1602,7 +1599,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                         </motion.div>
                       ) : (
                         /* Carte d'en-tête si pas de photo Momenty ce mois mais présence de stats route */
-                        <motion.div 
+                        <motion.div
                           variants={iconVariants}
                           className="bg-gradient-to-br from-indigo-950 via-slate-900 to-black p-5 rounded-2xl border border-indigo-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.6)] w-full max-w-[280px] text-center flex flex-col items-center mb-1"
                         >
@@ -1615,7 +1612,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                           <h3 className="text-lg font-black text-white">Bilan Kilométrique</h3>
                         </motion.div>
                       )}
-                      
+
                       {/* Pagination if multiple Momenty moments */}
                       {momentyMomentsList.length > 1 && (
                         <div className="flex items-center gap-1.5 mt-2.5 no-screenshot pointer-events-auto">
@@ -1779,6 +1776,44 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
                           </motion.div>
                         ))}
 
+                        {/* ── OPTION D : ÉVOLUTION VS MOIS PRÉCÉDENT & STREAK ── */}
+                        {stats.evolution && (stats.evolution.streak > 1 || stats.evolution.outingsDiff !== 0 || stats.evolution.moviesDiff !== 0) && (
+                          <motion.div variants={itemVariants} className="col-span-2 flex flex-wrap items-center justify-center gap-1.5 py-0.5">
+                            {/* Streak de mois actifs */}
+                            {stats.evolution.streak >= 2 && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-400/35 text-[10.5px] font-bold text-amber-200 shadow-sm backdrop-blur-md">
+                                <span>🔥</span>
+                                <span>{stats.evolution.streak} mois consécutifs actif</span>
+                              </span>
+                            )}
+
+                            {/* Évolution sorties */}
+                            {stats.evolution.outingsDiff > 0 ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/35 text-[10.5px] font-bold text-emerald-200 shadow-sm backdrop-blur-md">
+                                <span>↗️</span>
+                                <span>+{stats.evolution.outingsDiff} sortie{stats.evolution.outingsDiff > 1 ? 's' : ''} vs mois dernier</span>
+                              </span>
+                            ) : stats.evolution.outingsDiff < 0 ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-[10.5px] font-medium text-white/70 backdrop-blur-md">
+                                <span>{stats.evolution.outingsDiff} sorties vs mois dernier</span>
+                              </span>
+                            ) : stats.totalOutings > 0 ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-[10.5px] font-medium text-white/80 backdrop-blur-md">
+                                <span>🎯</span>
+                                <span>Même rythme qu'au mois dernier</span>
+                              </span>
+                            ) : null}
+
+                            {/* Évolution films */}
+                            {stats.evolution.moviesDiff > 0 && (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/35 text-[10.5px] font-bold text-indigo-200 shadow-sm backdrop-blur-md">
+                                <span>🎬</span>
+                                <span>+{stats.evolution.moviesDiff} film{stats.evolution.moviesDiff > 1 ? 's' : ''}</span>
+                              </span>
+                            )}
+                          </motion.div>
+                        )}
+
                         {/* Full-width: Côté Assiette + Boisson (Clean food only!) */}
                         <motion.div variants={itemVariants} className="col-span-2 bg-white/8 rounded-2xl p-3.5 backdrop-blur-sm border border-white/8 flex items-center justify-between">
                           <div>
@@ -1806,7 +1841,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
             {/* ── SHARE BUTTON OVERLAY ── */}
             <AnimatePresence>
               {slides[currentSlide] === 'verdict' && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}

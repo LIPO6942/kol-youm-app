@@ -80,6 +80,13 @@ export type WrapUpStats = {
   };
   totalMovies: number; // Sum of both for Persona
   userPersona: string;
+  evolution?: {
+    prevTotalOutings: number;
+    prevTotalMovies: number;
+    outingsDiff: number;
+    moviesDiff: number;
+    streak: number;
+  };
 };
 
 const MONTH_NAMES = [
@@ -128,9 +135,9 @@ export function getKharjetThematicImage(
 
   // 1. Nature / Farniente / Détente / Pique-nique / Hamac / Jardin / Parc
   if (
-    t.includes('farniente') || t.includes('nature / farniente') || t.includes('detente') || 
-    t.includes('relaxation') || t.includes('hamac') || t.includes('repos') || t.includes('chill') || 
-    t.includes('pique nique') || t.includes('picnic') || t.includes('jardin') || 
+    t.includes('farniente') || t.includes('nature / farniente') || t.includes('detente') ||
+    t.includes('relaxation') || t.includes('hamac') || t.includes('repos') || t.includes('chill') ||
+    t.includes('pique nique') || t.includes('picnic') || t.includes('jardin') ||
     (t.includes('nature') && !t.includes('randonnee') && !t.includes('rando') && !t.includes('trek') && !t.includes('montagne'))
   ) {
     return variant === 1 ? '/images/kharjet/nature_farniente_1.jpg' : '/images/kharjet/nature_farniente_2.jpg';
@@ -138,13 +145,13 @@ export function getKharjetThematicImage(
 
   // 2. Sea / Beach / Baignade / Plage / Boat / Crique
   if (
-    t.includes('baignade') || t.includes('baign') || t.includes('mer') || t.includes('plage') || 
-    t.includes('beach') || t.includes('sea') || t.includes('swim') || t.includes('plongee') || 
-    t.includes('bateau') || t.includes('boat') || t.includes('crique') || t.includes('marina') || 
-    t.includes('port') || t.includes('falaise') || t.includes('kheireddine') || t.includes('gammarth plage') || 
-    t.includes('marsa plage') || t.includes('hammamet') || t.includes('bizerte') || t.includes('kelibia') || 
-    t.includes('rafraf') || t.includes('ghar el melh') || t.includes('haouaria') || t.includes('korba') || 
-    t.includes('tabarka') || t.includes('djerba') || t.includes('zarzis') || t.includes('mahdia') || 
+    t.includes('baignade') || t.includes('baign') || t.includes('mer') || t.includes('plage') ||
+    t.includes('beach') || t.includes('sea') || t.includes('swim') || t.includes('plongee') ||
+    t.includes('bateau') || t.includes('boat') || t.includes('crique') || t.includes('marina') ||
+    t.includes('port') || t.includes('falaise') || t.includes('kheireddine') || t.includes('gammarth plage') ||
+    t.includes('marsa plage') || t.includes('hammamet') || t.includes('bizerte') || t.includes('kelibia') ||
+    t.includes('rafraf') || t.includes('ghar el melh') || t.includes('haouaria') || t.includes('korba') ||
+    t.includes('tabarka') || t.includes('djerba') || t.includes('zarzis') || t.includes('mahdia') ||
     t.includes('monastir') || t.includes('sousse') || t.includes('amilcar')
   ) {
     return variant === 1 ? '/images/kharjet/sea_1.jpg' : '/images/kharjet/sea_2.jpg';
@@ -152,9 +159,9 @@ export function getKharjetThematicImage(
 
   // 3. Nightlife / Soirée / Party / Rooftop / Lounge / Club / Bar
   if (
-    t.includes('soiree') || t.includes('soir') || t.includes('night') || t.includes('lounge') || 
-    t.includes('bar') || t.includes('club') || t.includes('rooftop') || t.includes('fete') || 
-    t.includes('party') || t.includes('cocktail') || t.includes('afterwork') || t.includes('pub') || 
+    t.includes('soiree') || t.includes('soir') || t.includes('night') || t.includes('lounge') ||
+    t.includes('bar') || t.includes('club') || t.includes('rooftop') || t.includes('fete') ||
+    t.includes('party') || t.includes('cocktail') || t.includes('afterwork') || t.includes('pub') ||
     t.includes('concert') || t.includes('music') || t.includes('dj') || t.includes('boite')
   ) {
     return variant === 1 ? '/images/kharjet/soiree_1.jpg' : '/images/kharjet/soiree_2.jpg';
@@ -162,9 +169,9 @@ export function getKharjetThematicImage(
 
   // 4. Hiking / Montagne / Randonnée / Forêt / Trek / Camping
   if (
-    t.includes('randonnee') || t.includes('rando') || t.includes('montagne') || 
-    t.includes('foret') || t.includes('forest') || t.includes('trek') || t.includes('cascade') || 
-    t.includes('trail') || t.includes('camping') || t.includes('zaghouan') || t.includes('boukornine') || 
+    t.includes('randonnee') || t.includes('rando') || t.includes('montagne') ||
+    t.includes('foret') || t.includes('forest') || t.includes('trek') || t.includes('cascade') ||
+    t.includes('trail') || t.includes('camping') || t.includes('zaghouan') || t.includes('boukornine') ||
     t.includes('ichkeul') || t.includes('ain draham') || t.includes('beni mtir') || t.includes('kesra')
   ) {
     return variant === 1 ? '/images/kharjet/hiking_1.jpg' : '/images/kharjet/hiking_2.jpg';
@@ -248,7 +255,7 @@ export function useMonthlyWrapUp(
     const cinemaCounts: Record<string, number> = {};
     const kharjetPlaceCounts: Record<string, number> = {};
     const kharjetZoneCounts: Record<string, number> = {};
-    
+
     const cinemaSessions: CinemaSession[] = [];
     const kharjetOutings: KharjetOuting[] = [];
     const momentyMoments: MomentyMoment[] = [];
@@ -306,7 +313,7 @@ export function useMonthlyWrapUp(
           source: v.source || (v.momentyUrl || rawKharjetImg ? 'momenty' : 'kolyoum')
         });
       }
-      
+
       // Place count
       const place = v.placeName;
       if (place) placeCounts[place] = (placeCounts[place] || 0) + 1;
@@ -375,22 +382,22 @@ export function useMonthlyWrapUp(
     }
 
     const getTop = (counts: Record<string, number>): { name: string; count: number } | null => {
-        let topItem: { name: string; count: number } | null = null;
-        let maxCount = 0;
-        Object.entries(counts).forEach(([name, count]) => {
-          if (count > maxCount) {
-            maxCount = count;
-            topItem = { name, count };
-          }
-        });
-        return topItem;
+      let topItem: { name: string; count: number } | null = null;
+      let maxCount = 0;
+      Object.entries(counts).forEach(([name, count]) => {
+        if (count > maxCount) {
+          maxCount = count;
+          topItem = { name, count };
+        }
+      });
+      return topItem;
     };
 
     const topCategoryItem = getTop(categoryCounts);
-    const topCategory = topCategoryItem ? { 
-        name: topCategoryItem.name, 
-        count: topCategoryItem.count, 
-        percentage: Math.round((topCategoryItem.count / totalOutings) * 100) 
+    const topCategory = topCategoryItem ? {
+      name: topCategoryItem.name,
+      count: topCategoryItem.count,
+      percentage: Math.round((topCategoryItem.count / totalOutings) * 100)
     } : null;
 
     const topPlace = getTop(placeCounts);
@@ -412,15 +419,15 @@ export function useMonthlyWrapUp(
     };
 
     const monthKey = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
-    const directMonthlyRanking: MonthlyMovieRanking | null = 
-      getStoredMovieRanking(monthKey, user) || 
-      (user as any)?.movieRankings?.[monthKey] || 
+    const directMonthlyRanking: MonthlyMovieRanking | null =
+      getStoredMovieRanking(monthKey, user) ||
+      (user as any)?.movieRankings?.[monthKey] ||
       null;
 
     const filterByDate = (history: any[], dateField: string) => {
-        return (history || []).filter((m: any) => {
-            return isDateInMonth(m?.[dateField]);
-        });
+      return (history || []).filter((m: any) => {
+        return isDateInMonth(m?.[dateField]);
+      });
     };
 
     // Map de métadonnées pour chaque titre (insensible à la casse)
@@ -638,13 +645,13 @@ export function useMonthlyWrapUp(
     // Fusion intelligente et déduplication des séances de cinéma (visites IRL + films vus en salle)
     // STRICTEMENT filtré pour le mois ciblé : aucune séance hors mois ne peut être incluse
     const monthCinemaMovies = [
-      ...((user as any)?.seenMoviesData || []).filter((m: any) => 
+      ...((user as any)?.seenMoviesData || []).filter((m: any) =>
         m && typeof m === 'object' &&
-        (m.watchedInCinema || m.cinemaPlace) && 
+        (m.watchedInCinema || m.cinemaPlace) &&
         (isDateInMonth(m.viewedAt) || (!m.viewedAt && isDateInMonth(m.addedAt)))
       ),
-      ...duelItems.filter(m => 
-        Boolean(m?.watchedInCinema) && 
+      ...duelItems.filter(m =>
+        Boolean(m?.watchedInCinema) &&
         (isDateInMonth(m.viewedAt) || (!m.viewedAt && isDateInMonth((m as any).addedAt)))
       )
     ];
@@ -667,7 +674,7 @@ export function useMonthlyWrapUp(
       const matchedIndex = cinemaSessions.findIndex(s => {
         const sTitle = (s.title || '').toLowerCase().trim();
         const sPlace = (s.cinemaPlace || '').toLowerCase().trim();
-        
+
         if (sTitle === normTitle) return true;
         if ((s as any).isPlaceholder && normPlace && sPlace === normPlace) return true;
         if ((s as any).isPlaceholder && cinemaSessions.length === 1) return true;
@@ -809,24 +816,82 @@ export function useMonthlyWrapUp(
     // 4. Determine Persona
     const userPersona = getPersona(totalOutings, topCategory?.name || null, totalMovies);
 
+    // 5. Calcul de l'évolution vs mois précédent (Option D demandée par l'utilisateur)
+    const prevDate = new Date(targetYear, targetMonth - 1, 1);
+    const prevMonth = prevDate.getMonth();
+    const prevYear = prevDate.getFullYear();
+
+    const isDateInPrevMonth = (timestamp?: any) => {
+      const d = parseDateSafely(timestamp);
+      return d !== null && d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+    };
+
+    const prevMonthlyVisits = (user.visits || []).filter((v: VisitLog) => isDateInPrevMonth(v.date));
+    const prevTotalOutings = prevMonthlyVisits.length;
+
+    let prevTotalMovies = 0;
+    ((user as any)?.seenMoviesData || []).forEach((m: any) => {
+      if (m?.title && !isExcluded(m.title)) {
+        if (m.viewedAt && !isNaN(Number(m.viewedAt))) {
+          if (isDateInPrevMonth(m.viewedAt)) prevTotalMovies++;
+        } else if (m.addedAt && !isNaN(Number(m.addedAt))) {
+          if (isDateInPrevMonth(m.addedAt)) prevTotalMovies++;
+        }
+      }
+    });
+
+    const outingsDiff = totalOutings - prevTotalOutings;
+    const moviesDiff = (movies?.total || 0) - prevTotalMovies;
+
+    let streak = 0;
+    if (totalOutings > 0 || totalMovies > 0) {
+      streak = 1;
+      for (let i = 1; i <= 12; i++) {
+        const checkDate = new Date(targetYear, targetMonth - i, 1);
+        const cMonth = checkDate.getMonth();
+        const cYear = checkDate.getFullYear();
+        const hasOutings = (user.visits || []).some((v: VisitLog) => {
+          const d = parseDateSafely(v.date);
+          return d !== null && d.getMonth() === cMonth && d.getFullYear() === cYear;
+        });
+        const hasMovies = ((user as any)?.seenMoviesData || []).some((m: any) => {
+          const d = parseDateSafely(m?.viewedAt || m?.addedAt);
+          return d !== null && d.getMonth() === cMonth && d.getFullYear() === cYear;
+        });
+        if (hasOutings || hasMovies) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    const evolution = {
+      prevTotalOutings,
+      prevTotalMovies,
+      outingsDiff,
+      moviesDiff,
+      streak,
+    };
+
     // If there's absolutely NO activity, return a ghost persona instead of null
     if (totalOutings === 0 && totalMovies === 0) {
-        return {
-          monthIndex: targetMonth,
-          monthName: `${MONTH_NAMES[targetMonth]} ${targetYear}`,
-          totalOutings: 0,
-          topCategory: null,
-          topPlace: null,
-          topDish: null,
-          topBeverage: null,
-          topNeighborhood: null,
-          topDay: null,
-          featuredMomentyImage: null,
-          featuredMomentyDish: null,
-          momentyMoments: [],
-          totalMovies: 0,
-          userPersona: "Le Fantôme Discret 👻"
-        };
+      return {
+        monthIndex: targetMonth,
+        monthName: `${MONTH_NAMES[targetMonth]} ${targetYear}`,
+        totalOutings: 0,
+        topCategory: null,
+        topPlace: null,
+        topDish: null,
+        topBeverage: null,
+        topNeighborhood: null,
+        topDay: null,
+        featuredMomentyImage: null,
+        featuredMomentyDish: null,
+        momentyMoments: [],
+        totalMovies: 0,
+        userPersona: "Le Fantôme Discret 👻"
+      };
     }
 
     return {
@@ -858,7 +923,8 @@ export function useMonthlyWrapUp(
         outings: kharjetOutings
       } : undefined,
       totalMovies,
-      userPersona
+      userPersona,
+      evolution
     };
 
   }, [user, targetDate, placesWithZones]);

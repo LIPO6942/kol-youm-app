@@ -372,7 +372,7 @@ async function sendWeeklyNotifications() {
     const messaging = getMessaging();
 
     // Récupérer tous les utilisateurs qui ont les notifications activées
-    const usersSnapshot = await db.collection('users').where('notificationsEnabled', '==', true).get();
+    const usersSnapshot = await db.collection('users').get();
     console.log(`[Send Notification] Utilisateurs avec notifications activées: ${usersSnapshot.size}`);
 
     if (usersSnapshot.empty) {
@@ -394,6 +394,7 @@ async function sendWeeklyNotifications() {
 
     usersSnapshot.forEach((doc) => {
         const data = doc.data();
+        if (data.notificationsEnabled === false) return;
         const userTokens: string[] = Array.isArray(data.fcmTokens) && data.fcmTokens.length > 0
             ? data.fcmTokens.filter(Boolean)
             : (data.fcmToken ? [data.fcmToken] : []);

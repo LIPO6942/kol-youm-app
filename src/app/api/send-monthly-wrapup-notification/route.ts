@@ -101,7 +101,7 @@ async function sendWrapUpNotifications() {
      const messaging = getMessaging();
 
      // Seulement les utilisateurs qui acceptent les notifications
-     const usersSnapshot = await db.collection('users').where('notificationsEnabled', '==', true).get();
+     const usersSnapshot = await db.collection('users').get();
      
      if (usersSnapshot.empty) {
          console.log('[Send Wrap-Up Notification] Aucun utilisateur à notifier');
@@ -122,6 +122,7 @@ async function sendWrapUpNotifications() {
 
      usersSnapshot.forEach((doc) => {
          const data = doc.data();
+         if (data.notificationsEnabled === false) return;
 
          const userTokens: string[] = [];
          if (Array.isArray(data.fcmTokens) && data.fcmTokens.length > 0) {
@@ -140,6 +141,13 @@ async function sendWrapUpNotifications() {
                      title: notificationContent.title,
                      body: notificationContent.body
                  },
+                 data: {
+                     url: '/stylek?wrapup=true',
+                     title: notificationContent.title,
+                     body: notificationContent.body,
+                     tag: 'monthly-wrap-up-reminder',
+                     type: 'wrapup'
+                 },
                  webpush: {
                       headers: {
                           Urgency: 'high',
@@ -148,7 +156,7 @@ async function sendWrapUpNotifications() {
                       notification: {
                           icon: '/icons/icon-192x192.png',
                           badge: '/icons/badge-96x96.png',
-                          tag: 'wrap-up-reminder',
+                          tag: 'monthly-wrap-up-reminder',
                           renotify: true,
                           vibrate: [200, 100, 200, 100, 200]
                       },

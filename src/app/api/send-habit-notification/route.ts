@@ -153,7 +153,7 @@ async function sendHabitNotifications(type: string) {
      const db = getFirestore();
      const messaging = getMessaging();
 
-     const usersSnapshot = await db.collection('users').where('notificationsEnabled', '==', true).get();
+     const usersSnapshot = await db.collection('users').get();
      
      if (usersSnapshot.empty) {
          console.log('[Send Habit Notification] Aucun utilisateur à notifier');
@@ -168,6 +168,7 @@ async function sendHabitNotifications(type: string) {
      
      usersSnapshot.forEach((doc) => {
          const data = doc.data();
+         if (data.notificationsEnabled === false) return;
 
          const visits = data.visits || [];
          const frequencies = getVisitFrequencies(visits);
@@ -213,6 +214,13 @@ async function sendHabitNotifications(type: string) {
                      token,
                      userId: doc.id,
                      notification: notificationToSent,
+                     data: {
+                         url: '/',
+                         title: notificationToSent.title,
+                         body: notificationToSent.body,
+                         tag: 'habit-reminder',
+                         type: 'habit'
+                     },
                      webpush: {
                           headers: {
                               Urgency: 'high',

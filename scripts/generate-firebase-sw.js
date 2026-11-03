@@ -64,7 +64,7 @@ messaging.onBackgroundMessage((payload) => {
     body,
     icon: '/icons/icon-192x192.png',
     badge: '/icons/badge-96x96.png',
-    tag: payload.data?.tag || payload.notification?.tag || 'sunday-weekly-reminder',
+    tag: payload.data?.tag || payload.notification?.tag || ('kolyoum-' + (payload.data?.type || 'notif') + '-' + Date.now()),
     renotify: true,
     ...(imageUrl ? { image: imageUrl } : {}),
     data: {
