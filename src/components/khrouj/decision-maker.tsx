@@ -28,6 +28,14 @@ import { getWeekendHQ, getCulinaryPassport, getVisitFrequencies, getWeeklyHeatma
 import { WeekendHQCard } from './weekend-hq-card';
 import { CulinaryPassport } from './culinary-passport';
 import { HabitFrequency } from './habit-frequency';
+import {
+  calculatePlaceVisitStats,
+  extractInlineFormerName,
+  findFormerNameInClosedMap,
+  isSamePlace,
+  PlaceVisitToastContent,
+  PlaceVisitPreviewCard
+} from '@/lib/khrouj-visit-helper';
 
 const getSeasonalBackground = () => {
   const month = new Date().getMonth(); // 0 = Jan, 11 = Dec
@@ -210,7 +218,7 @@ export default function DecisionMaker() {
 
   // Assisted selection data
   const [allPlaces, setAllPlaces] = useState<{ name: string; category: string; zone: string; specialties: string[] }[]>([]);
-  const [closedPlacesMap, setClosedPlacesMap] = useState<Record<string, { replacedBy?: string; category?: string }>>({});
+  const [closedPlacesMap, setClosedPlacesMap] = useState<Record<string, { replacedBy?: string; category?: string; closedAt?: string; reason?: string }>>({});
   const [isFetchingPlaces, setIsFetchingPlaces] = useState(false);
 
   useEffect(() => {
@@ -586,14 +594,22 @@ export default function DecisionMaker() {
     if (!user) return;
     try {
       const cleanedName = cleanPlaceName(suggestion.placeName);
+      const visitStats = calculatePlaceVisitStats({
+        placeName: cleanedName,
+        userVisits: userProfile?.visits || [],
+        closedPlacesMap,
+        currentVisitDate: Date.now()
+      });
       await addVisitLog(user.uid, {
         placeName: cleanedName,
         category: selectedCategory?.label || 'Autre',
         date: Date.now()
       });
       toast({
-        title: "C'est noté !",
-        description: `Visite à ${cleanedName} enregistrée. Profitez bien !`,
+        title: "✨ Visite enregistrée !",
+        description: <PlaceVisitToastContent stats={visitStats} />,
+        duration: 7000,
+
       });
       // Redirect to Maps
       window.open(suggestion.googleMapsUrl, '_blank', 'noopener,noreferrer');
@@ -825,6 +841,39 @@ export default function DecisionMaker() {
     const [showThirdCommand, setShowThirdCommand] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [viewedDate, setViewedDate] = useState(getInitialLocalDateTime());
+    const [hasRenamed, setHasRenamed] = useState(false);
+    const [formerNameInput, setFormerNameInput] = useState("");
+    const [isAutoDetectedRenamed, setIsAutoDetectedRenamed] = useState(false);
+
+    const effectivePlace = (selectedPlace || searchQuery).trim();
+
+    useEffect(() => {
+      if (!effectivePlace) {
+        setIsAutoDetectedRenamed(false);
+        return;
+      }
+      const inline = extractInlineFormerName(effectivePlace);
+      const dbInfo = findFormerNameInClosedMap(inline.cleanName || effectivePlace, closedPlacesMap);
+      const detectedFormer = inline.formerName || dbInfo?.formerName;
+
+      if (detectedFormer) {
+        setHasRenamed(true);
+        setFormerNameInput(detectedFormer);
+        setIsAutoDetectedRenamed(true);
+      }
+    }, [effectivePlace, closedPlacesMap]);
+
+    const previewStats = useMemo(() => {
+      if (!effectivePlace) return null;
+      return calculatePlaceVisitStats({
+        placeName: effectivePlace,
+        userVisits: userProfile?.visits || [],
+        closedPlacesMap,
+        manualFormerName: hasRenamed ? formerNameInput : undefined,
+        isManualRenamedChecked: hasRenamed,
+        currentVisitDate: new Date(viewedDate).getTime() || Date.now()
+      });
+    }, [effectivePlace, userProfile?.visits, closedPlacesMap, hasRenamed, formerNameInput, viewedDate]);
 
     useEffect(() => {
       if (searchParams.get('open') === 'add-pepite') {
@@ -921,6 +970,16 @@ export default function DecisionMaker() {
         const parsedDate = new Date(viewedDate).getTime();
         const dateMs = !isNaN(parsedDate) ? parsedDate : Date.now();
 
+        // Calculate visit stats BEFORE adding the new visit to Firestore
+        const visitStats = calculatePlaceVisitStats({
+          placeName: cleanedName,
+          userVisits: userProfile?.visits || [],
+          closedPlacesMap,
+          manualFormerName: hasRenamed ? formerNameInput : undefined,
+          isManualRenamedChecked: hasRenamed,
+          currentVisitDate: dateMs
+        });
+
         if (selectedCat === 'Cinéma') {
           const finalOrderedItem = selectedMovie ? selectedMovie.title : movieSearchQuery.trim();
 
@@ -998,6 +1057,44 @@ export default function DecisionMaker() {
             zone: targetZone
           });
 
+          // If place renamed and former name provided, register in Firestore closedPlaces if not already there
+          if (hasRenamed && formerNameInput.trim()) {
+            const trimmedFormer = formerNameInput.trim();
+            const alreadyMapped = Object.entries(closedPlacesMap).some(
+              ([oldName, info]) => oldName.toLowerCase() === trimmedFormer.toLowerCase() && isSamePlace(info.replacedBy || '', cleanedName)
+            );
+
+            if (!alreadyMapped) {
+              try {
+                const catKey = selectedCat === 'Kharjet' ? 'kharjet' : selectedCat.toLowerCase();
+                await fetch('/api/places-database-firestore', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    action: 'closeAndReplacePlace',
+                    zone: targetZone || 'La Marsa',
+                    category: catKey,
+                    closedPlaceName: trimmedFormer,
+                    newPlaceName: cleanedName,
+                    reason: 'Changement de nom'
+                  })
+                });
+
+                setClosedPlacesMap(prev => ({
+                  ...prev,
+                  [trimmedFormer.toLowerCase()]: {
+                    replacedBy: cleanedName,
+                    closedAt: new Date().toISOString(),
+                    category: catKey,
+                    reason: 'Changement de nom'
+                  }
+                }));
+              } catch (err) {
+                console.error("Erreur enregistrement ancien nom:", err);
+              }
+            }
+          }
+
           if (!existingPlace) {
             // C'est un nouveau lieu : l'enregistrer dans Firestore et dans allPlaces
             try {
@@ -1066,8 +1163,10 @@ export default function DecisionMaker() {
         }
 
         toast({
-          title: selectedCat === 'Kharjet' ? "✨ Kharja enregistrée !" : "Visite ajoutée",
-          description: `${cleanedName} a été enregistré avec succès.`
+          title: selectedCat === 'Kharjet' ? "✨ Kharja enregistrée !" : "✨ Visite enregistrée !",
+          description: <PlaceVisitToastContent stats={visitStats} />,
+          duration: 7000,
+
         });
         // Clean URL param before closing to prevent useEffect from re-opening the dialog
         if (typeof window !== 'undefined') {
@@ -1091,6 +1190,9 @@ export default function DecisionMaker() {
         setIsCreatingNewZone(false);
         setNewCustomZone("");
         setViewedDate(getInitialLocalDateTime());
+        setHasRenamed(false);
+        setFormerNameInput("");
+        setIsAutoDetectedRenamed(false);
       } finally {
         setIsSaving(false);
       }
@@ -1270,6 +1372,19 @@ export default function DecisionMaker() {
                 </div>
               )}
             </div>
+
+            {/* Live insight card & Former name indication */}
+            {effectivePlace && previewStats && (
+              <PlaceVisitPreviewCard
+                stats={previewStats}
+                hasRenamed={hasRenamed}
+                setHasRenamed={setHasRenamed}
+                formerNameInput={formerNameInput}
+                setFormerNameInput={setFormerNameInput}
+                isAutoDetectedRenamed={isAutoDetectedRenamed}
+                setIsAutoDetectedRenamed={setIsAutoDetectedRenamed}
+              />
+            )}
 
             {!selectedPlace && selectedCat !== 'Cinéma' && (
               <div className="space-y-1.5 animate-in fade-in">
