@@ -1,7 +1,7 @@
 import React from 'react';
 import { removeAccents, normalizePlaceName } from './place-matching-utils';
 import type { VisitLog } from './firebase/firestore';
-import { Clock, Sparkles, RotateCw, History } from 'lucide-react';
+import { Clock, Sparkles, RotateCw, History, ArrowRight } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -105,6 +105,92 @@ export function findFormerNameInClosedMap(
   }
 
   return null;
+}
+
+/**
+ * Look up if the entered placeName is actually an OLD / former name that has been replaced.
+ * Used to proactively alert the user: "Café Journal s'appelle désormais Le Loft. Basculer sur Le Loft ?"
+ */
+export function findReplacementForPlace(params: {
+  placeName: string;
+  closedPlacesMap?: Record<string, { replacedBy?: string; closedAt?: string; reason?: string }>;
+  allPlaces?: Array<{ name: string }>;
+}): { replacementName: string; oldName: string; reason?: string } | null {
+  const { placeName, closedPlacesMap, allPlaces = [] } = params;
+  if (!placeName || typeof placeName !== 'string') return null;
+
+  const target = cleanPlaceBaseName(placeName);
+  if (!target || target.length < 2) return null;
+
+  // 1. Check in closedPlacesMap where key is oldName
+  if (closedPlacesMap) {
+    for (const [oldName, info] of Object.entries(closedPlacesMap)) {
+      if (info?.replacedBy && isSamePlace(oldName, target)) {
+        if (!isSamePlace(info.replacedBy, target)) {
+          return {
+            replacementName: info.replacedBy,
+            oldName: oldName,
+            reason: info.reason,
+          };
+        }
+      }
+    }
+  }
+
+  // 2. Check in allPlaces for any place named "Nouveau Nom (anciennement Ancien Nom)"
+  for (const p of allPlaces) {
+    if (p?.name) {
+      const inline = extractInlineFormerName(p.name);
+      if (inline.formerName && inline.cleanName) {
+        if (isSamePlace(inline.formerName, target) && !isSamePlace(inline.cleanName, target)) {
+          return {
+            replacementName: inline.cleanName,
+            oldName: inline.formerName,
+          };
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Proactive redirection alert when the user types an old/former venue name.
+ */
+export function PlaceRenamedRedirectAlert(props: {
+  oldName: string;
+  replacementName: string;
+  reason?: string;
+  onApplyRedirect: () => void;
+}) {
+  const { oldName, replacementName, reason, onApplyRedirect } = props;
+
+  return (
+    <div className="mt-2 p-2.5 rounded-xl border border-amber-500/40 bg-amber-500/10 dark:bg-amber-950/30 text-amber-950 dark:text-amber-200 animate-in fade-in slide-in-from-top-1 duration-200 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-0.5 min-w-0">
+          <div className="flex items-center gap-1.5 font-bold text-xs text-amber-900 dark:text-amber-100">
+            <RotateCw className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span>Cet endroit a changé de nom !</span>
+          </div>
+          <p className="text-[11.5px] text-amber-800/90 dark:text-amber-300/90 leading-tight">
+            « <span className="font-semibold">{oldName}</span> » a été renommé en{' '}
+            <strong className="font-bold underline decoration-amber-500/50">« {replacementName} »</strong>.
+            {reason ? ` (${reason})` : ''}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onApplyRedirect}
+          className="shrink-0 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-sm hover:shadow active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
+        >
+          <span>Enregistrer sous « {replacementName} »</span>
+          <ArrowRight className="h-3 w-3" />
+        </button>
+      </div>
+    </div>
+  );
 }
 
 /**

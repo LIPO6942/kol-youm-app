@@ -34,7 +34,9 @@ import {
   findFormerNameInClosedMap,
   isSamePlace,
   PlaceVisitToastContent,
-  PlaceVisitPreviewCard
+  PlaceVisitPreviewCard,
+  findReplacementForPlace,
+  PlaceRenamedRedirectAlert
 } from '@/lib/khrouj-visit-helper';
 
 const getSeasonalBackground = () => {
@@ -875,6 +877,23 @@ export default function DecisionMaker() {
       });
     }, [effectivePlace, userProfile?.visits, closedPlacesMap, hasRenamed, formerNameInput, viewedDate]);
 
+    const redirectSuggestion = useMemo(() => {
+      if (!effectivePlace || hasRenamed) return null;
+      return findReplacementForPlace({
+        placeName: effectivePlace,
+        closedPlacesMap,
+        allPlaces: combinedPlaces,
+      });
+    }, [effectivePlace, closedPlacesMap, combinedPlaces, hasRenamed]);
+
+    const handleApplyRedirect = (replacementName: string, oldName: string) => {
+      setSelectedPlace(replacementName);
+      setSearchQuery(replacementName);
+      setHasRenamed(true);
+      setFormerNameInput(oldName);
+      setIsAutoDetectedRenamed(true);
+    };
+
     useEffect(() => {
       if (searchParams.get('open') === 'add-pepite') {
         onOpenChange(true);
@@ -1372,6 +1391,16 @@ export default function DecisionMaker() {
                 </div>
               )}
             </div>
+
+            {/* Proactive alert if user entered a former/old name that was renamed */}
+            {redirectSuggestion && (
+              <PlaceRenamedRedirectAlert
+                oldName={redirectSuggestion.oldName}
+                replacementName={redirectSuggestion.replacementName}
+                reason={redirectSuggestion.reason}
+                onApplyRedirect={() => handleApplyRedirect(redirectSuggestion.replacementName, redirectSuggestion.oldName)}
+              />
+            )}
 
             {/* Live insight card & Former name indication */}
             {effectivePlace && previewStats && (

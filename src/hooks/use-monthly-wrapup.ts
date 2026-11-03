@@ -470,40 +470,119 @@ export function useMonthlyWrapUp(
       }
     });
 
-    // Construire STRICTEMENT la liste des films vus durant ce mois spécifique :
-    // - Films dont la date (viewedAt / addedAt) correspond au mois ciblé
-    // - Films vus en salle durant ce mois (cinemaSessions)
-    // - Si un classement officiel pour ce mois précis existe déjà, ses films
-    const datedMovies = [
-      ...((user as any)?.seenMoviesData || []).filter((m: any) => m && (isDateInMonth(m?.viewedAt) || (!m?.viewedAt && isDateInMonth(m?.addedAt)))),
-      ...filterByDate((user as any)?.seenMovieHistory || [], 'addedAt'),
-    ].filter((m: any) => m?.title && !isExcluded(m.title));
+    // RÈGLE STRICTE UTILISATEUR POUR LE WRAP-UP DU MOIS :
+    // - Un film ne doit apparaître dans ce mois que s'il a STRICTEMENT été vu durant ce mois.
+    // - Si l'utilisateur a choisi une date de visionnage (viewedAt) antérieure ou dans un autre mois,
+    //   le film est EXCLU de ce mois, même s'il a été marqué/ajouté dans l'application (addedAt) durant ce mois.
+    const movieViewMap = new Map<string, { viewedAt?: number; addedAt?: number; inCinemaThisMonth?: boolean }>();
 
-    const monthMovieTitlesSet = new Set<string>();
-    datedMovies.forEach(m => {
-      if (m?.title && typeof m.title === 'string' && !isExcluded(m.title)) {
-        monthMovieTitlesSet.add(m.title.trim());
+    ((user as any)?.seenMoviesData || []).forEach((m: any) => {
+      if (m?.title && !isExcluded(m.title)) {
+        const norm = m.title.toLowerCase().trim();
+        movieViewMap.set(norm, {
+          viewedAt: m.viewedAt ? Number(m.viewedAt) : undefined,
+          addedAt: m.addedAt ? Number(m.addedAt) : undefined,
+        });
       }
     });
 
     cinemaSessions.forEach(cs => {
-      if (cs.title && typeof cs.title === 'string' && !isExcluded(cs.title) && cs.title !== 'Film au cinéma') {
+      if (cs.title && cs.date && isDateInMonth(cs.date) && !isExcluded(cs.title)) {
+        const norm = cs.title.toLowerCase().trim();
+        const existing = movieViewMap.get(norm) || {};
+        existing.inCinemaThisMonth = true;
+        if (!existing.viewedAt) existing.viewedAt = Number(cs.date);
+        movieViewMap.set(norm, existing);
+      }
+    });
+
+    ((user as any)?.seenMovieHistory || []).forEach((h: any) => {
+      if (h?.title && !isExcluded(h.title)) {
+        const norm = h.title.toLowerCase().trim();
+        // Ne pas écraser si seenMoviesData a déjà une date de visionnage explicite
+        if (!movieViewMap.has(norm)) {
+          movieViewMap.set(norm, {
+            addedAt: h.addedAt ? Number(h.addedAt) : undefined,
+          });
+        }
+      }
+    });
+
+    const isMovieViewedInTargetMonth = (title: string): boolean => {
+      if (!title || isExcluded(title)) return false;
+      const norm = title.toLowerCase().trim();
+      const info = movieViewMap.get(norm);
+      if (!info) return false;
+
+      // 1. Si une date de visionnage explicite (viewedAt) existe :
+      // Elle fait foi absolue. Si elle est en dehors du mois ciblé (ex: date antérieure choisie),
+      // le film est STRICTEMENT exclu de ce mois !
+      if (info.viewedAt !== undefined && info.viewedAt !== null && !isNaN(info.viewedAt)) {
+        return isDateInMonth(info.viewedAt);
+      }
+
+      // 2. Si le film a été vu au cinéma durant ce mois ciblé :
+      if (info.inCinemaThisMonth) {
+        return true;
+      }
+
+      // 3. Si AUCUNE date de visionnage n'a jamais été choisie (pas de viewedAt),
+      // alors seulement on vérifie si addedAt tombe dans ce mois
+      if (info.addedAt !== undefined && info.addedAt !== null && !isNaN(info.addedAt)) {
+        return isDateInMonth(info.addedAt);
+      }
+
+      return false;
+    };
+
+    const monthMovieTitlesSet = new Set<string>();
+
+    // A. Depuis seenMoviesData
+    ((user as any)?.seenMoviesData || []).forEach((m: any) => {
+      if (m?.title && isMovieViewedInTargetMonth(m.title)) {
+        monthMovieTitlesSet.add(m.title.trim());
+      }
+    });
+
+    // B. Depuis les séances de cinéma du mois
+    cinemaSessions.forEach(cs => {
+      if (cs.title && cs.title !== 'Film au cinéma' && isMovieViewedInTargetMonth(cs.title)) {
         monthMovieTitlesSet.add(cs.title.trim());
       }
     });
 
+    // C. Depuis seenMovieHistory (uniquement si validé comme vu ce mois-ci)
+    ((user as any)?.seenMovieHistory || []).forEach((h: any) => {
+      if (h?.title && isMovieViewedInTargetMonth(h.title)) {
+        monthMovieTitlesSet.add(h.title.trim());
+      }
+    });
+
+    // D. Depuis directMonthlyRanking (UNIQUEMENT les films effectivement vus durant ce mois !)
     if (directMonthlyRanking?.rankedTitles) {
       directMonthlyRanking.rankedTitles.forEach(t => {
-        if (t && typeof t === 'string' && !isExcluded(t)) {
+        if (t && typeof t === 'string' && isMovieViewedInTargetMonth(t)) {
           monthMovieTitlesSet.add(t.trim());
         }
       });
     }
 
     const uniqueMonthTitles = Array.from(monthMovieTitlesSet);
+    const monthTitlesLower = new Set(uniqueMonthTitles.map(t => t.toLowerCase().trim()));
 
-    // Résolution du classement : soit direct pour ce mois, soit dérivé de Tfarrej STRICTEMENT pour les films de ce mois
-    let monthlyRanking: MonthlyMovieRanking | null = directMonthlyRanking;
+    // Résolution du classement : filtrer STRICTEMENT pour ne contenir que les films vus ce mois
+    let monthlyRanking: MonthlyMovieRanking | null = null;
+    if (directMonthlyRanking) {
+      const filteredRanked = (directMonthlyRanking.rankedTitles || []).filter(t => typeof t === 'string' && monthTitlesLower.has(t.toLowerCase().trim()));
+      if (filteredRanked.length > 0) {
+        monthlyRanking = {
+          ...directMonthlyRanking,
+          rankedTitles: filteredRanked,
+          initialRankedTitles: (directMonthlyRanking.initialRankedTitles || []).filter(t => typeof t === 'string' && monthTitlesLower.has(t.toLowerCase().trim())),
+          newlyAddedTitles: (directMonthlyRanking.newlyAddedTitles || []).filter(t => typeof t === 'string' && monthTitlesLower.has(t.toLowerCase().trim())),
+        };
+      }
+    }
 
     if (!monthlyRanking && uniqueMonthTitles.length > 0) {
       const allRankings = (user as any)?.movieRankings || {};
@@ -523,7 +602,6 @@ export function useMonthlyWrapUp(
       }
 
       if (sourceRanking?.rankedTitles?.length) {
-        const monthTitlesLower = new Set(uniqueMonthTitles.map(t => t.toLowerCase().trim()));
         const derivedTitles = (sourceRanking.rankedTitles || []).filter(t => typeof t === 'string' && monthTitlesLower.has(t.toLowerCase().trim()));
         if (derivedTitles.length > 0) {
           monthlyRanking = {
@@ -647,9 +725,37 @@ export function useMonthlyWrapUp(
     const totalCinemaOutings = validCinemaSessions.length;
     const topCinemaPlace = getTop(cinemaCounts);
 
+    const seriesViewMap = new Map<string, { viewedAt?: number; addedAt?: number }>();
+    ((user as any)?.seenSeriesData || []).forEach((s: any) => {
+      if (s?.title) {
+        const norm = s.title.toLowerCase().trim();
+        seriesViewMap.set(norm, {
+          viewedAt: s.viewedAt ? Number(s.viewedAt) : undefined,
+          addedAt: s.addedAt ? Number(s.addedAt) : undefined,
+        });
+      }
+    });
+
+    const isSeriesViewedInTargetMonth = (s: any): boolean => {
+      if (!s?.title) return false;
+      const norm = s.title.toLowerCase().trim();
+      const info = seriesViewMap.get(norm) || {
+        viewedAt: s.viewedAt ? Number(s.viewedAt) : undefined,
+        addedAt: s.addedAt ? Number(s.addedAt) : undefined,
+      };
+
+      if (info.viewedAt !== undefined && info.viewedAt !== null && !isNaN(info.viewedAt)) {
+        return isDateInMonth(info.viewedAt);
+      }
+      if (info.addedAt !== undefined && info.addedAt !== null && !isNaN(info.addedAt)) {
+        return isDateInMonth(info.addedAt);
+      }
+      return false;
+    };
+
     const seriesHistory = [
-      ...filterByDate((user as any).seenSeriesData || [], 'viewedAt'),
-      ...filterByDate((user as any).seenSeriesHistory || [], 'addedAt')
+      ...((user as any).seenSeriesData || []).filter((s: any) => isSeriesViewedInTargetMonth(s)),
+      ...((user as any).seenSeriesHistory || []).filter((s: any) => isSeriesViewedInTargetMonth(s))
     ];
     const deduplicateSeries = (list: any[]) => {
       const map = new Map();
@@ -672,7 +778,7 @@ export function useMonthlyWrapUp(
     const hasUpdatesSincePublish = Boolean(monthlyRanking?.hasUpdatesSincePublish);
 
     const movies = (duelItems.length > 0 || monthlyRanking) ? {
-      total: Math.max(duelItems.length, monthlyRanking?.rankedTitles?.length || 0),
+      total: duelItems.length,
       titles: duelItems.map(d => d.title),
       posters,
       featured: feat ? { title: feat.title, poster: feat.posterUrl || '' } : null,

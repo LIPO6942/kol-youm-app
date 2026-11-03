@@ -343,11 +343,13 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
   const effectiveRanking = activeRanking || stats?.movies?.ranking || null;
 
   const { rankedTitles, unrankedCount, isAllRanked, totalMoviesCount } = useMemo(() => {
-    const rTitles = (effectiveRanking?.rankedTitles || []).filter(t => typeof t === 'string' && !isTestMovieTitle(t));
+    // RÈGLE STRICTE : Ne classer et n'afficher QUE les films faisant partie des films vus ce mois-ci
+    const validMonthTitles = new Set(effectiveMovies.map(m => (m?.title || '').toLowerCase().trim()));
+    const rTitles = (effectiveRanking?.rankedTitles || []).filter(t => typeof t === 'string' && !isTestMovieTitle(t) && validMonthTitles.has(t.toLowerCase().trim()));
     const rSet = new Set(rTitles.map(t => (t || '').toLowerCase().trim()));
     const unranked = effectiveMovies.filter(m => m?.title && typeof m.title === 'string' && !rSet.has(m.title.toLowerCase().trim()));
-    const totalCount = Math.max(rTitles.length + unranked.length, effectiveMovies.length, stats?.movies?.total || 0);
-    const allRanked = (rTitles.length > 0 && unranked.length === 0) || Boolean(stats?.movies?.isAllRanked);
+    const totalCount = effectiveMovies.length;
+    const allRanked = (effectiveMovies.length > 0 && unranked.length === 0) || Boolean(stats?.movies?.isAllRanked);
 
     return {
       rankedTitles: rTitles,
@@ -355,7 +357,7 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
       isAllRanked: allRanked,
       totalMoviesCount: totalCount,
     };
-  }, [effectiveRanking, effectiveMovies, stats?.movies?.total, stats?.movies?.isAllRanked]);
+  }, [effectiveRanking, effectiveMovies, stats?.movies?.isAllRanked]);
 
   const categoryBreakdown = useMemo(() => {
     const counts: Partial<Record<MovieCategory, number>> = {};
@@ -367,7 +369,8 @@ export function MonthlyWrapUpModal({ user, isOpen, onClose, targetDate: passedTa
       categoryUnrankedMap[cat] = [];
     });
 
-    const rTitles = (effectiveRanking?.rankedTitles || []).filter(t => typeof t === 'string' && !isTestMovieTitle(t));
+    const validMonthTitles = new Set(effectiveMovies.map(m => (m?.title || '').toLowerCase().trim()));
+    const rTitles = (effectiveRanking?.rankedTitles || []).filter(t => typeof t === 'string' && !isTestMovieTitle(t) && validMonthTitles.has(t.toLowerCase().trim()));
     const rSet = new Set(rTitles.map(t => (t || '').toLowerCase().trim()));
 
     effectiveMovies.forEach(m => {
