@@ -1,7 +1,7 @@
 import React from 'react';
 import { removeAccents, normalizePlaceName } from './place-matching-utils';
 import type { VisitLog } from './firebase/firestore';
-import { Clock, Sparkles, RotateCw } from 'lucide-react';
+import { Clock, Sparkles, RotateCw, History } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,13 +11,17 @@ export interface PlaceVisitStats {
   cleanPlaceName: string;
   hasVisitedBefore: boolean;
   totalVisitsBefore: number;
+  visitsUnderNewNameBefore: number;
+  visitsUnderOldName: number;
   lastVisitDate?: number;
+  lastVisitName?: string;
+  lastVisitWasUnderOldName: boolean;
   daysAgo?: number;
   daysText?: string;
   formattedDate?: string;
   isRenamed: boolean;
   formerName?: string;
-  timesSinceChange?: number; // 1 = 1ère fois, 2 = 2ème fois, etc. (including the current visit)
+  timesSinceChange: number; // 1 = 1ère fois, 2 = 2ème fois, etc. strictly under the new name
   summaryText: string;
 }
 
@@ -151,9 +155,9 @@ export function formatOrdinalFr(n: number): string {
 /**
  * Main calculation of visit stats for a place:
  * - Checks when was the last time the user visited this place (date and days count)
- * - Or determines if it's the first time
+ * - Disaggregates counters: old visits remain under the old name, new visits strictly count under the new name
  * - Detects if the place changed name (from DB, inline syntax, or manual input)
- * - Calculates the X-th time the user has visited this place since its name changed
+ * - Accurately sets `timesSinceChange` starting at 1 (1ère fois) for the first visit under the new name
  */
 export function calculatePlaceVisitStats(params: {
   placeName: string;
@@ -186,16 +190,18 @@ export function calculatePlaceVisitStats(params: {
     dbDetection?.formerName
   );
 
-  const closedAtTimestamp = dbDetection?.closedAt ? new Date(dbDetection.closedAt).getTime() : undefined;
-
-  // Filter existing user visits
+  // Separate visits strictly:
+  // 1. Visits made under the NEW name
   const visitsToNewName = userVisits.filter(v => isSamePlace(v.placeName, cleanTarget));
+  // 2. Visits made under the OLD name (remain counted strictly under the old name)
   const visitsToOldName = (isRenamed && resolvedFormerName)
     ? userVisits.filter(v => isSamePlace(v.placeName, resolvedFormerName))
     : [];
 
-  // Combine all visits to this physical location (under current or former name)
-  // Deduplicate by ID if present
+  const visitsUnderNewNameBefore = visitsToNewName.length;
+  const visitsUnderOldName = visitsToOldName.length;
+
+  // Combine all visits to this physical location to determine the last physical visit date
   const seenIds = new Set<string>();
   const allPriorVisits: VisitLog[] = [];
 
@@ -214,43 +220,41 @@ export function calculatePlaceVisitStats(params: {
   const totalVisitsBefore = allPriorVisits.length;
 
   let lastVisitDate: number | undefined;
+  let lastVisitName: string | undefined;
+  let lastVisitWasUnderOldName = false;
   let daysAgo: number | undefined;
   let daysText: string | undefined;
   let formattedDate: string | undefined;
 
   if (hasVisitedBefore) {
-    lastVisitDate = Number(allPriorVisits[0].date) || currentVisitDate;
+    const lastVisit = allPriorVisits[0];
+    lastVisitDate = Number(lastVisit.date) || currentVisitDate;
+    lastVisitName = lastVisit.placeName;
+    lastVisitWasUnderOldName = Boolean(isRenamed && resolvedFormerName && isSamePlace(lastVisit.placeName, resolvedFormerName));
     daysAgo = getCalendarDaysDiff(lastVisitDate, currentVisitDate);
     daysText = formatDaysAgoFr(daysAgo);
     formattedDate = formatDateFr(lastVisitDate);
   }
 
-  // Calculate visits since name changed (including current visit being added: +1)
-  let timesSinceChange: number | undefined;
-  if (isRenamed) {
-    let pastVisitsSinceChange: VisitLog[];
-    if (closedAtTimestamp) {
-      pastVisitsSinceChange = allPriorVisits.filter(v =>
-        isSamePlace(v.placeName, cleanTarget) || (Number(v.date) >= closedAtTimestamp)
-      );
-    } else {
-      pastVisitsSinceChange = visitsToNewName;
-    }
-    timesSinceChange = pastVisitsSinceChange.length + 1;
-  }
+  // Counter under new name: starts at 1 for the very first visit under this new name!
+  const timesSinceChange = visitsUnderNewNameBefore + 1;
 
   // Build readable text summary
   let summaryText = "";
   if (hasVisitedBefore && formattedDate && daysText) {
-    summaryText = `Dernière visite le ${formattedDate} (${daysText}).`;
+    if (lastVisitWasUnderOldName && resolvedFormerName) {
+      summaryText = `Dernière visite le ${formattedDate} (${daysText}) sous l'ancien nom "${resolvedFormerName}".`;
+    } else {
+      summaryText = `Dernière visite le ${formattedDate} (${daysText}).`;
+    }
   } else {
     summaryText = "C'est votre première visite dans cet endroit !";
   }
 
-  if (isRenamed && timesSinceChange !== undefined) {
+  if (isRenamed) {
     const ordinal = formatOrdinalFr(timesSinceChange);
-    const formerNote = resolvedFormerName ? ` (anciennement ${resolvedFormerName})` : '';
-    const renameText = `C'est la ${ordinal} fois que vous visitez cet endroit depuis que son nom a changé${formerNote}.`;
+    const formerNote = resolvedFormerName ? ` (anciennement "${resolvedFormerName}")` : '';
+    const renameText = `C'est la ${ordinal} fois que vous visitez cet endroit sous son nouveau nom "${cleanTarget}"${formerNote}.`;
     summaryText = hasVisitedBefore ? `${summaryText} ${renameText}` : `C'est votre première visite dans cet endroit (${renameText})`;
   }
 
@@ -259,7 +263,11 @@ export function calculatePlaceVisitStats(params: {
     cleanPlaceName: cleanTarget,
     hasVisitedBefore,
     totalVisitsBefore,
+    visitsUnderNewNameBefore,
+    visitsUnderOldName,
     lastVisitDate,
+    lastVisitName,
+    lastVisitWasUnderOldName,
     daysAgo,
     daysText,
     formattedDate,
@@ -274,17 +282,21 @@ export function calculatePlaceVisitStats(params: {
  * Ephemeral Toast notification content when adding a place visit.
  */
 export function PlaceVisitToastContent({ stats }: { stats: PlaceVisitStats }) {
-  const ordinal = stats.timesSinceChange === 1 ? '1ère' : `${stats.timesSinceChange}ème`;
+  const ordinal = formatOrdinalFr(stats.timesSinceChange);
 
   return (
     <div className="mt-1 space-y-1.5 text-xs text-foreground/90">
       <p className="font-semibold text-sm">{stats.cleanPlaceName || stats.placeName}</p>
 
+      {/* When was the last visit */}
       {stats.hasVisitedBefore ? (
         <p className="text-muted-foreground flex items-center gap-1.5">
           <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
           <span>
-            Dernière visite le <strong className="text-foreground">{stats.formattedDate}</strong> ({stats.daysText}).
+            Dernière visite le <strong className="text-foreground">{stats.formattedDate}</strong> ({stats.daysText})
+            {stats.lastVisitWasUnderOldName && stats.formerName && (
+              <span className="italic text-[11px] text-muted-foreground/80"> sous l'ancien nom « {stats.formerName} »</span>
+            )}.
           </span>
         </p>
       ) : (
@@ -294,12 +306,29 @@ export function PlaceVisitToastContent({ stats }: { stats: PlaceVisitStats }) {
         </p>
       )}
 
+      {/* Disaggregated counters & Renamed indication */}
       {stats.isRenamed && (
-        <div className="rounded-md bg-amber-500/10 border border-amber-500/20 px-2 py-1 text-amber-800 dark:text-amber-200 text-[11px] font-medium flex items-start gap-1.5">
-          <RotateCw className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <span>
-            C'est la <strong>{ordinal} fois</strong> que vous visitez cet endroit depuis que son nom a changé{stats.formerName ? ` (anciennement ${stats.formerName})` : ''}.
-          </span>
+        <div className="rounded-lg bg-amber-500/10 border border-amber-500/25 p-2 space-y-1 text-amber-900 dark:text-amber-200 text-[11px]">
+          <div className="flex items-start gap-1.5 font-semibold">
+            <RotateCw className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <span>
+              C'est la <strong>{ordinal} fois</strong> que vous visitez cet endroit depuis que son nom a changé
+              {stats.formerName ? ` (anciennement « ${stats.formerName} »)` : ''}.
+            </span>
+          </div>
+
+          {/* Detailed breakdown: Old vs New counts */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-[10px]">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/20">
+              Nouveau nom : {ordinal} visite
+            </span>
+            {stats.visitsUnderOldName > 0 && stats.formerName && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-800 dark:text-amber-300 font-medium border border-amber-500/30">
+                <History className="h-2.5 w-2.5" />
+                {stats.visitsUnderOldName} visite{stats.visitsUnderOldName > 1 ? 's' : ''} archivée{stats.visitsUnderOldName > 1 ? 's' : ''} sous « {stats.formerName} »
+              </span>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -328,7 +357,7 @@ export function PlaceVisitPreviewCard(props: {
     setIsAutoDetectedRenamed
   } = props;
 
-  const ordinal = stats.timesSinceChange === 1 ? '1ère' : `${stats.timesSinceChange}ème`;
+  const ordinal = formatOrdinalFr(stats.timesSinceChange);
 
   return (
     <div className="mt-2 p-2.5 rounded-xl border bg-card/60 backdrop-blur-sm space-y-2 animate-in fade-in duration-200">
@@ -337,10 +366,20 @@ export function PlaceVisitPreviewCard(props: {
           <Sparkles className="h-3 w-3 text-primary" />
           Historique de cet endroit
         </span>
-        {stats.totalVisitsBefore > 0 && (
-          <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded-full">
-            {stats.totalVisitsBefore} visite{stats.totalVisitsBefore > 1 ? 's' : ''} au total
-          </span>
+
+        {/* Counters badge */}
+        {!stats.isRenamed ? (
+          stats.totalVisitsBefore > 0 && (
+            <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded-full">
+              {stats.totalVisitsBefore} visite{stats.totalVisitsBefore > 1 ? 's' : ''} au total
+            </span>
+          )
+        ) : (
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold px-1.5 py-0.5 rounded-full border border-emerald-500/30">
+              Nouveau nom : {ordinal} visite
+            </span>
+          </div>
         )}
       </div>
 
@@ -349,6 +388,9 @@ export function PlaceVisitPreviewCard(props: {
           <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
           <span>
             Dernière visite le <strong className="font-semibold">{stats.formattedDate}</strong> ({stats.daysText})
+            {stats.lastVisitWasUnderOldName && stats.formerName && (
+              <span className="italic text-[11px] text-muted-foreground/80"> sous l'ancien nom « {stats.formerName} »</span>
+            )}
           </span>
         </p>
       ) : (
@@ -358,12 +400,28 @@ export function PlaceVisitPreviewCard(props: {
         </p>
       )}
 
+      {/* Renamed breakdown notification */}
       {stats.isRenamed && (
-        <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-2 py-1.5 text-amber-900 dark:text-amber-200 text-[11px] font-medium flex items-start gap-1.5">
-          <RotateCw className="h-3 w-3 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <span>
-            C'est la <strong>{ordinal} fois</strong> que vous visitez cet endroit depuis que son nom a changé{stats.formerName ? ` (anciennement ${stats.formerName})` : ''}.
-          </span>
+        <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2 space-y-1.5 text-amber-900 dark:text-amber-200 text-[11px]">
+          <div className="flex items-start gap-1.5 font-medium">
+            <RotateCw className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <span>
+              C'est la <strong>{ordinal} fois</strong> que vous visitez cet endroit sous son nouveau nom
+              {stats.formerName ? ` (anciennement « ${stats.formerName} »)` : ''}.
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1 text-[10px]">
+            <span className="text-muted-foreground font-medium">Comptabilisation séparée :</span>
+            <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-semibold">
+              Cette visite = {ordinal} visite sous « {stats.cleanPlaceName} »
+            </span>
+            {stats.visitsUnderOldName > 0 && stats.formerName && (
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-800 dark:text-amber-300 font-medium">
+                {stats.visitsUnderOldName} visite{stats.visitsUnderOldName > 1 ? 's' : ''} sous « {stats.formerName} »
+              </span>
+            )}
+          </div>
         </div>
       )}
 
@@ -401,13 +459,15 @@ export function PlaceVisitPreviewCard(props: {
                 setFormerNameInput(e.target.value);
                 setIsAutoDetectedRenamed(false);
               }}
-              placeholder="Ex: Ancien Café, Le Paris..."
+              placeholder="Ex: Café Journal, Le Paris..."
               className="h-7 text-xs bg-background/80"
             />
+            <p className="text-[10px] text-muted-foreground/80 italic">
+              ✨ Vos anciennes visites restent comptabilisées sous l'ancien nom, et cette visite sera la 1ère sous le nouveau nom.
+            </p>
           </div>
         )}
       </div>
     </div>
   );
 }
-
