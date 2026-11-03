@@ -426,21 +426,23 @@ export function PlaceVisitToastContent({ stats }: { stats: PlaceVisitStats }) {
  */
 export function PlaceVisitPreviewCard(props: {
   stats: PlaceVisitStats;
+  currentPlaceName?: string;
   hasRenamed: boolean;
   setHasRenamed: (val: boolean) => void;
-  formerNameInput: string;
-  setFormerNameInput: (val: string) => void;
-  isAutoDetectedRenamed: boolean;
-  setIsAutoDetectedRenamed: (val: boolean) => void;
+  newNameInput?: string;
+  setNewNameInput?: (val: string) => void;
+  formerNameInput?: string;
+  setFormerNameInput?: (val: string) => void;
+  isAutoDetectedRenamed?: boolean;
+  setIsAutoDetectedRenamed?: (val: boolean) => void;
 }) {
   const {
     stats,
+    currentPlaceName,
     hasRenamed,
     setHasRenamed,
-    formerNameInput,
-    setFormerNameInput,
-    isAutoDetectedRenamed,
-    setIsAutoDetectedRenamed
+    newNameInput = '',
+    setNewNameInput = () => {},
   } = props;
 
   const ordinal = formatOrdinalFr(stats.timesSinceChange);
@@ -511,7 +513,7 @@ export function PlaceVisitPreviewCard(props: {
         </div>
       )}
 
-      {/* Option to indicate or edit former name */}
+      {/* Option to indicate or edit new name */}
       <div className="pt-1.5 border-t border-border/40 space-y-1.5">
         <div className="flex items-center justify-between">
           <label htmlFor="hasRenamedCheck" className="flex items-center gap-2 cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors select-none">
@@ -522,34 +524,39 @@ export function PlaceVisitPreviewCard(props: {
                 const val = Boolean(c);
                 setHasRenamed(val);
                 if (!val) {
-                  setFormerNameInput("");
+                  setNewNameInput("");
                 }
               }}
               className="h-3.5 w-3.5"
             />
             <span>Cet endroit a changé de nom</span>
           </label>
-          {isAutoDetectedRenamed && hasRenamed && (
-            <span className="text-[9px] font-semibold text-amber-700 bg-amber-100/70 dark:bg-amber-950/60 dark:text-amber-300 px-1.5 py-0.5 rounded border border-amber-300/40">
-              Détecté automatiquement
-            </span>
-          )}
         </div>
 
         {hasRenamed && (
-          <div className="space-y-1 animate-in fade-in duration-150 pl-5.5">
-            <Label className="text-[10px] text-muted-foreground">Ancien nom de l'établissement :</Label>
+          <div className="space-y-1.5 animate-in fade-in duration-150 pl-5.5">
+            <Label className="text-[10px] text-muted-foreground font-semibold">Nouveau nom de l'établissement :</Label>
             <Input
-              value={formerNameInput}
+              value={newNameInput}
               onChange={(e) => {
-                setFormerNameInput(e.target.value);
-                setIsAutoDetectedRenamed(false);
+                setNewNameInput(e.target.value);
               }}
-              placeholder="Ex: Café Journal, Le Paris..."
+              placeholder="Ex: Le Loft, Nouveau Café..."
               className="h-7 text-xs bg-background/80"
+              autoFocus
             />
-            <p className="text-[10px] text-muted-foreground/80 italic">
-              ✨ Vos anciennes visites restent comptabilisées sous l'ancien nom, et cette visite sera la 1ère sous le nouveau nom.
+            <p className="text-[10.5px] text-muted-foreground/90 leading-relaxed">
+              {newNameInput && newNameInput.trim() ? (
+                <>
+                  ✨ <strong className="font-semibold text-foreground">« {newNameInput.trim()} »</strong> remplacera{' '}
+                  <span className="font-semibold text-foreground">« {currentPlaceName || stats.cleanPlaceName || stats.placeName} »</span>. Cette visite sera votre{' '}
+                  <strong className="text-emerald-600 dark:text-emerald-400 font-bold">1ère</strong> sous ce nouveau nom, et vos anciennes visites restent archivées sous « {currentPlaceName || stats.cleanPlaceName || stats.placeName} ».
+                </>
+              ) : (
+                <>
+                  💡 Saisissez le nouveau nom ci-dessus. Il remplacera <span className="font-semibold text-foreground">« {currentPlaceName || stats.cleanPlaceName || stats.placeName} »</span> et cette visite sera enregistrée comme votre 1ère sous ce nouveau nom.
+                </>
+              )}
             </p>
           </div>
         )}

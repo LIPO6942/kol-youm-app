@@ -844,38 +844,30 @@ export default function DecisionMaker() {
     const [isSaving, setIsSaving] = useState(false);
     const [viewedDate, setViewedDate] = useState(getInitialLocalDateTime());
     const [hasRenamed, setHasRenamed] = useState(false);
-    const [formerNameInput, setFormerNameInput] = useState("");
-    const [isAutoDetectedRenamed, setIsAutoDetectedRenamed] = useState(false);
+    const [newNameInput, setNewNameInput] = useState("");
 
     const effectivePlace = (selectedPlace || searchQuery).trim();
 
     useEffect(() => {
-      if (!effectivePlace) {
-        setIsAutoDetectedRenamed(false);
-        return;
-      }
-      const inline = extractInlineFormerName(effectivePlace);
-      const dbInfo = findFormerNameInClosedMap(inline.cleanName || effectivePlace, closedPlacesMap);
-      const detectedFormer = inline.formerName || dbInfo?.formerName;
+      setHasRenamed(false);
+      setNewNameInput("");
+    }, [selectedPlace]);
 
-      if (detectedFormer) {
-        setHasRenamed(true);
-        setFormerNameInput(detectedFormer);
-        setIsAutoDetectedRenamed(true);
-      }
-    }, [effectivePlace, closedPlacesMap]);
+    const isRenaming = Boolean(hasRenamed && newNameInput.trim());
+    const targetPlaceForPreview = isRenaming ? newNameInput.trim() : effectivePlace;
+    const targetFormerForPreview = isRenaming ? effectivePlace : undefined;
 
     const previewStats = useMemo(() => {
       if (!effectivePlace) return null;
       return calculatePlaceVisitStats({
-        placeName: effectivePlace,
+        placeName: targetPlaceForPreview,
         userVisits: userProfile?.visits || [],
         closedPlacesMap,
-        manualFormerName: hasRenamed ? formerNameInput : undefined,
-        isManualRenamedChecked: hasRenamed,
+        manualFormerName: targetFormerForPreview,
+        isManualRenamedChecked: isRenaming,
         currentVisitDate: new Date(viewedDate).getTime() || Date.now()
       });
-    }, [effectivePlace, userProfile?.visits, closedPlacesMap, hasRenamed, formerNameInput, viewedDate]);
+    }, [effectivePlace, targetPlaceForPreview, targetFormerForPreview, isRenaming, userProfile?.visits, closedPlacesMap, viewedDate]);
 
     const redirectSuggestion = useMemo(() => {
       if (!effectivePlace || hasRenamed) return null;
@@ -886,12 +878,11 @@ export default function DecisionMaker() {
       });
     }, [effectivePlace, closedPlacesMap, combinedPlaces, hasRenamed]);
 
-    const handleApplyRedirect = (replacementName: string, oldName: string) => {
+    const handleApplyRedirect = (replacementName: string, _oldName: string) => {
       setSelectedPlace(replacementName);
-      setSearchQuery(replacementName);
-      setHasRenamed(true);
-      setFormerNameInput(oldName);
-      setIsAutoDetectedRenamed(true);
+      setSearchQuery("");
+      setHasRenamed(false);
+      setNewNameInput("");
     };
 
     useEffect(() => {
@@ -979,23 +970,37 @@ export default function DecisionMaker() {
     }, [selectedPlace, searchQuery, selectedCat, combinedPlaces]);
 
     const handleSave = async () => {
-      const placeToSave = selectedPlace || searchQuery.trim();
+      const placeToSave = (selectedPlace || searchQuery).trim();
       if (!placeToSave) return;
       if (!user) return;
 
+      if (hasRenamed && !newNameInput.trim()) {
+        toast({
+          title: "Nouveau nom requis",
+          description: "Veuillez saisir le nouveau nom de l'établissement, ou décocher la case.",
+          variant: "destructive"
+        });
+        return;
+      }
+
       setIsSaving(true);
       try {
-        const cleanedName = cleanPlaceName(placeToSave);
+        const isRenaming = Boolean(hasRenamed && newNameInput.trim());
+        const cleanedOldName = cleanPlaceName(placeToSave);
+        const cleanedNewName = isRenaming ? cleanPlaceName(newNameInput.trim()) : '';
+        const effectivePlaceToSave = isRenaming ? cleanedNewName : cleanedOldName;
+        const targetFormerName = isRenaming ? cleanedOldName : undefined;
+
         const parsedDate = new Date(viewedDate).getTime();
         const dateMs = !isNaN(parsedDate) ? parsedDate : Date.now();
 
         // Calculate visit stats BEFORE adding the new visit to Firestore
         const visitStats = calculatePlaceVisitStats({
-          placeName: cleanedName,
+          placeName: effectivePlaceToSave,
           userVisits: userProfile?.visits || [],
           closedPlacesMap,
-          manualFormerName: hasRenamed ? formerNameInput : undefined,
-          isManualRenamedChecked: hasRenamed,
+          manualFormerName: targetFormerName,
+          isManualRenamedChecked: isRenaming,
           currentVisitDate: dateMs
         });
 
@@ -1004,7 +1009,7 @@ export default function DecisionMaker() {
 
           // Enregistrer la visite
           await addVisitLog(user.uid, {
-            placeName: cleanedName,
+            placeName: effectivePlaceToSave,
             category: selectedCat,
             date: dateMs,
             orderedItem: finalOrderedItem || undefined
@@ -1016,7 +1021,7 @@ export default function DecisionMaker() {
               title: finalOrderedItem,
               viewedAt: dateMs,
               watchedInCinema: true,
-              cinemaPlace: cleanedName,
+              cinemaPlace: effectivePlaceToSave,
             };
             if (selectedMovie) {
               if (selectedMovie.posterUrl) movieData.posterUrl = selectedMovie.posterUrl;
@@ -1044,6 +1049,48 @@ export default function DecisionMaker() {
               });
             }
           }
+
+          if (isRenaming) {
+            try {
+              await fetch('/api/places-database-firestore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'closeAndReplacePlace',
+                  zone: 'La Marsa',
+                  category: 'cinemas',
+                  closedPlaceName: cleanedOldName,
+                  newPlaceName: cleanedNewName,
+                  reason: 'Changement de nom'
+                })
+              });
+
+              setClosedPlacesMap(prev => ({
+                ...prev,
+                [cleanedOldName.toLowerCase()]: {
+                  replacedBy: cleanedNewName,
+                  closedAt: new Date().toISOString(),
+                  category: 'cinemas',
+                  reason: 'Changement de nom'
+                }
+              }));
+
+              setAllPlaces(prev => {
+                const filtered = prev.filter(p =>
+                  !(p.name.toLowerCase() === cleanedOldName.toLowerCase() && p.category === 'Cinéma')
+                );
+                filtered.push({
+                  name: cleanedNewName,
+                  category: 'Cinéma',
+                  zone: 'La Marsa',
+                  specialties: []
+                });
+                return filtered;
+              });
+            } catch (err) {
+              console.error("Erreur enregistrement renommage cinéma:", err);
+            }
+          }
         } else {
           // For other categories, allow multiple commands / tags in a single visit log (comma separated)
           const commands = [orderedItem, orderedItem2, orderedItem3]
@@ -1053,7 +1100,7 @@ export default function DecisionMaker() {
           const finalOrderedItem = commands.length > 0 ? commands.join(', ') : undefined;
 
           const existingPlace = allPlaces.find((p: { name: string; category: string; zone: string; specialties: string[] }) =>
-            p.name.toLowerCase() === cleanedName.toLowerCase() &&
+            p.name.toLowerCase() === cleanedOldName.toLowerCase() &&
             p.category.toLowerCase() === selectedCat.toLowerCase()
           );
 
@@ -1068,7 +1115,7 @@ export default function DecisionMaker() {
             : (existingPlace ? existingPlace.zone : chosenZone);
 
           await addVisitLog(user.uid, {
-            placeName: cleanedName,
+            placeName: effectivePlaceToSave,
             category: selectedCat,
             date: dateMs,
             orderedItem: finalOrderedItem,
@@ -1076,45 +1123,59 @@ export default function DecisionMaker() {
             zone: targetZone
           });
 
-          // If place renamed and former name provided, register in Firestore closedPlaces if not already there
-          if (hasRenamed && formerNameInput.trim()) {
-            const trimmedFormer = formerNameInput.trim();
-            const alreadyMapped = Object.entries(closedPlacesMap).some(
-              ([oldName, info]) => oldName.toLowerCase() === trimmedFormer.toLowerCase() && isSamePlace(info.replacedBy || '', cleanedName)
-            );
+          // If place renamed, close and replace in Firestore and in local state
+          if (isRenaming) {
+            try {
+              const catKey = selectedCat === 'Kharjet' ? 'kharjet' : selectedCat.toLowerCase();
+              const specialtiesToSet = commands.length > 0
+                ? commands
+                : (existingPlace?.specialties || []);
 
-            if (!alreadyMapped) {
-              try {
-                const catKey = selectedCat === 'Kharjet' ? 'kharjet' : selectedCat.toLowerCase();
-                await fetch('/api/places-database-firestore', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    action: 'closeAndReplacePlace',
+              await fetch('/api/places-database-firestore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'closeAndReplacePlace',
+                  zone: targetZone || 'La Marsa',
+                  category: catKey,
+                  closedPlaceName: cleanedOldName,
+                  newPlaceName: cleanedNewName,
+                  reason: 'Changement de nom',
+                  specialties: specialtiesToSet
+                })
+              });
+
+              setClosedPlacesMap(prev => ({
+                ...prev,
+                [cleanedOldName.toLowerCase()]: {
+                  replacedBy: cleanedNewName,
+                  closedAt: new Date().toISOString(),
+                  category: catKey,
+                  reason: 'Changement de nom'
+                }
+              }));
+
+              setAllPlaces(prev => {
+                const filtered = prev.filter(p =>
+                  !(p.name.toLowerCase() === cleanedOldName.toLowerCase() && p.category.toLowerCase() === selectedCat.toLowerCase())
+                );
+                const alreadyExists = filtered.some(p =>
+                  p.name.toLowerCase() === cleanedNewName.toLowerCase() && p.category.toLowerCase() === selectedCat.toLowerCase()
+                );
+                if (!alreadyExists) {
+                  filtered.push({
+                    name: cleanedNewName,
+                    category: selectedCat,
                     zone: targetZone || 'La Marsa',
-                    category: catKey,
-                    closedPlaceName: trimmedFormer,
-                    newPlaceName: cleanedName,
-                    reason: 'Changement de nom'
-                  })
-                });
-
-                setClosedPlacesMap(prev => ({
-                  ...prev,
-                  [trimmedFormer.toLowerCase()]: {
-                    replacedBy: cleanedName,
-                    closedAt: new Date().toISOString(),
-                    category: catKey,
-                    reason: 'Changement de nom'
-                  }
-                }));
-              } catch (err) {
-                console.error("Erreur enregistrement ancien nom:", err);
-              }
+                    specialties: specialtiesToSet
+                  });
+                }
+                return filtered;
+              });
+            } catch (err) {
+              console.error("Erreur enregistrement remplacement nom:", err);
             }
-          }
-
-          if (!existingPlace) {
+          } else if (!existingPlace) {
             // C'est un nouveau lieu : l'enregistrer dans Firestore et dans allPlaces
             try {
               const catKey = selectedCat === 'Kharjet' ? 'kharjet' : selectedCat.toLowerCase();
@@ -1125,7 +1186,7 @@ export default function DecisionMaker() {
                   action: 'addPlace',
                   zone: targetZone,
                   category: catKey,
-                  placeName: cleanedName,
+                  placeName: cleanedOldName,
                   specialties: commands
                 })
               });
@@ -1133,7 +1194,7 @@ export default function DecisionMaker() {
               setAllPlaces(prev => [
                 ...prev,
                 {
-                  name: cleanedName,
+                  name: cleanedOldName,
                   category: selectedCat,
                   zone: targetZone,
                   specialties: commands
@@ -1210,8 +1271,7 @@ export default function DecisionMaker() {
         setNewCustomZone("");
         setViewedDate(getInitialLocalDateTime());
         setHasRenamed(false);
-        setFormerNameInput("");
-        setIsAutoDetectedRenamed(false);
+        setNewNameInput("");
       } finally {
         setIsSaving(false);
       }
@@ -1402,16 +1462,15 @@ export default function DecisionMaker() {
               />
             )}
 
-            {/* Live insight card & Former name indication */}
+            {/* Live insight card & New name replacement indication */}
             {effectivePlace && previewStats && (
               <PlaceVisitPreviewCard
                 stats={previewStats}
+                currentPlaceName={effectivePlace}
                 hasRenamed={hasRenamed}
                 setHasRenamed={setHasRenamed}
-                formerNameInput={formerNameInput}
-                setFormerNameInput={setFormerNameInput}
-                isAutoDetectedRenamed={isAutoDetectedRenamed}
-                setIsAutoDetectedRenamed={setIsAutoDetectedRenamed}
+                newNameInput={newNameInput}
+                setNewNameInput={setNewNameInput}
               />
             )}
 
