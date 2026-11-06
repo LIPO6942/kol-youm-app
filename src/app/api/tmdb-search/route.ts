@@ -17,7 +17,40 @@ interface TMDBSearchResult {
     poster_path?: string;
     vote_average?: number;
     origin_country?: string[];
+    genre_ids?: number[];
+    overview?: string;
 }
+
+const TMDB_GENRES_MAP: Record<number, string> = {
+    28: 'Action',
+    12: 'Aventure',
+    16: 'Animation',
+    35: 'Comédie',
+    80: 'Crime',
+    99: 'Documentaire',
+    18: 'Drame',
+    10751: 'Familial',
+    14: 'Fantastique',
+    36: 'Histoire',
+    27: 'Horreur',
+    10402: 'Musique',
+    9648: 'Mystère',
+    10749: 'Romance',
+    878: 'Science-Fiction',
+    10770: 'Téléfilm',
+    53: 'Thriller',
+    10752: 'Guerre',
+    37: 'Western',
+    // TV
+    10759: 'Action & Aventure',
+    10762: 'Enfants',
+    10763: 'News',
+    10764: 'Télé-réalité',
+    10765: 'Sci-Fi & Fantastique',
+    10766: 'Soap',
+    10767: 'Talk',
+    10768: 'Guerre & Politique',
+};
 
 interface SearchResult {
     id: number;
@@ -27,6 +60,8 @@ interface SearchResult {
     rating: number;
     posterUrl: string | null;
     country?: string | null;
+    genres?: string[];
+    synopsis?: string;
 }
 
 async function searchTMDB(
@@ -69,6 +104,9 @@ async function searchTMDB(
 function normalizeResult(r: TMDBSearchResult): SearchResult {
     const dateStr = r.release_date || r.first_air_date;
     const year = dateStr ? parseInt(dateStr.substring(0, 4), 10) : null;
+    const genres = Array.isArray(r.genre_ids)
+        ? r.genre_ids.map(id => TMDB_GENRES_MAP[id]).filter((g): g is string => Boolean(g))
+        : [];
     return {
         id: r.id,
         title: r.title || r.name || r.original_title || r.original_name || 'Sans titre',
@@ -77,6 +115,8 @@ function normalizeResult(r: TMDBSearchResult): SearchResult {
         rating: Math.round((r.vote_average || 0) * 10) / 10,
         posterUrl: r.poster_path ? `${TMDB_IMAGE_BASE}/w500${r.poster_path}` : null,
         country: Array.isArray(r.origin_country) && r.origin_country.length > 0 ? r.origin_country[0] : null,
+        genres,
+        synopsis: r.overview || undefined,
     };
 }
 

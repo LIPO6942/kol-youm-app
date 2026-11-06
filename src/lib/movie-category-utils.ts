@@ -5,9 +5,106 @@ import { MovieCategory, MOVIE_CATEGORIES, MOVIE_CATEGORY_CONFIG } from '@/lib/fi
  * à partir de ses genres TMDb, de son titre ou de son synopsis.
  */
 export function guessMovieCategory(title?: string, genres?: string[], synopsis?: string): MovieCategory {
-  const text = `${title || ''} ${(genres || []).join(' ')} ${synopsis || ''}`.toLowerCase();
+  const normTitle = (title || '').toLowerCase().trim();
+  const genreList = (genres || []).map(g => (g || '').toLowerCase().trim());
+  const normSynopsis = (synopsis || '').toLowerCase().trim();
+  const fullText = `${normTitle} ${genreList.join(' ')} ${normSynopsis}`;
 
-  // 0. Documentaire (Documentary, docu, docu-série, docuseries, reportage, faune, nature...)
+  // -------------------------------------------------------------
+  // PALIER 1 : Détection prioritaire par genres officiels TMDb
+  // -------------------------------------------------------------
+  if (genreList.length > 0) {
+    // 1. Animation (prioritaire absolu pour les animés / dessins animés)
+    if (genreList.some(g => g.includes('animation') || g.includes('animé') || g.includes('anime'))) {
+      return 'Animation';
+    }
+
+    // 2. Documentaire
+    if (genreList.some(g => g.includes('documentaire') || g.includes('documentary'))) {
+      return 'Documentaire';
+    }
+
+    // 3. Science-Fiction
+    if (genreList.some(g => g.includes('science-fiction') || g.includes('science fiction') || g.includes('sci-fi'))) {
+      return 'Sci-Fi';
+    }
+
+    // 4. Fantastique / Fantasy
+    if (genreList.some(g => g.includes('fantastique') || g.includes('fantasy') || g.includes('fantaisie'))) {
+      return 'Fantaisie';
+    }
+
+    // 5. Horreur
+    if (genreList.some(g => g.includes('horreur') || g.includes('horror') || g.includes('épouvante') || g.includes('epouvante'))) {
+      return 'Horreur/Thriller psy';
+    }
+
+    // 6. Autobiographie / Histoire réelle (souvent classé en Histoire/Drame sur TMDb mais caractérisé dans le synopsis)
+    if (
+      fullText.includes('biopic') ||
+      fullText.includes('histoire vraie') ||
+      fullText.includes('histoire réelle') ||
+      fullText.includes('faits réels') ||
+      fullText.includes("inspiré d'une histoire") ||
+      fullText.includes("inspirée d'une histoire") ||
+      fullText.includes("inspiré de faits") ||
+      fullText.includes("inspirée de faits") ||
+      fullText.includes('true story') ||
+      fullText.includes('based on a true story') ||
+      fullText.includes('autobiographie') ||
+      fullText.includes('autobiography') ||
+      fullText.includes('mémoires') ||
+      fullText.includes('memoir')
+    ) {
+      return 'Autobiographie/Histoire réelle';
+    }
+
+    // 7. Crime / Policier / Enquête
+    if (genreList.some(g => g.includes('crime') || g.includes('policier') || g.includes('mystery') || g.includes('mystère'))) {
+      return 'Crime/Policier';
+    }
+
+    // 8. Thriller (TMDb tag "Thriller")
+    if (genreList.some(g => g.includes('thriller'))) {
+      if (genreList.some(g => g.includes('crime') || g.includes('police'))) {
+        return 'Crime/Policier';
+      }
+      return 'Horreur/Thriller psy';
+    }
+
+    // 9. Guerre / Histoire
+    if (genreList.some(g => g.includes('guerre') || g.includes('war') || g.includes('histoire') || g.includes('history'))) {
+      return 'Histoire/Guerre';
+    }
+
+    // 10. Romance (si comédie romantique sans action, privilégier Romance ou Comédie)
+    if (genreList.some(g => g.includes('romance') || g.includes('romantique'))) {
+      return 'Romance';
+    }
+
+    // 11. Comédie
+    if (genreList.some(g => g.includes('comédie') || g.includes('comedie') || g.includes('comedy'))) {
+      return 'Comédie';
+    }
+
+    // 12. Action / Aventure / Western
+    if (genreList.some(g => g.includes('action') || g.includes('aventure') || g.includes('adventure') || g.includes('western'))) {
+      return 'Action';
+    }
+
+    // 13. Drame pur
+    if (genreList.some(g => g.includes('drame') || g.includes('drama'))) {
+      return 'Drame';
+    }
+  }
+
+  // -------------------------------------------------------------
+  // PALIER 2 : Détection textuelle (Titre + Synopsis + Mots-clés)
+  // Utilisé si TMDb n'a pas encore renvoyé de genres ou pour les saisies manuelles
+  // -------------------------------------------------------------
+  const text = fullText;
+
+  // 0. Documentaire
   if (
     text.includes('documentaire') ||
     text.includes('documentary') ||
@@ -16,7 +113,7 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     text.includes('docu-série') ||
     text.includes('docu-serie') ||
     text.includes('reportage') ||
-    text.includes('investigation') && (text.includes('journal') || text.includes('réel')) ||
+    (text.includes('investigation') && (text.includes('journal') || text.includes('réel'))) ||
     text.includes('planet earth') ||
     text.includes('our planet') ||
     text.includes('national geographic') ||
@@ -26,7 +123,7 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Documentaire';
   }
 
-  // 1. Autobiographie / Histoire réelle (biopic, faits réels, autobiographie...)
+  // 1. Autobiographie / Histoire réelle
   if (
     text.includes('autobiographie') ||
     text.includes('autobiography') ||
@@ -52,7 +149,7 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Autobiographie/Histoire réelle';
   }
 
-  // 2. Animation (Prioritaire pour tous les films d'animation, anime, Pixar, Disney, etc.)
+  // 2. Animation
   if (
     text.includes('animation') ||
     text.includes('animé') ||
@@ -69,7 +166,7 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Animation';
   }
 
-  // 3. Fantaisie (Fantasy, fantastique, magie, sorciers, dragons, mythologie...)
+  // 3. Fantaisie
   if (
     text.includes('fantaisie') ||
     text.includes('fantasy') ||
@@ -104,7 +201,6 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
 
   // 4. Sci-Fi
   if (
-
     text.includes('science-fiction') ||
     text.includes('science fiction') ||
     text.includes('sci-fi') ||
@@ -113,12 +209,17 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     text.includes('alien') ||
     text.includes('futur') ||
     text.includes('cyberpunk') ||
-    text.includes('voyage dans le temps')
+    text.includes('voyage dans le temps') ||
+    text.includes('vaisseau') ||
+    text.includes('galaxie') ||
+    text.includes('intelligence artificielle') ||
+    text.includes('cyborg') ||
+    text.includes('interstellaire')
   ) {
     return 'Sci-Fi';
   }
 
-  // 4. Crime / Policier
+  // 5. Crime / Policier
   if (
     text.includes('crime') ||
     text.includes('criminel') ||
@@ -154,17 +255,7 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Crime/Policier';
   }
 
-  // Mind blowing retiré -> reclassé en Drame
-  if (
-    text.includes('mind blowing') ||
-    text.includes('mindfuck') ||
-    text.includes('plot twist') ||
-    text.includes('illusion')
-  ) {
-    return 'Drame';
-  }
-
-  // 4. Histoire / Guerre
+  // 6. Histoire / Guerre
   if (
     text.includes('guerre') ||
     text.includes('histoire') ||
@@ -174,32 +265,21 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     text.includes('militaire') ||
     text.includes('bataille') ||
     text.includes('soldat') ||
-    text.includes('seconde guerre')
+    text.includes('seconde guerre') ||
+    text.includes('première guerre') ||
+    text.includes('tranchée') ||
+    text.includes('conflit armé')
   ) {
     return 'Histoire/Guerre';
   }
 
-  // 5. Comédie
-  if (
-    text.includes('comédie') ||
-    text.includes('comedie') ||
-    text.includes('comedy') ||
-    text.includes('humour') ||
-    text.includes('drôle') ||
-    text.includes('parodie')
-  ) {
-    return 'Comédie';
-  }
-
-  // 6. Horreur / Thriller psy
+  // 7. Horreur / Thriller psy
   if (
     text.includes('horreur') ||
     text.includes('horror') ||
     text.includes('épouvante') ||
     text.includes('epouvante') ||
-    text.includes('thriller psychologique') ||
-    text.includes('thriller psy') ||
-    text.includes('psychological thriller') ||
+    text.includes('thriller') ||
     text.includes('slasher') ||
     text.includes('zombie') ||
     text.includes('paranormal') ||
@@ -207,18 +287,35 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     text.includes('demon') ||
     text.includes('exorcisme') ||
     text.includes('possession') ||
-    text.includes('angoisse')
+    text.includes('angoisse') ||
+    text.includes('psychopathe') ||
+    text.includes('hanté') ||
+    text.includes('hantee')
   ) {
     return 'Horreur/Thriller psy';
   }
 
-  // 7. Romance
+  // 8. Comédie
+  if (
+    text.includes('comédie') ||
+    text.includes('comedie') ||
+    text.includes('comedy') ||
+    text.includes('humour') ||
+    text.includes('drôle') ||
+    text.includes('parodie') ||
+    text.includes('sketch') ||
+    text.includes('rigolo')
+  ) {
+    return 'Comédie';
+  }
+
+  // 9. Romance
   if (
     text.includes('romance') ||
     text.includes('romantique') ||
     text.includes('romantic') ||
     text.includes('comédie romantique') ||
-    text.includes('histoire d\'amour') ||
+    text.includes("histoire d'amour") ||
     text.includes('coup de foudre') ||
     text.includes('amour') ||
     text.includes('love')
@@ -226,7 +323,7 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     return 'Romance';
   }
 
-  // 8. Action
+  // 10. Action / Aventure / Western
   if (
     text.includes('action') ||
     text.includes('aventure') ||
@@ -235,12 +332,14 @@ export function guessMovieCategory(title?: string, genres?: string[], synopsis?:
     text.includes('arts martiaux') ||
     text.includes('course-poursuite') ||
     text.includes('espionnage') ||
-    text.includes('super-héros')
+    text.includes('super-héros') ||
+    text.includes('western') ||
+    text.includes('cowboy')
   ) {
     return 'Action';
   }
 
-  // 10. Drame par défaut ou si mots clés dramatiques
+  // 11. Drame par défaut
   return 'Drame';
 }
 

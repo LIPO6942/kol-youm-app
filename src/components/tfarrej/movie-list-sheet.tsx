@@ -53,6 +53,7 @@ interface MovieDetails {
   viewedAt?: number;
   collection?: MovieCollectionInfo | null;
   genres?: string[];
+  synopsis?: string;
 }
 
 interface SearchResult {
@@ -63,6 +64,9 @@ interface SearchResult {
   rating: number;
   posterUrl: string | null;
   country?: string | null;
+  genres?: string[];
+  synopsis?: string;
+  category?: MovieCategory;
 }
 
 interface MovieListSheetProps {
@@ -103,7 +107,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
     if (isOpen && initialMovie) {
       setSelectedMovie(initialMovie);
       if (initialMovie.title) {
-        setSelectedCategory(initialMovie.category || guessMovieCategory(initialMovie.title));
+        setSelectedCategory(initialMovie.category || guessMovieCategory(initialMovie.title, initialMovie.genres, initialMovie.synopsis));
       }
     }
   }, [isOpen, initialMovie]);
@@ -111,7 +115,7 @@ function AddMovieDialog({ onAdd, isOpen, onOpenChange, type = 'movie', mode = 's
   // Auto-guess category when movie or title changes
   useEffect(() => {
     if (selectedMovie?.title) {
-      setSelectedCategory(selectedMovie.category || guessMovieCategory(selectedMovie.title, selectedMovie.genres));
+      setSelectedCategory(selectedMovie.category || guessMovieCategory(selectedMovie.title, selectedMovie.genres, selectedMovie.synopsis));
     } else if (manualTitle.trim()) {
       setSelectedCategory(guessMovieCategory(manualTitle));
     }
@@ -1209,7 +1213,7 @@ function MovieListContent({
     return (
       localCategories[norm] ||
       (userCats || {})[norm] ||
-      guessMovieCategory(movieTitle, details?.genres)
+      guessMovieCategory(movieTitle, details?.genres, details?.synopsis)
     );
   }, [localCategories, userProfile, isSeries, movieDetails]);
 
@@ -2310,35 +2314,20 @@ function MovieListContent({
                     <span>Relancer un autre</span>
                   </Button>
 
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        onMarkAsWatched(rouletteMovie);
-                        setIsRouletteOpen(false);
-                      }}
-                      className="h-8 rounded-xl text-xs font-bold gap-1 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 active:scale-95 transition-all cursor-pointer"
-                      title="Marquer comme vu"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      <span>Marquer vu</span>
-                    </Button>
-
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => {
-                        setSearchQuery(rouletteMovie);
-                        setIsRouletteOpen(false);
-                      }}
-                      className="h-8 rounded-xl text-xs font-bold px-3 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white active:scale-95 transition-all cursor-pointer shadow-xs"
-                      title="Filtrer la liste sur ce film pour le voir en détail"
-                    >
-                      <span>Voir dans la liste</span>
-                    </Button>
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      onMarkAsWatched(rouletteMovie);
+                      setIsRouletteOpen(false);
+                    }}
+                    className="h-8 rounded-xl text-xs font-bold gap-1 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 active:scale-95 transition-all cursor-pointer"
+                    title="Marquer comme vu"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>Marquer vu</span>
+                  </Button>
                 </div>
               </div>
             );
@@ -2777,6 +2766,8 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
       let tmdbId: number | undefined;
       let tmdbUrl: string | undefined;
       let collection: MovieCollectionInfo | undefined = seenData?.collection;
+      let genres: string[] | undefined = seenData?.genres || (seenData?.category ? [seenData.category] : undefined);
+      let synopsis: string | undefined = undefined;
 
       const response = await fetch('/api/tmdb-movie-details', {
         method: 'POST',
@@ -2791,6 +2782,12 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
           year = year || data.movie.year;
           country = data.movie.countryCode || data.movie.country || country;
           wikipediaUrl = data.movie.wikipediaUrl;
+          if (Array.isArray(data.movie.genres) && data.movie.genres.length > 0) {
+            genres = data.movie.genres;
+          }
+          if (data.movie.synopsis) {
+            synopsis = data.movie.synopsis;
+          }
           if (data.movie.id) {
             tmdbId = data.movie.id;
             tmdbUrl = data.movie.tmdbUrl || `https://www.themoviedb.org/${type === 'tv' ? 'tv' : 'movie'}/${data.movie.id}`;
@@ -2804,8 +2801,8 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
         }
       }
 
-      // Si toujours pas d'affiche ou d'id TMDB, recherche TMDb de repli
-      if (!posterUrl || !tmdbId) {
+      // Si toujours pas d'affiche, id TMDB ou genres, recherche TMDb de repli
+      if (!posterUrl || !tmdbId || !genres || genres.length === 0) {
         const searchRes = await fetch(`/api/tmdb-search?q=${encodeURIComponent(movieTitle)}&type=${type}`);
         if (searchRes.ok) {
           const searchData = await searchRes.json();
@@ -2817,6 +2814,12 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
             }
             if (!posterUrl && match.posterUrl) {
               posterUrl = match.posterUrl;
+            }
+            if ((!genres || genres.length === 0) && Array.isArray(match.genres)) {
+              genres = match.genres;
+            }
+            if (!synopsis && match.synopsis) {
+              synopsis = match.synopsis;
             }
             year = year || match.year;
             rating = rating || match.rating;
@@ -2845,6 +2848,8 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
           country,
           posterUrl,
           collection,
+          genres,
+          synopsis,
           viewedAt: seenData?.viewedAt || getMovieViewTimestamp(movieTitle) || undefined,
         }
       }));
@@ -2935,7 +2940,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
           posterUrl: movie.posterUrl || undefined,
           year: movie.year || undefined,
           rating: movie.rating || undefined,
-          category: category || guessMovieCategory(movie.title),
+          category: category || guessMovieCategory(movie.title, movie.genres, movie.synopsis),
           country: movie.country || undefined,
         });
       } else {
