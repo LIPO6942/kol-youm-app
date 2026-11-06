@@ -10,10 +10,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv, Swords, Layers, Edit2, MoreHorizontal } from "lucide-react";
+import { Film, Trash2, Eye, Loader2, Star, ExternalLink, Search, Grid3X3, List, X, Calendar, Plus, Check, ChevronDown, Ticket, Clapperboard, Video, Disc, Tv, Swords, Layers, Edit2, MoreHorizontal, Dices } from "lucide-react";
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, getStoredSeriesRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters, MovieCategory, updateMovieCategory, MovieCollectionInfo, updateMovieViewingDate } from '@/lib/firebase/firestore';
+import { moveItemFromWatchlistToSeen, clearUserMovieList, removeMovieFromList, addSeenMovieWithDate, addSeenSeriesWithDate, addItemToWatchlist, getStoredMovieRanking, getStoredSeriesRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters, MovieCategory, updateMovieCategory, MovieCollectionInfo, updateMovieViewingDate, MOVIE_CATEGORY_CONFIG } from '@/lib/firebase/firestore';
 import { storeUserInDb } from '@/lib/indexeddb';
 import { Checkbox } from '@/components/ui/checkbox';
 import { MovieDuelModal } from '@/components/tfarrej/MovieDuelModal';
@@ -52,6 +52,7 @@ interface MovieDetails {
   posterUrl?: string;
   viewedAt?: number;
   collection?: MovieCollectionInfo | null;
+  genres?: string[];
 }
 
 interface SearchResult {
@@ -562,7 +563,7 @@ export function resolveMovieViewTimestamp(
           }
         }
       }
-    } catch {}
+    } catch { }
   }
 
   if (foundTime) return foundTime;
@@ -634,6 +635,10 @@ function MovieListContent({
   const [isSavingDate, setIsSavingDate] = useState<boolean>(false);
   const [localViewedDates, setLocalViewedDates] = useState<Record<string, number | null>>({});
   const [localCategories, setLocalCategories] = useState<Record<string, MovieCategory>>({});
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
+  const [isRouletteOpen, setIsRouletteOpen] = useState(false);
+  const [rouletteMovie, setRouletteMovie] = useState<string | null>(null);
+  const [isRolling, setIsRolling] = useState(false);
 
   const openDateModal = useCallback((title: string, viewedAt?: number, watchedInCinema?: boolean) => {
     setEditingDateMovie({ title, viewedAt, watchedInCinema });
@@ -787,7 +792,7 @@ function MovieListContent({
               }
             });
           }
-        } catch {}
+        } catch { }
       }
 
       return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits, ...fromRankings]))
@@ -824,7 +829,7 @@ function MovieListContent({
               }
             });
           }
-        } catch {}
+        } catch { }
       }
 
       return Array.from(new Set([...rawTitles, ...fromData, ...fromRankings]))
@@ -976,7 +981,7 @@ function MovieListContent({
             if (r?.rankedTitles?.length) localStorageRankings.push(r as MonthlyMovieRanking);
           });
         }
-      } catch {}
+      } catch { }
     }
 
     const bestRanking = pickBest([localRanking, ...allProfileRankings, ...localStorageRankings]);
@@ -1196,7 +1201,33 @@ function MovieListContent({
     return Array.from(years).sort((a, b) => b - a);
   }, [movieDetails]);
 
-  // Filtered movies based on search and year
+  // Helper to resolve category for any movie/series title
+  const getTitleCategory = useCallback((movieTitle: string): MovieCategory => {
+    const norm = movieTitle.toLowerCase().trim();
+    const details = movieDetails[movieTitle] || Object.entries(movieDetails).find(([k]) => k.toLowerCase().trim() === norm)?.[1];
+    const userCats = isSeries ? userProfile?.seriesCategories : userProfile?.movieCategories;
+    return (
+      localCategories[norm] ||
+      (userCats || {})[norm] ||
+      guessMovieCategory(movieTitle, details?.genres)
+    );
+  }, [localCategories, userProfile, isSeries, movieDetails]);
+
+  // Extract categories dynamically present in the watchlist
+  const availableCategories = useMemo(() => {
+    const isWatchlist = listType === 'moviesToWatch' || listType === 'seriesToWatch';
+    if (!isWatchlist || !sortedMovieTitles || sortedMovieTitles.length === 0) return [];
+
+    const cats = new Set<MovieCategory>();
+    sortedMovieTitles.forEach((t: string) => {
+      const cat = getTitleCategory(t);
+      if (cat) cats.add(cat);
+    });
+
+    return Array.from(cats);
+  }, [listType, sortedMovieTitles, getTitleCategory]);
+
+  // Filtered movies based on search, category and year
   const filteredMovies = useMemo(() => {
     let filtered = sortedMovieTitles;
 
@@ -1213,6 +1244,11 @@ function MovieListContent({
       });
     }
 
+    // Filter by category / mood
+    if (selectedCategoryFilter !== 'all') {
+      filtered = filtered.filter(title => getTitleCategory(title) === selectedCategoryFilter);
+    }
+
     // Filter by year
     if (yearFilter !== 'all') {
       const targetYear = parseInt(yearFilter, 10);
@@ -1222,7 +1258,33 @@ function MovieListContent({
     }
 
     return filtered.filter(t => !isTestMovieTitle(t));
-  }, [sortedMovieTitles, searchQuery, yearFilter, movieDetails]);
+  }, [sortedMovieTitles, searchQuery, selectedCategoryFilter, yearFilter, movieDetails, getTitleCategory]);
+
+  // Random roulette handler (Qu'est-ce qu'on regarde ce soir ?)
+  const handleSpinRoulette = useCallback(() => {
+    const pool = filteredMovies.length > 0 ? filteredMovies : sortedMovieTitles;
+    if (!pool || pool.length === 0) {
+      toast({
+        title: "Liste vide",
+        description: `Ajoutez des ${type === 'movie' ? 'films' : 'séries'} à votre liste pour lancer le tirage !`,
+      });
+      return;
+    }
+
+    setIsRolling(true);
+    setIsRouletteOpen(true);
+
+    let candidates = pool;
+    if (pool.length > 1 && rouletteMovie) {
+      candidates = pool.filter(t => t !== rouletteMovie);
+    }
+    const chosen = candidates[Math.floor(Math.random() * candidates.length)] || pool[0];
+
+    setTimeout(() => {
+      setRouletteMovie(chosen);
+      setIsRolling(false);
+    }, 300);
+  }, [filteredMovies, sortedMovieTitles, rouletteMovie, type, toast]);
 
   // For seen movies: group by viewing year (desc), each year is a collapsible section
   const moviesByYear = useMemo(() => {
@@ -1801,6 +1863,20 @@ function MovieListContent({
         </div>
 
         <div className="flex gap-2">
+          {/* Roulette Button (Watchlist only) */}
+          {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleSpinRoulette}
+              className="h-8 w-8 rounded-xl font-bold border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-300 shadow-xs active:scale-95 transition-all cursor-pointer"
+              title="🎲 Qu'est-ce qu'on regarde ce soir ? (Tirage au sort)"
+            >
+              <Dices className="h-4 w-4 text-amber-500 dark:text-amber-400" />
+              <span className="sr-only">Tirage au sort roulette</span>
+            </Button>
+          )}
+
           {/* Add Button (Available for all lists now) */}
           <Button
             variant="outline"
@@ -1831,11 +1907,10 @@ function MovieListContent({
             <Button
               variant={viewMode === 'list' ? 'secondary' : 'ghost'}
               size="icon"
-              className={`h-8 w-8 rounded-lg transition-all ${
-                viewMode === 'list'
+              className={`h-8 w-8 rounded-lg transition-all ${viewMode === 'list'
                   ? 'bg-background shadow-sm font-bold text-foreground'
                   : 'text-muted-foreground hover:text-foreground'
-              }`}
+                }`}
               onClick={() => setViewMode('list')}
             >
               <List className="h-4 w-4" />
@@ -1843,11 +1918,10 @@ function MovieListContent({
             <Button
               variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
               size="icon"
-              className={`h-8 w-8 rounded-lg transition-all ${
-                viewMode === 'grid'
+              className={`h-8 w-8 rounded-lg transition-all ${viewMode === 'grid'
                   ? 'bg-background shadow-sm font-bold text-foreground'
                   : 'text-muted-foreground hover:text-foreground'
-              }`}
+                }`}
               onClick={() => setViewMode('grid')}
             >
               <Grid3X3 className="h-4 w-4" />
@@ -1856,15 +1930,52 @@ function MovieListContent({
         </div>
       </div>
 
+      {/* Filtres rapides discrets par catégorie/humeur pour la liste À Voir */}
+      {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && availableCategories.length > 1 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 -mt-1 text-xs">
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryFilter('all')}
+            className={`px-2 py-0.5 rounded-lg text-[10.5px] font-medium whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+              selectedCategoryFilter === 'all'
+                ? 'bg-foreground text-background font-semibold shadow-xs'
+                : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/40'
+            }`}
+          >
+            Tous ({sortedMovieTitles.length})
+          </button>
+          {availableCategories.map(cat => {
+            const config = MOVIE_CATEGORY_CONFIG[cat];
+            const count = sortedMovieTitles.filter(t => getTitleCategory(t) === cat).length;
+            const isSelected = selectedCategoryFilter === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategoryFilter(isSelected ? 'all' : cat)}
+                className={`px-2 py-0.5 rounded-lg text-[10.5px] font-medium whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer shrink-0 ${
+                  isSelected
+                    ? 'bg-primary/20 text-primary border border-primary/40 font-semibold shadow-xs'
+                    : 'bg-muted/40 hover:bg-muted/70 text-muted-foreground hover:text-foreground border border-border/30'
+                }`}
+              >
+                {config?.emoji && <span className="text-[11px]">{config.emoji}</span>}
+                <span>{config?.shortLabel || cat}</span>
+                <span className="text-[9.5px] opacity-70">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Duel Ranking Trigger for Seen Movies and Series */}
       {(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && (
         <Button
           onClick={() => setIsDuelModalOpen(true)}
-          className={`w-full font-black text-xs sm:text-sm h-10 rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${
-            hasUnrankedMovies
+          className={`w-full font-black text-xs sm:text-sm h-10 rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] ${hasUnrankedMovies
               ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-[0_4px_16px_rgba(99,102,241,0.35)] hover:shadow-[0_6px_22px_rgba(99,102,241,0.5)] border border-white/20 animate-pulse'
               : 'border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-yellow-500/10 hover:from-amber-500/25 hover:to-yellow-500/20 text-amber-600 dark:text-amber-300 shadow-sm hover:shadow hover:border-amber-500/60'
-          }`}
+            }`}
         >
           <Swords className="w-4 h-4 text-amber-400 drop-shadow" />
           <span>
@@ -1954,7 +2065,16 @@ function MovieListContent({
 
               {/* Standard List (Watchlist or Search Results) */}
               {!(listType === 'seenMovieTitles' || listType === 'seenSeriesTitles') && filteredMovies.length > 0 && (
-                filteredMovies.map((movieTitle: string, index: number) => renderListItem(movieTitle, index))
+                <>
+                  <div className="flex items-center justify-between px-1.5 py-1 text-[11px] text-muted-foreground font-medium">
+                    <span>
+                      {searchQuery
+                        ? `${filteredMovies.length} sur ${movieTitles.length} ${isSeries ? (movieTitles.length > 1 ? 'séries' : 'série') : (movieTitles.length > 1 ? 'films' : 'film')} à voir`
+                        : `${filteredMovies.length} ${isSeries ? (filteredMovies.length > 1 ? 'séries' : 'série') : (filteredMovies.length > 1 ? 'films' : 'film')} à voir`}
+                    </span>
+                  </div>
+                  {filteredMovies.map((movieTitle: string, index: number) => renderListItem(movieTitle, index))}
+                </>
               )}
 
               {/* Fallback Empty State */}
@@ -2012,21 +2132,32 @@ function MovieListContent({
                   })}
                 </>
               ) : (
-                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                  {filteredMovies.length > 0 ? (
-                    filteredMovies.map((movieTitle, index) => renderGridItem(movieTitle, index))
-                  ) : (
-                    <div className="col-span-full flex flex-col items-center justify-center text-center text-muted-foreground h-[40vh]">
-                      {/* Empty state repeated for grid view safety */}
-                      {type === 'movie' ? <Film className="h-10 w-10 mb-4" /> : <Tv className="h-10 w-10 mb-4" />}
-                      {searchQuery || yearFilter !== 'all' ? (
-                        <p>Aucun {type === 'movie' ? 'film' : 'titre'} ne correspond à vos critères.</p>
-                      ) : (
-                        <p>Votre liste est vide.</p>
-                      )}
+                <>
+                  {filteredMovies.length > 0 && (
+                    <div className="flex items-center justify-between px-1.5 pb-2 text-[11px] text-muted-foreground font-medium">
+                      <span>
+                        {searchQuery
+                          ? `${filteredMovies.length} sur ${movieTitles.length} ${isSeries ? (movieTitles.length > 1 ? 'séries' : 'série') : (movieTitles.length > 1 ? 'films' : 'film')} à voir`
+                          : `${filteredMovies.length} ${isSeries ? (filteredMovies.length > 1 ? 'séries' : 'série') : (filteredMovies.length > 1 ? 'films' : 'film')} à voir`}
+                      </span>
                     </div>
                   )}
-                </div>
+                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
+                    {filteredMovies.length > 0 ? (
+                      filteredMovies.map((movieTitle, index) => renderGridItem(movieTitle, index))
+                    ) : (
+                      <div className="col-span-full flex flex-col items-center justify-center text-center text-muted-foreground h-[40vh]">
+                        {/* Empty state repeated for grid view safety */}
+                        {type === 'movie' ? <Film className="h-10 w-10 mb-4" /> : <Tv className="h-10 w-10 mb-4" />}
+                        {searchQuery || yearFilter !== 'all' ? (
+                          <p>Aucun {type === 'movie' ? 'film' : 'titre'} ne correspond à vos critères.</p>
+                        ) : (
+                          <p>Votre liste est vide.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
 
               {/* Empty state for seen list specifically if both empty */}
@@ -2080,6 +2211,108 @@ function MovieListContent({
           />
         </>
       )}
+
+      {/* Dialog Roulette / Tirage au sort */}
+      <Dialog open={isRouletteOpen} onOpenChange={setIsRouletteOpen}>
+        <DialogContent className="sm:max-w-md max-w-[92vw] rounded-2xl p-4 sm:p-5">
+          <DialogHeader className="text-left space-y-1">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <span className="text-xl">🎲</span>
+              <span>Qu'est-ce qu'on regarde ce soir ?</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Tirage au sort parmi vos {filteredMovies.length} {isSeries ? (filteredMovies.length > 1 ? 'séries' : 'série') : (filteredMovies.length > 1 ? 'films' : 'film')} à voir
+              {selectedCategoryFilter !== 'all' ? ` (${selectedCategoryFilter})` : ''}.
+            </DialogDescription>
+          </DialogHeader>
+
+          {isRolling ? (
+            <div className="py-10 flex flex-col items-center justify-center gap-3">
+              <Dices className="h-10 w-10 text-amber-500 animate-spin" />
+              <p className="text-xs text-muted-foreground animate-pulse font-medium">Tirage au sort en cours...</p>
+            </div>
+          ) : rouletteMovie ? (() => {
+            const norm = rouletteMovie.toLowerCase().trim();
+            const details = movieDetails[rouletteMovie] || Object.entries(movieDetails).find(([k]) => k.toLowerCase().trim() === norm)?.[1];
+            const cat = getTitleCategory(rouletteMovie);
+            const posterUrl = details?.posterUrl;
+            return (
+              <div className="space-y-4 py-2">
+                <div className="flex gap-3.5 items-start p-3 rounded-xl bg-muted/40 border border-border/60">
+                  <div className="w-20 h-28 relative rounded-lg overflow-hidden shrink-0 shadow-md bg-muted">
+                    {renderPoster(posterUrl, rouletteMovie, false)}
+                  </div>
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <h3 className="font-bold text-sm sm:text-base text-foreground line-clamp-2 leading-tight">
+                      {rouletteMovie}
+                    </h3>
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                      {cat && <CategoryBadge category={cat} size="xs" />}
+                      {details?.rating && (
+                        <span className="inline-flex items-center gap-0.5 text-amber-500 font-bold text-[11px]">
+                          <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                          {details.rating}/10
+                        </span>
+                      )}
+                      {details?.year && (
+                        <span className="text-[11px] text-muted-foreground bg-muted px-1.5 py-0.2 rounded font-medium">
+                          {details.year}
+                        </span>
+                      )}
+                      {details?.country && formatCountryCode(details.country) && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {formatCountryCode(details.country)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11.5px] text-muted-foreground line-clamp-3 leading-relaxed pt-1">
+                      Bonne séance ! {type === 'movie' ? 'Ce film' : 'Cette série'} a été tiré{type === 'tv' ? 'e' : ''} au sort pour vous.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSpinRoulette}
+                    className="h-8 rounded-xl text-xs font-semibold gap-1.5 border-border/70 hover:bg-muted active:scale-95 transition-all"
+                  >
+                    <Dices className="h-3.5 w-3.5 text-amber-500" />
+                    <span>Relancer</span>
+                  </Button>
+
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        onMarkAsWatched(rouletteMovie);
+                        setIsRouletteOpen(false);
+                      }}
+                      className="h-8 rounded-xl text-xs font-bold gap-1 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 active:scale-95 transition-all"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      <span>Vu</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setIsRouletteOpen(false)}
+                      className="h-8 rounded-xl text-xs font-bold px-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white active:scale-95 transition-all"
+                    >
+                      C'est parti !
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })() : null}
+        </DialogContent>
+      </Dialog>
 
       {editingCategoryMovie && (
         <CategorySelectModal
@@ -2239,33 +2472,30 @@ function MovieListContent({
                   <button
                     type="button"
                     onClick={() => setEditDateMode('none')}
-                    className={`py-2 px-2 rounded-lg transition-all text-center cursor-pointer font-bold ${
-                      editDateMode === 'none'
+                    className={`py-2 px-2 rounded-lg transition-all text-center cursor-pointer font-bold ${editDateMode === 'none'
                         ? 'bg-emerald-600 text-white shadow-md'
                         : 'text-muted-foreground hover:text-foreground hover:bg-background/80'
-                    }`}
+                      }`}
                   >
                     Sans date
                   </button>
                   <button
                     type="button"
                     onClick={() => setEditDateMode('year')}
-                    className={`py-2 px-2 rounded-lg transition-all text-center cursor-pointer font-bold ${
-                      editDateMode === 'year'
+                    className={`py-2 px-2 rounded-lg transition-all text-center cursor-pointer font-bold ${editDateMode === 'year'
                         ? 'bg-emerald-600 text-white shadow-md'
                         : 'text-muted-foreground hover:text-foreground hover:bg-background/80'
-                    }`}
+                      }`}
                   >
                     Année approx.
                   </button>
                   <button
                     type="button"
                     onClick={() => setEditDateMode('exact')}
-                    className={`py-2 px-2 rounded-lg transition-all text-center cursor-pointer font-bold ${
-                      editDateMode === 'exact'
+                    className={`py-2 px-2 rounded-lg transition-all text-center cursor-pointer font-bold ${editDateMode === 'exact'
                         ? 'bg-emerald-600 text-white shadow-md'
                         : 'text-muted-foreground hover:text-foreground hover:bg-background/80'
-                    }`}
+                      }`}
                   >
                     Date précise
                   </button>
@@ -2424,7 +2654,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
               }
             });
           }
-        } catch {}
+        } catch { }
       }
 
       return Array.from(new Set([...rawTitles, ...fromData, ...cinemaVisits, ...fromRankings]))
@@ -2461,7 +2691,7 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
               }
             });
           }
-        } catch {}
+        } catch { }
       }
 
       return Array.from(new Set([...rawTitles, ...fromData, ...fromRankings]))
@@ -2739,9 +2969,14 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
           <SheetHeader>
             <div className="flex justify-between items-start">
               <div>
-                <SheetTitle className="flex items-center gap-2">
+                <SheetTitle className="flex items-center gap-2 flex-wrap">
                   {type === 'movie' ? <Film className="h-5 w-5" /> : <Tv className="h-5 w-5" />}
-                  {title}
+                  <span>{title}</span>
+                  {movieTitles.length > 0 && (
+                    <span className="text-[11px] font-normal text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-full border border-border/50">
+                      {movieTitles.length} {type === 'movie' ? (movieTitles.length > 1 ? 'films' : 'film') : (movieTitles.length > 1 ? 'séries' : 'série')}
+                    </span>
+                  )}
                 </SheetTitle>
                 <SheetDescription>{description}</SheetDescription>
               </div>

@@ -463,6 +463,16 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
 
   const hasUnrankedSeries = seriesUnrankedCount > 0 && monthlySeenSeries.length >= 2;
 
+  const moviesToWatchCount = useMemo(() => {
+    const raw = userProfile?.moviesToWatch;
+    return (Array.isArray(raw) ? raw : []).filter(t => typeof t === 'string' && t.trim() && !isTestMovieTitle(t)).length;
+  }, [userProfile?.moviesToWatch]);
+
+  const seriesToWatchCount = useMemo(() => {
+    const raw = userProfile?.seriesToWatch;
+    return (Array.isArray(raw) ? raw : []).filter(t => typeof t === 'string' && t.trim() && !isTestMovieTitle(t)).length;
+  }, [userProfile?.seriesToWatch]);
+
   useEffect(() => {
     if (genreFromUrl) {
       if (genres.some(g => g.name === genreFromUrl) || genreFromUrl === 'Historique') {
@@ -589,6 +599,11 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
                 >
                   <ListVideo className="mr-1.5 h-4 w-4 flex-shrink-0" />
                   <span className="truncate">À Voir</span>
+                  {moviesToWatchCount > 0 && (
+                    <span className="ml-1 text-[11px] font-normal text-teal-100/90 dark:text-emerald-200/90 shrink-0">
+                      ({moviesToWatchCount})
+                    </span>
+                  )}
                 </Button>
               }
               title="Ma Liste 'À Voir'"
@@ -646,6 +661,11 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
                 >
                   <ListVideo className="mr-1.5 h-4 w-4 flex-shrink-0" />
                   <span className="truncate">À Voir</span>
+                  {seriesToWatchCount > 0 && (
+                    <span className="ml-1 text-[11px] font-normal text-teal-100/90 dark:text-emerald-200/90 shrink-0">
+                      ({seriesToWatchCount})
+                    </span>
+                  )}
                 </Button>
               }
               title="Mes Séries 'À Voir'"
