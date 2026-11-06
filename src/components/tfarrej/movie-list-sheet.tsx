@@ -1213,18 +1213,43 @@ function MovieListContent({
     );
   }, [localCategories, userProfile, isSeries, movieDetails]);
 
-  // Extract categories dynamically present in the watchlist
+  // Extract categories dynamically present in the watchlist, plus common categories so they are always visible
   const availableCategories = useMemo(() => {
     const isWatchlist = listType === 'moviesToWatch' || listType === 'seriesToWatch';
-    if (!isWatchlist || !sortedMovieTitles || sortedMovieTitles.length === 0) return [];
+    if (!isWatchlist) return [];
 
-    const cats = new Set<MovieCategory>();
-    sortedMovieTitles.forEach((t: string) => {
+    const presentCats = new Set<MovieCategory>();
+    (sortedMovieTitles || []).forEach((t: string) => {
       const cat = getTitleCategory(t);
-      if (cat) cats.add(cat);
+      if (cat) presentCats.add(cat);
     });
 
-    return Array.from(cats);
+    const standardOrder: MovieCategory[] = [
+      'Drame',
+      'Comédie',
+      'Action',
+      'Sci-Fi',
+      'Horreur/Thriller psy',
+      'Crime/Policier',
+      'Animation',
+      'Romance',
+      'Histoire/Guerre',
+      'Autobiographie/Histoire réelle',
+      'Fantaisie',
+      'Documentaire',
+    ];
+
+    const ordered: MovieCategory[] = [];
+    // 1. Categories present in user's watchlist first
+    standardOrder.forEach(cat => {
+      if (presentCats.has(cat)) ordered.push(cat);
+    });
+    // 2. Then other categories
+    standardOrder.forEach(cat => {
+      if (!presentCats.has(cat)) ordered.push(cat);
+    });
+
+    return ordered;
   }, [listType, sortedMovieTitles, getTitleCategory]);
 
   // Filtered movies based on search, category and year
@@ -1931,15 +1956,15 @@ function MovieListContent({
       </div>
 
       {/* Filtres rapides discrets par catégorie/humeur pour la liste À Voir */}
-      {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && availableCategories.length > 1 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 -mt-1 text-xs">
+      {(listType === 'moviesToWatch' || listType === 'seriesToWatch') && availableCategories.length > 0 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 -mt-0.5 text-xs">
           <button
             type="button"
             onClick={() => setSelectedCategoryFilter('all')}
-            className={`px-2 py-0.5 rounded-lg text-[10.5px] font-medium whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all cursor-pointer shrink-0 ${
               selectedCategoryFilter === 'all'
-                ? 'bg-foreground text-background font-semibold shadow-xs'
-                : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/40'
+                ? 'bg-foreground text-background font-bold shadow-xs'
+                : 'bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/50'
             }`}
           >
             Tous ({sortedMovieTitles.length})
@@ -1953,15 +1978,17 @@ function MovieListContent({
                 key={cat}
                 type="button"
                 onClick={() => setSelectedCategoryFilter(isSelected ? 'all' : cat)}
-                className={`px-2 py-0.5 rounded-lg text-[10.5px] font-medium whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer shrink-0 ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer shrink-0 ${
                   isSelected
-                    ? 'bg-primary/20 text-primary border border-primary/40 font-semibold shadow-xs'
-                    : 'bg-muted/40 hover:bg-muted/70 text-muted-foreground hover:text-foreground border border-border/30'
+                    ? 'bg-primary/20 text-primary border border-primary/50 font-bold shadow-xs ring-1 ring-primary/30'
+                    : count > 0
+                      ? 'bg-muted/60 hover:bg-muted text-foreground/90 hover:text-foreground border border-border/60'
+                      : 'bg-muted/30 hover:bg-muted/50 text-muted-foreground/60 hover:text-muted-foreground border border-border/30 opacity-70'
                 }`}
               >
-                {config?.emoji && <span className="text-[11px]">{config.emoji}</span>}
+                {config?.emoji && <span className="text-xs">{config.emoji}</span>}
                 <span>{config?.shortLabel || cat}</span>
-                <span className="text-[9.5px] opacity-70">({count})</span>
+                {count > 0 && <span className="text-[10px] font-bold opacity-80">({count})</span>}
               </button>
             );
           })}
@@ -2271,16 +2298,16 @@ function MovieListContent({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-2 pt-1">
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={handleSpinRoulette}
-                    className="h-8 rounded-xl text-xs font-semibold gap-1.5 border-border/70 hover:bg-muted active:scale-95 transition-all"
+                    className="h-8 rounded-xl text-xs font-semibold gap-1.5 border-border/70 hover:bg-muted active:scale-95 transition-all cursor-pointer"
                   >
                     <Dices className="h-3.5 w-3.5 text-amber-500" />
-                    <span>Relancer</span>
+                    <span>Relancer un autre</span>
                   </Button>
 
                   <div className="flex items-center gap-1.5">
@@ -2292,19 +2319,24 @@ function MovieListContent({
                         onMarkAsWatched(rouletteMovie);
                         setIsRouletteOpen(false);
                       }}
-                      className="h-8 rounded-xl text-xs font-bold gap-1 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 active:scale-95 transition-all"
+                      className="h-8 rounded-xl text-xs font-bold gap-1 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 active:scale-95 transition-all cursor-pointer"
+                      title="Marquer comme vu"
                     >
                       <Eye className="h-3.5 w-3.5" />
-                      <span>Vu</span>
+                      <span>Marquer vu</span>
                     </Button>
 
                     <Button
                       type="button"
                       size="sm"
-                      onClick={() => setIsRouletteOpen(false)}
-                      className="h-8 rounded-xl text-xs font-bold px-3.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white active:scale-95 transition-all"
+                      onClick={() => {
+                        setSearchQuery(rouletteMovie);
+                        setIsRouletteOpen(false);
+                      }}
+                      className="h-8 rounded-xl text-xs font-bold px-3 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white active:scale-95 transition-all cursor-pointer shadow-xs"
+                      title="Filtrer la liste sur ce film pour le voir en détail"
                     >
-                      C'est parti !
+                      <span>Voir dans la liste</span>
                     </Button>
                   </div>
                 </div>
