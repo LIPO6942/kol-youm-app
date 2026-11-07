@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { NotificationSettings } from '@/components/settings/notification-settings';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat, Clapperboard, Film, History, Mail, ArrowRightLeft, RotateCcw, AlertCircle, AlertTriangle, Key, EyeOff } from 'lucide-react';
+import { ArrowLeft, Save, Edit2, Database, RefreshCw, Plus, Trash2, X, UtensilsCrossed, Coffee, Sandwich, Pizza, Sun, Mountain, ShoppingBag, Loader2, User, UserSquare, UploadCloud, MapPin, Sparkles, Flame, ChefHat, Clapperboard, Film, History, Mail, ArrowRightLeft, RotateCcw, AlertCircle, AlertTriangle, Key, EyeOff, Search } from 'lucide-react';
 import { findSimilarPlaceInZone, SimilarPlaceMatch } from '@/lib/place-matching-utils';
 import { updateCustomDishRules } from '@/lib/firebase/firestore';
 import { Badge } from '@/components/ui/badge';
@@ -249,7 +249,10 @@ export default function SettingsPage() {
   const [newPlaceName, setNewPlaceName] = useState<string | null>(null);
   const [selectedZone, setSelectedZone] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('cafes');
-  const [editingSpecialties, setEditingSpecialties] = useState<string | null>(null); // placeName
+  const [editingSpecialties, setEditingSpecialties] = useState<{ zone: string; place: string } | null>(null);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
   const [currentSpecialties, setCurrentSpecialties] = useState<string[]>([]);
   const [isSavingSpecialties, setIsSavingSpecialties] = useState(false);
   const specialtyInputRef = useRef<HTMLInputElement>(null);
@@ -1070,6 +1073,102 @@ export default function SettingsPage() {
     }
   };
 
+  // Fermer les suggestions de recherche au clic externe
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Modèle plat de tous les lieux de la base pour la recherche globale
+  interface GlobalPlaceItem {
+    name: string;
+    zone: string;
+    categoryKey: string;
+    categoryLabel: string;
+    specialties: string[];
+  }
+
+  const allGlobalPlaces = useMemo<GlobalPlaceItem[]>(() => {
+    if (!placesDatabase?.zones) return [];
+    const list: GlobalPlaceItem[] = [];
+    const categoriesList: (keyof CategoryPlaces)[] = [
+      'cafes',
+      'restaurants',
+      'fastFoods',
+      'brunch',
+      'kharjet',
+      'shopping',
+      'cinemas'
+    ];
+
+    for (const zoneData of placesDatabase.zones) {
+      const zone = zoneData.zone;
+      if (!zoneData.categories) continue;
+      for (const catKey of categoriesList) {
+        const placesInCat = zoneData.categories[catKey];
+        if (Array.isArray(placesInCat)) {
+          for (const place of placesInCat) {
+            if (!place || !place.trim()) continue;
+            const trimmed = place.trim();
+            const specialties = zoneData.specialties?.[trimmed] || zoneData.specialties?.[place] || [];
+            list.push({
+              name: trimmed,
+              zone,
+              categoryKey: catKey,
+              categoryLabel: getCategoryDisplayName(catKey),
+              specialties
+            });
+          }
+        }
+      }
+    }
+    return list;
+  }, [placesDatabase]);
+
+  const normalizeSearch = (text: string) =>
+    (text || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+
+  const searchFilteredPlaces = useMemo(() => {
+    const q = normalizeSearch(globalSearchQuery);
+    if (!q) return [];
+    const tokens = q.split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return [];
+
+    return allGlobalPlaces.filter((item) => {
+      const searchable = normalizeSearch(
+        `${item.name} ${item.zone} ${item.categoryLabel} ${item.specialties.join(' ')}`
+      );
+      return tokens.every((token) => searchable.includes(token));
+    });
+  }, [allGlobalPlaces, globalSearchQuery]);
+
+  const assistedSuggestions = useMemo(() => {
+    const q = normalizeSearch(globalSearchQuery);
+    if (!q) return [];
+
+    const matches = [...searchFilteredPlaces];
+    matches.sort((a, b) => {
+      const aNameStarts = normalizeSearch(a.name).startsWith(q);
+      const bNameStarts = normalizeSearch(b.name).startsWith(q);
+      if (aNameStarts && !bNameStarts) return -1;
+      if (!aNameStarts && bNameStarts) return 1;
+      return a.name.localeCompare(b.name, 'fr');
+    });
+
+    return matches.slice(0, 8);
+  }, [searchFilteredPlaces, globalSearchQuery]);
+
   // Obtenir toutes les catégories disponibles (toutes les zones confondues)
   const getAllAvailableCategories = () => {
     if (!placesDatabase) return [];
@@ -1635,7 +1734,345 @@ export default function SettingsPage() {
 
                   {placesDatabase && placesDatabase.zones.length > 0 && (
                     <>
-                      {/* Sélecteurs Zone et Catégorie */}
+                      {/* ── Champ de recherche globale avec saisie assistée ── */}
+                      <div ref={searchContainerRef} className="relative mb-5">
+                        <div className="relative">
+                          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                          <Input
+                            type="text"
+                            placeholder="Rechercher un restaurant, café, fast-food, plat, zone..."
+                            value={globalSearchQuery}
+                            onChange={(e) => {
+                              setGlobalSearchQuery(e.target.value);
+                              setShowSuggestions(true);
+                            }}
+                            onFocus={() => {
+                              if (globalSearchQuery.trim()) setShowSuggestions(true);
+                            }}
+                            className="pl-10 pr-28 h-11 bg-card border-border/80 shadow-xs text-sm rounded-xl focus-visible:ring-blue-500"
+                          />
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                            {globalSearchQuery && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setGlobalSearchQuery('');
+                                  setShowSuggestions(false);
+                                }}
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground rounded-full"
+                                title="Effacer la recherche"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <TypedBadge variant="secondary" className="text-[11px] px-2 py-0.5 font-normal text-muted-foreground">
+                              {globalSearchQuery.trim() ? `${searchFilteredPlaces.length} résultat(s)` : `${allGlobalPlaces.length} lieux`}
+                            </TypedBadge>
+                          </div>
+                        </div>
+
+                        {/* Dropdown de saisie assistée (autocomplete) */}
+                        {showSuggestions && globalSearchQuery.trim().length > 0 && (
+                          <div className="absolute z-50 left-0 right-0 mt-1.5 bg-popover/95 backdrop-blur-md border border-border shadow-xl rounded-xl overflow-hidden max-h-80 overflow-y-auto animate-in fade-in-50 zoom-in-98 duration-150">
+                            {assistedSuggestions.length > 0 ? (
+                              <div className="p-1 divide-y divide-border/40">
+                                <div className="px-3 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between bg-muted/40">
+                                  <span>Suggestions ({assistedSuggestions.length})</span>
+                                  <span className="text-[10px] normal-case text-muted-foreground/80">Cliquez pour voir</span>
+                                </div>
+                                {assistedSuggestions.map((item, idx) => (
+                                  <div
+                                    key={`${item.zone}-${item.categoryKey}-${item.name}-${idx}`}
+                                    onClick={() => {
+                                      setGlobalSearchQuery(item.name);
+                                      setShowSuggestions(false);
+                                    }}
+                                    className="p-2.5 hover:bg-accent/60 cursor-pointer rounded-lg transition-colors flex items-center justify-between gap-3 group"
+                                  >
+                                    <div className="flex flex-col gap-0.5 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors truncate">
+                                          {item.name}
+                                        </span>
+                                        <TypedBadge variant="outline" className="text-[10px] px-1.5 py-0 h-4 shrink-0 bg-blue-50/50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200">
+                                          📍 {item.zone}
+                                        </TypedBadge>
+                                        <TypedBadge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 shrink-0">
+                                          {item.categoryLabel}
+                                        </TypedBadge>
+                                      </div>
+                                      {item.specialties.length > 0 && (
+                                        <p className="text-[11px] text-muted-foreground truncate">
+                                          🍽️ <span className="italic">{item.specialties.slice(0, 4).join(', ')}{item.specialties.length > 4 ? '...' : ''}</span>
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <a
+                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([item.name, item.zone, 'Tunisie'].filter(Boolean).join(' '))}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="h-6 w-6 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400 border border-rose-200 dark:border-rose-800 flex items-center justify-center transition-transform hover:scale-110"
+                                        title="Ouvrir dans Google Maps"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <MapPin className="h-3 w-3" />
+                                      </a>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="p-4 text-center text-sm text-muted-foreground">
+                                Aucun lieu trouvé pour « <span className="font-medium text-foreground">{globalSearchQuery}</span> »
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {globalSearchQuery.trim() ? (
+                        /* ── Mode Résultats de Recherche Globale ── */
+                        <div className="space-y-3 sm:space-y-4 mb-6">
+                          <div className="flex items-center justify-between flex-wrap gap-2 px-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm sm:text-base font-semibold">
+                                Résultats dans toute la base ({searchFilteredPlaces.length})
+                              </h4>
+                              <TypedBadge variant="secondary" className="text-xs">
+                                « {globalSearchQuery} »
+                              </TypedBadge>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setGlobalSearchQuery('');
+                                setShowSuggestions(false);
+                              }}
+                              className="h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              <X className="h-3.5 w-3.5 mr-1" />
+                              Effacer et revenir
+                            </Button>
+                          </div>
+
+                          {searchFilteredPlaces.length === 0 ? (
+                            <Card className="border border-dashed p-8 text-center text-muted-foreground">
+                              <p className="text-sm font-medium">Aucun restaurant, café ou lieu ne correspond à votre recherche.</p>
+                              <p className="text-xs mt-1 text-muted-foreground/80">
+                                Essayez avec une autre orthographe, une zone (ex: La Marsa, Ennasr) ou un plat (ex: Pizza, Burger).
+                              </p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="mt-4"
+                                onClick={() => {
+                                  setGlobalSearchQuery('');
+                                  setShowSuggestions(false);
+                                }}
+                              >
+                                Retour à la navigation par zone
+                              </Button>
+                            </Card>
+                          ) : (
+                            <div className="grid grid-cols-1 gap-2.5 sm:gap-3">
+                              {searchFilteredPlaces.map((item, index) => {
+                                const isEditingThis = editingSpecialties?.zone === item.zone && editingSpecialties?.place === item.name;
+
+                                return (
+                                  <div key={`${item.zone}-${item.categoryKey}-${item.name}-${index}`} className="flex flex-col border rounded-xl p-2.5 sm:p-4 bg-card hover:border-blue-200 transition-all group shadow-2xs">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
+                                      <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                                          <span className="text-sm font-semibold text-foreground tracking-tight">{item.name}</span>
+                                          <a
+                                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([item.name, item.zone, 'Tunisie'].filter(Boolean).join(' '))}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400 border border-rose-200 dark:border-rose-800 transition-transform hover:scale-110 shrink-0"
+                                            title={`Localiser « ${item.name} » sur Google Maps`}
+                                            aria-label={`Localiser ${item.name} sur Google Maps`}
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <MapPin className="h-3.5 w-3.5" />
+                                          </a>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-5 px-1.5 text-[10px] text-blue-700 bg-blue-50/60 border-blue-200 hover:bg-blue-100 hover:text-blue-800 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800"
+                                            title={`Voir dans la zone ${item.zone}`}
+                                            onClick={() => {
+                                              setSelectedZone(item.zone);
+                                              setSelectedCategory(item.categoryKey);
+                                              setGlobalSearchQuery('');
+                                              setShowSuggestions(false);
+                                            }}
+                                          >
+                                            📍 {item.zone}
+                                          </Button>
+                                          <TypedBadge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+                                            {item.categoryLabel}
+                                          </TypedBadge>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {item.specialties.map((s, idx) => (
+                                            <TypedBadge key={idx} variant="secondary" className="text-[10px] sm:text-xs px-2 py-0 h-5 bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100 transition-colors">
+                                              {s}
+                                            </TypedBadge>
+                                          ))}
+                                          {item.specialties.length === 0 && !isEditingThis && (
+                                            <span className="text-[10px] text-muted-foreground italic">Aucun plat défini</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-1.5 sm:gap-2 pt-2 sm:pt-0 border-t sm:border-0 w-full sm:w-auto mt-1 sm:mt-0 justify-end flex-wrap sm:flex-nowrap">
+                                        <Button
+                                          size="sm"
+                                          variant={isEditingThis ? "default" : "outline"}
+                                          onClick={() => {
+                                            setEditingSpecialties(isEditingThis ? null : { zone: item.zone, place: item.name });
+                                            setCurrentSpecialties(item.specialties);
+                                            if (!isEditingThis) {
+                                              setTimeout(() => specialtyInputRef.current?.focus(), 100);
+                                            }
+                                          }}
+                                          className={cn("h-8 px-2 sm:px-3 text-xs flex-1 sm:flex-none", isEditingThis && "bg-blue-600 hover:bg-blue-700 text-white")}
+                                        >
+                                          <UtensilsCrossed className="h-3.5 w-3.5 mr-1 sm:mr-1.5 shrink-0" />
+                                          <span>{isEditingThis ? "Fermer" : "Plats"}</span>
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          title="Lieu fermé et remplacé"
+                                          onClick={() => {
+                                            setReplacingPlace({ zone: item.zone, category: item.categoryKey, placeName: item.name });
+                                            setReplacementNewName('');
+                                            setReplacementSpecialties('');
+                                            setReplacementReason('');
+                                          }}
+                                          className="h-8 px-2 sm:px-2.5 text-xs text-amber-600 border-amber-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 flex-1 sm:flex-none font-medium"
+                                        >
+                                          <ArrowRightLeft className="h-3.5 w-3.5 mr-1 sm:mr-1.5 shrink-0" />
+                                          <span>Remplacer</span>
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          title="Supprimer ce lieu"
+                                          onClick={() => handleRemovePlaceFromZoneCategory(item.zone, item.name, item.categoryKey)}
+                                          className="h-8 px-2 sm:px-2.5 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300 flex-1 sm:flex-none font-medium transition-colors"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5 mr-1 sm:mr-1.5 shrink-0" />
+                                          <span>Supprimer</span>
+                                        </Button>
+                                      </div>
+                                    </div>
+
+                                    {/* Éditeur de spécialités */}
+                                    {isEditingThis && (
+                                      <div className="mt-4 pt-4 border-t space-y-4 animate-in slide-in-from-top-2 duration-300">
+                                        <div className="flex flex-col gap-2">
+                                          <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ajouter une spécialité</Label>
+                                          <div className="flex flex-col sm:flex-row gap-2">
+                                            <div className="flex gap-2 flex-1">
+                                              <Input
+                                                ref={specialtyInputRef}
+                                                placeholder="Ex: chapati, malfouf..."
+                                                className="h-10 sm:h-9 text-sm focus-visible:ring-blue-500 flex-1"
+                                                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                                                  if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    const val = e.currentTarget.value.trim();
+                                                    if (val && !currentSpecialties.some((s: string) => s.toLowerCase() === val.toLowerCase())) {
+                                                      setCurrentSpecialties([...currentSpecialties, val]);
+                                                      e.currentTarget.value = '';
+                                                    }
+                                                  }
+                                                }}
+                                              />
+                                              <Button
+                                                size="sm"
+                                                type="button"
+                                                className="h-10 sm:h-9 px-3 shrink-0"
+                                                onClick={() => {
+                                                  if (specialtyInputRef.current) {
+                                                    const val = specialtyInputRef.current.value.trim();
+                                                    if (val && !currentSpecialties.some((s: string) => s.toLowerCase() === val.toLowerCase())) {
+                                                      setCurrentSpecialties([...currentSpecialties, val]);
+                                                      specialtyInputRef.current.value = '';
+                                                    }
+                                                  }
+                                                }}
+                                              >
+                                                <Plus className="h-4 w-4" />
+                                              </Button>
+                                            </div>
+
+                                            <div className="flex gap-2">
+                                              <Button
+                                                size="sm"
+                                                className="h-10 sm:h-9 bg-green-600 hover:bg-green-700 text-white flex-1 sm:flex-none"
+                                                onClick={() => handleUpdateSpecialties(item.zone, item.name, currentSpecialties)}
+                                                disabled={isSavingSpecialties}
+                                              >
+                                                {isSavingSpecialties ? (
+                                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                                ) : (
+                                                  <Save className="h-4 w-4 mr-2" />
+                                                )}
+                                                <span className="sm:hidden lg:inline">Enregistrer</span>
+                                                <span className="hidden sm:inline lg:hidden">OK</span>
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-10 sm:h-9 flex-1 sm:flex-none"
+                                                onClick={() => setEditingSpecialties(null)}
+                                                disabled={isSavingSpecialties}
+                                              >
+                                                <X className="h-4 w-4 mr-2" />
+                                                Annuler
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        {/* Liste des badges avec suppression */}
+                                        <div className="space-y-1.5">
+                                          <Label className="text-[11px] font-medium text-muted-foreground">Plats et spécialités actuels :</Label>
+                                          <div className="flex flex-wrap gap-1.5 p-2.5 bg-muted/30 rounded-lg min-h-[40px] items-center border">
+                                            {currentSpecialties.map((s, idx) => (
+                                              <TypedBadge key={idx} variant="secondary" className="gap-1.5 pl-2.5 pr-1.5 py-1 text-xs bg-background border shadow-2xs">
+                                                {s}
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setCurrentSpecialties(currentSpecialties.filter((it: string) => it !== s))}
+                                                  className="hover:bg-muted p-0.5 rounded-full transition-colors"
+                                                >
+                                                  <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                                </button>
+                                              </TypedBadge>
+                                            ))}
+                                            {currentSpecialties.length === 0 && (
+                                              <span className="text-xs text-muted-foreground italic px-1">Aucune spécialité ajoutée</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          {/* Sélecteurs Zone et Catégorie */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
@@ -1955,7 +2392,7 @@ export default function SettingsPage() {
                                       onKeyPress={(e: React.KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && handleAddPlaceToEditing()}
                                       className="flex-1"
                                     />
-                                    <Button size="sm" onClick={handleAddPlaceToEditing} disabled={!newPlaceName || !newPlaceName.trim()}>
+                                    <Button size="sm" onClick={() => handleAddPlaceToEditing()} disabled={!newPlaceName || !newPlaceName.trim()}>
                                       <Plus className="h-3 w-3" />
                                     </Button>
                                   </div>
@@ -2036,7 +2473,7 @@ export default function SettingsPage() {
                                   <div className="grid grid-cols-1 gap-2.5 sm:gap-3">
                                     {getPlacesForZoneAndCategory(selectedZone, selectedCategory).map((place, index) => {
                                       const specialties = getSpecialtiesForPlace(selectedZone, place);
-                                      const isEditingThis = editingSpecialties === place;
+                                      const isEditingThis = editingSpecialties?.zone === selectedZone && editingSpecialties?.place === place;
 
                                       return (
                                         <div key={index} className="flex flex-col border rounded-xl p-2.5 sm:p-4 bg-card hover:border-blue-200 transition-all group shadow-2xs">
@@ -2072,7 +2509,7 @@ export default function SettingsPage() {
                                                 size="sm"
                                                 variant={isEditingThis ? "default" : "outline"}
                                                 onClick={() => {
-                                                  setEditingSpecialties(isEditingThis ? null : place);
+                                                  setEditingSpecialties(isEditingThis ? null : { zone: selectedZone, place });
                                                   setCurrentSpecialties(specialties);
                                                   if (!isEditingThis) {
                                                     setTimeout(() => specialtyInputRef.current?.focus(), 100);
@@ -2346,6 +2783,8 @@ export default function SettingsPage() {
                             </p>
                           </CardContent>
                         </Card>
+                      )}
+                        </>
                       )}
                     </>
                   )}
