@@ -1272,7 +1272,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
+    <div className="container mx-auto px-2 sm:px-4 py-4 max-w-4xl">
       <div className="flex items-center gap-4 mb-6">
         <Button variant="ghost" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4" />
@@ -1519,14 +1519,14 @@ export default function SettingsPage() {
         <div className="space-y-6">
 
           {/* ── Base de données des lieux ── */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Base de données des lieux</CardTitle>
-              <CardDescription>
+          <Card className="border-x-0 sm:border rounded-none sm:rounded-xl shadow-none sm:shadow-sm -mx-2 sm:mx-0">
+            <CardHeader className="px-3 sm:px-6">
+              <CardTitle className="text-lg sm:text-xl">Base de données des lieux</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
                 Gérez les cafés, restaurants et autres lieux du système IA.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-2 sm:px-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
                   <h3 className="text-lg font-medium flex items-center gap-2">
@@ -1850,43 +1850,43 @@ export default function SettingsPage() {
                       )}
 
                       {/* Statistiques */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
                         <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
-                          <CardContent className="p-4">
+                          <CardContent className="p-2 sm:p-4">
                             <div className="flex items-center justify-between">
                               <div>
-                                <p className="text-sm text-blue-600 font-medium">Total lieux</p>
-                                <p className="text-2xl font-bold text-blue-900">
+                                <p className="text-[11px] sm:text-sm text-blue-600 font-medium">Total lieux</p>
+                                <p className="text-base sm:text-2xl font-bold text-blue-900">
                                   {getGlobalStats().totalPlaces}
                                 </p>
                               </div>
-                              <MapPin className="h-8 w-8 text-blue-500" />
+                              <MapPin className="h-5 w-5 sm:h-8 sm:w-8 text-blue-500 shrink-0" />
                             </div>
                           </CardContent>
                         </Card>
                         <Card className="bg-gradient-to-r from-green-50 to-green-100 border-green-200">
-                          <CardContent className="p-4">
+                          <CardContent className="p-2 sm:p-4">
                             <div className="flex items-center justify-between">
                               <div>
-                                <p className="text-sm text-green-600 font-medium">Zones couvertes</p>
-                                <p className="text-2xl font-bold text-green-900">
+                                <p className="text-[11px] sm:text-sm text-green-600 font-medium">Zones</p>
+                                <p className="text-base sm:text-2xl font-bold text-green-900">
                                   {getGlobalStats().zonesCount}
                                 </p>
                               </div>
-                              <Database className="h-8 w-8 text-green-500" />
+                              <Database className="h-5 w-5 sm:h-8 sm:w-8 text-green-500 shrink-0" />
                             </div>
                           </CardContent>
                         </Card>
                         <Card className="bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200">
-                          <CardContent className="p-4">
+                          <CardContent className="p-2 sm:p-4">
                             <div className="flex items-center justify-between">
                               <div>
-                                <p className="text-sm text-purple-600 font-medium">Catégories</p>
-                                <p className="text-2xl font-bold text-purple-900">
+                                <p className="text-[11px] sm:text-sm text-purple-600 font-medium">Catégories</p>
+                                <p className="text-base sm:text-2xl font-bold text-purple-900">
                                   {getGlobalStats().categoriesCount}
                                 </p>
                               </div>
-                              <Plus className="h-8 w-8 text-purple-500" />
+                              <Plus className="h-5 w-5 sm:h-8 sm:w-8 text-purple-500 shrink-0" />
                             </div>
                           </CardContent>
                         </Card>
@@ -1894,13 +1894,13 @@ export default function SettingsPage() {
 
                       {/* Gestion des lieux pour la zone et catégorie sélectionnées */}
                       {selectedZone && selectedCategory && (
-                        <div className="space-y-4">
-                          <h4 className="text-base font-medium">
+                        <div className="space-y-3 sm:space-y-4">
+                          <h4 className="text-sm sm:text-base font-semibold px-1">
                             {selectedZone} - {getCategoryDisplayName(selectedCategory)}
                           </h4>
 
-                          <Card>
-                            <CardHeader className="pb-3">
+                          <Card className="border border-border/70 rounded-xl shadow-xs overflow-hidden">
+                            <CardHeader className="p-3 sm:px-6 sm:py-4 pb-2 sm:pb-3 border-b bg-muted/20">
                               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div className="flex items-center gap-2 overflow-hidden">
                                   <h5 className="font-medium truncate">{selectedZone}</h5>
@@ -1943,7 +1943,7 @@ export default function SettingsPage() {
                                 </div>
                               </div>
                             </CardHeader>
-                            <CardContent className="pt-0">
+                            <CardContent className="p-2 sm:p-6 pt-3 sm:pt-4">
                               {editingZone === `${selectedZone}-${selectedCategory}` ? (
                                 <div className="space-y-3">
                                   {/* Ajouter un lieu en mode édition */}
@@ -1963,15 +1963,27 @@ export default function SettingsPage() {
                                   {/* Liste des lieux en édition */}
                                   <div className="space-y-1">
                                     {editedPlaces.map((place, index) => (
-                                      <div key={index} className="flex items-center justify-between p-2 border rounded bg-muted/30">
-                                        <span className="text-sm">{place}</span>
+                                      <div key={index} className="flex items-center justify-between p-2 border rounded-lg bg-muted/30">
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                          <span className="text-sm truncate font-medium">{place}</span>
+                                          <a
+                                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([place, selectedZone, 'Tunisie'].filter(Boolean).join(' '))}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400 border border-rose-200 dark:border-rose-800 transition-transform hover:scale-105 shrink-0"
+                                            title={`Localiser « ${place} » sur Google Maps`}
+                                            aria-label={`Localiser ${place} sur Google Maps`}
+                                          >
+                                            <MapPin className="h-3.5 w-3.5" />
+                                          </a>
+                                        </div>
                                         <Button
                                           size="sm"
                                           variant="ghost"
                                           onClick={() => handleRemovePlaceFromEditing(place)}
-                                          className="text-red-500 h-6 w-6 p-0"
+                                          className="text-red-500 h-7 w-7 p-0 hover:bg-red-50"
                                         >
-                                          <Trash2 className="h-3 w-3" />
+                                          <Trash2 className="h-3.5 w-3.5" />
                                         </Button>
                                       </div>
                                     ))}
@@ -2021,16 +2033,29 @@ export default function SettingsPage() {
                                   )}
 
                                   {/* Liste des lieux */}
-                                  <div className="grid grid-cols-1 gap-3">
+                                  <div className="grid grid-cols-1 gap-2.5 sm:gap-3">
                                     {getPlacesForZoneAndCategory(selectedZone, selectedCategory).map((place, index) => {
                                       const specialties = getSpecialtiesForPlace(selectedZone, place);
                                       const isEditingThis = editingSpecialties === place;
 
                                       return (
-                                        <div key={index} className="flex flex-col border rounded p-3 sm:p-4 bg-card hover:border-blue-200 transition-all group shadow-sm">
-                                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 overflow-hidden">
+                                        <div key={index} className="flex flex-col border rounded-xl p-2.5 sm:p-4 bg-card hover:border-blue-200 transition-all group shadow-2xs">
+                                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
                                             <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-                                              <span className="text-sm font-semibold truncate">{place}</span>
+                                              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                                                <span className="text-sm font-semibold text-foreground tracking-tight">{place}</span>
+                                                <a
+                                                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([place, selectedZone, 'Tunisie'].filter(Boolean).join(' '))}`}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400 border border-rose-200 dark:border-rose-800 transition-transform hover:scale-110 shrink-0"
+                                                  title={`Localiser « ${place} » sur Google Maps`}
+                                                  aria-label={`Localiser ${place} sur Google Maps`}
+                                                  onClick={(e) => e.stopPropagation()}
+                                                >
+                                                  <MapPin className="h-3.5 w-3.5" />
+                                                </a>
+                                              </div>
                                               <div className="flex flex-wrap gap-1.5">
                                                 {specialties.map((s, idx) => (
                                                   <TypedBadge key={idx} variant="secondary" className="text-[10px] sm:text-xs px-2 py-0 h-5 bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100 transition-colors">
@@ -2042,7 +2067,7 @@ export default function SettingsPage() {
                                                 )}
                                               </div>
                                             </div>
-                                            <div className="flex items-center gap-2 self-end sm:self-auto pt-2 sm:pt-0 border-t sm:border-0 w-full sm:w-auto mt-2 sm:mt-0">
+                                            <div className="flex items-center gap-1.5 sm:gap-2 pt-2 sm:pt-0 border-t sm:border-0 w-full sm:w-auto mt-1 sm:mt-0 justify-end flex-wrap sm:flex-nowrap">
                                               <Button
                                                 size="sm"
                                                 variant={isEditingThis ? "default" : "outline"}
@@ -2053,12 +2078,12 @@ export default function SettingsPage() {
                                                     setTimeout(() => specialtyInputRef.current?.focus(), 100);
                                                   }
                                                 }}
-                                                className={cn("h-8 flex-1 sm:flex-none px-3 text-xs", isEditingThis && "bg-blue-600 hover:bg-blue-700")}
+                                                className={cn("h-8 px-2 sm:px-3 text-xs flex-1 sm:flex-none", isEditingThis && "bg-blue-600 hover:bg-blue-700 text-white")}
                                               >
-                                                <UtensilsCrossed className="h-3.5 w-3.5 mr-2" />
-                                                {isEditingThis ? "Fermer l'édition" : "Modifier Plats"}
+                                                <UtensilsCrossed className="h-3.5 w-3.5 mr-1 sm:mr-1.5 shrink-0" />
+                                                <span>{isEditingThis ? "Fermer" : "Plats"}</span>
                                               </Button>
-                                                                                            <Button
+                                              <Button
                                                 size="sm"
                                                 variant="outline"
                                                 title="Lieu fermé et remplacé"
@@ -2068,18 +2093,20 @@ export default function SettingsPage() {
                                                   setReplacementSpecialties('');
                                                   setReplacementReason('');
                                                 }}
-                                                className="h-8 flex-1 sm:flex-none px-2.5 text-xs text-amber-600 border-amber-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300"
+                                                className="h-8 px-2 sm:px-2.5 text-xs text-amber-600 border-amber-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 flex-1 sm:flex-none font-medium"
                                               >
-                                                <ArrowRightLeft className="h-3.5 w-3.5 mr-1" />
-                                                <span className="hidden sm:inline">Remplacer</span>
+                                                <ArrowRightLeft className="h-3.5 w-3.5 mr-1 sm:mr-1.5 shrink-0" />
+                                                <span>Remplacer</span>
                                               </Button>
                                               <Button
                                                 size="sm"
-                                                variant="ghost"
+                                                variant="outline"
+                                                title="Supprimer ce lieu"
                                                 onClick={() => handleRemovePlaceFromZoneCategory(selectedZone, place, selectedCategory)}
-                                                className="text-red-500 h-8 w-8 p-0 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="h-8 px-2 sm:px-2.5 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 hover:border-red-300 flex-1 sm:flex-none font-medium transition-colors"
                                               >
-                                                <Trash2 className="h-4 w-4" />
+                                                <Trash2 className="h-3.5 w-3.5 mr-1 sm:mr-1.5 shrink-0" />
+                                                <span>Supprimer</span>
                                               </Button>
                                             </div>
                                           </div>
@@ -2204,6 +2231,15 @@ export default function SettingsPage() {
                                                   {info.replacedBy ? (
                                                     <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
                                                       ➔ Remplacé par <strong className="underline underline-offset-2">{info.replacedBy}</strong>
+                                                      <a
+                                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([info.replacedBy, selectedZone, 'Tunisie'].filter(Boolean).join(' '))}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400 border border-rose-200 dark:border-rose-800 transition-transform hover:scale-105 shrink-0 ml-0.5"
+                                                        title={`Localiser « ${info.replacedBy} » sur Google Maps`}
+                                                      >
+                                                        <MapPin className="h-3 w-3" />
+                                                      </a>
                                                     </span>
                                                   ) : (
                                                     <span className="text-red-500 italic">(Fermé définitivement)</span>
@@ -2319,8 +2355,8 @@ export default function SettingsPage() {
           </Card>
 
           {/* ── Mes Salles de Cinéma ── */}
-          <Card className="border-violet-100 dark:border-slate-800 shadow-sm overflow-hidden mb-6">
-            <CardHeader className="bg-gradient-to-r from-violet-500/10 to-purple-500/10 border-b border-violet-100/50">
+          <Card className="border-x-0 sm:border rounded-none sm:rounded-xl shadow-none sm:shadow-sm -mx-2 sm:mx-0 border-violet-100 dark:border-slate-800 overflow-hidden mb-6">
+            <CardHeader className="px-3 sm:px-6 bg-gradient-to-r from-violet-500/10 to-purple-500/10 border-b border-violet-100/50">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center shadow-md shadow-violet-500/20">
                   <Clapperboard className="h-5 w-5 text-white" />
@@ -2374,10 +2410,10 @@ export default function SettingsPage() {
           </Card>
 
           {/* ── Mes Règles Culinaires ── */}
-          <Card className="border-orange-100 dark:border-slate-800 shadow-sm overflow-hidden">
+          <Card className="border-x-0 sm:border rounded-none sm:rounded-xl shadow-none sm:shadow-sm -mx-2 sm:mx-0 border-orange-100 dark:border-slate-800 overflow-hidden">
             <Accordion type="single" collapsible className="w-full">
               <AccordionItem value="rules" className="border-none">
-                <AccordionTrigger className="hover:no-underline px-6 py-4 bg-gradient-to-r from-orange-500/10 to-amber-500/10 border-b border-orange-100/50 dark:border-slate-800/50 outline-none">
+                <AccordionTrigger className="hover:no-underline px-3 sm:px-6 py-4 bg-gradient-to-r from-orange-500/10 to-amber-500/10 border-b border-orange-100/50 dark:border-slate-800/50 outline-none">
                   <div className="flex items-center gap-3 text-left w-full">
                     <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-md shadow-orange-500/20 shrink-0">
                       <ChefHat className="h-5 w-5 text-white" />
@@ -2477,7 +2513,7 @@ export default function SettingsPage() {
 
       {/* Modal de remplacement de lieu */}
       <Dialog open={!!replacingPlace} onOpenChange={(open) => !open && setReplacingPlace(null)}>
-        <DialogContent className="sm:max-w-[450px]">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-[calc(100vw-1rem)] sm:max-w-[480px] p-4 sm:p-6 rounded-2xl sm:rounded-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ArrowRightLeft className="h-5 w-5 text-amber-500" />
@@ -2530,18 +2566,19 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:gap-2 flex-col-reverse sm:flex-row mt-2">
             <Button
               variant="outline"
               onClick={() => setReplacingPlace(null)}
               disabled={isSubmittingReplacement}
+              className="w-full sm:w-auto"
             >
               Annuler
             </Button>
             <Button
               onClick={handleCloseAndReplacePlace}
               disabled={!replacementNewName.trim() || isSubmittingReplacement}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
+              className="bg-amber-600 hover:bg-amber-700 text-white w-full sm:w-auto"
             >
               {isSubmittingReplacement ? (
                 <>
@@ -2558,7 +2595,7 @@ export default function SettingsPage() {
 
       {/* Modal de confirmation de suppression de zone */}
       <Dialog open={!!zoneToDelete} onOpenChange={(open) => !open && !isDeletingZone && setZoneToDelete(null)}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-[calc(100vw-1rem)] sm:max-w-[480px] p-4 sm:p-6 rounded-2xl sm:rounded-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-1">
               <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-950/50 flex items-center justify-center shrink-0">
@@ -2610,11 +2647,12 @@ export default function SettingsPage() {
             );
           })()}
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:gap-2 flex-col-reverse sm:flex-row mt-2">
             <Button
               variant="outline"
               onClick={() => setZoneToDelete(null)}
               disabled={isDeletingZone}
+              className="w-full sm:w-auto"
             >
               Annuler
             </Button>
@@ -2622,7 +2660,7 @@ export default function SettingsPage() {
               variant="destructive"
               onClick={handleDeleteZone}
               disabled={isDeletingZone}
-              className="bg-red-600 hover:bg-red-700 text-white gap-1.5"
+              className="bg-red-600 hover:bg-red-700 text-white gap-1.5 w-full sm:w-auto"
             >
               {isDeletingZone ? (
                 <>
@@ -2642,7 +2680,7 @@ export default function SettingsPage() {
 
       {/* Modal d'avertissement de doublon / lieu similaire existant */}
       <Dialog open={!!duplicateWarning} onOpenChange={(open) => !open && handleCancelDuplicateAdd()}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-[calc(100vw-1rem)] sm:max-w-[480px] p-4 sm:p-6 rounded-2xl sm:rounded-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-1">
               <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center shrink-0">
@@ -2708,16 +2746,17 @@ export default function SettingsPage() {
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:gap-2 flex-col-reverse sm:flex-row mt-2">
             <Button
               variant="outline"
               onClick={handleCancelDuplicateAdd}
+              className="w-full sm:w-auto"
             >
               Annuler
             </Button>
             <Button
               onClick={handleConfirmDuplicateAdd}
-              className="bg-amber-600 hover:bg-amber-700 text-white font-medium gap-1.5"
+              className="bg-amber-600 hover:bg-amber-700 text-white font-medium gap-1.5 w-full sm:w-auto"
             >
               Valider et ajouter quand même
             </Button>
@@ -2727,7 +2766,7 @@ export default function SettingsPage() {
 
       {/* Dialogue Configuration Clés de Recherche (Serper & Groq) */}
       <Dialog open={showGroqKeyModal} onOpenChange={setShowGroqKeyModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-[calc(100vw-1rem)] sm:max-w-md p-4 sm:p-6 rounded-2xl sm:rounded-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base font-bold">
               <Key className="h-4 w-4 text-amber-600" />
@@ -2782,13 +2821,13 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowGroqKeyModal(false)}>
+          <DialogFooter className="gap-2 sm:gap-2 flex-col-reverse sm:flex-row mt-2">
+            <Button variant="outline" onClick={() => setShowGroqKeyModal(false)} className="w-full sm:w-auto">
               Annuler
             </Button>
             <Button
               onClick={handleSaveApiKeys}
-              className="bg-amber-600 hover:bg-amber-700 text-white font-medium"
+              className="bg-amber-600 hover:bg-amber-700 text-white font-medium w-full sm:w-auto"
               disabled={!serperKeyInput.trim() && !groqKeyInput.trim()}
             >
               Enregistrer et Lancer
