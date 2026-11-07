@@ -16,7 +16,7 @@ import { CinematicDnaModal } from '@/components/tfarrej/CinematicDnaModal';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import type { DuelMovieItem } from '@/lib/movie-duel-engine';
-import { getStoredMovieRanking, getStoredSeriesRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters } from '@/lib/firebase/firestore';
+import { getStoredMovieRanking, getStoredSeriesRanking, MonthlyMovieRanking, isTestMovieTitle, backfillMoviePosters, removeMovieFromList } from '@/lib/firebase/firestore';
 import { guessMovieCategory } from '@/lib/movie-category-utils';
 
 const genres = [
@@ -464,14 +464,119 @@ function TfarrejContent({ type, setType }: { type: 'movie' | 'tv'; setType: (t: 
   const hasUnrankedSeries = seriesUnrankedCount > 0 && monthlySeenSeries.length >= 2;
 
   const moviesToWatchCount = useMemo(() => {
+    const cleanStr = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
     const raw = userProfile?.moviesToWatch;
-    return (Array.isArray(raw) ? raw : []).filter(t => typeof t === 'string' && t.trim() && !isTestMovieTitle(t)).length;
-  }, [userProfile?.moviesToWatch]);
+    const rawTitles = (Array.isArray(raw) ? raw : []).filter(t => typeof t === 'string' && t.trim() && !isTestMovieTitle(t));
+
+    const rejectedSet = new Set((userProfile?.rejectedMovieTitles || []).map((t: string) => cleanStr(t)));
+
+    const seenSet = new Set([
+      ...(userProfile?.seenMovieTitles || []),
+      ...((Array.isArray(userProfile?.seenMoviesData) ? userProfile.seenMoviesData : []).map(m => m?.title)),
+      ...((Array.isArray(userProfile?.visits) ? userProfile.visits : []).filter(v => v?.category === 'Cinéma' && v?.orderedItem).map(v => v.orderedItem)),
+    ].filter((t): t is string => typeof t === 'string' && !!t.trim()).map(t => cleanStr(t)));
+
+    const seenInWatchlist = new Set<string>();
+    return rawTitles.filter(t => {
+      const norm = cleanStr(t);
+      if (!norm || rejectedSet.has(norm) || seenSet.has(norm) || seenInWatchlist.has(norm)) {
+        return false;
+      }
+      seenInWatchlist.add(norm);
+      return true;
+    }).length;
+  }, [
+    userProfile?.moviesToWatch,
+    userProfile?.seenMovieTitles,
+    userProfile?.seenMoviesData,
+    userProfile?.visits,
+    userProfile?.rejectedMovieTitles,
+  ]);
 
   const seriesToWatchCount = useMemo(() => {
+    const cleanStr = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
     const raw = userProfile?.seriesToWatch;
-    return (Array.isArray(raw) ? raw : []).filter(t => typeof t === 'string' && t.trim() && !isTestMovieTitle(t)).length;
-  }, [userProfile?.seriesToWatch]);
+    const rawTitles = (Array.isArray(raw) ? raw : []).filter(t => typeof t === 'string' && t.trim() && !isTestMovieTitle(t));
+
+    const rejectedSet = new Set((userProfile?.rejectedSeriesTitles || []).map((t: string) => cleanStr(t)));
+
+    const seenSet = new Set([
+      ...(userProfile?.seenSeriesTitles || []),
+      ...((Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : []).map(s => s?.title)),
+    ].filter((t): t is string => typeof t === 'string' && !!t.trim()).map(t => cleanStr(t)));
+
+    const seenInWatchlist = new Set<string>();
+    return rawTitles.filter(t => {
+      const norm = cleanStr(t);
+      if (!norm || rejectedSet.has(norm) || seenSet.has(norm) || seenInWatchlist.has(norm)) {
+        return false;
+      }
+      seenInWatchlist.add(norm);
+      return true;
+    }).length;
+  }, [
+    userProfile?.seriesToWatch,
+    userProfile?.seenSeriesTitles,
+    userProfile?.seenSeriesData,
+    userProfile?.rejectedSeriesTitles,
+  ]);
+
+  // Assainissement automatique : supprime de Firestore les films/séries de la watchlist déjà vu(e)s ou en doublon
+  useEffect(() => {
+    if (!user?.uid || !userProfile) return;
+    const cleanStr = (s?: any) => String(s || '').toLowerCase().trim().replace(/['’`]/g, "'");
+
+    const seenMovieSet = new Set([
+      ...(userProfile.seenMovieTitles || []),
+      ...((Array.isArray(userProfile.seenMoviesData) ? userProfile.seenMoviesData : []).map(m => m?.title)),
+      ...((Array.isArray(userProfile.visits) ? userProfile.visits : []).filter(v => v?.category === 'Cinéma' && v?.orderedItem).map(v => v.orderedItem)),
+    ].filter((t): t is string => typeof t === 'string' && !!t.trim()).map(t => cleanStr(t)));
+
+    const rawMovies = userProfile.moviesToWatch;
+    if (Array.isArray(rawMovies) && rawMovies.length > 0) {
+      const seenInList = new Set<string>();
+      const toRemove: string[] = [];
+      rawMovies.forEach(t => {
+        if (typeof t !== 'string') return;
+        const norm = cleanStr(t);
+        if (seenMovieSet.has(norm) || seenInList.has(norm)) {
+          toRemove.push(t);
+        } else {
+          seenInList.add(norm);
+        }
+      });
+      if (toRemove.length > 0) {
+        toRemove.forEach(t => {
+          removeMovieFromList(user.uid, 'moviesToWatch', t);
+        });
+      }
+    }
+
+    const seenSeriesSet = new Set([
+      ...(userProfile.seenSeriesTitles || []),
+      ...((Array.isArray(userProfile.seenSeriesData) ? userProfile.seenSeriesData : []).map(s => s?.title)),
+    ].filter((t): t is string => typeof t === 'string' && !!t.trim()).map(t => cleanStr(t)));
+
+    const rawSeries = userProfile.seriesToWatch;
+    if (Array.isArray(rawSeries) && rawSeries.length > 0) {
+      const seenInList = new Set<string>();
+      const toRemoveSeries: string[] = [];
+      rawSeries.forEach(t => {
+        if (typeof t !== 'string') return;
+        const norm = cleanStr(t);
+        if (seenSeriesSet.has(norm) || seenInList.has(norm)) {
+          toRemoveSeries.push(t);
+        } else {
+          seenInList.add(norm);
+        }
+      });
+      if (toRemoveSeries.length > 0) {
+        toRemoveSeries.forEach(t => {
+          removeMovieFromList(user.uid, 'seriesToWatch', t);
+        });
+      }
+    }
+  }, [user?.uid, userProfile?.moviesToWatch, userProfile?.seriesToWatch, userProfile?.seenMovieTitles, userProfile?.seenMoviesData, userProfile?.visits, userProfile?.seenSeriesTitles, userProfile?.seenSeriesData]);
 
   useEffect(() => {
     if (genreFromUrl) {

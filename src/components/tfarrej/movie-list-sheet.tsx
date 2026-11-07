@@ -846,7 +846,15 @@ function MovieListContent({
         ...((Array.isArray(userProfile?.visits) ? userProfile.visits : []).filter(v => v?.category === 'Cinéma' && v?.orderedItem).map(v => v.orderedItem)),
       ].filter((t): t is string => typeof t === 'string' && !!t.trim()).map(t => cleanStr(t)));
 
-      return rawTitles.filter(t => !rejectedSet.has(cleanStr(t)) && !seenSet.has(cleanStr(t)));
+      const seenInList = new Set<string>();
+      return rawTitles.filter(t => {
+        const norm = cleanStr(t);
+        if (!norm || rejectedSet.has(norm) || seenSet.has(norm) || seenInList.has(norm)) {
+          return false;
+        }
+        seenInList.add(norm);
+        return true;
+      });
     }
     if (listType === 'seriesToWatch') {
       const seenSet = new Set([
@@ -854,7 +862,15 @@ function MovieListContent({
         ...((Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : []).map(s => s?.title)),
       ].filter((t): t is string => typeof t === 'string' && !!t.trim()).map(t => cleanStr(t)));
 
-      return rawTitles.filter(t => !rejectedSet.has(cleanStr(t)) && !seenSet.has(cleanStr(t)));
+      const seenInList = new Set<string>();
+      return rawTitles.filter(t => {
+        const norm = cleanStr(t);
+        if (!norm || rejectedSet.has(norm) || seenSet.has(norm) || seenInList.has(norm)) {
+          return false;
+        }
+        seenInList.add(norm);
+        return true;
+      });
     }
     return rawTitles.filter(t => !rejectedSet.has(cleanStr(t)));
   }, [userProfile, listType, removedTitles]);
@@ -2725,7 +2741,15 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
         ...((Array.isArray(userProfile?.visits) ? userProfile.visits : []).filter(v => v?.category === 'Cinéma' && v?.orderedItem).map(v => v.orderedItem)),
       ].filter((t): t is string => typeof t === 'string' && !!t.trim()).map(t => cleanStr(t)));
 
-      return rawTitles.filter(t => !rejectedSet.has(cleanStr(t)) && !seenSet.has(cleanStr(t)));
+      const seenInList = new Set<string>();
+      return rawTitles.filter(t => {
+        const norm = cleanStr(t);
+        if (!norm || rejectedSet.has(norm) || seenSet.has(norm) || seenInList.has(norm)) {
+          return false;
+        }
+        seenInList.add(norm);
+        return true;
+      });
     }
     if (listType === 'seriesToWatch') {
       const seenSet = new Set([
@@ -2733,7 +2757,15 @@ export function MovieListSheet({ trigger, title, description, listType, type = '
         ...((Array.isArray(userProfile?.seenSeriesData) ? userProfile.seenSeriesData : []).map(s => s?.title)),
       ].filter((t): t is string => typeof t === 'string' && !!t.trim()).map(t => cleanStr(t)));
 
-      return rawTitles.filter(t => !rejectedSet.has(cleanStr(t)) && !seenSet.has(cleanStr(t)));
+      const seenInList = new Set<string>();
+      return rawTitles.filter(t => {
+        const norm = cleanStr(t);
+        if (!norm || rejectedSet.has(norm) || seenSet.has(norm) || seenInList.has(norm)) {
+          return false;
+        }
+        seenInList.add(norm);
+        return true;
+      });
     }
     return rawTitles.filter(t => !rejectedSet.has(cleanStr(t)));
   }, [userProfile, listType, removedTitles]);
